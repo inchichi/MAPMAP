@@ -266,9 +266,9 @@ const FIELD_INPUT =
 // 메탈릭 실버/그래파이트 버튼 — 폴리시한 2D 게임 UI 톤(골드 제거).
 // 생성=밝은 브러시드 실버(주인공), 적용=그래파이트 스틸, 복사/내보내기=다크+실버 테두리.
 const PRIMARY_BUTTON =
-  'rounded-xl h-[52px] min-w-[240px] px-6 flex items-center justify-center bg-gradient-to-b from-[#3a3b3e] to-[#161618] text-[#f0f1f3] font-semibold border border-[#6b6f76] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.5)] transition duration-150 hover:brightness-125 hover:-translate-y-px hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_20px_rgba(0,0,0,0.55)] active:translate-y-0 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:brightness-100'
+  'rounded-xl h-[52px] min-w-[240px] px-6 flex items-center justify-center bg-gradient-to-b from-[#3a3b3e] to-[#161618] text-[#f0f1f3] font-semibold border border-[#6b6f76] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.5)] transition duration-150 hover:brightness-125 hover:-translate-y-px hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_20px_rgba(0,0,0,0.55)] active:translate-y-0 active:brightness-95 active:shadow-[inset_0_2px_5px_rgba(0,0,0,0.55)] disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:brightness-100'
 const APPLY_BUTTON =
-  'rounded-xl h-[46px] px-5 flex items-center justify-center bg-gradient-to-b from-[#4a4d52] to-[#34363a] text-[#e4e6ea] text-[15px] font-semibold border border-[#6b6f76] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_2px_5px_rgba(0,0,0,0.4)] transition duration-150 hover:brightness-115 hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:brightness-100'
+  'rounded-xl h-[46px] px-5 flex items-center justify-center bg-gradient-to-b from-[#4a4d52] to-[#34363a] text-[#e4e6ea] text-[15px] font-semibold border border-[#6b6f76] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_2px_5px_rgba(0,0,0,0.4)] transition duration-150 hover:brightness-115 hover:-translate-y-px active:translate-y-0 active:brightness-95 active:shadow-[inset_0_2px_5px_rgba(0,0,0,0.5)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:brightness-100'
 const GHOST_BUTTON =
   'rounded-lg h-[40px] px-3.5 bg-[#2d2d30] text-[#9d9d9d] text-[13px] border border-[#5a5d63]/70 opacity-80 transition duration-150 hover:opacity-100 hover:bg-[#34363a] hover:text-[#d4d7dc] hover:border-[#8a8e95] active:border-[#b6bac1] disabled:opacity-50 disabled:cursor-not-allowed'
 // 종류 카드 — 게임 에디터의 선택 카드: 아이콘(46px) + 이름 + '8개' 카운트. 한 화면에 10개 이상 보이게 낮춘다.
@@ -1077,13 +1077,41 @@ export const createEditorApp = ({
   )
   selectionNameplate.style.display = 'none'
   previewStage.append(selectionNameplate)
+  // 좌표 readout — 씬 에디터처럼 화면 좌하단에 선택 객체의 타일 좌표(X/Y)를 표시한다.
+  const coordReadout = el(
+    'div',
+    'absolute bottom-2 left-2 z-20 flex items-center gap-2 rounded-md px-2 py-1 bg-[#1a1a1a]/80 border border-[#3c3c3c] text-[10px] leading-none tabular-nums text-[#9d9d9d] pointer-events-none'
+  )
+  coordReadout.style.display = 'none'
+  previewStage.append(coordReadout)
+  // 선택 객체의 타일 좌표 — 오브젝트는 tileX/tileY, 타일 구조물은 id 끝('tile:wall:5,3')에서 파싱.
+  const selectedTileCoords = (entity: GameEntity): { x: number; y: number } | undefined => {
+    if (entity.tileX !== undefined && entity.tileY !== undefined) {
+      return { x: entity.tileX, y: entity.tileY }
+    }
+    const match = entity.id.match(/:(\d+),\s*(\d+)$/)
+    return match ? { x: Number(match[1]), y: Number(match[2]) } : undefined
+  }
   const updateSelectionNameplate = (): void => {
     if (selectedEntity) {
       selectionNameplate.style.display = ''
       selectionNameplateLabel.textContent =
         `${selectedEntity.name} · ${KIND_LABEL[groupKindOf(selectedEntity.kind)] ?? selectedEntity.kind}`
+      const coords = selectedTileCoords(selectedEntity)
+      if (coords) {
+        coordReadout.style.display = ''
+        coordReadout.replaceChildren(
+          el('span', 'text-[#777777]', 'X'),
+          el('span', 'text-[#d4d7dc]', String(coords.x)),
+          el('span', 'text-[#777777]', 'Y'),
+          el('span', 'text-[#d4d7dc]', String(coords.y))
+        )
+      } else {
+        coordReadout.style.display = 'none'
+      }
     } else {
       selectionNameplate.style.display = 'none'
+      coordReadout.style.display = 'none'
     }
   }
   // 표시 전용: 스테이지 크기가 바뀔 때마다 iframe을 16:9 비율의 cover 크기로 다시 맞춘다.
