@@ -1,5 +1,4 @@
 import type { GameStructureProfile } from './gameStructureProfile'
-import { generateJson } from './llmProvider'
 import {
   buildFeedbackInstruction,
   type GameEntity,
@@ -15,36 +14,18 @@ import {
 } from './questGenerationCatalog'
 import type { GeneratedQuestJson } from './questJsonSchema'
 import type { QuestCandidate } from './questCandidates'
+import {
+  createObjectiveSchema,
+  createQuestEnvelopeSchema,
+  createStringEnumSchema,
+  generateQuestJsonViaCore,
+  uniqueStrings,
+  type JsonSchema
+} from './questPipeline'
 
-type JsonSchema = Record<string, unknown>
-
-const uniqueStrings = (values: string[]): string[] => [...new Set(values)]
-
-const createStringEnumSchema = (values: string[]): JsonSchema => ({
-  type: 'string',
-  enum: uniqueStrings(values)
-})
-
-const createObjectiveSchema = (
-  type: GeneratedQuestJson['objectives'][number]['type'],
-  targetProperties: Record<string, JsonSchema>,
-  requiredTargetFields: string[]
-): JsonSchema => ({
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    type: { type: 'string', const: type },
-    label: { type: 'string', minLength: 1 },
-    required: { type: 'integer', minimum: 1 },
-    target: {
-      type: 'object',
-      additionalProperties: false,
-      properties: targetProperties,
-      required: requiredTargetFields
-    }
-  },
-  required: ['type', 'label', 'required', 'target']
-})
+// my-sample-rpg 퀘스트 2단계: 자연어 후보를 실제 구조화 JSON으로. legend-of-lua와 같은 공통 코어
+// (스키마 봉투·enum 그라운딩·생성 호출)를 쓰고, 여기선 my-rpg 도메인(몬스터/상점/씬 카탈로그 +
+// profile)과 목표 타입·보상(item_id)만 끼운다.
 
 const getProfileNpcIds = (profile: GameStructureProfile): string[] =>
   uniqueStrings(profile.npcs.map((npc) => npc.id))
@@ -73,122 +54,56 @@ const createQuestJsonSchema = (
     QUEST_MONSTER_DROP_ITEMS.map((item) => item.itemId)
   )
 
-  return {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      quest_id: {
-        type: 'string',
-        pattern: '^[a-z0-9_]+$'
-      },
-      title: { type: 'string', minLength: 1 },
-      giver_npc_id: createStringEnumSchema(questGiverNpcIds),
-      region: createStringEnumSchema(regionNames),
-      request_text: { type: 'string', minLength: 1 },
-      guide_text: { type: 'string', minLength: 1 },
-      start_dialogue_lines: {
-        type: 'array',
-        minItems: 1,
-        items: { type: 'string', minLength: 1 }
-      },
-      active_dialogue_lines: {
-        type: 'array',
-        minItems: 1,
-        items: { type: 'string', minLength: 1 }
-      },
-      completion_dialogue_lines: {
-        type: 'array',
-        minItems: 1,
-        items: { type: 'string', minLength: 1 }
-      },
-      objectives: {
-        type: 'array',
-        minItems: 1,
-        maxItems: 3,
-        items: {
-          oneOf: [
-            createObjectiveSchema(
-              'monster-defeat',
-              {
-                sceneId: createStringEnumSchema(monsterSceneIds),
-                appearanceType: createStringEnumSchema(monsterAppearanceTypes)
-              },
-              ['sceneId', 'appearanceType']
-            ),
-            createObjectiveSchema(
-              'item-use',
-              {
-                itemId: createStringEnumSchema(profileItemIds)
-              },
-              ['itemId']
-            ),
-            createObjectiveSchema(
-              'item-acquire',
-              {
-                itemId: createStringEnumSchema(monsterDropItemIds)
-              },
-              ['itemId']
-            ),
-            createObjectiveSchema(
-              'shop-open',
-              {
-                shopId: createStringEnumSchema(shopIds)
-              },
-              ['shopId']
-            ),
-            createObjectiveSchema(
-              'scene-enter',
-              {
-                sceneId: createStringEnumSchema(sceneEnterSceneIds)
-              },
-              ['sceneId']
-            ),
-            createObjectiveSchema(
-              'talk',
-              {
-                npcId: createStringEnumSchema(profileNpcIds)
-              },
-              ['npcId']
-            )
-          ]
-        }
-      },
-      rewards: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          gold: { type: 'integer', minimum: 0 },
-          experience: { type: 'integer', minimum: 0 },
-          items: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              properties: {
-                item_id: createStringEnumSchema(profileItemIds),
-                quantity: { type: 'integer', minimum: 1 }
-              },
-              required: ['item_id', 'quantity']
-            }
-          }
+  return createQuestEnvelopeSchema({
+    giverFieldName: 'giver_npc_id',
+    giverEnum: questGiverNpcIds,
+    extraProperties: { region: createStringEnumSchema(regionNames) },
+    extraRequired: ['region'],
+    objectiveSchemas: [
+      createObjectiveSchema(
+        'monster-defeat',
+        {
+          sceneId: createStringEnumSchema(monsterSceneIds),
+          appearanceType: createStringEnumSchema(monsterAppearanceTypes)
         },
-        required: ['gold', 'experience', 'items']
-      }
-    },
-    required: [
-      'quest_id',
-      'title',
-      'giver_npc_id',
-      'region',
-      'request_text',
-      'guide_text',
-      'start_dialogue_lines',
-      'active_dialogue_lines',
-      'completion_dialogue_lines',
-      'objectives',
-      'rewards'
-    ]
-  }
+        ['sceneId', 'appearanceType']
+      ),
+      createObjectiveSchema(
+        'item-use',
+        { itemId: createStringEnumSchema(profileItemIds) },
+        ['itemId']
+      ),
+      createObjectiveSchema(
+        'item-acquire',
+        { itemId: createStringEnumSchema(monsterDropItemIds) },
+        ['itemId']
+      ),
+      createObjectiveSchema(
+        'shop-open',
+        { shopId: createStringEnumSchema(shopIds) },
+        ['shopId']
+      ),
+      createObjectiveSchema(
+        'scene-enter',
+        { sceneId: createStringEnumSchema(sceneEnterSceneIds) },
+        ['sceneId']
+      ),
+      createObjectiveSchema(
+        'talk',
+        { npcId: createStringEnumSchema(profileNpcIds) },
+        ['npcId']
+      )
+    ],
+    rewardItemSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        item_id: createStringEnumSchema(profileItemIds),
+        quantity: { type: 'integer', minimum: 1 }
+      },
+      required: ['item_id', 'quantity']
+    }
+  })
 }
 
 const createQuestSystemPrompt = (
@@ -263,7 +178,7 @@ export const generateQuestJson = ({
         ? `\n\nSelected entity: ${entity.id} (${entity.name}) on map ${entity.mapId}.`
         : ''
 
-  return generateJson<GeneratedQuestJson>({
+  return generateQuestJsonViaCore<GeneratedQuestJson>({
     apiKey,
     instructions: createQuestSystemPrompt(profile, entity),
     input: `${userPrompt}${candidateHint}${entityHint}${feedbackHint}`,

@@ -30,6 +30,7 @@ const createLuaNpcJsonSchema = (catalog: LuaQuestCatalog): JsonSchema => ({
   properties: {
     npc_id: { type: 'string', pattern: '^[a-z0-9_]+$' },
     name: { type: 'string', minLength: 1 },
+    role: { type: 'string', minLength: 1 },
     map_id: createStringEnumSchema(catalog.scenes),
     appearance: { type: 'string', enum: [...LUA_NPC_APPEARANCES] },
     position: {
@@ -60,6 +61,7 @@ const createLuaNpcJsonSchema = (catalog: LuaQuestCatalog): JsonSchema => ({
   required: [
     'npc_id',
     'name',
+    'role',
     'map_id',
     'appearance',
     'position',
@@ -77,6 +79,9 @@ const createLuaNpcSystemPrompt = (catalog: LuaQuestCatalog): string =>
     'position is in tile coordinates; keep it small and sensible (e.g. near the map center).',
     'behavior.type is "wander" (radius > 0, roams near its home) or "stationary" (radius 0).',
     'dialogue_lines are short interaction lines the NPC says when talked to (1 to 4 lines).',
+    'role is a short Korean noun for the NPC job/role shown under the NPC (예: 마법사, 대장장이, 상인, 기사).',
+    // 게임은 한글 폰트를 갖췄고, 화면에 보이는 텍스트는 한국어로 고정한다(이름·역할·대사 모두 한국어).
+    'Write name, role, and dialogue_lines in Korean (한국어). Even if the user prompt is in another language, output Korean text.',
     `Allowed appearance ids: ${LUA_NPC_APPEARANCES.join(', ')}`,
     `Allowed map ids: ${uniqueStrings(catalog.scenes).join(', ') || '(none)'}`,
     'Return JSON only. The editor renders the Lua module and validates after generation.',

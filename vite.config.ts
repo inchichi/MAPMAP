@@ -107,6 +107,16 @@ const LOVE_EMBED_BRIDGE_SCRIPT = `
     } else if (
       data.type === 'editor:apply' &&
       data.payload &&
+      data.payload.kind === 'quest' &&
+      typeof data.payload.lua === 'string'
+    ) {
+      // 퀘스트 '적용' — 에디터가 직렬화한 Lua 테이블을 게임 quest-runtime이 등록·추적하도록 넘긴다.
+      console.log('[editor-bridge] quest 큐:', data.payload.quest && data.payload.quest.quest_id);
+      queue.push('quest:' + data.payload.lua);
+      flush();
+    } else if (
+      data.type === 'editor:apply' &&
+      data.payload &&
       Array.isArray(data.payload.lines)
     ) {
       // 생성된 대사를 화면 오버레이로 라이브 반영. 대상이 있으면 이름을 앞에 붙인다.

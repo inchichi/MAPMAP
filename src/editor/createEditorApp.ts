@@ -55,6 +55,7 @@ import {
 } from './luaNpcCodeGenerator'
 import { createGeneratedLuaNpcValidationIssues } from './luaNpcSchema'
 import { createGameBridge } from './gameBridge'
+import { resolveLegendEntitySpriteUrl } from './legendEntitySprite'
 
 // 하드코딩 어댑터가 엔티티를 못 찾은 미지의 게임을, LLM 분석이 찾은 editable 그룹으로 채운다.
 const buildEntitiesFromAnalysis = (
@@ -357,7 +358,11 @@ export const createEditorApp = ({
   // 게임의 sceneId 와 에디터 map.id(=tmx 파일명)가 같아 직접 비교한다. 게임이 맵을 바꿀 때마다
   // 'game:scene-changed' 메시지로 갱신된다.
   let currentMapId: string | undefined
-  let showAllMaps = false
+  // my-sample-rpg는 게임이 'game:scene-changed'로 현재 맵을 되보고해 트리가 그 맵을 자동으로 따라간다.
+  // legend-of-lua 등은 인게임 맵 이동(포털)을 에디터에 알리지 못해, 현재-맵 필터가 stale해져 다른 맵에
+  // 생성한 NPC가 트리에서 사라진 것처럼 보인다. 그래서 씬 되보고가 없는 게임은 기본적으로 전체 맵을
+  // 보여줘(showAllMaps=true) 생성 엔티티가 어느 맵 탭에서나 항상 보이게 한다(토글로 좁힐 수 있음).
+  let showAllMaps = game.adapter.id !== 'my-sample-rpg'
   // 에셋 검색어(표시 전용) — 왼쪽 트리를 이름으로 실시간 필터링한다.
   let assetQuery = ''
   // 트리의 종류별 그룹(NPC/몬스터 등) 펼침 상태. 키는 `${mapId}:${kind}` — 트리를 다시 그려도 유지된다.
@@ -750,7 +755,10 @@ export const createEditorApp = ({
   const luaStatus = el('div', 'text-[12px] text-[#9d9d9d]', '생성 후 표시됩니다')
   const result = el('pre', 'm-0 max-h-[36vh] overflow-auto text-[12px] leading-relaxed text-[#d4d4d4] whitespace-pre-wrap break-words')
   result.hidden = true
-  luaView.body.append(luaStatus, result)
+  // 퀘스트 달성 조건(목표) 요약 — 타깃 에셋을 파란 링크로 보여주고, 누르면 스프라이트 미리보기를 띄운다.
+  const questObjectivesBox = el('div', 'flex flex-col gap-1')
+  questObjectivesBox.hidden = true
+  luaView.body.append(luaStatus, questObjectivesBox, result)
   const filesView = makeDetailView('변경 예정 파일')
   const filesStatus = el('div', 'text-[12px] text-[#9d9d9d]', '변경 파일 없음')
   filesView.body.append(filesStatus)
@@ -763,6 +771,92 @@ export const createEditorApp = ({
   const applyView = makeDetailView('적용 상태')
   const applyStatus = el('div', 'text-[12px] text-[#9d9d9d]', '대기 중')
   applyView.body.append(applyStatus)
+
+  // 퀘스트 목표 에셋 미리보기 팝업(스프라이트 이미지). 파란 링크 클릭 시 띄운다. 배경 클릭으로 닫힘.
+  const assetPopup = el('div', 'fixed inset-0 z-[60] hidden items-center justify-center bg-black/60')
+  const assetCard = el('div', 'flex flex-col items-center gap-2 rounded-2xl border border-[#d9a85c]/40 bg-[#1c1c1c] p-4 min-w-[160px]')
+  assetCard.addEventListener('click', (event) => event.stopPropagation())
+  assetPopup.append(assetCard)
+  assetPopup.addEventListener('click', () => {
+    assetPopup.classList.add('hidden')
+    assetPopup.classList.remove('flex')
+  })
+  document.body.append(assetPopup)
+
+  const showAssetPopup = (entity: GameEntity): void => {
+    const groupKind = groupKindOf(entity.kind)
+    const url = resolveLegendEntitySpriteUrl(entity.kind, entity.spriteKey)
+    const imgWrap = el('div', 'flex items-center justify-center w-24 h-24 bg-[#111] rounded-lg')
+    const fallback = (): void => {
+      imgWrap.replaceChildren(editorIcon(KIND_ICON[groupKind] ?? 'prop', 48))
+    }
+    if (url) {
+      const img = el('img', 'max-w-[84px] max-h-[84px] [image-rendering:pixelated]') as HTMLImageElement
+      img.src = url
+      img.alt = entity.name
+      img.addEventListener('error', fallback) // 번들에 없는 스프라이트면 종류 아이콘으로 폴백
+      imgWrap.append(img)
+    } else {
+      fallback()
+    }
+    assetCard.replaceChildren(
+      imgWrap,
+      el('div', 'text-[13px] text-[#e8d5a5] text-center', entity.name),
+      el('div', 'text-[11px] text-[#9d9d9d]', `${KIND_LABEL[groupKind] ?? entity.kind} · ${entity.mapId}`)
+    )
+    assetPopup.classList.remove('hidden')
+    assetPopup.classList.add('flex')
+  }
+
+  // 목표 타입 → 한국어 동사 라벨.
+  const OBJECTIVE_LABEL: Record<string, string> = {
+    defeat: '처치',
+    talk: '대화',
+    acquire: '획득',
+    reach: '도달'
+  }
+
+  // 현재 결과가 legend 퀘스트면, 달성 조건(목표)을 타깃 에셋(파란 링크)과 함께 보여준다.
+  const renderQuestObjectives = (): void => {
+    questObjectivesBox.replaceChildren()
+    const payload = currentResult?.bridgePayload
+    if (!payload || payload.kind !== 'quest' || payload.quest.objectives.length === 0) {
+      questObjectivesBox.hidden = true
+      return
+    }
+    const allEntities = game.maps.flatMap((map) => map.entities)
+    questObjectivesBox.hidden = false
+    questObjectivesBox.append(
+      el('div', 'text-[12px] text-[#9d9d9d]', '달성 조건 — 파란 글씨를 누르면 에셋 미리보기')
+    )
+    for (const objective of payload.quest.objectives) {
+      const row = el('div', 'flex items-center gap-1.5 text-[12px] text-[#d4d4d4]')
+      row.append(el('span', 'text-[#9d8a5a]', OBJECTIVE_LABEL[objective.type] ?? objective.type))
+      if (objective.type === 'reach') {
+        row.append(el('span', '', objective.target.mapId ?? ''))
+      } else {
+        const entity = allEntities.find((e) => e.id === objective.target.entityId)
+        const targetName = entity?.name ?? objective.target.entityId ?? '?'
+        if (entity) {
+          const link = el(
+            'button',
+            'text-[#6cb6ff] underline decoration-dotted underline-offset-2 hover:text-[#9fd0ff]',
+            targetName
+          ) as HTMLButtonElement
+          link.type = 'button'
+          link.addEventListener('click', () => showAssetPopup(entity))
+          row.append(link)
+        } else {
+          // 카탈로그에서 못 찾은 타깃(이미 사라졌거나 외부 엔티티)은 링크 없이 표시.
+          row.append(el('span', 'text-[#6cb6ff]/50', targetName))
+        }
+      }
+      if (objective.required > 1) {
+        row.append(el('span', 'text-[#777777]', `×${objective.required}`))
+      }
+      questObjectivesBox.append(row)
+    }
+  }
 
   // 위쪽 목록 — 클릭하면 아래 상세 창의 내용만 바뀐다.
   const boardList = el('div', 'flex flex-col gap-1.5')
@@ -1049,7 +1143,8 @@ export const createEditorApp = ({
           return
         }
         currentMapId = entry.id
-        showAllMaps = false
+        // legend 등 씬 되보고가 없는 게임은 탭으로 게임 맵만 바꾸고 트리는 전체 보기를 유지한다 —
+        // 인게임에서 다른 맵으로 이동해도 생성 NPC가 트리에서 사라지지 않게(현재 맵은 '· 현재 맵'으로 표시).
         iframe.contentWindow?.postMessage(
           { type: 'editor:goto-map', mapId: entry.id, mapName: entry.label },
           '*'
@@ -1899,6 +1994,7 @@ export const createEditorApp = ({
     luaStatus.hidden = currentResult !== undefined
     result.hidden = currentResult === undefined
     result.textContent = currentResult ? currentResult.preview : ''
+    renderQuestObjectives() // legend 퀘스트면 달성 조건(타깃 에셋 파란 링크) 표시
     filesStatus.textContent = currentResult
       ? `${currentResult.exportFileExtension === 'lua' ? 'Lua 코드' : '이벤트'}: ${currentResult.label}`
       : '변경 파일 없음'

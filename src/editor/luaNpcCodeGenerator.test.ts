@@ -62,7 +62,7 @@ describe('convertLuaNpcToSpawnBridgePayload', () => {
     expect(payload.id).toBe('spawn_npc-herb_seller-1718200000000')
     // 게임이 loadstring으로 로드할 한 줄 Lua 테이블
     expect(payload.lua).toBe(
-      '{ name="herb_seller", map="town", appearance="character_villager_brown_tunic", dialogue={"약초가 필요한가?", "오늘은 특별히 싸게 주지."}, radius=48, nearPlayer=true }'
+      '{ name="herb_seller", entityId="NPCs-herb_seller", map="town", appearance="character_villager_brown_tunic", dialogue={"약초가 필요한가?", "오늘은 특별히 싸게 주지."}, radius=48, nearPlayer=true }'
     )
     expect(payload.npc).toEqual({
       name: 'herb_seller',
@@ -89,7 +89,8 @@ describe('convertLuaNpcToGameEntity', () => {
       id: 'NPCs-herb_seller',
       name: '약초 상인',
       kind: 'npc',
-      mapId: 'town'
+      mapId: 'town',
+      spriteKey: 'character_villager_brown_tunic'
     })
   })
 })

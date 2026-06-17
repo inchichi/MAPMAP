@@ -28,6 +28,7 @@ export const renderGeneratedLuaNpcModule = (npc: GeneratedLuaNpcJson): string =>
     `${indent(1)}entity_id = ${luaString(luaNpcEntityId(npc))},`,
     `${indent(1)}npc_id = ${luaString(npc.npc_id)},`,
     `${indent(1)}name = ${luaString(npc.name)},`,
+    ...(npc.role ? [`${indent(1)}role = ${luaString(npc.role)},`] : []),
     `${indent(1)}map = ${luaString(npc.map_id)},`,
     `${indent(1)}appearance = ${luaString(npc.appearance)},`,
     `${indent(1)}position = { x = ${npc.position.x}, y = ${npc.position.y} },`,
@@ -42,7 +43,9 @@ export const convertLuaNpcToGameEntity = (npc: GeneratedLuaNpcJson): GameEntity 
   id: luaNpcEntityId(npc),
   name: npc.name,
   kind: 'npc',
-  mapId: npc.map_id
+  mapId: npc.map_id,
+  // 외형 id가 곧 스프라이트 키(legend sprites/npc/<appearance>.png) — 퀘스트 목표 에셋 미리보기에 쓴다.
+  spriteKey: npc.appearance
 })
 
 // legend-of-lua는 wander 반경을 픽셀로 쓰는데(맵 타일 16px), 에디터 radius는 타일 단위라 ×16 한다.
@@ -60,6 +63,8 @@ export const renderEditorNpcSpawnEntry = (npc: GeneratedLuaNpcJson): string => {
     `-- legend-of-lua/src/levels/editorNPCs.lua 의 editorNPCs[${luaString(npc.map_id)}] 배열에 추가:`,
     '{',
     `${indent(1)}name = ${luaString(npc.npc_id)},`,
+    `${indent(1)}entityId = ${luaString(luaNpcEntityId(npc))}, -- 퀘스트 talk 목표 매칭용 카탈로그 id`,
+    ...(npc.role ? [`${indent(1)}role = ${luaString(npc.role)}, -- NPC 아래 역할 라벨`] : []),
     `${indent(1)}nearPlayer = true,`,
     `${indent(1)}appearance = ${luaString(npc.appearance)},`,
     `${indent(1)}dialogue = ${renderStringArray(npc.dialogue_lines, 1)},`,
@@ -75,8 +80,13 @@ export const renderLuaNpcSpawnTable = (npc: GeneratedLuaNpcJson): string => {
   const radius =
     npc.behavior.type === 'wander' ? Math.round(npc.behavior.radius * TILE_SIZE) : 0
   const dialogue = npc.dialogue_lines.map((line) => luaString(line)).join(', ')
+  // entityId: 카탈로그 엔티티 id(NPCs-<npc_id>). 게임이 이걸 npc.questId로 달아, 퀘스트의
+  // talk 목표(target.entityId = 이 NPC)가 이 생성 NPC와의 상호작용을 인식하게 한다.
+  // role: NPC 아래에 띄울 역할 라벨(생성 NPC는 자동 대사 대신 이 라벨을 보여준다).
+  const rolePart = npc.role ? `role=${luaString(npc.role)}, ` : ''
   return (
-    `{ name=${luaString(npc.npc_id)}, map=${luaString(npc.map_id)}, ` +
+    `{ name=${luaString(npc.npc_id)}, entityId=${luaString(luaNpcEntityId(npc))}, ` +
+    `${rolePart}map=${luaString(npc.map_id)}, ` +
     `appearance=${luaString(npc.appearance)}, dialogue={${dialogue}}, ` +
     `radius=${radius}, nearPlayer=true }`
   )
@@ -94,6 +104,7 @@ export const convertLuaNpcToSpawnBridgePayload = (
   lua: renderLuaNpcSpawnTable(npc),
   npc: {
     name: npc.npc_id,
+    role: npc.role,
     map: npc.map_id,
     appearance: npc.appearance,
     dialogue: npc.dialogue_lines,
