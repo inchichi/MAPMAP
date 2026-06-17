@@ -214,6 +214,27 @@ const groupKindOf = (kind: string): string => {
   return normalized === 'enemy' ? 'monster' : normalized
 }
 
+// 작업 로그/결과 보드 시간 표시(표시 전용). 타임라인은 절대 시각(HH:MM, 안정적),
+// "Last Generated"는 상대 시각(2 minutes ago)으로 살아있는 느낌을 준다.
+const formatClock = (date: Date): string =>
+  `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+const formatRelativeTime = (date: Date): string => {
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000))
+  if (seconds < 45) {
+    return 'just now'
+  }
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  }
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  }
+  const days = Math.round(hours / 24)
+  return `${days} day${days === 1 ? '' : 's'} ago`
+}
+
 const el = <K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className: string,
@@ -228,63 +249,66 @@ const el = <K extends keyof HTMLElementTagNameMap>(
 }
 
 // ---- 디자인 토큰 ----
-// 상용 MMORPG 월드 에디터 톤: 게임 화면이 주인공, UI는 짙은 갈색/회색 + 은은한 금색(#c48a4a)으로
+// 상용 MMORPG 월드 에디터 톤: 게임 화면이 주인공, UI는 짙은 갈색/회색 + 은은한 금색(#b6bac1)으로
 // 보조한다. 패널은 반투명(rgba(37,33,31,0.9))이라 게임과 경쟁하지 않는다.
-// 팔레트 — 배경 #1e1e1e · 패널 #252526 · hover #302a26 · 테두리 #333336 · 강조 #c48a4a
+// 팔레트 — 배경 #1e1e1e · 패널 #252526 · hover #302a26 · 테두리 #333336 · 강조 #b6bac1
 //          텍스트 #d4d4d4 · 보조 텍스트 #9d9d9d.
 const LABEL = 'text-[11px] font-semibold tracking-wide text-[#9d9d9d]'
 // 큰 영역(왼쪽 에셋/게임 카드/입력 카드/결과 카드)이 공유하는 패널 골격 — 은은한 그라데이션 테두리.
 const PANEL = 'rounded-xl box-grad-border [--bgb:rgba(37,37,38,0.97)] text-[#d4d4d4]'
 const CARD =
-  'rounded-lg border border-[#d9a85c]/25 bg-[#1e1e1e]/60 p-3 flex flex-col gap-2'
+  'rounded-lg border border-[#b6bac1]/25 bg-[#1e1e1e]/60 p-3 flex flex-col gap-2'
 // 자연어 입력창 — 어두운 속지에 갈색 테두리, focus 시 금색.
 const FIELD_INPUT =
-  'w-full rounded-[12px] border-2 border-[#dca14b]/45 bg-[#1a1a1a] px-4 py-3 text-[12px] text-[#d4d4d4] outline-none transition placeholder:text-[#919191] focus:border-[#d09a4c] focus:shadow-[0_0_18px_rgba(208,154,76,0.18)]'
+  'w-full rounded-[12px] border-2 border-[#b6bac1]/45 bg-[#1a1a1a] px-4 py-3 text-[12px] text-[#d4d4d4] outline-none transition placeholder:text-[#919191] focus:border-[#b6bac1] focus:shadow-[0_0_18px_rgba(208,154,76,0.18)]'
 // 액션 버튼 — 생성이 화면의 메인 CTA(가장 크고 눈에 띄는 금색), 적용(초록)은 그보다 작게.
 // CTA 계층: 생성(Primary, 금색 그라데이션+glow) > 적용(Secondary, 금테+어두운 브라운) > 복사/내보내기(보조).
+// 메탈릭 실버/그래파이트 버튼 — 폴리시한 2D 게임 UI 톤(골드 제거).
+// 생성=밝은 브러시드 실버(주인공), 적용=그래파이트 스틸, 복사/내보내기=다크+실버 테두리.
 const PRIMARY_BUTTON =
-  'rounded-xl h-[52px] min-w-[240px] px-6 flex items-center justify-center bg-gradient-to-b from-[#e8b96a] to-[#c9883a] text-[#241608] border-2 border-[#8c5b26] shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_0_16px_rgba(225,178,100,0.3)] transition duration-150 hover:brightness-[1.1] hover:-translate-y-px hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_22px_rgba(225,178,100,0.42)] active:translate-y-0 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:brightness-100'
+  'rounded-xl h-[52px] min-w-[240px] px-6 flex items-center justify-center bg-gradient-to-b from-[#3a3b3e] to-[#161618] text-[#f0f1f3] font-semibold border border-[#6b6f76] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_2px_6px_rgba(0,0,0,0.5)] transition duration-150 hover:brightness-125 hover:-translate-y-px hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_20px_rgba(0,0,0,0.55)] active:translate-y-0 disabled:opacity-45 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:brightness-100'
 const APPLY_BUTTON =
-  'rounded-xl h-[46px] px-5 flex items-center justify-center bg-[#2d2d30] text-[#d9a85c] text-[15px] font-semibold border-2 border-[#c9923f] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_8px_rgba(217,168,92,0.15)] transition duration-150 hover:bg-[#333333] hover:-translate-y-px hover:shadow-[0_0_10px_rgba(217,168,92,0.25)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:shadow-none'
+  'rounded-xl h-[46px] px-5 flex items-center justify-center bg-gradient-to-b from-[#4a4d52] to-[#34363a] text-[#e4e6ea] text-[15px] font-semibold border border-[#6b6f76] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_2px_5px_rgba(0,0,0,0.4)] transition duration-150 hover:brightness-115 hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:brightness-100'
 const GHOST_BUTTON =
-  'rounded-lg h-[40px] px-3.5 bg-[#2d2d30] text-[#9d9d9d] text-[13px] border border-[#d9a85c]/25 opacity-80 transition duration-150 hover:opacity-100 hover:bg-[#333333] hover:text-[#d4d4d4] hover:border-[#d5a14f]/50 active:border-[#d9a85c] disabled:opacity-50 disabled:cursor-not-allowed'
+  'rounded-lg h-[40px] px-3.5 bg-[#2d2d30] text-[#9d9d9d] text-[13px] border border-[#5a5d63]/70 opacity-80 transition duration-150 hover:opacity-100 hover:bg-[#34363a] hover:text-[#d4d7dc] hover:border-[#8a8e95] active:border-[#b6bac1] disabled:opacity-50 disabled:cursor-not-allowed'
 // 종류 카드 — 게임 에디터의 선택 카드: 아이콘(46px) + 이름 + '8개' 카운트. 한 화면에 10개 이상 보이게 낮춘다.
 // 에셋 종류 카드 — 기본/hover는 테두리 없이 면(배경)으로만 구분, 선택된 카드만 금색 테두리.
 const KIND_CARD =
-  'relative h-[78px] flex flex-col items-center justify-center gap-1 rounded-xl px-2 text-center bg-[#2d2d30] border-2 border-transparent transition duration-150'
+  'relative h-[60px] flex flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-center bg-[#2d2d30] border-2 border-transparent transition duration-150'
 const KIND_CARD_CLICKABLE =
   'cursor-pointer hover:bg-[#333333] hover:shadow-[0_4px_12px_rgba(0,0,0,0.25)] hover:-translate-y-px'
-// 선택/펼침된 카드: 밝은 금색 테두리 + 살짝 밝은 그라데이션 + 은은한 glow.
+// 선택/펼침된 종류 카드 — 차분한 소프트 그레이 필 + 한 단계 밝은 테두리(글로우 없음, 퀵카드 선택과 통일).
 const KIND_CARD_ACTIVE =
-  'border-[#d9a85c] bg-gradient-to-b from-[#3a281b] to-[#2d2d30] shadow-[0_0_12px_rgba(217,168,92,0.35)]'
+  'border-[#9296a0] bg-[#3a3b3e] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
 // 구성원 pill(34px, 한 줄에 2개) — 짧은 한글 표시 이름은 잘리지 않고, 긴 이름은 툴팁으로 보완.
 const ENTITY_BASE =
-  'h-[34px] min-w-0 flex items-center gap-1.5 rounded-lg px-2 text-left bg-[#2d2d30] border border-[#d9a85c]/18 text-[12px] text-[#e8d5a5] transition hover:bg-[#333333] hover:border-[#d5a14f]'
+  'h-[34px] min-w-0 flex items-center gap-1.5 rounded-lg px-2 text-left bg-[#2d2d30] border border-[#3c3c3c] text-[12px] text-[#d4d4d4] transition hover:bg-[#333333] hover:border-[#5a5d63]'
+// 선택된 구성원(=지금 편집 중인 에셋) — 가장 또렷한 소프트 그레이 필 + 밝은 테두리(퀵카드 선택과 동일 언어).
 const ENTITY_ACTIVE =
-  'h-[34px] min-w-0 flex items-center gap-1.5 rounded-lg px-2 text-left bg-gradient-to-b from-[#3a281b] to-[#2d2d30] border-2 border-[#d7a14a] shadow-[0_0_10px_rgba(215,161,74,0.4)] text-[12px] text-[#e0e0e0] transition'
+  'h-[34px] min-w-0 flex items-center gap-1.5 rounded-lg px-2 text-left bg-[#52555b] border border-[#9296a0] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] text-[12px] text-[#f0f1f3] transition duration-150'
 // 게임 미리보기 위 맵 탭(마을/사냥터/동굴) — 둥근 나무 탭, 선택된 탭만 금색 그라데이션.
 const SCENE_TAB =
-  'h-[26px] flex items-center gap-1.5 text-[14px] leading-none rounded-lg px-3 py-1 bg-[#2d2d30] border border-[#d9a85c]/22 text-[#9d9d9d] transition hover:bg-[#333333] hover:text-[#ead8b6]'
+  'h-[26px] flex items-center gap-1.5 text-[14px] leading-none rounded-lg px-3 py-1 bg-[#2d2d30] border border-[#3c3c3c] text-[#9d9d9d] transition hover:bg-[#333333] hover:text-[#d4d4d4]'
 const SCENE_TAB_ACTIVE =
-  'h-[26px] flex items-center gap-1.5 text-[14px] leading-none rounded-lg px-3 py-1 bg-gradient-to-b from-[#d9a85c] to-[#9a6a2f] border border-[#f3d88b]/70 text-[#1e1e1e] shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition'
+  'h-[26px] flex items-center gap-1.5 text-[14px] leading-none rounded-lg px-3 py-1 bg-gradient-to-b from-[#52555b] to-[#34363a] border border-[#8a8e95] text-[#f0f0f0] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition'
 // 진행 단계 캡슐(선택→작성→생성→확인→적용) — 숫자 원형 배지 + 라벨 구조.
 // 현재 단계: 금색 테두리+은은한 glow 펄스, 숫자는 금색 채움 / 완료: ✓ / 미완료: 보조 정보 수준.
 const STEP_PILL =
-  'group h-[30px] inline-flex items-center gap-1.5 text-[13px] rounded-full pl-1 pr-3 bg-[#2d2d30] border border-[#d9a85c]/22 transition hover:border-[#c98a3a]/70'
+  'group h-[30px] inline-flex items-center gap-1.5 text-[13px] rounded-full pl-1 pr-3 bg-[#2d2d30] border border-[#3c3c3c] transition hover:border-[#5a5d63]'
 const STEP_PILL_ACTIVE =
-  'step-pulse h-[30px] inline-flex items-center gap-1.5 text-[13px] rounded-full pl-1 pr-3 bg-gradient-to-b from-[#d9a85c] to-[#9a6a2f] border border-[#f3d88b]/75 transition'
+  'step-pulse h-[30px] inline-flex items-center gap-1.5 text-[13px] rounded-full pl-1 pr-3 bg-gradient-to-b from-[#52555b] to-[#34363a] border border-[#b6bac1] transition'
 const STEP_PILL_DONE =
-  'h-[30px] inline-flex items-center gap-1.5 text-[13px] rounded-full pl-1 pr-3 bg-[#2c2115] border border-[#d5a55a]/40 transition'
+  'h-[30px] inline-flex items-center gap-1.5 text-[13px] rounded-full pl-1 pr-3 bg-[#2d2d30] border border-[#5a5d63]/50 transition'
 // 숫자 원형 배지 — 활성은 살짝 크고 금색 채움 + 밝은 숫자.
 const STEP_NUM =
   'w-[18px] h-[18px] shrink-0 flex items-center justify-center rounded-full bg-[#333333] text-[10px] leading-none text-[#9d9d9d] transition'
 const STEP_NUM_ACTIVE =
-  'w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-full bg-[#1e1e1e]/25 border border-[#9a6a2f]/70 text-[11px] leading-none text-[#1e1e1e] font-semibold transition'
+  'w-[20px] h-[20px] shrink-0 flex items-center justify-center rounded-full bg-[#1e1e1e]/30 border border-[#cfd2d6] text-[11px] leading-none text-[#f0f0f0] font-semibold transition'
 const STEP_NUM_DONE =
-  'w-[18px] h-[18px] shrink-0 flex items-center justify-center rounded-full bg-[#3a2c1a] text-[10px] leading-none text-[#e6cf9a] transition'
+  'w-[18px] h-[18px] shrink-0 flex items-center justify-center rounded-full bg-[#34363a] text-[10px] leading-none text-[#c8ccd2] transition'
 const STEP_TEXT = 'text-[#8a8a8a] transition group-hover:text-[#b8b8b8]'
-const STEP_TEXT_ACTIVE = 'text-[#1e1e1e] font-semibold'
-const STEP_TEXT_DONE = 'text-[#e6cf9a]'
+const STEP_TEXT_ACTIVE = 'text-[#f0f0f0] font-semibold'
+const STEP_TEXT_DONE = 'text-[#b6bac1]'
 
 // ---- 설정 모달(VSCode Dark 설정창) 토큰 ----
 // 메인 에디터(차콜)보다 두세 단계 밝은 연회색 계층 — 모달이 떠 있을 때 명확히 분리돼 보인다.
@@ -300,12 +324,12 @@ const SETTINGS_BUTTON_SPECIAL =
   'flex items-center justify-center gap-2.5 rounded-xl min-h-[48px] px-4 bg-[#0e639c] text-white text-lg border border-[#1177bb] transition hover:bg-[#1177bb] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0'
 // 제공사 표시 칩(Claude/GPT) — 키로 자동 감지되므로 클릭은 안 되고, 감지된 쪽만 블루 테두리.
 const PROVIDER_CHIP =
-  'rounded-xl px-5 py-2 text-[18px] leading-none bg-[#45454b] text-[#d9d9d9] border-2 border-[#5e5e66]'
+  'rounded-xl px-5 py-2 text-[18px] leading-none bg-[#45454b] text-[#b6bac1] border-2 border-[#5e5e66]'
 const PROVIDER_CHIP_ACTIVE =
   'rounded-xl px-5 py-2 text-[18px] leading-none bg-[#54545b] text-white border-2 border-[#569cd6]'
 // 모델 목록은 작은 태그로 — 선택된 것만 블루 테두리.
 const MODEL_CHIP =
-  'rounded-md px-2 py-1 text-[12px] leading-none bg-[#3f3f45] text-[#d9d9d9] border border-[#5a5a61] transition hover:bg-[#4a4a50]'
+  'rounded-md px-2 py-1 text-[12px] leading-none bg-[#3f3f45] text-[#b6bac1] border border-[#5a5a61] transition hover:bg-[#4a4a50]'
 const MODEL_CHIP_ACTIVE =
   'rounded-md px-2 py-1 text-[12px] leading-none bg-[#4a4a50] text-white border border-[#569cd6] ring-1 ring-[#569cd6]/40'
 
@@ -349,7 +373,16 @@ export const createEditorApp = ({
   // 빈 보드의 '오늘 작업' 통계 표시 전용 — 이번 세션의 적용 횟수.
   let appliedCount = 0
   // '최근 작업' 시간 표시 전용 — 결과가 처음 화면에 잡힌 시각(생성 직후 render에서 기록).
-  const resultTimes = new WeakMap<GenerationResult, string>()
+  const resultTimes = new WeakMap<GenerationResult, Date>()
+  // 액티비티 피드(표시 전용) — 선택·생성·검증·적용 같은 에디터 동작을 시간순으로 기록한다(최신이 위).
+  // 개발 툴 콘솔처럼 "방금 무슨 일이 있었는지"를 보여줘 사용자 확신·시연·디버깅을 돕는다.
+  const activityLog: Array<{ time: Date; text: string }> = []
+  const logActivity = (text: string): void => {
+    activityLog.unshift({ time: new Date(), text })
+    if (activityLog.length > 40) {
+      activityLog.length = 40
+    }
+  }
   // 이번 세션 집계: 생성 수 + Validator 통과 수. 프로젝트를 바꾸면 초기화한다.
   let sessionTally: SessionGenerationTally = { generations: 0, validatorPasses: 0 }
   // 퀘스트 모드(2단계 생성): '퀘스트' 빠른시작을 고르면 켜진다. 1단계는 자연어 후보 N개를 만들고,
@@ -372,22 +405,41 @@ export const createEditorApp = ({
 
   // 헤더는 얇고 어두운 도구 바 — 시선은 아래 게임 화면으로 가게 한다.
   // 게임 화면이 주인공이도록 헤더는 낮게 압축한다.
-  const header = el('header', 'settings-game-font select-none shrink-0 flex items-center justify-between gap-3 px-4 py-1.5 border-b border-[#d9a85c]/28 bg-[#252526] text-[#d4d4d4]')
+  const header = el('header', 'settings-game-font select-none shrink-0 flex items-center justify-between gap-3 px-4 py-1.5 border-b border-[#b6bac1]/28 bg-[#252526] text-[#d4d4d4]')
   const brand = el('div', 'flex items-center gap-2.5 min-w-0')
   const brandText = el('div', 'flex flex-col gap-0.5 min-w-0')
   const brandTitleRow = el('div', 'flex items-center gap-2 min-w-0')
   brandTitleRow.append(
-    el('span', 'text-[16px] font-semibold leading-none tracking-tight whitespace-nowrap text-[#e6e6e6]', '마을 이야기 공방')
+    el('span', 'text-[18px] font-bold leading-none tracking-[0.01em] whitespace-nowrap text-[#f0f1f3]', 'Village Story Workshop')
   )
-  // 프로젝트명은 작은 나무 팻말 배지로(좁은 화면에선 숨김 — 헤더가 넘치면 설정 버튼이 밀려난다).
-  const gameLabel = el('span', 'hidden sm:inline-block text-[11px] rounded-md px-2 py-0.5 bg-[#d9a85c]/[0.18] border border-[#d9a85c]/35 text-[#f3d88b] truncate', game.adapter.name)
-  brandTitleRow.append(gameLabel)
-  brandText.append(
-    brandTitleRow,
-    // 3순위 서브카피 — 제목·프로젝트명보다 한 단계 아래로(여백 +3px, 75% 투명도).
-    el('span', 'hidden md:block mt-[3px] text-[10px] leading-none text-[#9d9d9d] opacity-75', '마을을 바꾸고 이야기를 만들어보세요')
-  )
-  brand.append(editorIcon('building', 20), brandText)
+  // 헤더 프로젝트 메타(표시 전용) — Project/Map/Version을 실데이터에 연결한다.
+  // Project·Version은 어댑터, Map은 현재 씬(scene-changed로 실시간). 좁은 화면에선 숨겨 도구바가 넘치지 않게.
+  const headerMetaField = (label: string): { wrap: HTMLElement; value: HTMLElement } => {
+    const wrap = el('span', 'flex items-baseline gap-1 leading-none min-w-0')
+    const value = el('span', 'text-[10px] font-medium text-[#b6bac1] truncate max-w-[150px]')
+    wrap.append(
+      el('span', 'shrink-0 text-[10px] text-[#777777]', `${label}:`),
+      value
+    )
+    return { wrap, value }
+  }
+  const projectMeta = headerMetaField('Current Project')
+  const mapMeta = headerMetaField('Current Map')
+  const versionMeta = headerMetaField('Version')
+  const headerMeta = el('div', 'hidden md:flex items-center gap-3 mt-[3px] min-w-0')
+  headerMeta.append(projectMeta.wrap, mapMeta.wrap, versionMeta.wrap)
+  brandText.append(brandTitleRow, headerMeta)
+  // 다른 프로젝트를 열거나 게임이 맵을 바꾸면 즉시 반영된다(render()와 scene-changed 핸들러가 호출).
+  const updateHeaderMeta = (): void => {
+    projectMeta.value.textContent = game.adapter.projectTitle ?? game.adapter.name
+    const focusMap =
+      currentMapId !== undefined
+        ? game.maps.find((map) => map.id === currentMapId)
+        : game.maps[0]
+    mapMeta.value.textContent = focusMap?.name ?? '—'
+    versionMeta.value.textContent = game.adapter.version ?? '—'
+  }
+  brand.append(editorIcon('sword', 20), brandText)
   // 모델 배지 — 입력한 키의 provider(Claude/GPT)에 따라 동적으로 갱신된다.
   // 모델명은 게임 분위기를 깨서 헤더 대신 설정 모달의 고급 설정 안에 산다.
   const modelBadge = el(
@@ -396,12 +448,12 @@ export const createEditorApp = ({
     `Claude · ${ANTHROPIC_MODEL}`
   )
   // 연결 상태 배지 — 28px 캡슐. 연결되면 초록(#72d36b)으로 바뀐다(iframe load 리스너에서 갱신).
-  const connection = el('div', 'h-7 flex items-center gap-1.5 text-[11px] rounded-full px-2.5 bg-[#2d2d30] border border-[#d9a85c]/28 text-[#9d9d9d]')
+  const connection = el('div', 'h-7 flex items-center gap-1.5 text-[11px] rounded-full px-2.5 bg-[#2d2d30] border border-[#b6bac1]/28 text-[#9d9d9d]')
   const connectionDot = el('span', 'w-2 h-2 rounded-full bg-[#6e6e6e]')
   const connectionLabel = el('span', '', '접속 중...')
   connection.append(connectionDot, connectionLabel)
   // 설정 — 톱니 아이콘만 있는 32px 원형 버튼.
-  const settingsButton = el('button', 'w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-[#2d2d30] border border-[#d9a85c]/28 transition hover:bg-[#302a26] hover:border-[#c48a4a]/40') as HTMLButtonElement
+  const settingsButton = el('button', 'w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-[#2d2d30] border border-[#5a5d63]/60 transition hover:bg-[#34363a] hover:border-[#8a8e95]') as HTMLButtonElement
   settingsButton.setAttribute('aria-label', '설정')
   settingsButton.append(editorIcon('gear', 16))
   settingsButton.type = 'button'
@@ -421,7 +473,7 @@ export const createEditorApp = ({
       'grid-cols-1 grid-rows-[auto_minmax(0,1.4fr)_minmax(0,1fr)] [grid-template-areas:"tree""main""side"] ' +
       // 게임 화면이 화면 대부분을 차지하도록 좌우 사이드를 좁게 못 박는다.
       // 왼쪽은 아이콘 카드 2열(카드 약 90px+)이 들어가야 해서 최소 폭을 조금 더 준다.
-      'md:grid-cols-[minmax(210px,16%)_minmax(0,1fr)_minmax(195px,16%)] md:grid-rows-[minmax(0,1fr)] md:[grid-template-areas:"tree_main_side"]'
+      'md:grid-cols-[minmax(196px,15%)_minmax(0,1fr)_minmax(184px,15%)] md:grid-rows-[minmax(0,1fr)] md:[grid-template-areas:"tree_main_side"]'
   )
 
   // ---------- left: project tree ----------
@@ -433,7 +485,7 @@ export const createEditorApp = ({
     `settings-game-font select-none [grid-area:tree] ${PANEL} min-w-0 max-h-[35vh] md:max-h-none flex flex-col min-h-0 overflow-hidden`
   )
   // 상단 정보는 압축 — 에셋 목록이 더 위에서부터 보이게.
-  const treeHeader = el('div', 'px-2.5 pt-2 pb-1.5 border-b border-[#d9a85c]/25 flex flex-col gap-1')
+  const treeHeader = el('div', 'px-2.5 pt-2 pb-1.5 border-b border-[#b6bac1]/25 flex flex-col gap-1')
   // 설정 모달의 프로젝트 버튼 — 모바일 게임 버튼(그라데이션 + 아이콘 + hover 떠오름).
   const openButton = el('button', SETTINGS_BUTTON) as HTMLButtonElement
   openButton.append(editorIcon('folder', 22), el('span', '', '게임 폴더 열기'))
@@ -459,36 +511,74 @@ export const createEditorApp = ({
   // 선택 대상 카드 — 종류별 개수는 아래 카드 그리드가 보여주므로 헤더엔 타겟만 남긴다.
   // 선택 대상은 한 줄 정보바(36px) — 🎯 선택 대상 : 이름.
   // 선택 대상은 보조 정보 — 카드가 아니라 '현재 맵' 줄과 같은 레벨의 한 줄 텍스트.
-  const summaryCard = el('div', 'h-[28px] px-1 flex items-center gap-1.5 opacity-80')
-  summaryCard.append(editorIcon('target', 13))
-  const targetText = el('div', 'flex items-baseline gap-1.5 min-w-0')
-  const targetValue = el('div', 'text-[11px] font-medium text-[#e2bd8c] truncate')
-  targetText.append(el('div', 'text-[11px] font-medium tracking-wide text-[#b59458] leading-none whitespace-nowrap', '선택 대상 :'), targetValue)
-  summaryCard.append(targetText)
-  // 선택 대상 표시 갱신(UI 표시 전용).
+  // 선택 객체 패널 — 게임 오브젝트를 고르면 Type/Name/ID/Map/Position을 실시간으로 보여준다.
+  // 좌표는 GameEntity.tileX/tileY(타일 단위). 선택이 없으면 흐린 빈 상태 안내.
+  const selectedObjectPanel = el('div', 'rounded-[10px] border border-[#3c3c3c] bg-[#1a1a1a] px-2.5 py-2 flex flex-col gap-1.5')
+  const selectedObjectHeader = el('div', 'flex items-center gap-1.5')
+  selectedObjectHeader.append(
+    editorIcon('target', 12),
+    el('span', 'text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9d9d9d]', 'Selected Object')
+  )
+  const selectedObjectBody = el('div', 'flex flex-col gap-1')
+  selectedObjectPanel.append(selectedObjectHeader, selectedObjectBody)
+  // 선택 객체 정보 행(라벨 좌·값 우). 값은 TMX에서 온 임의 문자열이라 textContent로만 넣는다.
+  const objectField = (label: string, value: string, mono = false): HTMLElement => {
+    const row = el('div', 'flex items-center justify-between gap-2 min-w-0')
+    row.append(
+      el('span', 'shrink-0 text-[10px] leading-none text-[#777777]', label),
+      el('span', `truncate text-right text-[11px] leading-none font-medium text-[#d4d7dc]${mono ? ' tabular-nums' : ''}`, value)
+    )
+    return row
+  }
+  // 선택 객체 표시 갱신(UI 표시 전용) — selectedEntity 변화 시 render()가 호출한다.
   const updateSummary = (): void => {
-    targetValue.textContent = selectedEntity ? selectedEntity.name : '없음'
-    // 선택된 동안에만 금색 — 강조는 "지금 선택된 것"에만 쓴다는 규칙.
-    // 선택 없음 → 비활성처럼 흐리게, 선택 있음 → 일반 밝기의 금색.
-    targetValue.className = selectedEntity
-      ? 'text-[11px] font-medium text-[#e2bd8c] truncate'
-      : 'text-[11px] font-medium text-[#777777]/70 truncate'
+    if (!selectedEntity) {
+      selectedObjectBody.replaceChildren(
+        el('div', 'py-0.5 text-[11px] leading-none text-[#777777] opacity-70', '게임 오브젝트를 선택하세요')
+      )
+      return
+    }
+    const e = selectedEntity
+    const mapName = game.maps.find((map) => map.id === e.mapId)?.name ?? e.mapId
+    // 오브젝트는 tileX/tileY를 갖고, 타일 구조물(깃발·벽 등)은 좌표가 id 끝('tile:wall:5,3')에 들어 있다.
+    const tileCoordMatch = e.id.match(/:(\d+),\s*(\d+)$/)
+    const position =
+      e.tileX !== undefined && e.tileY !== undefined
+        ? `(${e.tileX}, ${e.tileY})`
+        : tileCoordMatch
+          ? `(${tileCoordMatch[1]}, ${tileCoordMatch[2]})`
+          : '—'
+    const fields = [
+      objectField('Type', KIND_LABEL[groupKindOf(e.kind)] ?? e.kind),
+      objectField('Category', categoryOf(groupKindOf(e.kind))),
+      objectField('Name', e.name),
+      objectField('ID', e.id, true),
+      objectField('Map', mapName),
+      objectField('Position', position, true)
+    ]
+    // 연결 객체(포털 등)는 Target(연결 대상 맵)과 Status(연결 확인 여부)를 덧붙인다 — 실제 targetSceneId 기준.
+    if (e.target) {
+      const targetMap = game.maps.find((map) => map.id === e.target)
+      fields.push(objectField('Target', targetMap?.name ?? e.target))
+      fields.push(objectField('Status', targetMap ? 'Connected' : 'Unlinked'))
+    }
+    selectedObjectBody.replaceChildren(...fields)
   }
   // 게임과의 동기화 상태(현재 맵 이름)를 보여주는 줄. 연결 전엔 대기 메시지.
-  const treeSyncLine = el('div', 'text-[12px] font-medium text-[#c9a96b]', '게임과 연결 대기 중…')
+  const treeSyncLine = el('div', 'text-[12px] font-medium text-[#b6bac1]', '게임과 연결 대기 중…')
   // 짧은 안내문 — 눈에 띄지 않는 흐린 브라운, 카드 그리드를 방해하지 않는 한 줄.
   // 에셋 검색 — 이름으로 실시간 필터링. NPC가 수십 개로 늘어나도 탐색기처럼 쓸 수 있다.
   // 검색이 패널의 첫 행동으로 보이게 — 40px 높이 + 살짝 밝은 배경 + focus 금색.
-  const assetSearch = el('input', 'h-[40px] w-full rounded-[10px] border border-[#d9a85c]/28 bg-[#1a1a1a] px-3 text-[12px] text-[#d4d4d4] outline-none transition placeholder:text-[#919191] focus:border-[#d9a85c] focus:shadow-[0_0_8px_rgba(217,168,92,0.2)]') as HTMLInputElement
+  const assetSearch = el('input', 'h-[40px] w-full rounded-[10px] border border-[#b6bac1]/28 bg-[#1a1a1a] px-3 text-[12px] text-[#d4d4d4] outline-none transition placeholder:text-[#919191] focus:border-[#b6bac1] focus:shadow-[0_0_8px_rgba(255,255,255,0.2)]') as HTMLInputElement
   assetSearch.type = 'search'
-  assetSearch.placeholder = '🔍 NPC · 건물 · 오브젝트 검색'
+  assetSearch.placeholder = 'NPC · 건물 · 오브젝트 검색'
   assetSearch.addEventListener('input', () => {
     assetQuery = assetSearch.value
     renderTree()
     render()
   })
   // 순서: 제목 → 검색 → 현재 맵 → 선택 대상 — 정보는 두 줄만, 설명문은 없앤다.
-  treeHeader.append(treeHeaderTop, assetSearch, treeSyncLine, summaryCard)
+  treeHeader.append(treeHeaderTop, assetSearch, treeSyncLine, selectedObjectPanel)
   const treeList = el('div', 'flex-1 overflow-auto p-3 flex flex-col gap-3')
   tree.append(treeHeader, treeList)
 
@@ -497,9 +587,9 @@ export const createEditorApp = ({
   const center = el('main', '[grid-area:main] min-w-0 min-h-0 flex flex-col gap-2')
   // 선택 대상 배지 — 입력창 위 오른쪽의 작은 상태 캡슐(render()가 내용을 채운다).
   const targetLine = el('div', 'flex items-center')
-  const analysisPanel = el('div', 'rounded-lg border border-[#d9a85c]/28 bg-[#252526] p-3 flex flex-col gap-1.5 text-[#d4d4d4]')
+  const analysisPanel = el('div', 'rounded-lg border border-[#b6bac1]/28 bg-[#252526] p-3 flex flex-col gap-1.5 text-[#d4d4d4]')
   analysisPanel.hidden = true
-  const supportNote = el('div', 'rounded-lg border border-[#d9a85c]/22 bg-[#3a3122] px-3 py-2 text-xs text-[#d8b270]')
+  const supportNote = el('div', 'rounded-lg border border-[#b6bac1]/22 bg-[#34363a] px-3 py-2 text-xs text-[#b6bac1]')
 
   const apiKeyField = el('label', 'flex flex-col gap-2')
   apiKeyField.append(el('span', SETTINGS_LABEL, 'API 키 — Claude 또는 GPT (자동 감지)'))
@@ -529,12 +619,19 @@ export const createEditorApp = ({
   modelField.append(providerRow, modelChips, modelSelect)
 
   // 필요하면 손잡이로 더 늘릴 수 있다(resize-y). placeholder는 예시 목록 형태.
-  const promptField = el('label', 'flex flex-col gap-1.5')
-  // 화면에서 가장 강한 입력 요소 — 낮게 유지(최대 96px), 내용이 길면 스크롤.
-  const promptInput = el('textarea', `${FIELD_INPUT} min-h-[80px] max-h-[96px] overflow-y-auto resize-y leading-[1.6]`) as HTMLTextAreaElement
+  const promptField = el('label', 'flex flex-col gap-1')
+  // 화면에서 가장 강한 입력 요소 — 입력 내용에 맞춰 높이가 자동으로 늘어난다(최대 150px). 그 위는 스크롤.
+  const promptInput = el('textarea', `${FIELD_INPUT} min-h-[72px] max-h-[150px] overflow-y-auto resize-none leading-[1.6]`) as HTMLTextAreaElement
   promptInput.placeholder =
     '예) 마법사가 플레이어에게 위험을 경고하는 대사를 추가해줘\n예) 숨겨진 퀘스트를 만들어줘\n예) 나무를 가을 분위기로 바꿔줘'
-  promptField.append(promptInput)
+  // 자동 높이 조절 — 빈 화면 불안을 줄이고 긴 요청도 한눈에. scrollHeight를 150px로 클램프.
+  const autoSizePrompt = (): void => {
+    promptInput.style.height = 'auto'
+    promptInput.style.height = `${Math.min(promptInput.scrollHeight, 150)}px`
+  }
+  // 글자수 카운터 — 우측 정렬, 입력에 따라 갱신(작성 중임을 시각적으로 알려준다).
+  const promptCounter = el('span', 'self-end text-[10px] leading-none tabular-nums text-[#777777]', '0자')
+  promptField.append(promptInput, promptCounter)
 
   // 입력창 자동 채움 — 빈 화면보다 예시를 고쳐 쓰는 게 훨씬 쉽다.
   // (입력 이벤트를 쏴서 생성 버튼 활성화·진행 표시도 함께 갱신.)
@@ -547,11 +644,22 @@ export const createEditorApp = ({
   // 빠른 시작 — 아이콘 카드. 클릭하면 입력창이 채워지고 카드에 '✓ 선택됨' 상태가 남아
   // "지금 내가 뭘 만드는 중인지"가 보인다(표시 전용 상태).
   // primary: 대표 액션(핵심 기능) 표시 — 카드가 한 단계 강조된다.
-  const SUGGESTIONS = [
-    { label: 'NPC 대사', desc: '대화 생성', text: '마법사가 플레이어에게 경고하는 대사를 추가해줘', primary: true },
-    { label: '퀘스트', desc: '의뢰 생성', text: '마을 주민이 부탁하는 숨겨진 퀘스트를 만들어줘', primary: true },
-    { label: '스타일 변경', desc: '외형 수정', text: '이 나무를 가을 분위기의 나무로 바꿔줘', primary: false },
-    { label: 'NPC 추가', desc: '주민 생성', text: '마을에 새로운 주민 NPC를 추가해줘', primary: false }
+  // Quick Actions — 자주 쓰는 6개 작업. 아이콘으로 먼저 구분되고, 클릭하면 입력창이 채워진다.
+  // quest:true인 카드만 2단계(후보→선택→검증) 모드로 들어간다(라벨 문자열 비교 대신 플래그).
+  const SUGGESTIONS: Array<{
+    label: string
+    desc: string
+    text: string
+    primary: boolean
+    icon: EditorIconName
+    quest?: boolean
+  }> = [
+    { label: 'NPC 대사', desc: '대화 생성', text: '마법사가 플레이어에게 경고하는 대사를 추가해줘', primary: true, icon: 'npc' },
+    { label: '퀘스트', desc: '의뢰 생성', text: '마을 주민이 부탁하는 숨겨진 퀘스트를 만들어줘', primary: true, icon: 'scroll', quest: true },
+    { label: '스타일 변경', desc: '외형 수정', text: '이 나무를 가을 분위기의 나무로 바꿔줘', primary: false, icon: 'crystal' },
+    { label: 'NPC 추가', desc: '주민 생성', text: '마을에 새로운 주민 NPC를 추가해줘', primary: false, icon: 'npc' },
+    { label: '건물 추가', desc: '구조물 배치', text: '마을 광장에 새로운 건물을 추가해줘', primary: false, icon: 'building' },
+    { label: '이벤트 수정', desc: '동작 변경', text: '이 포털이 동굴 입구로 연결되도록 수정해줘', primary: false, icon: 'portal' }
   ]
   let activeSuggestion: string | undefined
   // 빠른 템플릿 선택 — 기본은 완전 중립(회색 테두리, 금색 없음). 약한 hover, 금색은 active(클릭)만.
@@ -560,41 +668,45 @@ export const createEditorApp = ({
   // 대표 액션(NPC 대사·퀘스트)도 기본은 다른 카드와 똑같은 중립으로 둔다(초기 진입 시
   // 선택된 것처럼 미리 강조되면 안 됨). 강조는 active(클릭)에만.
   const QUICK_CARD_PRIMARY = QUICK_CARD
+  // 선택된 도구 — Figma/Notion/Linear 식 차분한 강조: 소프트 그레이 필 + 한 단계 밝은 얇은 테두리
+  // + 아주 옅은 inset 하이라이트. 외곽 글로우·이동 애니메이션은 쓰지 않는다(게이밍/네온 금지).
   const QUICK_CARD_ACTIVE =
-    'h-[52px] flex flex-col items-start justify-center gap-1 rounded-lg px-3 text-left bg-gradient-to-b from-[#e7b15a]/15 to-[#e7b15a]/5 border border-[#e7b15a] shadow-[0_0_12px_rgba(231,177,90,0.18)] transition duration-[180ms] ease-out hover:-translate-y-[2px]'
+    'h-[52px] flex flex-col items-start justify-center gap-1 rounded-lg px-3 text-left bg-[#52555b] border border-[#9296a0] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-[180ms] ease-out hover:bg-[#5a5d63]'
   const quickStart = el('div', 'flex flex-wrap items-center gap-1.5')
   quickStart.append(el('span', 'text-[10px] leading-none text-[#777777]', '빠른 시작'))
   const suggestionRow = el('div', 'flex flex-wrap gap-1.5')
   const quickCards = SUGGESTIONS.map((suggestion) => {
     const card = el('button', suggestion.primary ? QUICK_CARD_PRIMARY : QUICK_CARD) as HTMLButtonElement
     card.type = 'button'
-    const badge = el('span', 'text-[10px] leading-none text-[#e7b15a]', '✓')
+    const badge = el('span', 'text-[10px] leading-none text-[#e0e0e0]', '✓')
     badge.hidden = true
     const titleLine = el('span', 'flex items-center gap-1.5')
-    // 라벨도 기본은 중립 회색 — 금색 글자색은 선택 강조에만 쓴다.
-    titleLine.append(
-      el('span', 'text-[14px] leading-none text-[#d4d4d4]', suggestion.label),
-      badge
-    )
+    // 라벨만 — 아이콘 없이 텍스트로. 기본은 중립 회색, 선택 시 대비를 한 단계 올린다(updateQuickCards).
+    const labelEl = el('span', 'text-[14px] leading-none text-[#d4d4d4]', suggestion.label)
+    titleLine.append(labelEl, badge)
     card.append(
       titleLine,
       el('span', 'text-[11px] leading-none text-[#777777] opacity-65', suggestion.desc)
     )
     suggestionRow.append(card)
-    return { label: suggestion.label, text: suggestion.text, primary: suggestion.primary, card, badge }
+    return { label: suggestion.label, text: suggestion.text, primary: suggestion.primary, quest: suggestion.quest === true, card, badge, labelEl }
   })
   const updateQuickCards = (): void => {
-    for (const { label, primary, card, badge } of quickCards) {
+    for (const { label, primary, card, badge, labelEl } of quickCards) {
       const active = label === activeSuggestion
       card.className = active ? QUICK_CARD_ACTIVE : primary ? QUICK_CARD_PRIMARY : QUICK_CARD
+      // 선택된 도구만 텍스트 대비를 올린다 — 폰트·크기는 그대로, 색만 한 단계 밝게.
+      labelEl.className = active
+        ? 'text-[14px] leading-none text-[#f0f1f3]'
+        : 'text-[14px] leading-none text-[#d4d4d4]'
       badge.hidden = !active
     }
   }
   for (const quickCard of quickCards) {
     quickCard.card.addEventListener('click', () => {
       activeSuggestion = quickCard.label
-      // '퀘스트'만 2단계(후보→선택→검증) 모드. 다른 빠른시작은 기존 단일 생성 흐름.
-      candidateMode = quickCard.label === '퀘스트'
+      // quest:true 카드만 2단계(후보→선택→검증) 모드. 다른 빠른시작은 기존 단일 생성 흐름.
+      candidateMode = quickCard.quest
       candidates = []
       selectedCandidateIndex = undefined
       editingCandidateIndex = undefined
@@ -611,17 +723,17 @@ export const createEditorApp = ({
 
   // 추천 의뢰 — 한 줄 칩. 설명은 툴팁(title)으로, 클릭하면 그대로 입력창에 들어간다.
   const RECOMMENDED = [
-    { title: '📜 마법사의 경고', desc: '플레이어에게 위험 경고', text: '마법사가 플레이어에게 위험을 경고하는 대사를 추가해줘' },
-    { title: '📜 숨겨진 퀘스트', desc: '새로운 보상 의뢰', text: '마을 주민이 부탁하는 숨겨진 퀘스트를 만들어줘' },
-    { title: '📜 계절 변화', desc: '가을 분위기로 변경', text: '이 나무를 가을 분위기의 나무로 바꿔줘' }
+    { title: '마법사의 경고', desc: '플레이어에게 위험 경고', text: '마법사가 플레이어에게 위험을 경고하는 대사를 추가해줘' },
+    { title: '숨겨진 퀘스트', desc: '새로운 보상 의뢰', text: '마을 주민이 부탁하는 숨겨진 퀘스트를 만들어줘' },
+    { title: '계절 변화', desc: '가을 분위기로 변경', text: '이 나무를 가을 분위기의 나무로 바꿔줘' }
   ]
   // 도움말처럼 보이게: 더 어두운 배경 + 흐린 테두리 + 좌측 배지 — 입력창과 즉시 구분된다.
   const recommendBoard = el('div', 'flex flex-wrap items-center gap-1.5 rounded-lg bg-[#181818] border border-white/[0.06] px-2 py-1.5')
   recommendBoard.append(
-    el('span', 'rounded px-2 py-0.5 text-[11px] leading-none text-[#d5b87a] bg-[#dca14b]/10 border border-[#dca14b]/25', '추천 의뢰')
+    el('span', 'rounded px-2 py-0.5 text-[11px] leading-none text-[#b6bac1] bg-[#b6bac1]/10 border border-[#b6bac1]/25', '추천 의뢰')
   )
   for (const item of RECOMMENDED) {
-    const chip = el('button', 'h-[26px] flex items-center rounded-full px-2.5 text-[11px] leading-none text-[#d5b87a]/75 bg-white/[0.02] border border-[#d9a85c]/18 transition hover:border-[#e7b15a] hover:bg-[#333333] hover:text-[#f2dfb3]', item.title) as HTMLButtonElement
+    const chip = el('button', 'h-[26px] flex items-center rounded-full px-2.5 text-[11px] leading-none text-[#b6bac1]/75 bg-white/[0.02] border border-[#b6bac1]/18 transition hover:border-[#b6bac1] hover:bg-[#333333] hover:text-[#f2dfb3]', item.title) as HTMLButtonElement
     chip.type = 'button'
     chip.title = item.desc
     chip.addEventListener('click', () => {
@@ -633,7 +745,7 @@ export const createEditorApp = ({
   const actions = el('div', 'flex flex-wrap items-end gap-2')
   // 메인 CTA — 적용/복사/내보내기보다 살짝만 크게(42px). 라벨 span만 갱신한다.
   const generateButton = el('button', PRIMARY_BUTTON) as HTMLButtonElement
-  const generateLabel = el('span', 'text-[18px] font-bold leading-none', '✨ 이야기 생성')
+  const generateLabel = el('span', 'text-[18px] font-bold leading-none', '만들기')
   generateButton.append(generateLabel)
   generateButton.type = 'button'
   const applyButton = el('button', APPLY_BUTTON, '적용') as HTMLButtonElement
@@ -649,7 +761,7 @@ export const createEditorApp = ({
   const primaryGroup = el('div', 'flex flex-col gap-1')
   primaryGroup.append(
     primaryRow,
-    el('span', 'text-[11px] leading-[1.3] text-[#777777] opacity-70', '선택한 대상에 새로운 이야기를 생성합니다.')
+    el('span', 'text-[11px] leading-[1.3] text-[#777777] opacity-70', '선택한 대상의 새 퀘스트·대사를 만듭니다.')
   )
   const utilityGroup = el('div', 'flex flex-wrap items-center gap-1.5')
   utilityGroup.append(
@@ -670,14 +782,14 @@ export const createEditorApp = ({
   let activeBoardTab: BoardTab | undefined
   // 상태 카드형 목록(52px): 제목 + 짧은 상태 텍스트 + 우측 화살표. hover에서 화살표도 같이 강조.
   const BOARD_ROW =
-    'group h-[52px] shrink-0 flex items-center gap-2 rounded-xl border border-[#d9a85c]/22 bg-[#2d2d30] px-3 text-left transition duration-150 hover:bg-[#333333] hover:border-[#d9a85c]/70'
+    'group h-[52px] shrink-0 flex items-center gap-2 rounded-xl border border-[#b6bac1]/22 bg-[#2d2d30] px-3 text-left transition duration-150 hover:bg-[#333333] hover:border-[#b6bac1]/70'
   const BOARD_ROW_ACTIVE =
-    'group h-[52px] shrink-0 flex items-center gap-2 rounded-xl border border-[#d9a85c] bg-[#3a2416] px-3 text-left transition duration-150 shadow-[0_0_10px_rgba(217,168,92,0.3)]'
+    'group h-[52px] shrink-0 flex items-center gap-2 rounded-xl border border-[#b6bac1] bg-[#34363a] px-3 text-left transition duration-150 shadow-[0_0_10px_rgba(255,255,255,0.3)]'
   // 상세 창의 항목별 내용 — 항상 하나의 상세 창 안에서 토글된다(새 창 생성 금지).
   const makeDetailView = (title: string): { view: HTMLElement; body: HTMLElement } => {
     const view = el('div', 'flex flex-col gap-2')
     view.hidden = true
-    view.append(el('div', 'text-[15px] text-[#e8d5a5] [text-shadow:0_1px_0_rgba(0,0,0,0.35)] pb-1.5 border-b border-[#d9a85c]/20', title))
+    view.append(el('div', 'text-[15px] text-[#d4d7dc] [text-shadow:0_1px_0_rgba(0,0,0,0.35)] pb-1.5 border-b border-[#b6bac1]/20', title))
     const body = el('div', 'flex flex-col gap-1')
     view.append(body)
     return { view, body }
@@ -709,14 +821,14 @@ export const createEditorApp = ({
     { id: 'apply', label: '적용 상태' }
   ]
   // 아래 상세 창 — 깊은 차콜 + 중립 테두리의 둥근 카드 하나.
-  const boardDetail = el('div', 'flex-1 min-h-[240px] rounded-2xl border border-[#d9a85c]/28 bg-[#1a1a1a] p-3.5 flex flex-col overflow-auto')
+  const boardDetail = el('div', 'flex-1 min-h-[240px] rounded-2xl border border-[#b6bac1]/28 bg-[#1a1a1a] p-3.5 flex flex-col overflow-auto')
   // 빈 상태엔 검은 공간 대신 '오늘 작업' 요약을 보여준다(값은 render()가 갱신).
   // '오늘 작업' 통계 카드 — 결과 카드 4장 바로 아래에 붙는 독립 카드(라벨/숫자 분리, 숫자 강조).
-  const todayCard = el('div', 'shrink-0 w-full rounded-lg border border-[#d9a85c]/22 bg-[#2d2d30] px-3 py-2.5 flex flex-col gap-1.5 text-left')
+  const todayCard = el('div', 'shrink-0 w-full rounded-lg border border-[#b6bac1]/22 bg-[#2d2d30] px-3 py-2.5 flex flex-col gap-1.5 text-left')
   const todayStats = el('div', 'flex flex-col gap-1.5')
-  const statGen = el('span', 'text-[12px] font-bold leading-none text-[#e8d5a5]', '0')
-  const statPass = el('span', 'text-[12px] font-bold leading-none text-[#e8d5a5]', '0')
-  const statApply = el('span', 'text-[12px] font-bold leading-none text-[#e8d5a5]', '0')
+  const statGen = el('span', 'text-[12px] font-bold leading-none text-[#d4d7dc]', '0')
+  const statPass = el('span', 'text-[12px] font-bold leading-none text-[#d4d7dc]', '0')
+  const statApply = el('span', 'text-[12px] font-bold leading-none text-[#d4d7dc]', '0')
   const statGenRow = el('div', 'flex items-center justify-between')
   statGenRow.append(el('span', 'text-[11px] font-medium leading-none text-[#9d9d9d]', '생성 요청'), statGen)
   const statPassRow = el('div', 'flex items-center justify-between')
@@ -725,22 +837,42 @@ export const createEditorApp = ({
   statApplyRow.append(el('span', 'text-[11px] font-medium leading-none text-[#9d9d9d]', '게임 적용'), statApply)
   todayStats.append(statGenRow, statPassRow, statApplyRow)
   todayCard.append(
-    el('div', 'text-[12px] leading-none text-[#e8d5a5]', '오늘 작업'),
+    el('div', 'text-[12px] leading-none text-[#d4d7dc]', '오늘 작업'),
     todayStats
   )
   // '최근 작업' 카드 — 오늘 작업과 같은 톤의 작은 기록 카드(작업명 ── 시간 한 줄). 빈 상태에서도 낮게.
-  const recentCard = el('div', 'shrink-0 w-full min-h-[84px] rounded-lg border border-[#d9a85c]/22 bg-[#2d2d30] px-3 py-2.5 flex flex-col gap-1.5 text-left')
-  const recentList = el('div', 'flex flex-col gap-1.5')
+  const recentCard = el('div', 'shrink-0 w-full min-h-[84px] rounded-lg border border-[#b6bac1]/22 bg-[#2d2d30] px-3 py-2.5 flex flex-col gap-1.5 text-left')
+  // 스크롤 가능한 활동 이력 — 길어져도 카드가 늘어나지 않고 자체 스크롤(개발 툴 콘솔 느낌).
+  const recentList = el('div', 'flex flex-col gap-1.5 max-h-[148px] overflow-y-auto pr-0.5')
   recentCard.append(
-    el('div', 'text-[12px] leading-none text-[#e8d5a5]', '최근 작업'),
+    el('div', 'text-[12px] leading-none text-[#d4d7dc]', 'Recent Activity'),
     recentList
   )
   // 빈 상태 안내 — 설명 패널처럼 보이게 텍스트 블록을 중앙보다 살짝 위에 둔다.
   const detailPlaceholder = el('div', 'flex-1 flex flex-col items-center justify-center gap-1.5 pt-2 pb-8 text-center leading-relaxed')
+  const detailPlaceholderIcon = el('div', 'opacity-25 mb-1')
+  detailPlaceholderIcon.append(editorIcon('crystal', 28))
+  // 빈 화면을 안내 워크플로우로 — "다음에 뭘 하면 되는지" 5단계를 번호로 보여준다(프로 에디터 톤).
+  const PLACEHOLDER_STEPS = [
+    '왼쪽 패널에서 에셋 선택',
+    '편집 액션 선택',
+    '요청 작성',
+    '콘텐츠 생성',
+    '검토 후 적용'
+  ]
+  const workflowGuide = el('div', 'flex flex-col items-start gap-1.5 mt-1')
+  PLACEHOLDER_STEPS.forEach((label, index) => {
+    const row = el('div', 'flex items-center gap-2')
+    row.append(
+      el('span', 'shrink-0 w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#2d2d30] border border-[#3c3c3c] text-[10px] leading-none text-[#9d9d9d]', String(index + 1)),
+      el('span', 'text-[11px] leading-none text-[#9d9d9d]', label)
+    )
+    workflowGuide.append(row)
+  })
   detailPlaceholder.append(
-    el('div', 'text-[13px] font-semibold text-[#d9a85c]', '결과 없음'),
-    el('div', 'whitespace-pre-line text-[11px] leading-[1.5] text-[#777777] opacity-70', '왼쪽 패널에서 에셋을 선택하고\n이야기를 생성하면 여기에 표시됩니다.'),
-    el('div', 'text-[11px] leading-[1.5] text-[#9d9d9d] opacity-80', '생성 → 검증 → 적용 결과를 이 영역에서 확인할 수 있습니다.')
+    detailPlaceholderIcon,
+    el('div', 'text-[13px] font-semibold text-[#d4d7dc] mb-1', 'No Generation Results'),
+    workflowGuide
   )
   boardDetail.append(detailPlaceholder, candidatesView.view, luaView.view, filesView.view, verifyView.view, applyView.view)
   const boardRows = BOARD_TABS.map((tab) => {
@@ -748,10 +880,10 @@ export const createEditorApp = ({
     // 제목(좌) + 상태 캡슐 배지(우, render()가 채움) + ▸ 화살표(클릭하면 아래 상세가 열린다는 신호).
     const rowStatus = el('span', 'h-[20px] flex items-center rounded-full px-2 text-[10px] font-semibold leading-none whitespace-nowrap bg-[#333333] text-[#9d9d9d]', '대기')
     row.append(
-      el('span', 'truncate text-[13px] leading-none text-[#e8d5a5]', tab.label),
+      el('span', 'truncate text-[13px] leading-none text-[#d4d7dc]', tab.label),
       el('span', 'ml-auto flex items-center gap-1.5'),
       rowStatus,
-      el('span', 'text-[11px] text-[#777777] transition group-hover:text-[#e7b15a]', '▸')
+      el('span', 'text-[11px] text-[#777777] transition group-hover:text-[#b6bac1]', '▸')
     )
     row.type = 'button'
     boardList.append(row)
@@ -763,7 +895,7 @@ export const createEditorApp = ({
       row.className = active ? BOARD_ROW_ACTIVE : BOARD_ROW
       // 선택된 행은 상태 배지도 금색 링으로 함께 강조(표시 전용).
       status.classList.toggle('ring-1', active)
-      status.classList.toggle('ring-[#e7b15a]/60', active)
+      status.classList.toggle('ring-[#b6bac1]/60', active)
     }
     detailPlaceholder.hidden = activeBoardTab !== undefined
     candidatesView.view.hidden = activeBoardTab !== 'candidates'
@@ -817,7 +949,7 @@ export const createEditorApp = ({
   // 게임 화면이 이 화면의 주인공 — 프레임(위 탭 바·아래 단계 바)은 얇고 어둡게 유지한다.
   const preview = el('section', `flex-1 min-h-[200px] md:min-h-[300px] min-w-0 flex flex-col ${PANEL} overflow-hidden`)
   // 게임 화면 위에 붙은 작은 RPG 조작 패널 — 짧은 제목 + 나무 탭 + 아이콘 버튼.
-  const previewBar = el('div', 'settings-game-font select-none h-9 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-[#d9a85c]/22 bg-[#252526] min-w-0')
+  const previewBar = el('div', 'settings-game-font select-none h-9 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-[#b6bac1]/22 bg-[#252526] min-w-0')
   // 시선이 요청 패널로 먼저 가도록 게임 화면 헤더는 한 톤 차분하게.
   const previewTitle = el('span', 'flex items-center gap-2 truncate min-w-0')
   previewTitle.append(
@@ -828,12 +960,14 @@ export const createEditorApp = ({
   // 맵 요약(현재 맵 + 개체 수) — 텍스트 나열 대신 정보 칩(pill)로 분리해 한눈에 읽히게.
   // 줄바꿈 금지: 공간이 모자라면 overflow-hidden으로 끝 칩부터 잘린다(헤더 높이 고정).
   const STAT_CHIP =
-    'h-[22px] shrink-0 inline-flex items-center gap-1 px-2 rounded-full border border-[#d9a85c]/35 bg-[#2d2d30]/65 text-[11px] font-semibold leading-none text-[#e8d3a3] whitespace-nowrap'
+    'h-[22px] shrink-0 inline-flex items-center gap-1 px-2 rounded-full border border-[#b6bac1]/35 bg-[#2d2d30]/65 text-[11px] font-semibold leading-none text-[#e8d3a3] whitespace-nowrap'
   const STAT_CHIP_MAP =
-    'h-[22px] shrink-0 inline-flex items-center px-2.5 rounded-full border border-[#d9a85c]/50 bg-[#d9a85c]/[0.18] text-[11px] font-semibold leading-none text-[#f3d88b] whitespace-nowrap'
+    'h-[22px] shrink-0 inline-flex items-center px-2.5 rounded-full border border-[#b6bac1]/50 bg-[#b6bac1]/[0.18] text-[11px] font-semibold leading-none text-[#d4d7dc] whitespace-nowrap'
   // translate-y-[2px]: 헤더 수직 중앙에 더 가깝게 정렬.
   const previewStats = el('span', 'hidden md:flex flex-1 items-center justify-center gap-1.5 leading-none min-w-0 overflow-hidden translate-y-[2px]')
   // 표시 전용: 현재 맵의 NPC/건물/포털/기타 개수를 한 줄로 요약한다(render()가 갱신).
+  // 맵별 직전 카운트 — 같은 맵에서 값이 바뀐 칩만 펄스를 준다(맵 전환으로 인한 오인 방지).
+  const prevCountsByMap: Record<string, { npc: number; building: number; portal: number; other: number }> = {}
   const updatePreviewStats = (): void => {
     const focusMap =
       currentMapId !== undefined
@@ -857,12 +991,15 @@ export const createEditorApp = ({
         counts.other += 1
       }
     }
-    // 라벨은 살짝 흐리게, 숫자는 굵은 금색으로 — 수치가 먼저 읽히게(표시 전용).
-    const statChip = (label: string, value: number): HTMLElement => {
+    const prev = prevCountsByMap[map.id]
+    // 라벨은 살짝 흐리게, 숫자는 굵은 은색으로 — 수치가 먼저 읽히게(표시 전용).
+    // 같은 맵에서 값이 바뀌면 숫자에 count-bump 펄스를 줘 "방금 갱신됨"이 보인다.
+    const statChip = (label: string, value: number, changed: boolean): HTMLElement => {
       const chip = el('span', STAT_CHIP)
+      const numberClass = `font-bold text-[#d4d7dc]${changed ? ' count-bump' : ''}`
       chip.append(
         el('span', 'opacity-75', label),
-        el('span', 'font-bold text-[#f3d88b]', String(value))
+        el('span', numberClass, String(value))
       )
       return chip
     }
@@ -870,11 +1007,12 @@ export const createEditorApp = ({
     mapChip.title = `현재 맵: ${map.name}`
     previewStats.replaceChildren(
       mapChip,
-      statChip('NPC', counts.npc),
-      statChip('건물', counts.building),
-      statChip('포털', counts.portal),
-      statChip('오브젝트', counts.other)
+      statChip('NPC', counts.npc, prev !== undefined && prev.npc !== counts.npc),
+      statChip('건물', counts.building, prev !== undefined && prev.building !== counts.building),
+      statChip('포털', counts.portal, prev !== undefined && prev.portal !== counts.portal),
+      statChip('오브젝트', counts.other, prev !== undefined && prev.other !== counts.other)
     )
+    prevCountsByMap[map.id] = counts
   }
   previewBar.append(previewTitle, previewStats)
   const previewActions = el('div', 'flex items-center gap-1.5 shrink-0')
@@ -887,10 +1025,10 @@ export const createEditorApp = ({
   ]
   const mapSwitcher = el('div', 'flex items-center gap-1')
   // 새 창/새로고침은 아이콘 버튼으로 — 의미는 title(툴팁)로 유지한다.
-  const popoutButton = el('button', 'w-[26px] h-[26px] flex items-center justify-center rounded-lg bg-[#2d2d30] border border-[#d9a85c]/22 text-[13px] leading-none text-[#9d9d9d] transition hover:bg-[#333333] hover:text-[#ead8b6]', '↗') as HTMLButtonElement
+  const popoutButton = el('button', 'w-[26px] h-[26px] flex items-center justify-center rounded-lg bg-[#2d2d30] border border-[#3c3c3c] text-[13px] leading-none text-[#9d9d9d] transition hover:bg-[#333333] hover:text-[#d4d7dc]', '↗') as HTMLButtonElement
   popoutButton.type = 'button'
   popoutButton.title = '새 창에서 열기'
-  const reloadButton = el('button', 'w-[26px] h-[26px] flex items-center justify-center rounded-lg bg-[#2d2d30] border border-[#d9a85c]/22 text-[13px] leading-none text-[#9d9d9d] transition hover:bg-[#333333] hover:text-[#ead8b6]', '↻') as HTMLButtonElement
+  const reloadButton = el('button', 'w-[26px] h-[26px] flex items-center justify-center rounded-lg bg-[#2d2d30] border border-[#3c3c3c] text-[13px] leading-none text-[#9d9d9d] transition hover:bg-[#333333] hover:text-[#d4d7dc]', '↻') as HTMLButtonElement
   reloadButton.type = 'button'
   reloadButton.title = '게임 새로고침'
   previewActions.append(mapSwitcher, popoutButton, reloadButton)
@@ -920,11 +1058,34 @@ export const createEditorApp = ({
   // 띄우고, iframe load 이벤트에서 지운다.
   const previewLoading = el(
     'div',
-    'absolute inset-0 z-10 flex items-center justify-center text-[13px] text-[#ead8b6] bg-[#181818]/85 pointer-events-none',
-    '🎮 게임 로딩 중…'
+    'absolute inset-0 z-10 flex items-center justify-center text-[13px] text-[#d4d7dc] bg-[#181818]/85 pointer-events-none',
+    '게임 로딩 중…'
   )
   previewLoading.style.display = 'none'
   previewStage.append(previewLoading)
+  // 선택 네임플레이트 — 게임 화면 위에 "지금 무엇을 편집 중인지"를 항상 띄운다(게임 내부를 건드리지 않는
+  // 안전한 방식). 게임 안 엔티티 자체에 아웃라인을 그리려면 게임 렌더링/메시지 프로토콜 변경이 필요하다.
+  const selectionNameplate = el(
+    'div',
+    'absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full px-3 py-1 bg-[#1a1a1a]/85 border border-[#6b6f76] text-[11px] leading-none text-[#e6e6e6] pointer-events-none transition-opacity duration-150'
+  )
+  const selectionNameplateLabel = el('span', 'truncate max-w-[220px]')
+  selectionNameplate.append(
+    el('span', 'shrink-0 w-1.5 h-1.5 rounded-full bg-[#8fc96a]'),
+    el('span', 'shrink-0 text-[#9d9d9d]', 'Editing'),
+    selectionNameplateLabel
+  )
+  selectionNameplate.style.display = 'none'
+  previewStage.append(selectionNameplate)
+  const updateSelectionNameplate = (): void => {
+    if (selectedEntity) {
+      selectionNameplate.style.display = ''
+      selectionNameplateLabel.textContent =
+        `${selectedEntity.name} · ${KIND_LABEL[groupKindOf(selectedEntity.kind)] ?? selectedEntity.kind}`
+    } else {
+      selectionNameplate.style.display = 'none'
+    }
+  }
   // 표시 전용: 스테이지 크기가 바뀔 때마다 iframe을 16:9 비율의 cover 크기로 다시 맞춘다.
   // TOP_TRIM: 마을 맵 위쪽의 빈 어두운 띠가 헤더 아래에 보이지 않도록, 게임 창을 살짝 키워
   // 그만큼을 위에서 잘라낸다(바닥 정렬이라 잘리는 쪽은 항상 위). 캐릭터·카메라는 그대로다.
@@ -1005,7 +1166,7 @@ export const createEditorApp = ({
   }
   renderMapSwitcher()
   // 진행 단계 바 — RPG 퀘스트 진행도처럼 ①~⑤ 번호 캡슐 + 화살표.
-  const FLOW_STEPS = ['선택', '작성', '생성', '확인', '적용']
+  const FLOW_STEPS = ['Select', 'Request', 'Generate', 'Review', 'Apply']
   const stepBar = el('div', 'flex flex-wrap items-center gap-1.5')
   const stepPills = FLOW_STEPS.map((label, index) => {
     const pill = el('span', STEP_PILL)
@@ -1018,7 +1179,7 @@ export const createEditorApp = ({
   const stepArrows: HTMLElement[] = []
   stepPills.forEach(({ pill }, index) => {
     if (index > 0) {
-      const arrow = el('span', 'text-[11px] text-[#d9a85c]/28 transition', '→')
+      const arrow = el('span', 'text-[11px] text-[#b6bac1]/28 transition', '→')
       stepArrows.push(arrow)
       stepBar.append(arrow)
     }
@@ -1045,21 +1206,22 @@ export const createEditorApp = ({
       const isActive = index === activeStep
       pill.className = isActive ? STEP_PILL_ACTIVE : isDone ? STEP_PILL_DONE : STEP_PILL
       num.className = isActive ? STEP_NUM_ACTIVE : isDone ? STEP_NUM_DONE : STEP_NUM
-      num.textContent = isDone ? '✓' : String(index + 1)
+      // 완료 ✓ · 현재 ● · 미완료 ○ — 숫자 대신 상태 글리프로 "지금 어디"가 한눈에.
+      num.textContent = isDone ? '✓' : isActive ? '●' : '○'
       text.className = isActive ? STEP_TEXT_ACTIVE : isDone ? STEP_TEXT_DONE : STEP_TEXT
       text.textContent =
         isActive && index === 2 && isGenerating
-          ? '생성 중...'
+          ? 'Generating…'
           : isDone && index === 4
-            ? '적용 완료'
+            ? 'Applied'
             : FLOW_STEPS[index] ?? ''
     })
     // 연결선 진행색: i번째 화살표는 i단계가 완료됐을 때 금색이 된다.
     stepArrows.forEach((arrow, index) => {
       arrow.className =
         index < activeStep
-          ? 'text-[11px] text-[#d9a85c] transition'
-          : 'text-[11px] text-[#d9a85c]/28 transition'
+          ? 'text-[11px] text-[#b6bac1] transition'
+          : 'text-[11px] text-[#b6bac1]/28 transition'
     })
   }
   preview.append(previewBar, previewStage)
@@ -1078,7 +1240,7 @@ export const createEditorApp = ({
   const composerTitleRow = el('div', 'flex items-center gap-2')
   composerTitleRow.append(
     editorIcon('scroll', 20),
-    el('span', 'text-[18px] font-semibold leading-none text-[#f3d7a2]', '마을 의뢰서')
+    el('span', 'text-[18px] font-semibold leading-none text-[#d4d7dc]', '퀘스트 의뢰서')
   )
   composerTitle.append(
     composerTitleRow,
@@ -1108,7 +1270,7 @@ export const createEditorApp = ({
         node.textContent = step.done
       } else if (index === current) {
         // 현재 단계만 금색 알약으로 또렷하게.
-        node.className = 'text-[11px] leading-none text-white bg-[#d09a4c] rounded-full px-2 py-1'
+        node.className = 'text-[11px] leading-none text-white bg-[#b6bac1] rounded-full px-2 py-1'
         node.textContent = step.doing
       } else {
         node.className = 'text-[11px] text-[#9d9d9d] opacity-40'
@@ -1133,18 +1295,27 @@ export const createEditorApp = ({
     // settings-game-font: 왼쪽 패널·컴포저와 같은 둥근 픽셀 폰트로 통일.
     'settings-game-font [grid-area:side] rounded-xl box-grad-border [--bgb:#252526] text-[#d4d4d4] min-w-0 min-h-0 overflow-y-auto p-3.5 flex flex-col gap-3'
   )
-  const sideTitle = el('div', 'flex items-center gap-2 text-[15px] font-semibold text-[#e6e6e6] pb-2 border-b border-[#d5a14f]/30')
+  const sideTitle = el('div', 'flex items-center gap-2 text-[15px] font-semibold text-[#e6e6e6] pb-2 border-b border-[#b6bac1]/30')
   sideTitle.append(el('span', '', '결과 보드'))
   // 결과가 없을 때만 보이는 작은 안내문(큰 빈 카드 대신).
   const boardHint = el('div', 'text-[11px] text-[#777777]', '생성 결과와 검증 상태를 확인하세요.')
   // 검증 표시(render()가 갱신)는 검증 섹션 본문 안에 산다. 검증 전엔 대기 한 줄.
   const validationEmpty = el('div', 'text-[12px] text-[#9d9d9d]', '대기 중')
   verifyView.body.append(validationEmpty, validationLine, dryRunBox)
+  // 마지막 생성 시각(상대 시간) — 파이프라인이 "방금 돌았다"는 신호. 생성 전엔 숨김.
+  const lastGeneratedLine = el('div', 'flex items-center justify-between gap-2 px-0.5 text-[10px] leading-none')
+  const lastGeneratedValue = el('span', 'tabular-nums font-medium text-[#b6bac1]', '—')
+  lastGeneratedLine.append(
+    el('span', 'text-[#777777]', 'Last Generated'),
+    lastGeneratedValue
+  )
+  lastGeneratedLine.hidden = true
   side.append(
     sideTitle,
     analysisPanel,
     boardHint,
     boardList,
+    lastGeneratedLine,
     todayCard,
     recentCard,
     boardDetail,
@@ -1164,10 +1335,10 @@ export const createEditorApp = ({
   const settingsTitle = el('div', 'flex items-center justify-center gap-2.5 pb-3 border-b border-[#5a5a61]')
   settingsTitle.append(
     editorIcon('gear', 26),
-    el('span', 'text-[27px] leading-none tracking-wide text-[#e6e6e6]', '공방 설정')
+    el('span', 'text-[27px] leading-none tracking-wide text-[#e6e6e6]', '프로젝트 설정')
   )
   // 우측 상단 원형 닫기 버튼 — 기본은 연회색, hover 시 VSCode 닫기 레드.
-  const settingsClose = el('button', 'absolute top-3.5 right-3.5 w-9 h-9 rounded-full bg-[#4a4a50] text-[#d9d9d9] text-base font-semibold leading-none border border-[#5e5e66] transition hover:bg-[#c42b1c] hover:text-white hover:-translate-y-0.5 active:translate-y-0', '✕') as HTMLButtonElement
+  const settingsClose = el('button', 'absolute top-3.5 right-3.5 w-9 h-9 rounded-full bg-[#4a4a50] text-[#b6bac1] text-base font-semibold leading-none border border-[#5e5e66] transition hover:bg-[#c42b1c] hover:text-white hover:-translate-y-0.5 active:translate-y-0', '✕') as HTMLButtonElement
   settingsClose.type = 'button'
   const modelSection = el('div', SETTINGS_SECTION)
   modelSection.append(modelField)
@@ -1208,7 +1379,7 @@ export const createEditorApp = ({
   })
 
   // 진행 단계 스트립 — 헤더 바로 아래 한 줄(퀘스트 진행 UI, 화살표 없음).
-  const stepStrip = el('div', 'settings-game-font select-none shrink-0 flex px-4 py-1 border-b border-[#d9a85c]/22 bg-[#252526]')
+  const stepStrip = el('div', 'settings-game-font select-none shrink-0 flex px-4 py-1 border-b border-[#b6bac1]/22 bg-[#252526]')
   stepStrip.append(stepBar)
   root.append(header, stepStrip, body, settingsBackdrop)
   mountElement.append(root)
@@ -1234,7 +1405,7 @@ export const createEditorApp = ({
     analysisPanel.hidden = false
     const analysis = currentAnalysis
     analysisPanel.replaceChildren(
-      el('div', 'text-[11px] font-semibold tracking-wide text-[#c48a4a]', 'LLM 게임 분석'),
+      el('div', 'text-[11px] font-semibold tracking-wide text-[#b6bac1]', 'LLM 게임 분석'),
       el('div', 'text-sm text-[#d4d4d4] font-medium', `${analysis.game_name} · ${analysis.engine}`),
       el('div', 'text-xs text-[#9d9d9d]', `콘텐츠 모델: ${analysis.content_model}`),
       el('div', 'text-xs text-[#9d9d9d]', `적용 전략: ${analysis.apply_strategy}`),
@@ -1373,14 +1544,10 @@ export const createEditorApp = ({
         (a, b) => (a[0] === 'npc' ? 0 : 1) - (b[0] === 'npc' ? 0 : 1)
       )
 
-      // 어떤 엔티티를 생성 대상으로 고를 수 있나: 타일 군집(보기 전용 구조물)은 제외하고,
-      // rpg는 대화 NPC만(profile.npcs 큐레이션과 일치), 그 외 게임(legend-of-lua·분석된 게임)은
-      // 어댑터/분석이 찾은 모든 엔티티가 공용 대사 생성의 대상이다.
-      const isSelectableEntity = (entity: GameEntity): boolean =>
-        !isTileClusterEntity(entity) &&
-        (game.adapter.id === 'my-sample-rpg'
-          ? groupKindOf(entity.kind) === 'npc'
-          : true)
+      // 모든 요소를 펼쳐 고를 수 있게 한다 — 오브젝트(NPC·포털·건물·표지판·몬스터·상자…)와
+      // 타일로 그린 구조물(깃발·벽·나무·분수·가로등…)까지. 어느 카테고리(환경/장식물/건축물)든
+      // 카드를 누르면 목록이 펼쳐지고 개별 선택된다. (대화 생성의 큐레이션은 profile.npcs가 따로 관리한다.)
+      const isSelectableEntity = (_entity: GameEntity): boolean => true
 
       const selectableCount = visibleEntities.filter(isSelectableEntity).length
       // 종류별 "아이콘 카드" 2열 그리드 — 파일 탐색기식 세로 리스트 대신 게임 건설 메뉴처럼.
@@ -1403,10 +1570,10 @@ export const createEditorApp = ({
         }
         // 그룹 제목 — 작고 은은한 금색 라벨 + 얇은 구분선. 클릭하면 접기/펼치기(검색 중엔 항상 펼침).
         const categoryCollapsed = query.length === 0 && collapsedCategories.has(category)
-        const categoryHeader = el('button', 'w-full flex items-center gap-1.5 mt-1 px-1 py-1 text-left text-[13px] leading-none tracking-[0.5px] text-[#d9a85c] border-y border-[#d9a85c]/20 transition hover:text-[#f3d7a2]') as HTMLButtonElement
+        const categoryHeader = el('button', 'w-full flex items-center gap-1.5 mt-1 px-1 py-1 text-left text-[13px] leading-none tracking-[0.5px] text-[#b6bac1] border-y border-[#b6bac1]/20 transition hover:text-[#d4d7dc]') as HTMLButtonElement
         categoryHeader.type = 'button'
         categoryHeader.append(
-          el('span', 'text-[10px] leading-none text-[#c9a96b]', categoryCollapsed ? '▸' : '▾'),
+          el('span', 'text-[10px] leading-none text-[#b6bac1]', categoryCollapsed ? '▸' : '▾'),
           el('span', '', category)
         )
         categoryHeader.addEventListener('click', () => {
@@ -1458,7 +1625,7 @@ export const createEditorApp = ({
         // NPC는 가장 중요한 에셋 — '8명 존재'처럼 조금 더 살아있는 표현.
         const countText = kind === 'npc' ? `${entities.length}명 존재` : `${entities.length}${countUnit}`
         card.append(
-          editorIcon(KIND_ICON[kind] ?? 'prop', 44),
+          editorIcon(KIND_ICON[kind] ?? 'prop', 30),
           cardLabel,
           el('div', 'whitespace-nowrap text-[10px] leading-none text-[#777777]', countText)
         )
@@ -1484,7 +1651,7 @@ export const createEditorApp = ({
 
         // 펼친 종류의 구성원 선택 그리드 — 카드 바로 아래 한 줄 전체를 쓴다(인벤토리 상세 칸 느낌).
         if (expanded) {
-          const memberGrid = el('div', 'col-span-2 grid grid-cols-2 gap-1.5 rounded-lg border border-[#c98a3a]/25 bg-[#252526] p-1.5')
+          const memberGrid = el('div', 'col-span-2 grid grid-cols-2 gap-1.5 rounded-lg border border-[#b6bac1]/25 bg-[#252526] p-1.5')
           for (const entity of selectable) {
             const node = el('button', entity === selectedEntity ? ENTITY_ACTIVE : ENTITY_BASE) as HTMLButtonElement
             node.type = 'button'
@@ -1497,6 +1664,9 @@ export const createEditorApp = ({
               el('span', 'truncate', displayNameOf(entity.name))
             )
             node.addEventListener('click', () => {
+              if (selectedEntity !== entity) {
+                logActivity(`${displayNameOf(entity.name)} 선택`)
+              }
               selectedEntity = entity
               // 대상을 바꾸면 이전 생성 결과는 무효 — 새로 생성하게 한다.
               currentResult = undefined
@@ -1557,7 +1727,7 @@ export const createEditorApp = ({
         const node = el(
           'button',
           active
-            ? 'truncate text-left rounded-md px-2.5 py-1.5 text-xs bg-[#c48a4a]/15 text-[#e2bd8c] ring-1 ring-inset ring-[#c48a4a]/40 transition'
+            ? 'truncate text-left rounded-md px-2.5 py-1.5 text-xs bg-[#b6bac1]/15 text-[#b6bac1] ring-1 ring-inset ring-[#b6bac1]/40 transition'
             : 'truncate text-left rounded-md px-2.5 py-1.5 text-xs text-[#9d9d9d] transition hover:bg-[#302a26] hover:text-[#d4d4d4]'
         ) as HTMLButtonElement
         node.type = 'button'
@@ -1647,7 +1817,7 @@ export const createEditorApp = ({
   }
 
   function render(): void {
-    gameLabel.textContent = game.adapter.name
+    updateHeaderMeta()
 
     if (game.adapter.applyMode !== 'none') {
       supportNote.hidden = true
@@ -1659,7 +1829,7 @@ export const createEditorApp = ({
     // 엔티티 이름/맵은 열린 TMX에서 온 임의 값이므로 textContent로만 넣는다(주입/깨짐 방지).
     if (selectedEntity) {
       // 선택됨: '선택 대상 / OO 선택됨' 카드 — 금색 테두리 + 은은한 발광 + 페이드 전환.
-      const selectedCard = el('span', 'fade-in inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-[#b78446]/15 border border-[#d5a14f] shadow-[0_0_8px_rgba(213,161,79,0.25)] max-w-full')
+      const selectedCard = el('span', 'fade-in inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-[#34363a]/15 border border-[#b6bac1] shadow-[0_0_8px_rgba(213,161,79,0.25)] max-w-full')
       const selectedText = el('span', 'flex flex-col gap-1 min-w-0')
       selectedText.append(
         el('span', 'text-[10px] leading-none text-[#9d9d9d]', '선택 대상'),
@@ -1672,7 +1842,7 @@ export const createEditorApp = ({
       targetLine.replaceChildren(selectedCard)
     } else {
       // 선택 전: 오류처럼 보이지 않게 흐린 회색 안내 톤("대상 선택 필요").
-      const emptyCardBadge = el('span', 'fade-in inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-[#2d2d30]/70 border border-[#d9a85c]/20 opacity-80')
+      const emptyCardBadge = el('span', 'fade-in inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-[#2d2d30]/70 border border-[#b6bac1]/20 opacity-80')
       emptyCardBadge.append(
         editorIcon('target', 16),
         el('span', 'text-[12px] leading-none text-[#9d9d9d]', '대상 선택 필요')
@@ -1739,86 +1909,132 @@ export const createEditorApp = ({
       dryRunBox.hidden = true
     }
 
-    generateLabel.textContent = isGenerating ? '✨ 생성 중...' : '✨ 이야기 생성'
-    generateButton.disabled =
-      isGenerating || apiKey.trim().length === 0 || promptInput.value.trim().length === 0
-    // 단일 흐름: 검증(issues)이 적용을 막지 않는다(기존 동작 유지). 퀘스트 모드에서는 무결성
-    // 검증(드라이런)이 통과해야만 적용을 허용한다 — 사용자가 정한 "검증 통과 시 라이브 적용".
-    applyButton.disabled =
-      isGenerating ||
-      !currentResult?.apply ||
-      (candidateMode && currentDryRun?.ok !== true)
-    copyButton.disabled = !currentResult || isGenerating
-    exportButton.disabled = !currentResult || isGenerating
+    generateLabel.textContent = isGenerating ? '만드는 중...' : '만들기'
+    // 버튼은 생성 중일 때만 잠근다 — 나머지(키·요청 등)는 클릭 시 runGenerate가 친절한 메시지로 안내한다.
+    // "왜 못 누르지?" 대신 "눌렀더니 뭘 해야 하는지 알려준다"로(되게 눌러지게).
+    generateButton.disabled = isGenerating
+    // 비활성 이유를 툴팁으로 — "왜 못 누르지?"를 절대 헷갈리지 않게(없으면 다음 단계 안내).
+    generateButton.title = isGenerating
+      ? '생성 중입니다…'
+      : apiKey.trim().length === 0
+        ? 'API 키를 먼저 입력하세요 (오른쪽 위 설정)'
+        : promptInput.value.trim().length === 0
+          ? '요청 내용을 입력하세요'
+          : !selectedEntity
+            ? '바로 생성할 수 있습니다 — 대상 객체를 고르면 더 정확합니다'
+            : '콘텐츠 생성'
+    // 적용 버튼도 생성 중일 때만 잠근다 — 결과 없음/검증 전이면 클릭 시 runApply가 메시지로 안내한다.
+    applyButton.disabled = isGenerating
+    // 적용 버튼도 단계별 이유를 명시 — 생성 전/검증 전/지원 안 됨/적용 가능.
+    applyButton.title = isGenerating
+      ? '생성 중입니다…'
+      : !currentResult
+        ? '먼저 콘텐츠를 생성하세요'
+        : !currentResult.apply
+          ? '이 결과는 라이브 적용을 지원하지 않습니다'
+          : candidateMode && currentDryRun?.ok !== true
+            ? '무결성 검증을 통과해야 적용할 수 있습니다'
+            : '게임에 적용'
+    // 복사·내보내기도 생성 중일 때만 잠근다 — 결과 없으면 클릭 시 메시지로 안내(되게 눌러지게).
+    copyButton.disabled = isGenerating
+    exportButton.disabled = isGenerating
+    copyButton.title = currentResult ? '결과 JSON 복사' : '먼저 콘텐츠를 생성하세요'
+    exportButton.title = currentResult ? '결과를 .json 파일로 내보내기' : '먼저 콘텐츠를 생성하세요'
     // 결과 보드 채우기(표시 전용): 목록 4줄은 항상 보이고, 상세 창 내용만 갱신된다.
     // 목록 카드 우측 상태 배지(캡슐) — 색으로 상태가 한눈에 들어온다.
-    const BADGE = 'h-[20px] flex items-center rounded-full px-2 text-[10px] font-semibold leading-none whitespace-nowrap bg-[#333333]'
+    const BADGE = 'h-[20px] flex items-center gap-1.5 rounded-full px-2 text-[10px] font-semibold leading-none whitespace-nowrap bg-[#333333]'
+    // 상태 톤 — 좁은 다크 테마에서 색만으로 빠르게 읽히게: 성공=초록·대기=앰버·오류=빨강·유휴=회색.
+    // 작은 색 도트 + 같은 톤 텍스트. 화려한 색/글로우 없이 의미만 전달한다.
+    const STATUS_TONE = {
+      green: { dot: 'bg-[#6cbf5a]', text: 'text-[#8fc96a]' },
+      amber: { dot: 'bg-[#c0973f]', text: 'text-[#d9a64f]' },
+      red: { dot: 'bg-[#d06c6c]', text: 'text-[#e06c6c]' },
+      gray: { dot: 'bg-[#6b6f76]', text: 'text-[#9d9d9d]' },
+      neutral: { dot: 'bg-[#8a8e95]', text: 'text-[#d4d7dc]' }
+    } as const
+    const setStatusPill = (
+      status: HTMLElement,
+      text: string,
+      tone: keyof typeof STATUS_TONE,
+      pulse = false
+    ): void => {
+      const t = STATUS_TONE[tone]
+      status.className = `${BADGE} ${t.text}`
+      status.replaceChildren(
+        el('span', `shrink-0 w-1.5 h-1.5 rounded-full ${t.dot}${pulse ? ' status-pulse' : ''}`),
+        el('span', '', text)
+      )
+    }
     const appliedNow = currentResult !== undefined && appliedResults.has(currentResult)
     for (const { id, status } of boardRows) {
+      // 생성 중에는 보드 전체가 "지금 작동 중"으로 — 깜빡이는 도트로 시스템이 살아있음을 알린다.
+      if (isGenerating) {
+        if (id === 'lua') {
+          setStatusPill(status, 'Generating…', 'amber', true)
+        } else if (id === 'files') {
+          setStatusPill(status, '—', 'gray')
+        } else if (id === 'verify') {
+          setStatusPill(status, 'Validating…', 'amber', true)
+        } else {
+          setStatusPill(status, 'Pending', 'gray')
+        }
+        continue
+      }
       if (id === 'lua') {
-        status.textContent = currentResult ? 'Completed' : 'Ready'
-        status.className = `${BADGE} ${currentResult ? 'text-[#8fc96a]' : 'text-[#d9a85c]'}`
+        setStatusPill(status, currentResult ? 'Completed' : 'Ready', currentResult ? 'green' : 'gray')
       } else if (id === 'files') {
-        status.textContent = currentResult ? '1개' : '0개'
-        status.className = `${BADGE} ${currentResult ? 'text-[#e8d5a5]' : 'text-[#9d9d9d]'}`
+        setStatusPill(status, currentResult ? '1개' : '0개', currentResult ? 'neutral' : 'gray')
       } else if (id === 'verify') {
         // 퀘스트 모드면 드라이런 통과/실패를 우선 표시, 아니면 기존 자동 검증 배지.
         if (currentDryRun) {
-          status.textContent = currentDryRun.ok ? '검증 통과' : '검증 실패'
-          status.className = `${BADGE} ${currentDryRun.ok ? 'text-[#8fc96a]' : 'text-[#e06c6c]'}`
+          setStatusPill(status, currentDryRun.ok ? '검증 통과' : '검증 실패', currentDryRun.ok ? 'green' : 'red')
+        } else if (!currentResult) {
+          setStatusPill(status, '0 Errors', 'gray')
+        } else if (currentResult.issues.length === 0) {
+          setStatusPill(status, 'Passed', 'green')
         } else {
-          status.textContent = !currentResult
-            ? '0 Errors'
-            : currentResult.issues.length === 0
-              ? 'Passed'
-              : `${currentResult.issues.length} Issues`
-          status.className = !currentResult
-            ? `${BADGE} text-[#9d9d9d]`
-            : currentResult.issues.length === 0
-              ? `${BADGE} text-[#8fc96a]`
-              : `${BADGE} text-[#d9a64f]`
+          setStatusPill(status, `${currentResult.issues.length} Issues`, 'amber')
         }
       } else {
-        status.textContent = !currentResult ? 'Ready' : appliedNow ? '적용 완료' : '적용 전'
-        status.className = appliedNow ? `${BADGE} text-[#8fc96a]` : `${BADGE} text-[#9d9d9d]`
+        setStatusPill(
+          status,
+          !currentResult ? 'Ready' : appliedNow ? '적용 완료' : '적용 전',
+          appliedNow ? 'green' : !currentResult ? 'gray' : 'amber'
+        )
       }
     }
     // 빈 상태의 '오늘 작업' 요약(이번 세션 집계) + 최근 작업 목록.
     statGen.textContent = String(sessionTally.generations)
     statPass.textContent = String(sessionTally.validatorPasses)
     statApply.textContent = String(appliedCount)
-    // 최근 작업 목록(표시 전용) — '작업명 ── 시간' 한 줄. 시간은 처음 표시된 시각을 기억한다.
+    // 작업 로그(표시 전용) — 실제 history를 타임라인으로. 각 결과의 첫 등장 시각(Date)을 기억해
+    // 타임라인은 절대 시각(HH:MM), 'Last Generated'는 상대 시각으로 보여준다. 빈 상태는 가짜 샘플 대신
+    // 정직한 안내. newest = history[0](생성 시 맨 앞에 prepend됨).
+    // Last Generated — 생성 history 기준 상대 시각(생성 결과의 첫 등장 시각을 기억).
     if (history.length === 0) {
-      // 발표용 세션 샘플 — 실제 기록이 생기면 아래 분기로 대체된다(저장 기능 아님, 표시 전용).
-      const SAMPLE_RECENT = [
-        { label: 'NPC 대사 생성', time: '11:24' },
-        { label: '건물 스타일 변경', time: '11:19' },
-        { label: '포털 생성', time: '11:12' }
-      ]
+      lastGeneratedLine.hidden = true
+    } else {
+      let newest = resultTimes.get(history[0].result)
+      if (newest === undefined) {
+        newest = new Date()
+        resultTimes.set(history[0].result, newest)
+      }
+      lastGeneratedLine.hidden = false
+      lastGeneratedValue.textContent = formatRelativeTime(newest)
+    }
+    // 액티비티 피드 — 선택·생성·검증·적용 이벤트를 시간순으로(최신이 위). 비면 정직한 안내.
+    if (activityLog.length === 0) {
       recentList.replaceChildren(
-        ...SAMPLE_RECENT.map((sample) => {
-          // 시간 → 작업명 순서: 실제 작업 로그처럼 읽힌다.
-          const rowItem = el('div', 'flex items-center gap-2')
-          rowItem.append(
-            el('span', 'shrink-0 text-[10px] leading-none tabular-nums text-[#d9a85c]/80', sample.time),
-            el('span', 'truncate text-[11px] leading-none text-[#9d9d9d]', sample.label)
-          )
-          return rowItem
-        })
+        el('div', 'py-0.5 text-[11px] leading-none text-[#777777] opacity-70', '아직 활동 기록이 없습니다')
       )
     } else {
       recentList.replaceChildren(
-        ...history.slice(0, 3).map((entry) => {
-          let timeLabel = resultTimes.get(entry.result)
-          if (timeLabel === undefined) {
-            const now = new Date()
-            timeLabel = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-            resultTimes.set(entry.result, timeLabel)
-          }
+        ...activityLog.slice(0, 12).map((entry) => {
           const rowItem = el('div', 'flex items-center gap-2')
           rowItem.append(
-            el('span', 'shrink-0 text-[10px] leading-none tabular-nums text-[#d9a85c]/80', timeLabel),
-            el('span', 'truncate text-[11px] leading-none text-[#9d9d9d]', entry.result.label)
+            el('span', 'shrink-0 w-1.5 h-1.5 rounded-full bg-[#b6bac1]/80'),
+            el('span', 'shrink-0 text-[10px] leading-none tabular-nums text-[#b6bac1]/80', formatClock(entry.time)),
+            el('span', 'truncate text-[11px] leading-none text-[#9d9d9d]', entry.text)
           )
           return rowItem
         })
@@ -1855,6 +2071,7 @@ export const createEditorApp = ({
     updateComposerSteps()
     updatePreviewStats()
     updateSummary()
+    updateSelectionNameplate()
     updateSceneTabs()
     updateStepBar()
     renderEvaluation()
@@ -1863,9 +2080,9 @@ export const createEditorApp = ({
 
   // ---------- 퀘스트 모드: 1단계 후보 ↔ 2단계 후보로 생성 + 드라이런 검증 ----------
   const CANDIDATE_CARD =
-    'w-full flex flex-col gap-1 rounded-xl border border-[#d9a85c]/22 bg-[#2d2d30] px-3 py-2.5 text-left transition hover:border-[#d9a85c]/70 hover:bg-[#333333]'
+    'w-full flex flex-col gap-1 rounded-xl border border-[#b6bac1]/22 bg-[#2d2d30] px-3 py-2.5 text-left transition hover:border-[#b6bac1]/70 hover:bg-[#333333]'
   const CANDIDATE_CARD_ACTIVE =
-    'w-full flex flex-col gap-1 rounded-xl border border-[#e7b15a] bg-[#3a2416] px-3 py-2.5 text-left shadow-[0_0_10px_rgba(217,168,92,0.3)]'
+    'w-full flex flex-col gap-1 rounded-xl border border-[#b6bac1] bg-[#34363a] px-3 py-2.5 text-left shadow-[0_0_10px_rgba(255,255,255,0.3)]'
 
   // 1단계: 자연어 후보 N개 생성(피드백이 있으면 재생성). 결과 보드의 '퀘스트 후보' 상세에 카드로 뜬다.
   const runGenerateCandidates = async (
@@ -1997,7 +2214,7 @@ export const createEditorApp = ({
         el(
           'div',
           'text-[12px] text-[#9d9d9d]',
-          isGenerating ? '후보 생성 중...' : '후보가 없습니다. "이야기 생성"으로 후보를 만드세요.'
+          isGenerating ? '후보 생성 중...' : '후보가 없습니다. "만들기"로 후보를 만드세요.'
         )
       )
       return
@@ -2006,11 +2223,11 @@ export const createEditorApp = ({
       const selected = index === selectedCandidateIndex
       const card = el('div', selected ? CANDIDATE_CARD_ACTIVE : CANDIDATE_CARD)
       const header = el('div', 'flex items-center gap-2')
-      const titleEl = el('div', 'flex-1 text-[13px] font-semibold text-[#e8d5a5] truncate')
+      const titleEl = el('div', 'flex-1 text-[13px] font-semibold text-[#d4d7dc] truncate')
       titleEl.textContent = candidate.title || `후보 ${index + 1}`
       const editBtn = el(
         'button',
-        'shrink-0 text-[11px] text-[#9d9d9d] transition hover:text-[#e8d5a5]',
+        'shrink-0 text-[11px] text-[#9d9d9d] transition hover:text-[#d4d7dc]',
         editingCandidateIndex === index ? '완료' : '수정'
       ) as HTMLButtonElement
       editBtn.type = 'button'
@@ -2043,7 +2260,7 @@ export const createEditorApp = ({
       if (candidate.target_hint) {
         const chip = el(
           'span',
-          'self-start rounded-full px-2 py-0.5 text-[10px] leading-none text-[#d5b87a] bg-[#dca14b]/10 border border-[#dca14b]/25'
+          'self-start rounded-full px-2 py-0.5 text-[10px] leading-none text-[#b6bac1] bg-[#b6bac1]/10 border border-[#b6bac1]/25'
         )
         chip.textContent = `대상: ${candidate.target_hint}`
         card.append(chip)
@@ -2094,7 +2311,7 @@ export const createEditorApp = ({
     // 이 결과를 새 게임에 섞으면 안 된다(히스토리/집계 오염 + 옛 게임에 묶인 apply() 클로저). 시작 시점의
     // 프로젝트 정체성을 캡처해 커밋 전에 검사한다(runAnalyze의 filesAtStart 가드와 동일).
     const filesAtStart = currentFiles
-    setStatus(`${game.adapter.name}로 생성 중...`)
+    setStatus('Lua 스크립트 생성 중…')
     render()
 
     try {
@@ -2119,13 +2336,21 @@ export const createEditorApp = ({
         generations: sessionTally.generations + 1,
         validatorPasses: sessionTally.validatorPasses + (result.issues.length === 0 ? 1 : 0)
       }
-      setStatus(`생성 완료: ${result.label}`)
+      // 액티비티 피드: 생성 → 검증 순으로 기록(최신이 위라 검증이 생성 위에 쌓인다).
+      logActivity(`"${result.label}" 생성`)
+      logActivity(
+        result.issues.length === 0 ? '검증 통과' : `검증 ${result.issues.length}건 확인 필요`
+      )
+      setStatus(
+        `생성 완료 · ${result.issues.length === 0 ? '검증 통과' : `검증 ${result.issues.length}건 확인 필요`} — ${result.label}`
+      )
     } catch (error) {
       // 프로젝트가 바뀐 뒤 도착한 실패는 새 게임의 상태를 건드리지 않는다.
       if (currentFiles !== filesAtStart) {
         return
       }
       const message = error instanceof Error ? error.message : String(error)
+      logActivity('생성 실패 — 요청을 수정해 다시 시도하세요')
       setStatus(`생성 실패: ${message}`)
     } finally {
       // isGenerating은 이 호출이 소유하므로 항상 해제하고 다시 그린다. 프로젝트가 바뀌었어도 render()는
@@ -2136,25 +2361,45 @@ export const createEditorApp = ({
   }
 
   const runApply = (): void => {
-    if (!currentResult?.apply) {
+    // 버튼이 항상 눌러지므로(생성 중 제외), 여기서 단계별로 친절히 안내한다.
+    if (isGenerating) {
+      return
+    }
+    if (!currentResult) {
+      setStatus('먼저 콘텐츠를 생성한 뒤 적용할 수 있습니다.')
+      return
+    }
+    if (candidateMode && currentDryRun?.ok !== true) {
+      setStatus('무결성 검증을 통과해야 게임에 적용할 수 있습니다.')
+      return
+    }
+    if (!currentResult.apply) {
+      setStatus('이 결과는 라이브 적용을 지원하지 않습니다 (미리보기로 확인하세요).')
       return
     }
 
     // apply()는 localStorage 저장을 동반해 실패할 수 있다. 조용히 죽지 않고 상태로 알린다.
     try {
+      const appliedLabel = currentResult.label
       currentResult.apply()
       // 결과 보드 "적용 상태"·'오늘 작업' 갱신용 표시 전용 기록.
       appliedResults.add(currentResult)
       appliedCount += 1
+      logActivity(`게임에 적용 — ${appliedLabel}`)
       render()
       setStatus('게임에 적용됨 — 오른쪽 라이브 프리뷰에 즉시 반영됩니다.')
     } catch (error) {
+      logActivity('적용 실패')
       setStatus(`적용 실패: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
   const runCopy = async (): Promise<void> => {
+    if (isGenerating) {
+      return
+    }
     if (!currentResult) {
+      setStatus('복사할 결과가 없습니다 — 먼저 콘텐츠를 생성하세요.')
       return
     }
 
@@ -2175,7 +2420,11 @@ export const createEditorApp = ({
   }
 
   const runExport = (): void => {
+    if (isGenerating) {
+      return
+    }
     if (!currentResult) {
+      setStatus('내보낼 결과가 없습니다 — 먼저 콘텐츠를 생성하세요.')
       return
     }
 
@@ -2219,6 +2468,7 @@ export const createEditorApp = ({
       currentDryRun = undefined
       history = []
       historyCounter = 0
+      activityLog.length = 0
       sessionTally = { generations: 0, validatorPasses: 0 }
       // 그룹 펼침 상태도 프로젝트 단위 — 맵 id(tmx 파일명)가 프로젝트끼리 겹쳐서, 안 비우면
       // 이전 게임에서 펼친 상태가 새 게임 트리에 그대로 묻어 나온다.
@@ -2264,6 +2514,7 @@ export const createEditorApp = ({
     currentDryRun = undefined
     history = []
     historyCounter = 0
+    activityLog.length = 0
     sessionTally = { generations: 0, validatorPasses: 0 }
     expandedGroups.clear()
     renderTree()
@@ -2380,10 +2631,12 @@ export const createEditorApp = ({
   generateButton.addEventListener('click', () => {
     void runGenerate()
   })
-  // 프롬프트가 비면 생성 버튼도 비활성(눌러보고 실패하는 대신). 전체 re-render 없이 버튼만 갱신.
   promptInput.addEventListener('input', () => {
-    generateButton.disabled =
-      isGenerating || apiKey.trim().length === 0 || promptInput.value.trim().length === 0
+    // 생성 버튼은 생성 중일 때만 잠근다 — 키·요청은 클릭 시 runGenerate가 안내(되게 눌러지게).
+    generateButton.disabled = isGenerating
+    // 글자수 카운터 + 자동 높이 갱신.
+    promptCounter.textContent = `${promptInput.value.length}자`
+    autoSizePrompt()
     // 진행 상태(요청 작성 중 ↔ 생성 대기)도 입력에 따라 갱신(표시 전용).
     updateComposerSteps()
     updateStepBar()
@@ -2460,6 +2713,16 @@ export const createEditorApp = ({
   renderTree()
   renderAnalysis()
   render()
+  // 'Last Generated' 상대 시각이 상호작용 없이도 흐르도록 30초마다 갱신(표시 전용).
+  // 에디터는 페이지 수명 동안 한 번만 마운트되므로 별도 teardown 없이 둔다.
+  window.setInterval(() => {
+    if (history.length > 0) {
+      const newest = resultTimes.get(history[0].result)
+      if (newest) {
+        lastGeneratedValue.textContent = formatRelativeTime(newest)
+      }
+    }
+  }, 30_000)
   if (game.parseErrors.length > 0) {
     setStatus(`기본 맵 일부를 읽지 못했습니다${parseErrorNote()}`)
   }
