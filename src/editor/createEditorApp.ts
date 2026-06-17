@@ -1097,10 +1097,15 @@ export const createEditorApp = ({
   // iframe에 띄운다. 이전에 설정에서 저장한 웹빌드 URL(localStorage)이 있으면 그것을 우선한다.
   const WEB_BUILD_URL_STORAGE_KEY = 'my-sample-rpg:web-build-url'
   const previewSrcForGame = (): string => {
+    // 자체 love.js 웹빌드가 있는 게임(legend-of-lua)만 웹빌드 URL을 띄운다. 샘플(my-sample-rpg)처럼
+    // 웹빌드가 없는 게임은 저장된 web-build-url(과거 세션의 잔여 값일 수 있음)을 무시하고 기본 게임
+    // URL을 쓴다 — 안 그러면 stored 값이 샘플 프리뷰까지 덮어써 legend-of-lua가 뜬다.
+    const adapterWebBuild = (game.adapter.defaultWebBuildUrl ?? '').trim()
+    if (adapterWebBuild.length === 0) {
+      return gamePreviewUrl
+    }
     const stored = (readLocalStorage(WEB_BUILD_URL_STORAGE_KEY) ?? '').trim()
-    const webBuild =
-      stored.length > 0 ? stored : (game.adapter.defaultWebBuildUrl ?? '').trim()
-    return webBuild.length > 0 ? webBuild : gamePreviewUrl
+    return stored.length > 0 ? stored : adapterWebBuild
   }
   const previewStage = el('div', 'relative flex-1 min-h-0 flex items-center justify-center overflow-hidden bg-[#181818]')
   const iframe = el('iframe', 'shrink-0 border-0 bg-black') as HTMLIFrameElement
