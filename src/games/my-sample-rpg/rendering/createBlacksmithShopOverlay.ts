@@ -1,20 +1,20 @@
 import {
-  getPlayerEquipmentItemDefinitionById,
-  getPlayerEquipmentSlotLabelById,
   type PlayerEquipmentIconKey,
   type PlayerEquipmentSlotId
 } from '../playerEquipment'
-import { getPotionShopItemDefinitionById } from '../potionShop'
 import {
   buyBlacksmithShopItem,
   getBlacksmithShopBuyPriceById,
   getBlacksmithShopSellPriceById,
   sellBlacksmithShopItem
-} from '../blacksmithShop'
+} from '../lua/luaGameLogic'
 import {
   findFirstEmptyPlayerInventorySlotIndex,
-  getPlayerInventoryFilledSlotCount
-} from '../playerInventory'
+  getPlayerInventoryFilledSlotCount,
+  getPlayerEquipmentItemDefinitionById,
+  getPlayerEquipmentSlotLabelById,
+  getPotionShopItemDefinitionById
+} from '../lua/luaGameLogic'
 import type { PlayerInventory } from '../playerInventory'
 
 type CreateBlacksmithShopOverlayInput = {
@@ -28,6 +28,8 @@ type CreateBlacksmithShopOverlayInput = {
     nextPlayerInventory: PlayerInventory,
     nextMerchantInventory: PlayerInventory
   ) => void
+  // 매도가 규칙을 외부(Lua)에서 주입한다. 없으면 TS 기본 규칙으로 폴백.
+  getSellPriceById?: (itemId: string) => number | undefined
 }
 
 export type BlacksmithShopOverlay = {
@@ -333,7 +335,8 @@ export const createBlacksmithShopOverlay = ({
   getMerchantInventory,
   getIsOpen,
   onRequestOpenChange,
-  onRequestTradeStateChange
+  onRequestTradeStateChange,
+  getSellPriceById = getBlacksmithShopSellPriceById
 }: CreateBlacksmithShopOverlayInput): BlacksmithShopOverlay => {
   const overlayRoot = document.createElement('div')
   const backdropButton = document.createElement('button')
@@ -891,7 +894,7 @@ export const createBlacksmithShopOverlay = ({
       return true
     }
 
-    const price = getBlacksmithShopSellPriceById(renderDefinition.id)
+    const price = getSellPriceById(renderDefinition.id)
     const canSell = price !== undefined && counterInventory.gold >= price
 
     row.price.textContent = price !== undefined ? formatGoldAmount(price) : '--'
@@ -960,6 +963,28 @@ const renderPotionIcon = (
   scale: number
 ) => {
   setBackgroundFrame(element, POTION_ICON_FRAME_BY_ID[itemId], scale)
+}
+
+// 아이템 id만으로 아이콘을 그린다(퀘스트 대상 이미지 팝업 등에서 재사용). 성공 시 true.
+export const renderItemIconById = (
+  element: HTMLElement,
+  itemId: string,
+  scale: number
+): boolean => {
+  if (itemId in POTION_ICON_FRAME_BY_ID) {
+    renderPotionIcon(
+      element,
+      itemId as keyof typeof POTION_ICON_FRAME_BY_ID,
+      scale
+    )
+    return true
+  }
+  const definition = getPlayerEquipmentItemDefinitionById(itemId)
+  if (definition) {
+    renderEquipmentIcon(element, definition, scale)
+    return true
+  }
+  return false
 }
 
 const setGenericIcon = (element: HTMLElement) => {
