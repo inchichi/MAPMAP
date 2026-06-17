@@ -30,7 +30,7 @@ describe('loadGame', () => {
 
     expect(game.adapter.id).toBe('my-sample-rpg')
     expect(game.maps[0].entities).toEqual([
-      { id: 'blacksmith', name: '대장장이', kind: 'npc', mapId: 'town' }
+      { id: 'blacksmith', name: '대장장이', kind: 'npc', mapId: 'town', tileX: 0, tileY: 0 }
     ])
     expect(game.profile?.npcs.map((npc) => npc.id)).toEqual(['blacksmith'])
   })
@@ -87,7 +87,7 @@ describe('loadGame', () => {
     const game = loadGame([file('town.tmx', tiledTmx)])
 
     expect(game.maps[0].entities).toEqual([
-      { id: 'house', name: 'house', kind: 'building', mapId: 'town' },
+      { id: 'house', name: 'house', kind: 'building', mapId: 'town', tileX: 0, tileY: 0 },
       { id: 'tile:tree:0,1', name: '(0, 1)', kind: 'tree', mapId: 'town' }
     ])
   })
@@ -115,7 +115,7 @@ describe('loadGame', () => {
     ])
 
     expect(game.maps[0].entities).toEqual([
-      { id: 'greeter', name: 'greeter', kind: 'npc', mapId: 'town' },
+      { id: 'greeter', name: 'greeter', kind: 'npc', mapId: 'town', tileX: 0, tileY: 0 },
       { id: 'tile:fountain:0,0', name: '(0, 0)', kind: 'fountain', mapId: 'town' }
     ])
   })

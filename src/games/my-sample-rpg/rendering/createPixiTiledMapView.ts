@@ -3,6 +3,7 @@ import {
   Application,
   AnimatedSprite,
   Container,
+  type FederatedPointerEvent,
   Graphics,
   NineSliceSprite,
   Rectangle,
@@ -14,12 +15,21 @@ import {
 } from 'pixi.js'
 
 import { loadTextureSafe } from './loadTextureSafe'
-
 import {
-  PLAYER_CHARACTER_ID,
-  createLuaCharacterController,
-  moveCharacterState
-} from '../characterState'
+  addPlacement,
+  loadPlacementsForMap,
+  removePlacement,
+  type PlacedItem,
+  type PlacementTemplate
+} from '../../../editor/placementStore'
+import {
+  addNpc,
+  loadNpcsForMap,
+  removeNpc,
+  type NpcWireTemplate
+} from '../../../editor/npcStore'
+
+import { PLAYER_CHARACTER_ID } from '../characterState'
 import type {
   CharacterAction,
   CharacterMoveDirection,
@@ -32,66 +42,37 @@ import {
 } from '../events/createGameEventQueue'
 import type { EventReward, HolidayDialogueEventSpec } from '../eventGeneration'
 import { processInteractionEvents } from '../interaction/processInteractionEvents'
-import { usePlayerQuickslotConsumable } from '../playerConsumables'
 import {
-  getPlayerEquipmentItemDefinitionById,
   type PlayerEquipment,
   type PlayerEquipmentSlotId
 } from '../playerEquipment'
 import {
-  findFirstEmptyPlayerInventorySlotIndex,
-  setPlayerInventorySlot,
   type PlayerInventory,
   type PlayerInventoryItem
 } from '../playerInventory'
 import type { PlayerProfile } from '../playerProfile'
-import {
-  clearPlayerQuickslotAssignment,
-  type PlayerQuickslots
-} from '../playerQuickslots'
-import { getMonsterDisplayName } from '../monsterDisplayName'
-import {
-  getPlayerSkillSlotIndexFromCode,
-  type PlayerSkillSlots
-} from '../playerSkillSlots'
-import {
-  PLAYER_PROTECT_SKILL_ID,
-  getPlayerSkillDamageById,
-  getPlayerSkillManaCostById,
-  getPlayerSkillLevelById,
-  getPlayerProtectSkillDurationByLevel,
-  isPlayerSkillUnlockedInProfile
-} from '../playerSkills'
+import { type PlayerQuickslots } from '../playerQuickslots'
+import { type PlayerSkillSlots } from '../playerSkillSlots'
+import { PLAYER_PROTECT_SKILL_ID } from '../playerSkills'
 import {
   PLAYER_SMASH_SKILL_COOLDOWN_MILLISECONDS,
   PLAYER_SMASH_SKILL_EFFECT_ANIMATION_SPEED,
   PLAYER_SMASH_SKILL_ID,
   PLAYER_SMASH_SKILL_SEGMENT_COUNT,
   PLAYER_SMASH_SKILL_SEGMENT_DURATION_MILLISECONDS,
-  PLAYER_SMASH_SKILL_SEGMENT_STAGGER_MILLISECONDS,
-  getPlayerSmashSkillSegmentPlacement
+  PLAYER_SMASH_SKILL_SEGMENT_STAGGER_MILLISECONDS
 } from '../playerSmashSkill'
 import {
   PLAYER_ROLL_COOLDOWN_MILLISECONDS,
-  getPlayerRollDistanceTiles,
-  getPlayerRollProgress,
-  getPlayerRollVisualState,
-  normalizePlayerRollVector,
   type PlayerRollState,
   type PlayerRollVector,
   type PlayerRollVisualState
 } from '../playerRoll'
 import {
-  createInitialPlayerControlBindings,
-  getPlayerControlActionFromCode,
-  getPlayerControlMovementDirectionFromCode,
-  getPlayerControlQuickslotIndexFromCode,
-  isPlayerControlCaptureModifierKey,
-  isPlayerControlPauseKey,
-  setPlayerControlBinding,
   type PlayerControlBindingId,
   type PlayerControlBindings
 } from '../playerControls'
+// 퀘스트는 develop-chich의 TS 모듈을 직접 쓴다(동적 퀘스트가 TS 상태라 Lua 경유 시 누락).
 import {
   completeQuest,
   formatQuestTextLines,
@@ -100,6 +81,7 @@ import {
   recordItemAcquireQuestProgress,
   recordItemUseQuestProgress,
   recordMonsterDefeatQuestProgress,
+  recordQuestObjectiveProgress,
   recordShopOpenQuestProgress,
   recordTalkQuestProgress,
   startQuest,
@@ -107,11 +89,8 @@ import {
   type QuestItemReward,
   type QuestLogState
 } from '../questLog'
-import {
-  getPlayerMovementSpeedTilesPerSecond,
-  getPlayerPhysicalAttackPower,
-  shouldPlayerEvadeDamage
-} from '../playerStatEffects'
+// 팀원(develop-chich) Lua 방식: 모듈별 Lua 래퍼 인스턴스 + 비변환 함수는 TS에서.
+import { createLuaPlayerStatEffects } from '../playerStatEffectsLua'
 import { grantPlayerExperience } from '../playerExperience'
 import { rollMonsterEquipmentDrop } from '../monsterEquipmentDrops'
 import { grantPlayerSkillPoints } from '../playerProgression'
@@ -122,15 +101,43 @@ import {
 } from '../monsterPatrol'
 import {
   applyMonsterDamage,
-  createMonsterCombatState,
   isMonsterDefeated,
   type MonsterCombatState
 } from '../monsterCombat'
+import { createLuaMonsterCombat } from '../monsterCombatLua'
+import { createLuaMonsterRewards } from '../monsterRewardsLua'
+import { createLuaBlacksmithPricing } from '../blacksmithShopLua'
+// 플레이어/캐릭터/스킬/조작/소비/장비 등 chichi가 변환한 로직은 chichi Lua 퍼사드로 실행(동일 시그니처).
 import {
-  getMonsterExperienceDropAmount,
-  getMonsterGoldDropAmount,
-  getMonsterSkillPointDropAmount
-} from '../monsterRewards'
+  getMonsterDisplayName,
+  findFirstEmptyPlayerInventorySlotIndex,
+  setPlayerInventorySlot,
+  getPlayerEquipmentItemDefinitionById,
+  usePlayerQuickslotConsumable,
+  clearPlayerQuickslotAssignment,
+  getPlayerSkillSlotIndexFromCode,
+  getPlayerSkillDamageById,
+  getPlayerSkillManaCostById,
+  getPlayerSkillLevelById,
+  getPlayerProtectSkillDurationByLevel,
+  isPlayerSkillUnlockedInProfile,
+  createIdleNpcCharacterController,
+  createLuaCharacterController,
+  createNpcCharacter,
+  moveCharacterState,
+  getPlayerSmashSkillSegmentPlacement,
+  getPlayerRollDistanceTiles,
+  getPlayerRollProgress,
+  getPlayerRollVisualState,
+  normalizePlayerRollVector,
+  createInitialPlayerControlBindings,
+  getPlayerControlActionFromCode,
+  getPlayerControlMovementDirectionFromCode,
+  getPlayerControlQuickslotIndexFromCode,
+  isPlayerControlCaptureModifierKey,
+  isPlayerControlPauseKey,
+  setPlayerControlBinding
+} from '../lua/luaGameLogic'
 import { resolveCharacterInteractionTarget } from '../interaction/resolveCharacterInteractionTarget'
 import {
   createMapPortalsFromEventLayers,
@@ -163,10 +170,15 @@ import { createPlayerHudOverlay } from './createPlayerHudOverlay'
 import { createPlayerInventoryOverlay } from './createPlayerInventoryOverlay'
 import { createPlayerStatOverlay } from './createPlayerStatOverlay'
 import { createPlayerSkillOverlay } from './createPlayerSkillOverlay'
+import { createNpcDialogueOverlay } from './createNpcDialogueOverlay'
+import { buildLuaRuntimeSnapshot } from '../lua/buildLuaRuntimeSnapshot'
+import blacksmithPortraitUrl from '../assets/portraits/blacksmith-mozarchan.png'
+import potionMerchantPortraitUrl from '../assets/portraits/potion-merchant.png'
+import santaPortraitUrl from '../assets/portraits/santa.png'
 import type { MonsterAnimationTextures } from './monsterAnimationTextures'
 import { loadMonsterPigAnimationTextures } from './loadMonsterPigAnimationTextures'
 import { loadMonsterSlimeAnimationTextures } from './loadMonsterSlimeAnimationTextures'
-import { createGameSoundEffects } from './createGameSoundEffects'
+import { createGameSoundEffects, isGameSoundEffectId } from './createGameSoundEffects'
 import {
   createPauseMenuOverlay,
   type AudioSettings
@@ -494,6 +506,15 @@ const LEVEL_UP_TEXT_STYLE = new TextStyle({
 })
 const BLACKSMITH_SHOP_NPC_ID = 'blacksmith'
 const POTION_SHOP_NPC_ID = 'potion_merchant'
+
+// 비주얼노벨 대화창을 쓰는 NPC → 초상화 이미지. 여기 등록된 NPC 는 머리 위 말풍선 대신
+// 하단 대화창으로 대사를 보여준다. (우선 대장장이 모차르찬부터)
+const NPC_PORTRAITS: Record<string, string> = {
+  [BLACKSMITH_SHOP_NPC_ID]: blacksmithPortraitUrl,
+  [POTION_SHOP_NPC_ID]: potionMerchantPortraitUrl,
+  santa: santaPortraitUrl
+}
+
 const SIGN_POST_APPEARANCE_TYPE = 'sign_inn'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
 const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
@@ -938,6 +959,12 @@ export const createPixiTiledMapView = async ({
     targetCharacterId: string
     source: string
   }) => ApplyEventDraftResult
+  setPlacementMode: (mode: 'off' | 'place' | 'erase') => void
+  setPlacementTemplate: (
+    template: PlacementTemplate | NpcWireTemplate | null
+  ) => void
+  refreshPlacements: () => void
+  refreshNpcs: () => void
 }> => {
   const app = new Application()
   let cameraZoom = CAMERA_DEFAULT_ZOOM
@@ -1110,6 +1137,21 @@ export const createPixiTiledMapView = async ({
   let currentPlayerControlBindings = playerControlBindings
   const triggeredSkillSlotIndexes = new Set<number>()
   let currentQuestLog = questLog
+  // Phase 2 읽기 채널: 마지막으로 Lua 에 밀어넣은 스냅샷(변경 시에만 재푸시하기 위한 dirty 체크).
+  let lastPushedSnapshotJson = ''
+  // 게임 규칙을 Lua 로 실행한다(Lua 불가 시 TS 폴백). 호출부 시그니처는 TS 와 동일.
+  const monsterRewards = createLuaMonsterRewards((source) =>
+    controllerRuntime.loadDataModule(source)
+  )
+  const playerStatEffects = createLuaPlayerStatEffects((source) =>
+    controllerRuntime.loadDataModule(source)
+  )
+  const luaMonsterCombat = createLuaMonsterCombat((source) =>
+    controllerRuntime.loadDataModule(source)
+  )
+  const luaBlacksmithPricing = createLuaBlacksmithPricing((source) =>
+    controllerRuntime.loadDataModule(source)
+  )
   let currentBlacksmithInventory = merchantInventory
   let currentPotionMerchantInventory = potionMerchantInventory
   let playerAttackStartedAtMilliseconds: number | undefined
@@ -1361,7 +1403,7 @@ export const createPixiTiledMapView = async ({
     playerCharacter.controller = {
       ...playerCharacter.controller,
       moveSpeedTilesPerSecond:
-        getPlayerMovementSpeedTilesPerSecond(playerProfile)
+        playerStatEffects.getPlayerMovementSpeedTilesPerSecond(playerProfile)
     }
   }
   const showSceneIntroBanner = () => {
@@ -2438,7 +2480,8 @@ export const createPixiTiledMapView = async ({
         nextPlayerInventory
       )
       syncPlayerUiOverlays()
-    }
+    },
+    getSellPriceById: luaBlacksmithPricing.getSellPriceById
   })
   potionShopOverlay = createPotionShopOverlay({
     mountElement,
@@ -2487,6 +2530,7 @@ export const createPixiTiledMapView = async ({
     getQuestLog: () => currentQuestLog,
     onQuestLogChange: setQuestLog
   })
+  const npcDialogueOverlay = createNpcDialogueOverlay({ mountElement })
   // 인게임 시나리오 에디터 런처는 제거했다 — 콘텐츠 생성은 별도 에디터 페이지(/editor.html)가 담당한다.
 
   const syncRuntimeWarningBanner = () => {
@@ -2825,7 +2869,7 @@ export const createPixiTiledMapView = async ({
     if (isMonsterCharacter) {
       monsterCombatStates.set(
         character.id,
-        createMonsterCombatState(
+        luaMonsterCombat.createMonsterCombatState(
           character.level ?? 1,
           monsterCombatStateOptions
         )
@@ -3904,7 +3948,7 @@ export const createPixiTiledMapView = async ({
     )
     monsterCombatStates.set(
       characterId,
-      createMonsterCombatState(
+      luaMonsterCombat.createMonsterCombatState(
         nextCharacter.level ?? 1,
         monsterCombatStateOptions
       )
@@ -4345,7 +4389,7 @@ export const createPixiTiledMapView = async ({
 
     if (
       sourceCharacter &&
-      shouldPlayerEvadeDamage(playerProfile)
+      playerStatEffects.shouldPlayerEvadeDamage(playerProfile)
     ) {
       showCharacterDamageText(
         PLAYER_CHARACTER_ID,
@@ -4432,7 +4476,7 @@ export const createPixiTiledMapView = async ({
       monsterContactDamageLockedUntilById.delete(characterId)
       monsterPigAnimationModes.delete(characterId)
       monsterPigBehaviorStates.delete(characterId)
-      const experienceReward = getMonsterExperienceDropAmount(
+      const experienceReward = monsterRewards.getMonsterExperienceDropAmount(
         character.level ?? 1
       )
       grantPlayerExperienceReward(experienceReward)
@@ -4444,7 +4488,7 @@ export const createPixiTiledMapView = async ({
           character.position.y * map.tileHeight +
           (character.collisionSize.height * map.tileHeight) / 2
       }
-      const skillPointReward = getMonsterSkillPointDropAmount(
+      const skillPointReward = monsterRewards.getMonsterSkillPointDropAmount(
         character.level ?? 1
       )
       Object.assign(
@@ -4460,7 +4504,7 @@ export const createPixiTiledMapView = async ({
       } else {
         spawnMonsterGoldDrop(
           characterId,
-          getMonsterGoldDropAmount(character.level ?? 1),
+          monsterRewards.getMonsterGoldDropAmount(character.level ?? 1),
           dropPosition,
           now
         )
@@ -4520,7 +4564,7 @@ export const createPixiTiledMapView = async ({
     if (targetCharacter) {
       applyDamageToMonster(
         targetCharacter.id,
-        getPlayerPhysicalAttackPower(playerProfile),
+        playerStatEffects.getPlayerPhysicalAttackPower(playerProfile),
         now
       )
       playerAttackResolvedStartedAtMilliseconds =
@@ -4959,6 +5003,66 @@ export const createPixiTiledMapView = async ({
       item: { id: reward.id, label, quantity: reward.count }
     })
     onPlayerInventoryChange(currentPlayerInventory)
+  }
+
+  // Phase 3 쓰기 채널 적용기: Lua 가 요청한 액션을 기존 상태 변경 경로로 반영한다.
+  const grantInventoryItem = (itemId: string, quantity: number) => {
+    if (itemId.length === 0 || quantity <= 0) {
+      return
+    }
+    const slotIndex = findFirstEmptyPlayerInventorySlotIndex(currentPlayerInventory)
+    if (slotIndex === undefined) {
+      return
+    }
+    const label = getPlayerEquipmentItemDefinitionById(itemId)?.label ?? itemId
+    currentPlayerInventory = setPlayerInventorySlot({
+      inventory: currentPlayerInventory,
+      slotIndex,
+      item: { id: itemId, label, quantity }
+    })
+    onPlayerInventoryChange(currentPlayerInventory)
+  }
+
+  const removeInventoryItem = (itemId: string, quantity: number) => {
+    if (itemId.length === 0 || quantity <= 0) {
+      return
+    }
+    let remaining = quantity
+    const nextSlots = currentPlayerInventory.slots.map((slot) => {
+      if (!slot || slot.id !== itemId || remaining <= 0) {
+        return slot
+      }
+      const taken = Math.min(slot.quantity, remaining)
+      remaining -= taken
+      const nextQuantity = slot.quantity - taken
+      return nextQuantity > 0 ? { ...slot, quantity: nextQuantity } : undefined
+    })
+    currentPlayerInventory = { ...currentPlayerInventory, slots: nextSlots }
+    onPlayerInventoryChange(currentPlayerInventory)
+  }
+
+  // set-config: NPC 별 플래그를 컨트롤러 config 에 보관하고 재동기화한다(다음 상호작용에서
+  // get_controller_config 로 읽힌다). config 변경은 attachment 키를 바꿔 재부착을 유발한다.
+  const applyNpcConfigUpdate = (
+    characterId: string,
+    key: string,
+    value: string
+  ) => {
+    const character = characterStates.find((entry) => entry.id === characterId)
+    if (!character || character.controller.kind !== 'lua') {
+      return
+    }
+    const nextCharacter: CharacterState = {
+      ...character,
+      controller: {
+        ...character.controller,
+        config: { ...character.controller.config, [key]: value }
+      }
+    }
+    characterStates = characterStates.map((entry) =>
+      entry.id === characterId ? nextCharacter : entry
+    )
+    controllerRuntime.syncCharacters(characterStates)
   }
 
   const applyEventDraft = (
@@ -5621,6 +5725,19 @@ export const createPixiTiledMapView = async ({
       syncActiveMonsterGoldDrops(now)
       syncActiveMonsterEquipmentDrops(now)
 
+      // Phase 2 읽기 채널: 게임의 권위 있는 상태를 Lua 가 읽도록(변경 시에만) 밀어넣는다.
+      const runtimeSnapshot = buildLuaRuntimeSnapshot({
+        questLog: currentQuestLog,
+        inventory: currentPlayerInventory,
+        profile: playerProfile,
+        sceneId
+      })
+      const runtimeSnapshotJson = JSON.stringify(runtimeSnapshot)
+      if (runtimeSnapshotJson !== lastPushedSnapshotJson) {
+        controllerRuntime.pushSnapshot(runtimeSnapshot)
+        lastPushedSnapshotJson = runtimeSnapshotJson
+      }
+
       const interactionEvents = handleQuestInteractionEvents(
         gameEventQueue.drain(),
         now
@@ -5635,13 +5752,77 @@ export const createPixiTiledMapView = async ({
       })
 
       for (const event of emittedEvents) {
-        if (event.kind !== 'show-character-message') {
+        // Phase 3 쓰기 채널: Lua 가 요청한 액션을 기존 순수 reducer 로 적용한다(Lua=요청, TS=적용).
+        if (event.kind === 'request-quest-start') {
+          setQuestLog(startQuest(currentQuestLog, event.questId))
+          continue
+        }
+        if (event.kind === 'request-quest-progress') {
+          setQuestLog(
+            recordQuestObjectiveProgress(
+              currentQuestLog,
+              event.questId,
+              event.objectiveId,
+              event.amount
+            )
+          )
+          continue
+        }
+        if (event.kind === 'request-quest-complete') {
+          const completion = completeQuest(currentQuestLog, event.questId)
+          setQuestLog(completion.nextQuestLog)
+          grantQuestCompletionRewards(completion)
+          continue
+        }
+        if (event.kind === 'request-inventory-add') {
+          grantInventoryItem(event.itemId, event.quantity)
+          continue
+        }
+        if (event.kind === 'request-inventory-remove') {
+          removeInventoryItem(event.itemId, event.quantity)
+          continue
+        }
+        if (event.kind === 'set-config') {
+          applyNpcConfigUpdate(event.characterId, event.key, event.value)
+          continue
+        }
+        if (event.kind === 'request-scene-transition') {
+          onRequestSceneChange({
+            sceneId: event.sceneId,
+            spawn: { x: event.x, y: event.y }
+          })
+          continue
+        }
+        if (event.kind === 'play-sound') {
+          if (isGameSoundEffectId(event.soundId)) {
+            gameSoundEffects.play(event.soundId)
+          }
           continue
         }
 
-        if (event.characterId === POTION_SHOP_NPC_ID) {
+        if (event.kind === 'show-npc-dialogue') {
+          // Lua 컨트롤러(vn-dialogue)가 요청한 비주얼노벨 대화창. 대사는 Lua 가 보내고,
+          // 초상화/이름은 캐릭터에서 채운다. 대화가 다 끝나면 해당 NPC 의 상점을 연다.
           hideCharacterMessage(event.characterId)
-          setPotionShopOpen(true)
+          if (!npcDialogueOverlay.isOpen()) {
+            const portraitCharacter = getCharacterStateById(event.characterId)
+            const openShopOnComplete =
+              event.characterId === BLACKSMITH_SHOP_NPC_ID
+                ? () => setBlacksmithShopOpen(true)
+                : event.characterId === POTION_SHOP_NPC_ID
+                  ? () => setPotionShopOpen(true)
+                  : undefined
+            npcDialogueOverlay.show({
+              portraitUrl: NPC_PORTRAITS[event.characterId] ?? '',
+              name: portraitCharacter.displayText ?? '',
+              lines: event.lines,
+              onComplete: openShopOnComplete
+            })
+          }
+          continue
+        }
+
+        if (event.kind !== 'show-character-message') {
           continue
         }
 
@@ -5664,9 +5845,6 @@ export const createPixiTiledMapView = async ({
           )
         }
 
-        if (event.characterId === BLACKSMITH_SHOP_NPC_ID) {
-          setBlacksmithShopOpen(true)
-        }
       }
 
       pruneExpiredCharacterMessages(now)
@@ -6088,6 +6266,281 @@ export const createPixiTiledMapView = async ({
   questTrackerOverlay.syncFrame()
   handleVisibilityChange()
 
+  // ── 마우스 에셋 배치(에디터 배치 모드) ──
+  // 에디터가 배치 모드+놓을 항목을 postMessage로 켜면, 게임 캔버스 클릭이 그 칸에 배치를 만든다.
+  // 배치 데이터는 맵별 localStorage(placementStore)에 저장돼 새로고침·재접속에도 유지된다.
+  let placementMode: 'off' | 'place' | 'erase' = 'off'
+  // 타일/오브젝트 배치 템플릿 또는 NPC 와이어 템플릿(kind로 구분).
+  let placementTemplate: PlacementTemplate | NpcWireTemplate | null = null
+  let placementSprites: Sprite[] = []
+  // 수기 배치 NPC는 정적 스프라이트가 아니라 게임의 CharacterState로 스폰된다(이동 차단 + 대사).
+  // 스폰한 NPC의 id 집합 — 저장소와 비교(reconcile)해 추가/삭제를 반영한다.
+  const placedNpcIds = new Set<string>()
+
+  const textureForPlacement = async (
+    item: PlacedItem
+  ): Promise<Texture | undefined> => {
+    if (item.kind === 'tile' && item.tileId !== undefined) {
+      // 맵에 타일셋이 하나면 source가 안 맞아도 그걸로 폴백.
+      const tileset =
+        map.tilesets.find((candidate) => candidate.source === item.tilesetSource) ??
+        map.tilesets[0]
+      const resources = tileset ? tilesetResources.get(tileset.source) : undefined
+      return resources?.tileTextures[item.tileId]
+    }
+    if (item.kind === 'object' && item.imageUrl) {
+      return await loadTextureSafe(item.imageUrl)
+    }
+    return undefined
+  }
+
+  const renderPlacements = async (items: PlacedItem[]): Promise<void> => {
+    for (const sprite of placementSprites) {
+      sprite.parent?.removeChild(sprite)
+      sprite.destroy()
+    }
+    placementSprites = []
+    if (!depthSortedLayer) {
+      return
+    }
+    for (const item of items) {
+      const texture = await textureForPlacement(item)
+      if (!texture) {
+        continue
+      }
+      const sprite = new Sprite(texture)
+      sprite.position.set(item.col * map.tileWidth, item.row * map.tileHeight)
+      // 지우기 히트테스트에서 어느 배치인지 역추적하기 위해 배치 id를 표식으로 단다.
+      sprite.label = item.id
+      // 자기 아래 가장자리 기준 깊이정렬 — 캐릭터/지붕과 같은 규칙으로 자연스럽게 겹친다.
+      sprite.zIndex = item.row * map.tileHeight + (texture.height || map.tileHeight) + 0.6
+      depthSortedLayer.addChild(sprite)
+      placementSprites.push(sprite)
+    }
+    depthSortedLayer.sortChildren()
+  }
+
+  const refreshPlacements = (): void => {
+    void renderPlacements(loadPlacementsForMap(sceneId))
+  }
+
+  // ── 수기 배치 NPC(에디터 NPC 탭) ──
+  // 외형(appearanceType)을 텍스처로 풀어 최소 캐릭터 렌더 노드를 만든다(플레이어/몬스터 부속 없음).
+  // 부팅 캐릭터 빌드 루프의 비(非)플레이어·비몬스터 경로만 옮긴 것. renderedCharacters에 등록해야
+  // syncCharacterSprite가 매 틱 위치/깊이를 잡는다(엔트리가 없으면 throw).
+  const createRenderedNpcNode = (character: CharacterState): void => {
+    if (!depthSortedLayer) {
+      return
+    }
+    const resolved = resolveCharacterTexture(
+      character.appearanceType,
+      characterTilesetResources.tileTextures,
+      characterSpriteSheet.tileset,
+      map.tilesets,
+      tilesetResources,
+      map.tileWidth
+    )
+    const container = new Container()
+    container.label = `character:${character.id}:container`
+    container.sortableChildren = true
+    const sprite = new Sprite(resolved.texture)
+    sprite.label = `character:${character.id}`
+    sprite.scale.set(resolved.renderScale)
+    sprite.roundPixels = true
+    sprite.zIndex = 10
+    container.addChild(sprite)
+    const displayLabel =
+      character.displayText === undefined
+        ? undefined
+        : new Text({ style: PLAYER_NAME_BADGE_STYLE, text: character.displayText })
+    if (displayLabel) {
+      displayLabel.label = `character:${character.id}:display-label`
+      displayLabel.roundPixels = true
+      displayLabel.zIndex = 16
+      container.addChild(displayLabel)
+    }
+    renderedCharacters.set(character.id, {
+      container,
+      sprite,
+      renderScale: resolved.renderScale,
+      displayLabel
+    })
+    depthSortedLayer.addChild(container)
+  }
+
+  const despawnPlacedNpc = (id: string): void => {
+    const renderNode = renderedCharacters.get(id)
+    if (renderNode) {
+      renderNode.container.parent?.removeChild(renderNode.container)
+      renderNode.container.destroy({ children: true })
+      renderedCharacters.delete(id)
+    }
+    characterStates = characterStates.filter((character) => character.id !== id)
+    placedNpcIds.delete(id)
+    // 이 NPC를 대상으로 한 상호작용 잠금 항목 정리 — 같은 id는 다시 안 생기므로 죽은 항목(장기 세션 누수 방지).
+    for (const lockKey of [...interactionLockUntilByCharacterPair.keys()]) {
+      if (lockKey.endsWith(`:${id}`) || lockKey.endsWith(`:${id}:quest`)) {
+        interactionLockUntilByCharacterPair.delete(lockKey)
+      }
+    }
+  }
+
+  // 저장소(npcStore)의 NPC 목록과 현재 스폰 상태를 맞춘다 — 새 항목은 스폰, 사라진 항목은 디스폰.
+  // 반복 호출(부팅·storage·클릭)해도 같은 id를 두 번 스폰하지 않도록 placedNpcIds로 가드한다.
+  const refreshNpcs = (): void => {
+    const stored = loadNpcsForMap(sceneId)
+    const storedById = new Map(stored.map((npc) => [npc.id, npc] as const))
+    let changed = false
+
+    for (const id of [...placedNpcIds]) {
+      if (!storedById.has(id)) {
+        despawnPlacedNpc(id)
+        changed = true
+      }
+    }
+
+    for (const npc of stored) {
+      if (placedNpcIds.has(npc.id)) {
+        continue
+      }
+      const character = createNpcCharacter({
+        id: npc.id,
+        appearanceType: npc.appearanceType,
+        position: { x: npc.col, y: npc.row },
+        collisionSize: { width: 1, height: 1 },
+        displayText: npc.name,
+        controller: createIdleNpcCharacterController({
+          dialogueLines: npc.dialogueLines
+        })
+      })
+      try {
+        // 외형이 캐릭터 시트에 없으면 resolveCharacterTexture가 throw — 그 NPC만 건너뛴다.
+        createRenderedNpcNode(character)
+      } catch (error) {
+        console.warn(`[npc] 외형을 해석하지 못해 건너뜀: ${npc.appearanceType}`, error)
+        continue
+      }
+      characterStates = [...characterStates, character]
+      placedNpcIds.add(npc.id)
+      syncCharacterSprite(character)
+      changed = true
+    }
+
+    if (changed) {
+      // 컨트롤러 부착(대사 NPC 상호작용 활성)·충돌 반영을 즉시 갱신.
+      controllerRuntime.syncCharacters(characterStates)
+    }
+  }
+
+  // 배치 NPC를 클릭 지점(스프라이트 픽셀 영역)으로 맞혀 지운다. 맞으면 true(이후 배치 지우기 생략).
+  const eraseNpcAtPoint = (x: number, y: number): boolean => {
+    for (const id of [...placedNpcIds].reverse()) {
+      const renderNode = renderedCharacters.get(id)
+      if (!renderNode) {
+        continue
+      }
+      const left = renderNode.container.x
+      const top = renderNode.container.y
+      if (
+        x >= left &&
+        x < left + renderNode.sprite.width &&
+        y >= top &&
+        y < top + renderNode.sprite.height
+      ) {
+        removeNpc(sceneId, id)
+        refreshNpcs()
+        return true
+      }
+    }
+    return false
+  }
+
+  app.stage.eventMode = 'static'
+  app.stage.hitArea = app.screen
+  const eraseAtPoint = (x: number, y: number): void => {
+    // 칸 앵커가 아니라 스프라이트의 실제 픽셀 영역으로 맞힌다. 오브젝트는 여러 칸을 덮으므로
+    // 가운데/아래를 클릭해도 지워진다(타일은 1칸이라 그대로 동작). 위(나중에 그린)것부터 검사.
+    for (let i = placementSprites.length - 1; i >= 0; i -= 1) {
+      const sprite = placementSprites[i]
+      const left = sprite.x
+      const top = sprite.y
+      if (x >= left && x < left + sprite.width && y >= top && y < top + sprite.height) {
+        const id = typeof sprite.label === 'string' ? sprite.label : ''
+        if (id) {
+          removePlacement(sceneId, id)
+          refreshPlacements()
+        }
+        return
+      }
+    }
+  }
+  const handleStagePointerDown = (event: FederatedPointerEvent): void => {
+    if (placementMode === 'off') {
+      return
+    }
+    const local = world.toLocal(event.global) // 카메라 줌/스크롤이 반영된 맵 픽셀 좌표.
+    const col = Math.floor(local.x / map.tileWidth)
+    const row = Math.floor(local.y / map.tileHeight)
+    if (col < 0 || col >= map.width || row < 0 || row >= map.height) {
+      return
+    }
+    // 우클릭(button 2)은 모드와 무관하게 클릭 지점의 배치를 지운다(배치 중에도 바로 삭제).
+    // NPC를 먼저 맞혀보고(기능 엔티티), 없으면 타일/오브젝트 배치를 지운다.
+    if (event.button === 2) {
+      if (eraseNpcAtPoint(local.x, local.y)) {
+        return
+      }
+      eraseAtPoint(local.x, local.y)
+      return
+    }
+    if (placementMode === 'place' && placementTemplate) {
+      if (placementTemplate.kind === 'npc') {
+        // 이동 차단 캐릭터(플레이어/다른 NPC/몬스터)와 겹치는 칸에 차단 NPC를 놓으면 서로 갇혀
+        // 빠져나올 수 없으므로 막는다(특히 플레이어 자기 칸에 놓으면 소프트락).
+        const targetRect: CollisionRect = { x: col, y: row, width: 1, height: 1 }
+        const overlapsBlocker = getBlockingCollisionRects('').some((rect) =>
+          doCollisionRectsIntersect(targetRect, rect)
+        )
+        if (overlapsBlocker) {
+          console.warn('[npc] 다른 캐릭터(플레이어 포함)와 겹치는 칸에는 NPC를 놓을 수 없습니다.')
+          return
+        }
+        // NPC는 기능 엔티티 — 저장 후 게임의 CharacterState로 스폰한다(저장소엔 NpcTemplate 필드만).
+        addNpc(
+          sceneId,
+          {
+            appearanceType: placementTemplate.appearanceType,
+            name: placementTemplate.name,
+            dialogueLines: placementTemplate.dialogueLines
+          },
+          col,
+          row
+        )
+        refreshNpcs()
+      } else {
+        addPlacement(sceneId, placementTemplate, col, row)
+        refreshPlacements()
+      }
+    } else if (placementMode === 'erase') {
+      if (eraseNpcAtPoint(local.x, local.y)) {
+        return
+      }
+      eraseAtPoint(local.x, local.y)
+    }
+  }
+  app.stage.on('pointerdown', handleStagePointerDown)
+  // 배치 모드에서 우클릭 시 브라우저 컨텍스트 메뉴를 막아 '우클릭 삭제'가 정상 동작하게 한다.
+  const handleCanvasContextMenu = (event: MouseEvent): void => {
+    if (placementMode !== 'off') {
+      event.preventDefault()
+    }
+  }
+  app.canvas.addEventListener('contextmenu', handleCanvasContextMenu)
+
+  // 저장된 배치/NPC를 부팅 시 반영한다(맵별).
+  refreshPlacements()
+  refreshNpcs()
+
   const destroy = () => {
     if (isDestroyed) {
       return
@@ -6100,6 +6553,8 @@ export const createPixiTiledMapView = async ({
     window.removeEventListener('resize', handleWindowResize)
     viewportElement.removeEventListener('wheel', handleViewportWheel)
     document.removeEventListener('visibilitychange', handleVisibilityChange)
+    app.stage.off('pointerdown', handleStagePointerDown)
+    app.canvas.removeEventListener('contextmenu', handleCanvasContextMenu)
     app.ticker.remove(updateCharacters)
     app.ticker.remove(mapOverlay.syncFrame)
     app.ticker.remove(playerHudOverlay.syncFrame)
@@ -6151,6 +6606,7 @@ export const createPixiTiledMapView = async ({
     potionShopOverlay.destroy()
     pauseMenuOverlay.destroy()
     questTrackerOverlay.destroy()
+    npcDialogueOverlay.destroy()
     gameSoundEffects.destroy()
     controllerRuntime.destroy()
     app.destroy({ removeView: true }, { children: true })
@@ -6165,7 +6621,17 @@ export const createPixiTiledMapView = async ({
     destroy,
     updateAudioSettings: updateCurrentAudioSettings,
     applyEventDraft,
-    applyLuaScript
+    applyLuaScript,
+    setPlacementMode: (mode: 'off' | 'place' | 'erase') => {
+      placementMode = mode
+    },
+    setPlacementTemplate: (
+      template: PlacementTemplate | NpcWireTemplate | null
+    ) => {
+      placementTemplate = template
+    },
+    refreshPlacements,
+    refreshNpcs
   }
 }
 
