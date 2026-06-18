@@ -21,10 +21,14 @@ import {
   savePendingQuest
 } from './pendingQuests'
 
-const makeQuest = (id: string, title: string): QuestDefinition => ({
+const makeQuest = (
+  id: string,
+  title: string,
+  giverNpcId = 'wizard'
+): QuestDefinition => ({
   id,
   regionName: 'town',
-  giverNpcId: 'wizard',
+  giverNpcId,
   giverName: 'Wizard',
   title,
   trackerLabel: title,
@@ -65,6 +69,36 @@ describe('pendingQuests', () => {
     replacePendingQuests([questB])
 
     expect(loadPendingQuests()).toEqual([questB])
+  })
+
+  it('keeps only the latest quest for the same giver npc', () => {
+    const wizardQuestA = makeQuest('quest-a', 'Quest A', 'wizard')
+    const potionQuest = makeQuest(
+      'quest-b',
+      'Quest B',
+      'potion_merchant'
+    )
+    const wizardQuestB = makeQuest('quest-c', 'Quest C', 'wizard')
+
+    savePendingQuest(wizardQuestA)
+    savePendingQuest(potionQuest)
+    savePendingQuest(wizardQuestB)
+
+    expect(loadPendingQuests()).toEqual([potionQuest, wizardQuestB])
+  })
+
+  it('normalizes quest lists when replacing the snapshot directly', () => {
+    const wizardQuestA = makeQuest('quest-a', 'Quest A', 'wizard')
+    const potionQuest = makeQuest(
+      'quest-b',
+      'Quest B',
+      'potion_merchant'
+    )
+    const wizardQuestB = makeQuest('quest-c', 'Quest C', 'wizard')
+
+    replacePendingQuests([wizardQuestA, potionQuest, wizardQuestB])
+
+    expect(loadPendingQuests()).toEqual([potionQuest, wizardQuestB])
   })
 
   it('can clear pending quests entirely', () => {

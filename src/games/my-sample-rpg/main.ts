@@ -69,6 +69,7 @@ import {
 import {
   clearPendingQuests,
   loadPendingQuests,
+  normalizePendingQuestSnapshot,
   PENDING_QUESTS_STORAGE_KEY
 } from '../../editor/pendingQuests'
 import { getSceneIntroMessage } from './sceneIntro'
@@ -237,9 +238,14 @@ let questLog = createInitialQuestLog()
 // 에디터가 생성·주입한 동적 퀘스트를 런타임 퀘스트 엔진에 등록하고, 진행도 항목을 채운다.
 // 부팅 전에 questLog를 갱신해야 bootstrapScene이 그걸 렌더러로 넘긴다(배지·추적·완료 전부 작동).
 const applyPendingQuests = (): void => {
-  const pendingQuests = loadPendingQuests()
+  const pendingQuests = normalizePendingQuestSnapshot(loadPendingQuests())
   clearDynamicQuestDefinitions()
   registerDynamicQuestDefinitions(pendingQuests)
+  // 생성 퀘스트가 있으면 그것만 보이게 한다(빌트인은 숨김). 빌트인까지 보이면 마법사처럼 기존
+  // 퀘스트가 많은 NPC는 빌트인 not-started 때문에 "?"가 계속 떠 있어, 생성 퀘스트를 수락해도
+  // "?"가 안 사라진다. 오서링/프리뷰는 "지금 만든 퀘스트"에 집중하는 게 맞다 — 생성 퀘스트만
+  // 보이면 수락 시 그 NPC의 not-started가 없어져 "?"가 사라지고 B(active)에 뜬다.
+  // pendingQuests가 비면([]) 필터는 undefined가 되어 빌트인 전체가 정상 표시된다.
   setQuestDefinitionVisibilityFilter(pendingQuests.map((quest) => quest.id))
   if (pendingQuests.length > 0) {
     clearPendingQuests()
