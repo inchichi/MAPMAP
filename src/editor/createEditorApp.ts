@@ -38,6 +38,8 @@ import { dryRunQuestApply } from './dryRunQuestApply'
 import { convertGeneratedQuestToDefinition } from './questCodeGenerator'
 import { createGeneratedQuestValidationIssues } from './questJsonSchema'
 import { replacePendingQuests } from './pendingQuests'
+// my-sample-rpg 라이브 NPC 생성(자연어 → 플레이어 옆 스폰).
+import { generateNpcJson } from './npcJsonGenerator'
 
 // 하드코딩 어댑터가 엔티티를 못 찾은 미지의 게임을, LLM 분석이 찾은 editable 그룹으로 채운다.
 const buildEntitiesFromAnalysis = (
@@ -396,6 +398,8 @@ export const createEditorApp = ({
   // 퀘스트 모드(2단계 생성): '퀘스트' 빠른시작을 고르면 켜진다. 1단계는 자연어 후보 N개를 만들고,
   // 유저가 하나를 골라 2단계에서 그 후보만 이벤트 JSON으로 만든 뒤 드라이런 검증→적용한다.
   let candidateMode = false
+  // 'NPC 추가'(my-sample-rpg) 모드: 자연어로 NPC를 생성해 적용 시 플레이어 옆에 라이브 스폰한다.
+  let npcMode = false
   let candidates: QuestCandidate[] = []
   let selectedCandidateIndex: number | undefined
   // 인라인 요약 편집 중인 후보 인덱스(표시 전용).
@@ -715,6 +719,9 @@ export const createEditorApp = ({
       activeSuggestion = quickCard.label
       // quest:true 카드만 2단계(후보→선택→검증) 모드. 다른 빠른시작은 기존 단일 생성 흐름.
       candidateMode = quickCard.quest
+      // 'NPC 추가'(my-sample-rpg)는 NPC 생성 모드 — 적용 시 플레이어 옆 라이브 스폰.
+      npcMode =
+        quickCard.label === 'NPC 추가' && game.adapter.id === 'my-sample-rpg'
       candidates = []
       selectedCandidateIndex = undefined
       editingCandidateIndex = undefined
@@ -2406,6 +2413,65 @@ export const createEditorApp = ({
     candidatesView.body.append(actionRow)
   }
 
+  // NPC 추가(my-sample-rpg): 자연어로 NPC 한 명을 생성한다. '적용'이 게임 iframe에 editor:spawn-npc를
+  // 보내면, 실행 중인 게임이 플레이어 옆 빈 칸에 실제 CharacterState로 스폰한다(대사 상호작용 포함).
+  const runGenerateNpc = async (): Promise<void> => {
+    isGenerating = true
+    const filesAtStart = currentFiles
+    setStatus('NPC 생성 중…')
+    render()
+
+    try {
+      const npc = await generateNpcJson({
+        apiKey: apiKey.trim(),
+        userPrompt: promptInput.value
+      })
+      if (currentFiles !== filesAtStart) {
+        return
+      }
+      const result: GenerationResult = {
+        label: npc.name || 'NPC',
+        preview: JSON.stringify(npc, null, 2),
+        // 외형은 스키마 enum으로 그라운딩, 대사는 자유 텍스트라 결정적 검증 이슈는 없다.
+        issues: [],
+        // 적용: 실행 중인 게임(iframe)에 스폰 요청을 보낸다. 같은 origin이라 postMessage로 충분하다.
+        apply: () => {
+          iframe.contentWindow?.postMessage(
+            {
+              type: 'editor:spawn-npc',
+              npc: {
+                appearanceType: npc.appearance_type,
+                name: npc.name,
+                dialogueLines: npc.dialogue_lines
+              }
+            },
+            '*'
+          )
+        },
+        bridgePayload: null
+      }
+      currentDryRun = undefined
+      currentResult = result
+      historyCounter += 1
+      history = [{ n: historyCounter, result }, ...history].slice(0, HISTORY_LIMIT)
+      sessionTally = {
+        generations: sessionTally.generations + 1,
+        validatorPasses: sessionTally.validatorPasses + 1
+      }
+      activeBoardTab = 'verify'
+      logActivity(`"${result.label}" NPC 생성`)
+      setStatus(`생성 완료: ${result.label} — '적용'하면 플레이어 옆에 스폰됩니다`)
+    } catch (error) {
+      if (currentFiles !== filesAtStart) {
+        return
+      }
+      setStatus(`생성 실패: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      isGenerating = false
+      render()
+    }
+  }
+
   const runGenerate = async (): Promise<void> => {
     if (isGenerating) {
       return
@@ -2424,6 +2490,12 @@ export const createEditorApp = ({
     // 퀘스트 모드: '이야기 생성'은 1단계(후보 N개)를 만든다. 실제 이벤트는 후보를 골라 2단계에서.
     if (candidateMode) {
       await runGenerateCandidates()
+      return
+    }
+
+    // NPC 추가 모드(my-sample-rpg): 단일 NPC 생성 → 적용 시 플레이어 옆 라이브 스폰.
+    if (npcMode) {
+      await runGenerateNpc()
       return
     }
 
