@@ -122,6 +122,11 @@ type SceneRenderer = {
   ) => void
   refreshPlacements: () => void
   refreshNpcs: () => void
+  spawnNpcNearPlayer: (template: {
+    appearanceType: string
+    name?: string
+    dialogueLines?: string[]
+  }) => boolean
 }
 
 // 배경음악(BGM) 전역 사용 여부. false면 어떤 씬에서도 BGM을 재생하지 않는다(효과음은 그대로).
@@ -1054,9 +1059,30 @@ window.addEventListener('message', (event) => {
     isMuted?: unknown
     mode?: unknown
     template?: unknown
+    npc?: unknown
   } | null
 
   if (!data) {
+    return
+  }
+
+  // 에디터가 자연어로 생성한 NPC를 실행 중인 게임의 플레이어 옆에 라이브 스폰한다.
+  if (data.type === 'editor:spawn-npc') {
+    const npc = data.npc as
+      | { appearanceType?: unknown; name?: unknown; dialogueLines?: unknown }
+      | null
+      | undefined
+    if (npc && typeof npc.appearanceType === 'string') {
+      activeSceneRenderer?.spawnNpcNearPlayer({
+        appearanceType: npc.appearanceType,
+        name: typeof npc.name === 'string' ? npc.name : undefined,
+        dialogueLines: Array.isArray(npc.dialogueLines)
+          ? npc.dialogueLines.filter(
+              (line): line is string => typeof line === 'string'
+            )
+          : undefined
+      })
+    }
     return
   }
 
