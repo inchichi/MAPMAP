@@ -40,6 +40,8 @@ import { createGeneratedQuestValidationIssues } from './questJsonSchema'
 import { replacePendingQuests } from './pendingQuests'
 // my-sample-rpg 라이브 NPC 생성(자연어 → 플레이어 옆 스폰).
 import { generateNpcJson } from './npcJsonGenerator'
+// 게임이 localStorage에 저장한 수기/생성 NPC — 트리에 TMX 엔티티와 합쳐 보여주기 위해 읽는다.
+import { loadNpcsForMap, PENDING_NPCS_STORAGE_KEY } from './npcStore'
 
 // 하드코딩 어댑터가 엔티티를 못 찾은 미지의 게임을, LLM 분석이 찾은 editable 그룹으로 채운다.
 const buildEntitiesFromAnalysis = (
@@ -994,7 +996,8 @@ export const createEditorApp = ({
       return
     }
     const counts = { npc: 0, building: 0, portal: 0, other: 0 }
-    for (const entity of map.entities) {
+    // 트리와 같은 기준 — TMX 정적 엔티티 + localStorage에 저장된 수기/생성 NPC를 함께 센다.
+    for (const entity of map.entities.concat(placedNpcEntities(map.id))) {
       const kind = groupKindOf(entity.kind)
       if (kind === 'npc') {
         counts.npc += 1
@@ -1545,6 +1548,33 @@ export const createEditorApp = ({
     }
   }
 
+  // 게임(iframe)이 localStorage에 저장한 수기/생성 NPC를 트리 표시용 GameEntity로 환산한다.
+  // TMX에서 읽은 정적 엔티티(map.entities)는 부팅 때 한 번만 채워지므로, '적용'으로 새로 스폰된
+  // NPC는 거기에 없다 — 여기서 합쳐줘야 '인물' 카드에 생성 직후 바로 나타난다.
+  // 같은 id는 같은 객체 참조로 캐시한다(selectedEntity 비교·하이라이트가 렌더 간 유지되도록).
+  const placedNpcEntityCache = new Map<string, GameEntity>()
+  const placedNpcEntities = (mapId: string): GameEntity[] =>
+    loadNpcsForMap(mapId).map((npc) => {
+      const name = npc.name ?? '이름 없는 NPC'
+      const cached = placedNpcEntityCache.get(npc.id)
+      if (cached) {
+        cached.name = name
+        cached.tileX = npc.col
+        cached.tileY = npc.row
+        return cached
+      }
+      const entity: GameEntity = {
+        id: npc.id,
+        name,
+        kind: 'npc',
+        mapId,
+        tileX: npc.col,
+        tileY: npc.row
+      }
+      placedNpcEntityCache.set(npc.id, entity)
+      return entity
+    })
+
   const renderTree = (): void => {
     entityButtons = []
     const groups: HTMLElement[] = []
@@ -1575,8 +1605,10 @@ export const createEditorApp = ({
     }
 
     for (const map of mapsToShow) {
+      // TMX 정적 엔티티 + localStorage에 저장된 수기/생성 NPC를 합쳐 한 맵의 전체 요소로 본다.
+      const mapEntities = map.entities.concat(placedNpcEntities(map.id))
       // 객체도 레이어도 없는 맵만 건너뛴다(예: 파싱 실패). 몬스터만 있는 맵·지형만 있는 맵도 보여준다.
-      if (map.entities.length === 0 && map.layers.length === 0) {
+      if (mapEntities.length === 0 && map.layers.length === 0) {
         continue
       }
 
@@ -1592,8 +1624,8 @@ export const createEditorApp = ({
       // 검색어가 있으면 이름으로 실시간 필터링(표시 전용).
       const query = assetQuery.trim().toLowerCase()
       const visibleEntities = query
-        ? map.entities.filter((entity) => entity.name.toLowerCase().includes(query))
-        : map.entities
+        ? mapEntities.filter((entity) => entity.name.toLowerCase().includes(query))
+        : mapEntities
       // 검색 중인데 이 맵에 일치하는 에셋이 없으면 맵 자체를 건너뛴다.
       if (query && visibleEntities.length === 0) {
         continue
@@ -1752,7 +1784,7 @@ export const createEditorApp = ({
       }
 
       // 요소는 있는데 생성 대상이 하나도 없는 맵(사냥터·동굴 등)에선, 왜 클릭할 게 없는지 알려준다.
-      if (selectableCount === 0 && map.entities.length > 0) {
+      if (selectableCount === 0 && mapEntities.length > 0) {
         group.append(
           el('div', 'px-1 text-[11px] text-[#777777] italic', '생성 대상이 없는 맵 — 위 요소는 보기 전용입니다.')
         )
@@ -2901,6 +2933,15 @@ export const createEditorApp = ({
     showAllMaps = false
     renderTree()
     render()
+  })
+  // '적용'으로 스폰된 NPC는 게임(iframe)이 localStorage(PENDING_NPCS_STORAGE_KEY)에 저장한다.
+  // 같은 origin이라 부모(에디터) 창에 'storage' 이벤트가 오므로, 그때 트리를 다시 그려 새 NPC를
+  // '인물' 목록에 바로 반영한다(부팅 때 굳은 map.entities에는 없으니 이 신호가 없으면 안 보인다).
+  window.addEventListener('storage', (event) => {
+    if (event.key === PENDING_NPCS_STORAGE_KEY) {
+      renderTree()
+      render()
+    }
   })
 
   renderTree()
