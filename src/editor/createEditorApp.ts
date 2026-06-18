@@ -32,6 +32,12 @@ import { editorIcon, type EditorIconName } from './editorIcons'
 import type { GameEntity, GenerationFeedback, GenerationResult } from './gameAdapter'
 import { generateQuestCandidates, type QuestCandidate } from './questCandidates'
 import { dryRunEventApply, type DryRunReport } from './dryRunEventApply'
+// 후보 흐름에서 "진짜 퀘스트" 생성 경로(회귀 복원). my-sample-rpg 전용.
+import { generateQuestJson } from './questJsonGenerator'
+import { dryRunQuestApply } from './dryRunQuestApply'
+import { convertGeneratedQuestToDefinition } from './questCodeGenerator'
+import { createGeneratedQuestValidationIssues } from './questJsonSchema'
+import { replacePendingQuests } from './pendingQuests'
 
 // 하드코딩 어댑터가 엔티티를 못 찾은 미지의 게임을, LLM 분석이 찾은 editable 그룹으로 채운다.
 const buildEntitiesFromAnalysis = (
@@ -796,7 +802,7 @@ export const createEditorApp = ({
     view.append(body)
     return { view, body }
   }
-  const luaView = makeDetailView('생성된 Lua 코드')
+  const luaView = makeDetailView('생성된 JSON 코드')
   const luaStatus = el('div', 'text-[12px] text-[#9d9d9d]', '생성 후 표시됩니다')
   const result = el('pre', 'm-0 max-h-[36vh] overflow-auto text-[12px] leading-relaxed text-[#d4d4d4] whitespace-pre-wrap break-words')
   result.hidden = true
@@ -817,7 +823,7 @@ export const createEditorApp = ({
   // 위쪽 목록 — 클릭하면 아래 상세 창의 내용만 바뀐다.
   const boardList = el('div', 'flex flex-col gap-1.5')
   const BOARD_TABS: Array<{ id: BoardTab; label: string }> = [
-    { id: 'lua', label: '생성된 Lua 코드' },
+    { id: 'lua', label: '생성된 JSON 코드' },
     { id: 'files', label: '변경 예정 파일' },
     { id: 'verify', label: '검증 결과' },
     { id: 'apply', label: '적용 상태' }
@@ -2215,44 +2221,101 @@ export const createEditorApp = ({
     if (!candidate) {
       return
     }
+    // 프로필이 있는 게임(my-sample-rpg)은 "목표 포함 진짜 퀘스트"를 생성한다. 예전엔 후보 흐름도
+    // game.adapter.generate(이벤트)로 빠져 퀘스트가 안 만들어졌고 B창·NPC "?"에 안 떴다(회귀).
+    // 5eb6f9e의 퀘스트 경로를 복원한다. 프로필이 없는 게임(legend 등)은 기존 이벤트 경로를 유지한다.
+    const profile = game.profile
+    const selectedNpcId =
+      selectedEntity?.kind === 'npc' ? selectedEntity.id : undefined
     isGenerating = true
     const filesAtStart = currentFiles
-    setStatus(`"${candidate.title}" 후보로 이벤트 생성 중...`)
+    setStatus(
+      profile
+        ? `"${candidate.title}" 후보로 퀘스트 생성 중...`
+        : `"${candidate.title}" 후보로 이벤트 생성 중...`
+    )
     render()
 
     try {
-      const result = await game.adapter.generate({
-        apiKey: apiKey.trim(),
-        userPrompt: promptInput.value,
-        entity: selectedEntity,
-        profile: game.profile,
-        candidate,
-        gameContext: currentAnalysis
-          ? `${currentAnalysis.game_name} (${currentAnalysis.engine}). 콘텐츠 모델: ${currentAnalysis.content_model}`
-          : undefined
-      })
-      if (currentFiles !== filesAtStart) {
-        return
+      if (profile) {
+        // 퀘스트 모드: 후보로 진짜 퀘스트 JSON을 생성한다(대사 이벤트가 아님).
+        const quest = await generateQuestJson({
+          apiKey: apiKey.trim(),
+          userPrompt: promptInput.value,
+          profile,
+          candidate,
+          entity: selectedEntity
+        })
+        if (currentFiles !== filesAtStart) {
+          return
+        }
+        // 무결성 검증(드라이런): 목표/기버/보상 타깃이 런타임에서 추적되는 값인지 단계별 점검.
+        currentDryRun = dryRunQuestApply(quest, profile, {
+          selectedEntityId: selectedNpcId
+        })
+        const issues = createGeneratedQuestValidationIssues(quest, profile, {
+          selectedEntityId: selectedNpcId
+        }).map((issue) => `${issue.path} - ${issue.message}`)
+        // apply는 런타임 퀘스트로 변환·저장(localStorage) → 게임이 storage 이벤트로 등록한다.
+        const result: GenerationResult = {
+          label: quest.title || quest.quest_id,
+          preview: JSON.stringify(quest, null, 2),
+          issues,
+          apply: () => {
+            replacePendingQuests([
+              convertGeneratedQuestToDefinition(quest, profile)
+            ])
+          },
+          bridgePayload: null
+        }
+        currentResult = result
+        historyCounter += 1
+        history = [{ n: historyCounter, result }, ...history].slice(0, HISTORY_LIMIT)
+        sessionTally = {
+          generations: sessionTally.generations + 1,
+          validatorPasses:
+            sessionTally.validatorPasses + (result.issues.length === 0 ? 1 : 0)
+        }
+        activeBoardTab = 'verify'
+        setStatus(
+          currentDryRun && !currentDryRun.ok
+            ? `생성됨 — 무결성 검증 실패. '검증 결과'에서 위치를 확인하고 다시 시도하세요.`
+            : `생성 완료: ${result.label} — 무결성 검증 통과`
+        )
+      } else {
+        const result = await game.adapter.generate({
+          apiKey: apiKey.trim(),
+          userPrompt: promptInput.value,
+          entity: selectedEntity,
+          profile: game.profile,
+          candidate,
+          gameContext: currentAnalysis
+            ? `${currentAnalysis.game_name} (${currentAnalysis.engine}). 콘텐츠 모델: ${currentAnalysis.content_model}`
+            : undefined
+        })
+        if (currentFiles !== filesAtStart) {
+          return
+        }
+        currentResult = result
+        // 무결성 검증(드라이런): 이벤트 JSON을 복제 스냅샷에 시험 적용해 통과/실패·위치를 보고한다.
+        currentDryRun =
+          result.eventJson && game.profile
+            ? dryRunEventApply(result.eventJson, game.profile)
+            : undefined
+        historyCounter += 1
+        history = [{ n: historyCounter, result }, ...history].slice(0, HISTORY_LIMIT)
+        sessionTally = {
+          generations: sessionTally.generations + 1,
+          validatorPasses:
+            sessionTally.validatorPasses + (result.issues.length === 0 ? 1 : 0)
+        }
+        activeBoardTab = 'verify'
+        setStatus(
+          currentDryRun && !currentDryRun.ok
+            ? `생성됨 — 무결성 검증 실패. '검증 결과'에서 위치를 확인하고 다시 시도하세요.`
+            : `생성 완료: ${result.label} — 무결성 검증 통과`
+        )
       }
-      currentResult = result
-      // 무결성 검증(드라이런): 이벤트 JSON을 복제 스냅샷에 시험 적용해 통과/실패·위치를 보고한다.
-      currentDryRun =
-        result.eventJson && game.profile
-          ? dryRunEventApply(result.eventJson, game.profile)
-          : undefined
-      historyCounter += 1
-      history = [{ n: historyCounter, result }, ...history].slice(0, HISTORY_LIMIT)
-      sessionTally = {
-        generations: sessionTally.generations + 1,
-        validatorPasses:
-          sessionTally.validatorPasses + (result.issues.length === 0 ? 1 : 0)
-      }
-      activeBoardTab = 'verify'
-      setStatus(
-        currentDryRun && !currentDryRun.ok
-          ? `생성됨 — 무결성 검증 실패. '검증 결과'에서 위치를 확인하고 다시 시도하세요.`
-          : `생성 완료: ${result.label} — 무결성 검증 통과`
-      )
     } catch (error) {
       if (currentFiles !== filesAtStart) {
         return

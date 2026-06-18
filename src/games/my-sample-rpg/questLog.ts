@@ -929,7 +929,15 @@ export const getQuestNpcBadgeKindForNpc = (
     return 'new'
   }
 
-  if (getQuestDefinitionsWithPendingTalkObjectiveForNpc(questLog, npcId).length > 0) {
+  // 액티브 퀘스트의 talk 목표가 이 NPC를 가리키면 "여기로 와서 대화" 안내로 "?"를 띄운다.
+  // 단, 그 퀘스트의 기버 NPC 본인은 제외한다 — 기버는 수락 직후 "?"가 사라져야 하고(방금 수락함),
+  // 완료(ready-to-turn-in) 시 'finish'로 다시 표시된다. 목표가 동시 진행이라, 기버를 제외하지 않으면
+  // "기버에게 전달" 류 talk 목표 때문에 수락 직후에도 기버 위 "?"가 계속 남는다.
+  if (
+    getQuestDefinitionsWithPendingTalkObjectiveForNpc(questLog, npcId).some(
+      (definition) => definition.giverNpcId !== npcId
+    )
+  ) {
     return 'new'
   }
 
