@@ -24,6 +24,9 @@ export type GameEntity = {
   name: string
   kind: string
   mapId: string
+  // 이 엔티티의 스프라이트를 찾기 위한 키(legend: 적 name="bat" / NPC appearance / loot type 등).
+  // 퀘스트 목표 에셋 미리보기(이미지 팝업, legendEntitySprite)에 쓴다. 없으면 종류 아이콘으로 폴백.
+  spriteKey?: string
   // 맵 내 타일 좌표(표시 전용) — 점 객체의 픽셀 위치를 타일 단위로 환산해 보관한다.
   // 선택 객체 패널의 "Position (15, 8)" 표시에 쓰인다. 좌표를 알 수 없으면 undefined.
   tileX?: number
@@ -360,11 +363,18 @@ export const legendOfLuaAdapter: GameAdapter = {
       )
       .map((object) => {
         const kind = legendKindForGroup(object.group)
+        // 게임이 스프라이트를 고르는 키가 종류마다 다르다(loadMap 참고): 적은 obj.name(spawnEnemy(name),
+        // 예: "bat"), NPC/보급품은 obj.type(NPC=appearance, loot=type). 그래서 종류로 갈라 고른다.
+        const spriteKey =
+          kind === 'enemy'
+            ? object.name || object.type
+            : object.type || object.name
         return {
           id: `${object.group}-${object.id}`,
           name: object.name || object.type || `${kind}-${object.id}`,
           kind,
-          mapId
+          mapId,
+          spriteKey: spriteKey || undefined
         }
       }),
   // 실행 중인 Love2D 게임에 HTTP 브리지로 라이브 적용한다(docs/legend-of-lua-bridge-protocol.md).

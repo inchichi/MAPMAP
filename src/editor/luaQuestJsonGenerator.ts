@@ -1,4 +1,3 @@
-import { generateJson } from './llmProvider'
 import {
   buildFeedbackInstruction,
   type GameEntity,
@@ -9,40 +8,19 @@ import {
   buildLuaQuestCatalogText,
   type LuaQuestCatalog
 } from './luaQuestCatalog'
-import type {
-  GeneratedLuaQuestJson,
-  GeneratedLuaQuestObjective
-} from './luaQuestSchema'
+import type { GeneratedLuaQuestJson } from './luaQuestSchema'
+import {
+  createObjectiveSchema,
+  createQuestEnvelopeSchema,
+  createStringEnumSchema,
+  generateQuestJsonViaCore,
+  uniqueStrings,
+  type JsonSchema
+} from './questPipeline'
 
-type JsonSchema = Record<string, unknown>
-
-const uniqueStrings = (values: string[]): string[] => [...new Set(values)]
-
-const createStringEnumSchema = (values: string[]): JsonSchema => ({
-  type: 'string',
-  enum: uniqueStrings(values)
-})
-
-const createObjectiveSchema = (
-  type: GeneratedLuaQuestObjective['type'],
-  targetProperties: Record<string, JsonSchema>,
-  requiredTargetFields: string[]
-): JsonSchema => ({
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    type: { type: 'string', const: type },
-    label: { type: 'string', minLength: 1 },
-    required: { type: 'integer', minimum: 1 },
-    target: {
-      type: 'object',
-      additionalProperties: false,
-      properties: targetProperties,
-      required: requiredTargetFields
-    }
-  },
-  required: ['type', 'label', 'required', 'target']
-})
+// legend-of-lua 퀘스트 2단계: 자연어(후보) → 구조화 JSON. questJsonGenerator(my-rpg)와 같은 공통 코어
+// (스키마 봉투·enum 그라운딩·생성 호출)를 쓰고, 여기선 legend 도메인(배치 엔티티 카탈로그)과
+// 목표 타입(defeat/talk/acquire/reach)·보상(자유 label)만 끼운다.
 
 const getQuestGiverNpcIds = (
   catalog: LuaQuestCatalog,
@@ -62,97 +40,41 @@ const createLuaQuestJsonSchema = (
   const acquirableIds = uniqueStrings(catalog.acquirables.map((item) => item.id))
   const sceneIds = uniqueStrings(catalog.scenes)
 
-  return {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      quest_id: {
-        type: 'string',
-        pattern: '^[a-z0-9_]+$'
+  return createQuestEnvelopeSchema({
+    giverFieldName: 'giver_npc_entity_id',
+    giverEnum: questGiverNpcIds,
+    objectiveSchemas: [
+      createObjectiveSchema(
+        'defeat',
+        { entityId: createStringEnumSchema(enemyIds) },
+        ['entityId']
+      ),
+      createObjectiveSchema(
+        'talk',
+        { entityId: createStringEnumSchema(npcIds) },
+        ['entityId']
+      ),
+      createObjectiveSchema(
+        'acquire',
+        { entityId: createStringEnumSchema(acquirableIds) },
+        ['entityId']
+      ),
+      createObjectiveSchema(
+        'reach',
+        { mapId: createStringEnumSchema(sceneIds) },
+        ['mapId']
+      )
+    ],
+    rewardItemSchema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        label: { type: 'string', minLength: 1 },
+        quantity: { type: 'integer', minimum: 1 }
       },
-      title: { type: 'string', minLength: 1 },
-      giver_npc_entity_id: createStringEnumSchema(questGiverNpcIds),
-      request_text: { type: 'string', minLength: 1 },
-      guide_text: { type: 'string', minLength: 1 },
-      start_dialogue_lines: {
-        type: 'array',
-        minItems: 1,
-        items: { type: 'string', minLength: 1 }
-      },
-      active_dialogue_lines: {
-        type: 'array',
-        minItems: 1,
-        items: { type: 'string', minLength: 1 }
-      },
-      completion_dialogue_lines: {
-        type: 'array',
-        minItems: 1,
-        items: { type: 'string', minLength: 1 }
-      },
-      objectives: {
-        type: 'array',
-        minItems: 1,
-        maxItems: 3,
-        items: {
-          oneOf: [
-            createObjectiveSchema(
-              'defeat',
-              { entityId: createStringEnumSchema(enemyIds) },
-              ['entityId']
-            ),
-            createObjectiveSchema(
-              'talk',
-              { entityId: createStringEnumSchema(npcIds) },
-              ['entityId']
-            ),
-            createObjectiveSchema(
-              'acquire',
-              { entityId: createStringEnumSchema(acquirableIds) },
-              ['entityId']
-            ),
-            createObjectiveSchema(
-              'reach',
-              { mapId: createStringEnumSchema(sceneIds) },
-              ['mapId']
-            )
-          ]
-        }
-      },
-      rewards: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          gold: { type: 'integer', minimum: 0 },
-          experience: { type: 'integer', minimum: 0 },
-          items: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              properties: {
-                label: { type: 'string', minLength: 1 },
-                quantity: { type: 'integer', minimum: 1 }
-              },
-              required: ['label', 'quantity']
-            }
-          }
-        },
-        required: ['gold', 'experience', 'items']
-      }
-    },
-    required: [
-      'quest_id',
-      'title',
-      'giver_npc_entity_id',
-      'request_text',
-      'guide_text',
-      'start_dialogue_lines',
-      'active_dialogue_lines',
-      'completion_dialogue_lines',
-      'objectives',
-      'rewards'
-    ]
-  }
+      required: ['label', 'quantity']
+    }
+  })
 }
 
 const createLuaQuestSystemPrompt = (
@@ -226,7 +148,7 @@ export const generateLuaQuestJson = ({
 }): Promise<GeneratedLuaQuestJson> => {
   const feedbackHint = feedback ? buildFeedbackInstruction(feedback) : ''
 
-  return generateJson<GeneratedLuaQuestJson>({
+  return generateQuestJsonViaCore<GeneratedLuaQuestJson>({
     apiKey,
     instructions: createLuaQuestSystemPrompt(catalog, entity),
     input: `${userPrompt}${createQuestTargetHint(candidate, entity)}${feedbackHint}`,

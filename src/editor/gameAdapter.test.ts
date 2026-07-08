@@ -90,7 +90,7 @@ describe('legendOfLuaAdapter', () => {
     const entities = legendOfLuaAdapter.extractEntities('test', extractTmxObjects(legendTmx))
 
     expect(entities).toEqual([
-      { id: 'Enemies-105', name: 'slime', kind: 'enemy', mapId: 'test' }
+      { id: 'Enemies-105', name: 'slime', kind: 'enemy', mapId: 'test', spriteKey: 'slime' }
     ])
   })
 })

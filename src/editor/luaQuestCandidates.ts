@@ -1,14 +1,20 @@
-import { generateJson } from './llmProvider'
 import {
   buildFeedbackInstruction,
   type GameEntity,
   type GenerationFeedback
 } from './gameAdapter'
-import type { QuestCandidate } from './questCandidates'
 import {
   buildLuaQuestCatalogText,
   type LuaQuestCatalog
 } from './luaQuestCatalog'
+import {
+  generateQuestCandidatesViaCore,
+  uniqueStrings,
+  type QuestCandidate
+} from './questPipeline'
+
+// legend-of-lua 퀘스트 1단계 후보 생성. questCandidates(my-sample-rpg)와 같은 공통 코어를 쓰고,
+// 여기선 legend 도메인(배치 엔티티 카탈로그 그라운딩)만 끼운다.
 
 export type GenerateLuaQuestCandidatesInput = {
   apiKey: string
@@ -20,8 +26,6 @@ export type GenerateLuaQuestCandidatesInput = {
 }
 
 export const LUA_QUEST_CANDIDATE_COUNT = 3
-
-const uniqueStrings = (values: string[]): string[] => [...new Set(values)]
 
 const getQuestGiverNpcIds = (
   catalog: LuaQuestCatalog,
@@ -36,43 +40,6 @@ const buildGroundingContext = (catalog: LuaQuestCatalog): string =>
   `Available enemies: ${catalog.enemies.map((enemy) => `${enemy.id}(${enemy.name}, map=${enemy.mapId})`).join(', ') || '(none)'}\n` +
   `Available acquirables: ${catalog.acquirables.map((item) => `${item.id}(${item.name}, map=${item.mapId})`).join(', ') || '(none)'}\n` +
   `Available scenes: ${catalog.scenes.join(', ') || '(none)'}`
-
-const normalizeCandidate = (candidate: Partial<QuestCandidate>): QuestCandidate => ({
-  title: (candidate.title ?? '').trim(),
-  summary: (candidate.summary ?? '').trim(),
-  target_hint: (candidate.target_hint ?? '').trim()
-})
-
-const createLuaQuestCandidatesSchema = (
-  catalog: LuaQuestCatalog,
-  entity?: GameEntity
-): object => {
-  const targetHintEnum = ['', ...getQuestGiverNpcIds(catalog, entity)]
-
-  return {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      candidates: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            title: { type: 'string' },
-            summary: { type: 'string' },
-            target_hint: {
-              type: 'string',
-              enum: targetHintEnum
-            }
-          },
-          required: ['title', 'summary', 'target_hint']
-        }
-      }
-    },
-    required: ['candidates']
-  }
-}
 
 const createLuaQuestCandidatePrompt = (
   catalog: LuaQuestCatalog,
@@ -95,7 +62,7 @@ const createLuaQuestCandidatePrompt = (
   ].join('\n')
 }
 
-export const generateLuaQuestCandidates = async ({
+export const generateLuaQuestCandidates = ({
   apiKey,
   userPrompt,
   catalog,
@@ -109,15 +76,11 @@ export const generateLuaQuestCandidates = async ({
   const contextLine = gameContext ? `\n\nGame context: ${gameContext}` : ''
   const feedbackLine = feedback ? buildFeedbackInstruction(feedback) : ''
 
-  const generated = await generateJson<{ candidates: QuestCandidate[] }>({
+  return generateQuestCandidatesViaCore({
     apiKey,
     instructions: createLuaQuestCandidatePrompt(catalog, entity),
     input: `${userPrompt}${targetLine}${contextLine}${buildGroundingContext(catalog)}${feedbackLine}`,
-    schemaName: 'lua_quest_candidates',
-    schema: createLuaQuestCandidatesSchema(catalog, entity)
+    targetHintEnum: ['', ...getQuestGiverNpcIds(catalog, entity)],
+    schemaName: 'lua_quest_candidates'
   })
-
-  return (generated.candidates ?? [])
-    .map(normalizeCandidate)
-    .filter((candidate) => candidate.title.length > 0 || candidate.summary.length > 0)
 }

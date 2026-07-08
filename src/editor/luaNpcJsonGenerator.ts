@@ -30,6 +30,7 @@ const createLuaNpcJsonSchema = (catalog: LuaQuestCatalog): JsonSchema => ({
   properties: {
     npc_id: { type: 'string', pattern: '^[a-z0-9_]+$' },
     name: { type: 'string', minLength: 1 },
+    role: { type: 'string', minLength: 1 },
     map_id: createStringEnumSchema(catalog.scenes),
     appearance: { type: 'string', enum: [...LUA_NPC_APPEARANCES] },
     position: {
@@ -60,6 +61,7 @@ const createLuaNpcJsonSchema = (catalog: LuaQuestCatalog): JsonSchema => ({
   required: [
     'npc_id',
     'name',
+    'role',
     'map_id',
     'appearance',
     'position',
