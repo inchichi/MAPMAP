@@ -284,10 +284,6 @@ Module.expectedDataFileDownloads++;
     }
 
   }
-<<<<<<< HEAD
   loadPackage({"package_uuid":"094ed253-acf3-44b1-a9d3-470ef84a3aba","remote_package_size":4182134,"files":[{"filename":"/game.love","crunched":0,"start":0,"end":4182134,"audio":false}]});
-=======
-  loadPackage({"package_uuid":"c1829340-4197-4cf4-b5a8-4f9ea9700b9c","remote_package_size":4023899,"files":[{"filename":"/game.love","crunched":0,"start":0,"end":4023899,"audio":false}]});
->>>>>>> origin/develop-chich
 
 })();
