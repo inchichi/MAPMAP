@@ -28,7 +28,7 @@
    border-color는 그라데이션이 안 되므로 투명 테두리 + 이중 배경(안쪽 채움/테두리 띠)으로 구현.
    안쪽 채움색은 --bgb 변수로 요소마다 지정한다(hover 시 변수만 바꾸면 밝아진다). */
 .box-grad-border {
-  --bgb: #252526;
+  --bgb: #141416;
   border: 1px solid transparent;
   /* 일반 패널 테두리는 VSCode 중립 그레이 — 금색 그라데이션은 강조 패널(--strong)에만 남긴다. */
   background-image:
@@ -142,7 +142,7 @@
   white-space: nowrap;
   padding: 4px 8px;
   border-radius: 8px;
-  background: #252526;
+  background: #141416;
   border: 1px solid #b6bac1;
   color: #d4d4d4;
   font-size: 11px;
@@ -159,7 +159,7 @@
   left: 0;
   padding: 6px;
   border-radius: 10px;
-  background: #1b1b1c;
+  background: #0d0d0d;
   border: 1px solid #d09a4c;
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
   pointer-events: none;
@@ -260,7 +260,7 @@ body {
   /* select 팝업·스크롤바 같은 UA 위젯도 다크로 — 흰 팝업이 튀지 않게 한다. */
   color-scheme: dark;
   /* VSCode Dark+ 계층: 최상위 배경. 게임(iframe) 내부는 자체 스타일이라 영향 없다. */
-  background: #1e1e1e;
+  background: #0a0a0a;
   color: #d4d4d4;
   /* 에디터는 제작 도구이므로 게임 픽셀 폰트가 아니라 전문 UI 폰트(Pretendard)를 쓴다.
      게임 화면/오버레이는 game styles.css의 픽셀 폰트를 그대로 유지한다(폰트 시스템 분리). */
@@ -280,14 +280,14 @@ body {
    에셋 패널·결과 보드 등 에디터의 모든 스크롤 영역에 공통 적용된다. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(138, 142, 149, 0.5) #1e1e1e;
+  scrollbar-color: rgba(138, 142, 149, 0.5) #0a0a0a;
 }
 *::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
 *::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: #0a0a0a;
   border-radius: 9999px;
 }
 *::-webkit-scrollbar-thumb {

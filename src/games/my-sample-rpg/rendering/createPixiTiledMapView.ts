@@ -965,6 +965,12 @@ export const createPixiTiledMapView = async ({
   ) => void
   refreshPlacements: () => void
   refreshNpcs: () => void
+  // 에디터가 자연어로 생성한 NPC를 실행 중인 게임의 플레이어 옆에 라이브 스폰한다.
+  spawnNpcNearPlayer: (template: {
+    appearanceType: string
+    name?: string
+    dialogueLines?: string[]
+  }) => boolean
 }> => {
   const app = new Application()
   let cameraZoom = CAMERA_DEFAULT_ZOOM
@@ -6432,6 +6438,75 @@ export const createPixiTiledMapView = async ({
     }
   }
 
+  // 한 칸이 NPC를 놓기에 적합한지: 맵 안 + 벽 아님 + 다른 캐릭터(플레이어/NPC/몬스터)와 안 겹침.
+  const isNpcSpawnableTile = (x: number, y: number): boolean => {
+    if (x < 0 || y < 0 || x >= map.width || y >= map.height) {
+      return false
+    }
+    if (isWallTileAt(wallTiles, x, y)) {
+      return false
+    }
+    const rect: CollisionRect = { x, y, width: 1, height: 1 }
+    return !getBlockingCollisionRects('').some((blocker) =>
+      doCollisionRectsIntersect(rect, blocker)
+    )
+  }
+
+  // 플레이어를 중심으로 바깥쪽 링부터 훑어 가장 가까운 빈 칸을 찾는다(자기 칸은 제외).
+  const findSpawnTileNearPlayer = (player: {
+    x: number
+    y: number
+  }): { x: number; y: number } | undefined => {
+    const px = Math.round(player.x)
+    const py = Math.round(player.y)
+    for (let radius = 1; radius <= 8; radius += 1) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          // 현재 반지름의 테두리 칸만(안쪽은 이전 반지름에서 이미 검사됨).
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) {
+            continue
+          }
+          const x = px + dx
+          const y = py + dy
+          if (isNpcSpawnableTile(x, y)) {
+            return { x, y }
+          }
+        }
+      }
+    }
+    return undefined
+  }
+
+  // 에디터 생성 NPC를 플레이어 옆 빈 칸에 스폰한다(npcStore에 저장 후 refreshNpcs가 CharacterState로
+  // 만든다 — 수기 배치 NPC와 같은 경로). 외형이 시트에 없으면 refreshNpcs의 try/catch가 스킵한다.
+  const spawnNpcNearPlayer = (template: {
+    appearanceType: string
+    name?: string
+    dialogueLines?: string[]
+  }): boolean => {
+    const player = getCharacterStateById(PLAYER_CHARACTER_ID)
+    if (!player) {
+      return false
+    }
+    const spot = findSpawnTileNearPlayer(player.position)
+    if (!spot) {
+      console.warn('[npc] 플레이어 주변에 빈 칸이 없어 NPC를 스폰하지 못했습니다.')
+      return false
+    }
+    addNpc(
+      sceneId,
+      {
+        appearanceType: template.appearanceType,
+        name: template.name,
+        dialogueLines: template.dialogueLines
+      },
+      spot.x,
+      spot.y
+    )
+    refreshNpcs()
+    return true
+  }
+
   // 배치 NPC를 클릭 지점(스프라이트 픽셀 영역)으로 맞혀 지운다. 맞으면 true(이후 배치 지우기 생략).
   const eraseNpcAtPoint = (x: number, y: number): boolean => {
     for (const id of [...placedNpcIds].reverse()) {
@@ -6631,7 +6706,8 @@ export const createPixiTiledMapView = async ({
       placementTemplate = template
     },
     refreshPlacements,
-    refreshNpcs
+    refreshNpcs,
+    spawnNpcNearPlayer
   }
 }
 

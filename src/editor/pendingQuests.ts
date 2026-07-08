@@ -3,6 +3,28 @@ import { readLocalStorage, writeLocalStorage } from './safeStorage'
 
 export const PENDING_QUESTS_STORAGE_KEY = 'my-sample-rpg:pending-quests'
 
+// 같은 NPC에 대한 옛 퀘스트 스냅샷이 남아 있으면 배지/트래커가 겹친다.
+// 최신 스냅샷만 남기고, quest id 중복도 같이 정리한다.
+export const normalizePendingQuestSnapshot = (
+  quests: QuestDefinition[]
+): QuestDefinition[] => {
+  const seenQuestIds = new Set<string>()
+  const seenGiverNpcIds = new Set<string>()
+  const normalized: QuestDefinition[] = []
+
+  for (let index = quests.length - 1; index >= 0; index -= 1) {
+    const quest = quests[index]
+    if (seenQuestIds.has(quest.id) || seenGiverNpcIds.has(quest.giverNpcId)) {
+      continue
+    }
+    seenQuestIds.add(quest.id)
+    seenGiverNpcIds.add(quest.giverNpcId)
+    normalized.unshift(quest)
+  }
+
+  return normalized
+}
+
 export const loadPendingQuests = (): QuestDefinition[] => {
   const raw = readLocalStorage(PENDING_QUESTS_STORAGE_KEY)
 
@@ -19,10 +41,7 @@ export const loadPendingQuests = (): QuestDefinition[] => {
 }
 
 export const savePendingQuest = (quest: QuestDefinition): QuestDefinition[] => {
-  const next = [
-    quest,
-    ...loadPendingQuests().filter((existing) => existing.id !== quest.id)
-  ]
+  const next = normalizePendingQuestSnapshot([...loadPendingQuests(), quest])
 
   if (!writeLocalStorage(PENDING_QUESTS_STORAGE_KEY, JSON.stringify(next))) {
     throw new Error('Failed to save the pending quest snapshot.')
@@ -34,11 +53,13 @@ export const savePendingQuest = (quest: QuestDefinition): QuestDefinition[] => {
 export const replacePendingQuests = (
   quests: QuestDefinition[]
 ): QuestDefinition[] => {
-  if (!writeLocalStorage(PENDING_QUESTS_STORAGE_KEY, JSON.stringify(quests))) {
+  const next = normalizePendingQuestSnapshot(quests)
+
+  if (!writeLocalStorage(PENDING_QUESTS_STORAGE_KEY, JSON.stringify(next))) {
     throw new Error('Failed to replace the pending quest snapshot.')
   }
 
-  return quests
+  return next
 }
 
 export const clearPendingQuests = (): void => {
