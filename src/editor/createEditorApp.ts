@@ -744,10 +744,10 @@ export const createEditorApp = ({
   }
   const styleTransferButton = el('button', QUICK_CARD) as HTMLButtonElement
   styleTransferButton.type = 'button'
-  styleTransferButton.title = 'FreeStyle 이미지 변환 모달을 엽니다'
+  styleTransferButton.title = '스타일 변환 모달을 엽니다'
   styleTransferButton.append(
     el('span', 'text-[14px] leading-none text-[#d4d4d4]', '스타일 변환'),
-    el('span', 'text-[11px] leading-none text-[#777777] opacity-65', 'FreeStyle 열기')
+    el('span', 'text-[11px] leading-none text-[#777777] opacity-65', '스타일 변환')
   )
   styleTransferButton.addEventListener('click', () => {
     styleTransferModal.openButton.click()

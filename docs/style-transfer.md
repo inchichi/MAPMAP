@@ -1,83 +1,57 @@
-# Style Transfer (FreeStyle)
+# Style Transfer (SDXL)
 
-This project now uses a text-guided style transfer flow based on FreeStyle.
-The user supplies a content image and a style prompt, not a style reference image.
+The local style service uses `stabilityai/stable-diffusion-xl-base-1.0` with `StableDiffusionXLImg2ImgPipeline`.
+The user supplies a content image and a natural-language style prompt.
 
 ## Pipeline
 
-1. LLM reads the planning document and outputs structured JSON.
-2. The app turns that JSON into a style prompt.
-3. A human reviews and approves the prompt.
-4. The user picks or generates the base content image.
-5. The editor sends the content image and prompt to FreeStyle.
-6. The result is reviewed by a human.
-7. Optional post-processing runs on the result.
-8. The final image is applied to the game asset.
+1. The editor creates or selects a content image.
+2. The user reviews a style prompt.
+3. The editor sends the content image and prompt to the SDXL img2img service.
+4. The result is reviewed and can be applied to the game asset.
 
 ## Main Parts
 
 - `src/editor/createStyleTransferModal.ts`
-  - Game editor modal for current project assets and map objects.
-  - Sends `style_prompt`, `alpha`, and `alpha_erode` to the style service.
-- `src/editor/createExternalSpriteStyler.ts`
-  - External project sprite styler.
-  - Sends `style_prompt` for single apply and batch apply.
+  - Sends content images and style prompts to the style service.
+- `style-service/sdxl_service.py`
+  - Loads the SDXL img2img pipeline once per service process.
+  - Preserves source alpha channels and asset dimensions where required.
 - `style-service/server.py`
-  - FastAPI bridge for local style transfer.
-  - Exposes the editor endpoints and applies the result back into the workspace.
-- `style-service/freestyle_service.py`
-  - Wrapper that runs the FreeStyle repo script through `subprocess`.
+  - FastAPI bridge for the editor endpoints.
 - `style-service/style_service_config.py`
-  - Shared config loader for repo paths and FreeStyle parameters.
-- `style-service/config.json`
-  - Default paths and FreeStyle hyperparameters.
+  - Loads SDXL model and inference settings.
 
-## API Overview
+## API
+
+The existing editor endpoints remain unchanged:
 
 - `POST /style-transfer`
-  - Multipart form
-  - Fields: `content`, `style_prompt`, `alpha`, `alpha_erode`, `content_size`, `preserve_size`
 - `POST /stylize-object`
-  - Stylizes a map object / tileset fragment with a prompt.
 - `POST /batch-apply`
-  - Batch stylizes multiple game assets with the same prompt.
 - `POST /ext/apply`
-  - Stylizes one external sprite asset.
 - `POST /ext/batch-apply`
-  - Stylizes many external sprite assets.
 - `GET /health`
-  - Checks that the FreeStyle repo and model paths exist.
 
-## Config
-
-`style-service/config.json` uses these keys:
+## Baseline configuration
 
 | Key | Meaning |
 |---|---|
-| `freestyleRepoDir` | Path to the FreeStyle repository root |
-| `freestyleDiffusersTestDir` | Folder that contains `stable_diffusion_xl_test.py` |
-| `freestyleModelDir` | SDXL model directory inside the FreeStyle repo |
-| `freestyleUnetDir` | UNet directory inside the SDXL model folder |
-| `freestyleSampler` | Sampler name used by inference |
-| `freestyleSteps` | Number of diffusion steps |
-| `freestyleCfg` | CFG scale |
-| `freestyleNumImagesPerPrompt` | Number of outputs generated per prompt |
-| `freestyleN` | FreeStyle `n` parameter |
-| `freestyleB` | FreeStyle `b` parameter |
-| `freestyleS` | FreeStyle `s` parameter |
-| `freestyleSeed` | Random seed |
+| `sdxlModel` | `stabilityai/stable-diffusion-xl-base-1.0` |
+| `sdxlDevice` | PyTorch device, normally `cuda` or `cpu` |
+| `sdxlSteps` | Number of inference steps |
+| `sdxlGuidanceScale` | Prompt guidance scale |
+| `sdxlStrength` | How strongly the prompt changes the content image |
+| `sdxlSeed` | Reproducible seed |
 
-Environment variables with the `FREESTYLE_` prefix override the config file.
+Environment variables with the `SDXL_` prefix override the config file.
 
-## Run Locally
+LoRA and ControlNet are intentionally not enabled in this baseline. They can be added after the SDXL img2img flow is validated.
 
-1. Start the editor.
-2. Start the style service from `style-service/`.
-3. Open the style transfer modal in the editor.
-4. Enter a style prompt, select a content image or asset, and run the transfer.
+## Run locally
 
-## Notes
+1. Install the Python dependencies in `style-service/requirements.txt` and a compatible PyTorch build.
+2. Start the service from `style-service/`.
+3. Start the editor and open the SDXL style-transfer modal.
 
-- The service rejects empty prompts.
-- FreeStyle is used as a text-guided style transfer backend, so style image upload is no longer part of this flow.
-- The result is reviewed before it is applied back to the game.
+The first generation downloads and loads the model, so it can take longer and requires a compatible GPU and sufficient VRAM.

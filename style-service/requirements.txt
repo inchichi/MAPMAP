@@ -1,6 +1,10 @@
 # 스타일 트랜스퍼 서비스 전용 의존성.
-# torch / torchvision / Pillow / numpy는 FreeStyle/requirements.txt 쪽 요구사항이며,
+# torch / torchvision / Pillow / numpy는 PyTorch/SDXL 환경에서 필요하며,
 # 이미 설치된 버전(torch>=2.5)이면 그대로 동작한다 — 별도 다운그레이드 불필요.
 fastapi>=0.110,<1
 uvicorn>=0.30,<1
 python-multipart>=0.0.9
+diffusers>=0.30,<1
+transformers>=4.40,<5
+accelerate>=0.30,<2
+safetensors>=0.4

@@ -47,55 +47,20 @@ def get_config() -> dict:
             "assets_subdir": entry.get("assetsSubdir"),
         }
 
-    freestyle_repo_dir = _resolve_path(
-        os.environ.get("FREESTYLE_REPO_DIR", raw.get("freestyleRepoDir", "../../FreeStyle")),
-        _SERVICE_DIR,
-    )
-    freestyle_diffusers_test_dir = _resolve_path(
-        os.environ.get(
-            "FREESTYLE_DIFFUSERS_TEST_DIR",
-            raw.get("freestyleDiffusersTestDir", "diffusers_test"),
-        ),
-        freestyle_repo_dir,
-    )
-    freestyle_model_dir = _resolve_path(
-        os.environ.get(
-            "FREESTYLE_MODEL_DIR",
-            raw.get("freestyleModelDir", "diffusers_test/stable-diffusion-xl-base-1.0"),
-        ),
-        freestyle_repo_dir,
-    )
-    freestyle_unet_dir = _resolve_path(
-        os.environ.get(
-            "FREESTYLE_UNET_DIR",
-            raw.get("freestyleUnetDir", "diffusers_test/stable-diffusion-xl-base-1.0/unet"),
-        ),
-        freestyle_repo_dir,
+    sdxl_model = os.environ.get(
+        "SDXL_MODEL", raw.get("sdxlModel", "stabilityai/stable-diffusion-xl-base-1.0")
     )
 
     _config = {
         "project_dir": project_dir,
         "assets_subdir": raw.get("assetsSubdir", "src/games/my-sample-rpg/assets"),
         "external_projects": external_projects,
-        "freestyle_repo_dir": freestyle_repo_dir,
-        "freestyle_diffusers_test_dir": freestyle_diffusers_test_dir,
-        "freestyle_model_dir": freestyle_model_dir,
-        "freestyle_unet_dir": freestyle_unet_dir,
-        "freestyle_sampler": os.environ.get("FREESTYLE_SAMPLER", raw.get("freestyleSampler", "DDIM")),
-        "freestyle_steps": _resolve_int(os.environ.get("FREESTYLE_STEPS", raw.get("freestyleSteps", 30))),
-        "freestyle_cfg": _resolve_int(os.environ.get("FREESTYLE_CFG", raw.get("freestyleCfg", 5))),
-        "freestyle_num_images_per_prompt": _resolve_int(
-            os.environ.get(
-                "FREESTYLE_NUM_IMAGES_PER_PROMPT",
-                raw.get("freestyleNumImagesPerPrompt", 1),
-            )
-        ),
-        "freestyle_n": _resolve_int(os.environ.get("FREESTYLE_N", raw.get("freestyleN", 160))),
-        "freestyle_b": _resolve_float(os.environ.get("FREESTYLE_B", raw.get("freestyleB", 2.5))),
-        "freestyle_s": _resolve_float(os.environ.get("FREESTYLE_S", raw.get("freestyleS", 1.0))),
-        "freestyle_seed": _resolve_int(
-            os.environ.get("FREESTYLE_SEED", raw.get("freestyleSeed", 123456789))
-        ),
+        "sdxl_model": sdxl_model,
+        "sdxl_device": os.environ.get("SDXL_DEVICE", raw.get("sdxlDevice", "cuda")),
+        "sdxl_steps": _resolve_int(os.environ.get("SDXL_STEPS", raw.get("sdxlSteps", 30))),
+        "sdxl_guidance_scale": _resolve_float(os.environ.get("SDXL_GUIDANCE_SCALE", raw.get("sdxlGuidanceScale", 5.0))),
+        "sdxl_strength": _resolve_float(os.environ.get("SDXL_STRENGTH", raw.get("sdxlStrength", 0.45))),
+        "sdxl_seed": _resolve_int(os.environ.get("SDXL_SEED", raw.get("sdxlSeed", 123456789))),
         "host": os.environ.get("STYLE_SERVICE_HOST", raw["host"]),
         "port": int(os.environ.get("STYLE_SERVICE_PORT", raw["port"])),
     }

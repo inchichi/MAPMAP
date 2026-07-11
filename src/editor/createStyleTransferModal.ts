@@ -1,4 +1,4 @@
-// FreeStyle text-guided style transfer modal (header button).
+// SDXL img2img style transfer modal (header button).
 // 콘텐츠는 세 가지로 고를 수 있다 — ① 파일 업로드 ② 게임 에셋(src/games/my-sample-rpg/assets의 PNG)
 // ③ 맵 오브젝트(엔티티 트리에서 클릭한 타일 군집 — openForMapObject로 진입).
 // 변환은 로컬 Python 서비스(style-service, /api/style 프록시)가 수행하고, ②③은 결과를
@@ -207,7 +207,7 @@ export const createStyleTransferModal = (
   const panel = el('div', 'w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5 flex flex-col gap-4 shadow-2xl')
 
   const top = el('div', 'flex items-center justify-between')
-  top.append(el('span', 'text-sm font-semibold tracking-tight', '🎨 스타일 변환 (FreeStyle)'))
+  top.append(el('span', 'text-sm font-semibold tracking-tight', '🎨 스타일 변환 (SDXL)'))
   const close = el('button', 'text-zinc-500 text-sm transition hover:text-zinc-200', '✕')
   close.type = 'button'
   top.append(close)
@@ -339,19 +339,31 @@ export const createStyleTransferModal = (
   const pickers = el('div', 'grid grid-cols-1 sm:grid-cols-2 gap-3')
   pickers.append(contentCard, styleCard)
 
-  // ---------- 스타일 강도(alpha) + 변환 크기 ----------
-  const alphaWrap = el('div', CARD)
-  const alphaHead = el('div', 'flex items-center justify-between')
-  const alphaValue = el('span', 'text-xs text-zinc-300', '1.00')
-  alphaHead.append(el('div', LABEL, '스타일 강도 (alpha)'), alphaValue)
-  const alphaSlider = el('input', 'w-full accent-indigo-500')
-  alphaSlider.type = 'range'
-  alphaSlider.min = '0'
-  alphaSlider.max = '1'
-  alphaSlider.step = '0.05'
-  alphaSlider.value = '1'
-  alphaSlider.addEventListener('input', () => {
-    alphaValue.textContent = Number(alphaSlider.value).toFixed(2)
+  // ---------- SDXL strength + 변환 크기 ----------
+  const strengthWrap = el('div', CARD)
+  const strengthHead = el('div', 'flex items-center justify-between')
+  const strengthValue = el('span', 'text-xs text-zinc-300', '0.50')
+  strengthHead.append(el('div', LABEL, 'strength 강도'), strengthValue)
+  const strengthSlider = el('input', 'w-full accent-indigo-500')
+  strengthSlider.type = 'range'
+  strengthSlider.min = '0'
+  strengthSlider.max = '1'
+  strengthSlider.step = '0.05'
+  strengthSlider.value = '0.5'
+  strengthSlider.addEventListener('input', () => {
+    strengthValue.textContent = Number(strengthSlider.value).toFixed(2)
+  })
+  const guidanceHead = el('div', 'flex items-center justify-between mt-3')
+  const guidanceValue = el('span', 'text-xs text-zinc-300', '5.0')
+  guidanceHead.append(el('div', LABEL, 'guidance_scale 강도'), guidanceValue)
+  const guidanceSlider = el('input', 'w-full accent-indigo-500')
+  guidanceSlider.type = 'range'
+  guidanceSlider.min = '0'
+  guidanceSlider.max = '15'
+  guidanceSlider.step = '0.5'
+  guidanceSlider.value = '5'
+  guidanceSlider.addEventListener('input', () => {
+    guidanceValue.textContent = Number(guidanceSlider.value).toFixed(1)
   })
   const sizeRow = el('div', 'flex flex-wrap items-center gap-2')
   const sizeSelect = el('select', FIELD_SELECT.replace('w-full', ''))
@@ -374,7 +386,7 @@ export const createStyleTransferModal = (
     el('span', 'text-xs text-zinc-500', '경계 침식'),
     erodeSelect
   )
-  alphaWrap.append(alphaHead, alphaSlider, sizeRow)
+  strengthWrap.append(strengthHead, strengthSlider, guidanceHead, guidanceSlider, sizeRow)
 
   // ---------- 실행/저장/적용 ----------
   const actions = el('div', 'flex flex-wrap items-center gap-2')
@@ -405,7 +417,7 @@ export const createStyleTransferModal = (
   resultWrap.append(el('div', LABEL, '결과 미리보기'), resultImage)
   resultImage.style.display = 'none'
 
-  panel.append(top, pickers, alphaWrap, actions, resultWrap)
+  panel.append(top, pickers, strengthWrap, actions, resultWrap)
   backdrop.append(panel)
 
   const setStatus = (message: string): void => {
@@ -777,7 +789,9 @@ export const createStyleTransferModal = (
   ): Promise<void> => {
     const form = new FormData()
     form.append('style_prompt', stylePrompt)
-    form.append('alpha', alphaSlider.value)
+    form.append('alpha', '1')
+    form.append('strength', strengthSlider.value)
+    form.append('guidance_scale', guidanceSlider.value)
     form.append('tileset_path', target.tilesetImagePath)
     form.append('tile_width', String(target.tileWidth))
     form.append('tile_height', String(target.tileHeight))
@@ -819,7 +833,9 @@ export const createStyleTransferModal = (
   ): Promise<void> => {
     const form = new FormData()
     form.append('style_prompt', stylePrompt)
-    form.append('alpha', alphaSlider.value)
+    form.append('alpha', '1')
+    form.append('strength', strengthSlider.value)
+    form.append('guidance_scale', guidanceSlider.value)
     form.append('alpha_erode', erodeSelect.value)
     let endpoint = `${STYLE_SERVICE_BASE}/style-transfer`
     if (assetMonsterKey && assetPath) {
@@ -849,7 +865,7 @@ export const createStyleTransferModal = (
       return
     }
     resultBlob = blob
-    resultName = `${fileStem(contentFile.name)}_freestyle.png`
+    resultName = `${fileStem(contentFile.name)}_sdxl.png`
     applyTarget = applyContext !== undefined ? { ...applyContext, blob } : undefined
     if (!applyTarget) {
       setStatus(`완료: ${resultName}`)
@@ -925,7 +941,9 @@ export const createStyleTransferModal = (
     try {
       const form = new FormData()
       form.append('style_prompt', stylePrompt)
-      form.append('alpha', alphaSlider.value)
+      form.append('alpha', '1')
+      form.append('strength', strengthSlider.value)
+      form.append('guidance_scale', guidanceSlider.value)
       form.append('alpha_erode', erodeSelect.value)
       form.append('targets', JSON.stringify(targets))
       const response = await fetch(`${STYLE_SERVICE_BASE}/batch-apply`, {
@@ -1074,6 +1092,7 @@ export const createStyleTransferModal = (
   }
 
   const openModal = (): void => {
+    clearResult()
     backdrop.style.display = 'flex'
     void checkHealth()
   }
