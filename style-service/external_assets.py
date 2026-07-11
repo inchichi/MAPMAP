@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-import adain_service
+import style_service_config
 
 _SERVICE_DIR = Path(__file__).resolve().parent
 _BACKUP_DIR = _SERVICE_DIR / "backups-ext"
@@ -29,7 +29,7 @@ ALLOWED_SUFFIXES = {".png"}
 
 
 def _projects() -> dict:
-    return adain_service.get_config().get("external_projects", {})
+    return style_service_config.get_config().get("external_projects", {})
 
 
 def get_projects() -> list[dict]:

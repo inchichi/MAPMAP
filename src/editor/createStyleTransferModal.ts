@@ -1,4 +1,4 @@
-// AdaIN 스타일 트랜스퍼 모달 (헤더 🎨 버튼).
+// FreeStyle text-guided style transfer modal (header button).
 // 콘텐츠는 세 가지로 고를 수 있다 — ① 파일 업로드 ② 게임 에셋(src/games/my-sample-rpg/assets의 PNG)
 // ③ 맵 오브젝트(엔티티 트리에서 클릭한 타일 군집 — openForMapObject로 진입).
 // 변환은 로컬 Python 서비스(style-service, /api/style 프록시)가 수행하고, ②③은 결과를
@@ -163,6 +163,37 @@ const createImagePicker = (): {
   }
 }
 
+const createPromptInput = (): {
+  input: HTMLTextAreaElement
+  getValue: () => string
+  setValue: (value: string) => void
+  onChange: (listener: () => void) => void
+} => {
+  const input = el(
+    'textarea',
+    'min-h-28 w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-xs text-zinc-100 outline-none placeholder:text-zinc-500 resize-y'
+  ) as HTMLTextAreaElement
+  input.placeholder = '예: cozy autumn village, warm sunset light, soft brush strokes'
+  input.spellcheck = false
+
+  let listener: (() => void) | undefined
+  input.addEventListener('input', () => {
+    listener?.()
+  })
+
+  return {
+    input,
+    getValue: () => input.value,
+    setValue: (value) => {
+      input.value = value
+      listener?.()
+    },
+    onChange: (next) => {
+      listener = next
+    }
+  }
+}
+
 export const createStyleTransferModal = (
   input: CreateStyleTransferModalInput = {}
 ): StyleTransferModal => {
@@ -176,7 +207,7 @@ export const createStyleTransferModal = (
   const panel = el('div', 'w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900 p-5 flex flex-col gap-4 shadow-2xl')
 
   const top = el('div', 'flex items-center justify-between')
-  top.append(el('span', 'text-sm font-semibold tracking-tight', '🎨 스타일 변환 (AdaIN)'))
+  top.append(el('span', 'text-sm font-semibold tracking-tight', '🎨 스타일 변환 (FreeStyle)'))
   const close = el('button', 'text-zinc-500 text-sm transition hover:text-zinc-200', '✕')
   close.type = 'button'
   top.append(close)
@@ -301,9 +332,9 @@ export const createStyleTransferModal = (
     picker.setSelected(picker.getSelected().length === currentGridCount() ? [] : currentGridAllIds())
   })
 
-  const stylePicker = createImagePicker()
+  const stylePromptInput = createPromptInput()
   const styleCard = el('div', CARD)
-  styleCard.append(el('div', LABEL, '스타일 이미지'), stylePicker.input, stylePicker.thumb)
+  styleCard.append(el('div', LABEL, '스타일 프롬프트'), stylePromptInput.input)
 
   const pickers = el('div', 'grid grid-cols-1 sm:grid-cols-2 gap-3')
   pickers.append(contentCard, styleCard)
@@ -399,7 +430,7 @@ export const createStyleTransferModal = (
     // 오브젝트·타일 모드는 mapObject(타일 셀)가 콘텐츠, 그 외는 업로드/선택한 파일이 콘텐츠.
     const hasContent =
       mapObject !== undefined || contentPicker.getFile() !== undefined
-    const hasStyle = stylePicker.getFile() !== undefined
+    const hasStyle = stylePromptInput.getValue().trim().length > 0
     // 그리드에서 2개 이상 선택하면 일괄 버튼을, 1개 이하면 단일 변환 버튼을 쓴다.
     const batchCountSel = currentSelection().length
     const batchVisible = (contentMode === 'asset' || contentMode === 'extracted') && batchCountSel >= 2
@@ -469,7 +500,7 @@ export const createStyleTransferModal = (
     clearResult()
     syncButtons()
   })
-  stylePicker.onChange(syncButtons)
+  stylePromptInput.onChange(syncButtons)
 
   const setContentMode = (mode: ContentMode): void => {
     const modeChanged = mode !== contentMode
@@ -741,11 +772,11 @@ export const createStyleTransferModal = (
   // 반영한다 — 변환 중 모드·선택이 바뀌어 엉뚱한 에셋에 적용되거나 stale 결과가 살아나는 것 방지.
   const runObjectTransfer = async (
     target: StyleTransferMapObject,
-    styleFile: File,
+    stylePrompt: string,
     seq: number
   ): Promise<void> => {
     const form = new FormData()
-    form.append('style', styleFile)
+    form.append('style_prompt', stylePrompt)
     form.append('alpha', alphaSlider.value)
     form.append('tileset_path', target.tilesetImagePath)
     form.append('tile_width', String(target.tileWidth))
@@ -782,12 +813,12 @@ export const createStyleTransferModal = (
 
   const runImageTransfer = async (
     contentFile: File,
-    styleFile: File,
+    stylePrompt: string,
     applyContext: ApplyContext | undefined,
     seq: number
   ): Promise<void> => {
     const form = new FormData()
-    form.append('style', styleFile)
+    form.append('style_prompt', stylePrompt)
     form.append('alpha', alphaSlider.value)
     form.append('alpha_erode', erodeSelect.value)
     let endpoint = `${STYLE_SERVICE_BASE}/style-transfer`
@@ -800,7 +831,6 @@ export const createStyleTransferModal = (
     } else {
       form.append('content', contentFile)
       form.append('content_size', sizeSelect.value)
-      form.append('style_size', '512')
       // 게임 에셋을 덮어쓸 때는(asset 모드) 원본 크기를 정확히 보존한다(파일 업로드 미리보기 제외).
       if (contentMode === 'asset') {
         form.append('preserve_size', '1')
@@ -819,7 +849,7 @@ export const createStyleTransferModal = (
       return
     }
     resultBlob = blob
-    resultName = `${fileStem(contentFile.name)}_stylized_${fileStem(styleFile.name)}.png`
+    resultName = `${fileStem(contentFile.name)}_freestyle.png`
     applyTarget = applyContext !== undefined ? { ...applyContext, blob } : undefined
     if (!applyTarget) {
       setStatus(`완료: ${resultName}`)
@@ -831,11 +861,11 @@ export const createStyleTransferModal = (
   }
 
   const runTransfer = async (): Promise<void> => {
-    const styleFile = stylePicker.getFile()
+    const stylePrompt = stylePromptInput.getValue().trim()
     const contentFile = contentPicker.getFile()
     // object·tile 모드는 mapObject(타일 셀)가 콘텐츠다 — 둘 다 /stylize-object 경로로 처리한다.
     const target = mapObject
-    if (isRunning || !styleFile) {
+    if (isRunning || !stylePrompt) {
       return
     }
     if (target === undefined && !contentFile) {
@@ -854,9 +884,9 @@ export const createStyleTransferModal = (
     setStatus('변환 중... (CPU에서 수 초 걸릴 수 있습니다)')
     try {
       if (target !== undefined) {
-        await runObjectTransfer(target, styleFile, seq)
+        await runObjectTransfer(target, stylePrompt, seq)
       } else {
-        await runImageTransfer(contentFile as File, styleFile, applyContext, seq)
+        await runImageTransfer(contentFile as File, stylePrompt, applyContext, seq)
       }
       if (seq === runSeq && resultBlob) {
         if (resultImage.src) {
@@ -880,9 +910,9 @@ export const createStyleTransferModal = (
   // 일괄 변환·적용: 선택한 그리드 항목들을 한 스타일로 서버에서 한 번에 변환·적용한다.
   // 미리보기는 없고, 적용 후 Vite가 게임/에디터를 새로고침해 결과가 반영된다.
   const runBatch = async (): Promise<void> => {
-    const styleFile = stylePicker.getFile()
+    const stylePrompt = stylePromptInput.getValue().trim()
     const selection = currentSelection()
-    if (isBatchRunning || !styleFile || selection.length < 2) {
+    if (isBatchRunning || !stylePrompt || selection.length < 2) {
       return
     }
     const targets =
@@ -894,7 +924,7 @@ export const createStyleTransferModal = (
     setStatus(`일괄 변환·적용 중... (${selection.length}개, 잠시 걸릴 수 있습니다)`)
     try {
       const form = new FormData()
-      form.append('style', styleFile)
+      form.append('style_prompt', stylePrompt)
       form.append('alpha', alphaSlider.value)
       form.append('alpha_erode', erodeSelect.value)
       form.append('targets', JSON.stringify(targets))

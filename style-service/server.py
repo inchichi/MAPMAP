@@ -1,11 +1,11 @@
-"""AdaIN 스타일 트랜스퍼 로컬 HTTP 서비스.
+"""FreeStyle 스타일 트랜스퍼 로컬 HTTP 서비스.
 
 에디터(Vite dev 서버)의 /api/style 프록시가 이 서버를 가리킨다.
 실행: python server.py  (style-service 폴더에서)
 
 엔드포인트
   GET  /health          서비스 상태 + 디바이스 정보
-  POST /style-transfer  multipart(content, style 이미지 + alpha, content_size, style_size)
+  POST /style-transfer  multipart(content, style_prompt + alpha, content_size, preserve_size)
                         → 결과 PNG 바이트
   GET  /assets          프로젝트 src/games/my-sample-rpg/assets의 PNG 목록 (에디터 '게임 에셋' 선택용)
   POST /stylize-object  맵 오브젝트(타일 군집) 부분 변환 → 오브젝트 미리보기 + 패치된 타일셋
@@ -20,19 +20,19 @@ import io
 import json
 from urllib.parse import urlparse
 
-import torch
 from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.responses import JSONResponse, Response
 from PIL import Image
 
-import adain_service
 import asset_store
 import external_assets
+import freestyle_service
 import monster_stylize
 import object_extract
+import style_service_config
 import tile_stylize
 
-app = FastAPI(title="AdaIN style-transfer service")
+app = FastAPI(title="FreeStyle style-transfer service")
 
 # 드라이브-바이 방어: multipart POST는 CORS preflight 없이 어느 웹사이트에서든 127.0.0.1로
 # 직접 보낼 수 있다(응답은 못 읽어도 쓰기는 성공). Origin 헤더가 있는 변조 요청은 로컬 출처
@@ -53,87 +53,62 @@ async def reject_foreign_origins(request, call_next):
 
 @app.get("/health")
 def health() -> dict:
-    # 모델은 첫 요청에서 지연 로드되므로, 가중치 존재 여부를 여기서 미리 확인해
-    # 변환이 100% 실패할 상태("degraded")를 에디터에 정직하게 알린다.
-    config = adain_service.get_config()
-    missing = [
-        str(config[key])
-        for key in ("vgg_path", "decoder_path")
-        if not config[key].is_file()
-    ]
+    config = style_service_config.get_config()
+    script_path = config["freestyle_diffusers_test_dir"] / "stable_diffusion_xl_test.py"
+    missing = []
+    if not script_path.is_file():
+        missing.append(str(script_path))
+    if not config["freestyle_model_dir"].is_dir():
+        missing.append(str(config["freestyle_model_dir"]))
+    if not config["freestyle_unet_dir"].exists():
+        missing.append(str(config["freestyle_unet_dir"]))
     return {
         "status": "ok" if not missing else "degraded",
-        "missing_weights": missing,
-        "device": str(adain_service.device),
-        "torch": torch.__version__,
+        "missing": missing,
+        "freestyle_repo_dir": str(config["freestyle_repo_dir"]),
     }
-
 
 @app.post("/style-transfer")
 def style_transfer(
     content: UploadFile = File(...),
-    style: UploadFile = File(...),
+    style_prompt: str = Form(...),
     alpha: float = Form(1.0),
     content_size: int = Form(512),
-    style_size: int = Form(512),
     alpha_erode: int = Form(0),
     preserve_size: int = Form(0),
 ):
     if not 0.0 <= alpha <= 1.0:
-        return JSONResponse(status_code=422, content={"error": "alpha는 0.0~1.0 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "alpha??0.0~1.0 ?ъ씠?ъ빞 ?⑸땲??"})
     if not 0 <= alpha_erode <= 3:
-        return JSONResponse(status_code=422, content={"error": "alpha_erode는 0~3 사이여야 합니다."})
-    # 64 미만은 VGG의 maxpool/reflection pad에서 크래시, 과대 값은 CPU 메모리 폭주.
-    for name, value in (("content_size", content_size), ("style_size", style_size)):
-        if value != 0 and not 64 <= value <= 2048:
-            return JSONResponse(
-                status_code=422,
-                content={"error": f"{name}은 0(원본 유지) 또는 64~2048 사이여야 합니다."},
-            )
+        return JSONResponse(status_code=422, content={"error": "alpha_erode??0~3 ?ъ씠?ъ빞 ?⑸땲??"})
+    if not style_prompt.strip():
+        return JSONResponse(status_code=422, content={"error": "style_prompt is required"})
+    if content_size != 0 and not 64 <= content_size <= 2048:
+        return JSONResponse(
+            status_code=422,
+            content={"error": "content_size??0(?먮낯 ?좎?) ?먮뒗 64~2048 ?ъ씠?ъ빞 ?⑸땲??"},
+        )
 
     try:
-        # PIL은 헤더만 읽고 본문 디코딩을 미루므로, load()로 즉시 디코딩해
-        # 잘린 이미지가 추론 중 500으로 새지 않고 여기서 422로 잡히게 한다.
         content_image = Image.open(io.BytesIO(content.file.read()))
         content_image.load()
-        style_image = Image.open(io.BytesIO(style.file.read()))
-        style_image.load()
     except OSError:
-        return JSONResponse(status_code=422, content={"error": "이미지 파일을 해석할 수 없습니다."})
-
-    # 추론 해상도 상한 — 상한 없이는 CPU 메모리가 무제한이다. Resize(size)는 '짧은 변'을
-    # size로 맞추고 종횡비를 유지하므로, 종횡비가 극단적인 시트(예: 8192×64)는 size=512에서도
-    # 긴 변이 폭증한다. size==0(원본 유지)와 size!=0(짧은 변 환산) 모두 실효 면적으로 검사한다.
-    for name, image, size in (("content", content_image, content_size), ("style", style_image, style_size)):
-        short_edge = min(image.width, image.height)
-        if size == 0 or short_edge == 0:
-            model_px = image.width * image.height
-        else:
-            scale = size / short_edge
-            model_px = image.width * scale * image.height * scale
-        if model_px > 4096 * 4096:
-            return JSONResponse(
-                status_code=422,
-                content={"error": f"{name} 이미지의 추론 해상도가 한도(4096×4096 픽셀 상당)를 초과합니다. 종횡비가 극단적이거나 너무 큰 이미지는 변환할 수 없습니다."},
-            )
+        return JSONResponse(status_code=422, content={"error": "?대?吏 ?뚯씪???댁꽍?????놁뒿?덈떎."})
 
     try:
-        result = adain_service.style_transfer_image(
+        result = freestyle_service.style_transfer_image(
             content_image,
-            style_image,
+            style_prompt,
             alpha=alpha,
             content_size=content_size,
-            style_size=style_size,
             alpha_erode=alpha_erode,
             preserve_size=bool(preserve_size),
         )
     except FileNotFoundError as error:
-        # 가중치/ADAIN 경로 미설정 — 원인 메시지를 그대로 전달한다.
         return JSONResponse(status_code=503, content={"error": str(error)})
     buffer = io.BytesIO()
     result.save(buffer, format="PNG")
     return Response(content=buffer.getvalue(), media_type="image/png")
-
 
 @app.get("/assets")
 def list_assets() -> dict:
@@ -148,7 +123,7 @@ def _png_b64(image: Image.Image) -> str:
 
 @app.post("/stylize-object")
 def stylize_object(
-    style: UploadFile = File(...),
+    style_prompt: str = Form(...),
     alpha: float = Form(1.0),
     tileset_path: str = Form(...),
     tile_width: int = Form(...),
@@ -159,13 +134,15 @@ def stylize_object(
     alpha_erode: int = Form(0),
 ):
     if not 0.0 <= alpha <= 1.0:
-        return JSONResponse(status_code=422, content={"error": "alpha는 0.0~1.0 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "alpha must be between 0.0 and 1.0"})
     if not 0 <= alpha_erode <= 3:
-        return JSONResponse(status_code=422, content={"error": "alpha_erode는 0~3 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "alpha_erode must be between 0 and 3"})
+    if not style_prompt.strip():
+        return JSONResponse(status_code=422, content={"error": "style_prompt is required"})
     if not 1 <= tile_width <= 512 or not 1 <= tile_height <= 512 or columns < 1:
-        return JSONResponse(status_code=422, content={"error": "타일 크기/열 수가 올바르지 않습니다."})
+        return JSONResponse(status_code=422, content={"error": "invalid tile size or column count"})
     if work_size != 0 and not 64 <= work_size <= 2048:
-        return JSONResponse(status_code=422, content={"error": "work_size는 0 또는 64~2048 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "work_size must be 0 or between 64 and 2048"})
 
     try:
         cell_list = json.loads(cells)
@@ -174,22 +151,20 @@ def stylize_object(
             assert isinstance(cell["col"], int) and isinstance(cell["row"], int)
             assert isinstance(cell["tileId"], int) and cell["tileId"] >= 0
     except (AssertionError, KeyError, TypeError, json.JSONDecodeError):
-        return JSONResponse(status_code=422, content={"error": "cells 형식이 올바르지 않습니다."})
+        return JSONResponse(status_code=422, content={"error": "cells payload is invalid"})
 
     try:
         tileset_file = asset_store.resolve_asset_path(tileset_path)
     except ValueError as error:
         return JSONResponse(status_code=422, content={"error": str(error)})
     if not tileset_file.is_file():
-        return JSONResponse(status_code=404, content={"error": f"타일셋 이미지가 없습니다: {tileset_path}"})
+        return JSONResponse(status_code=404, content={"error": f"tileset not found: {tileset_path}"})
 
     try:
         tileset_image = Image.open(tileset_file)
         tileset_image.load()
-        style_image = Image.open(io.BytesIO(style.file.read()))
-        style_image.load()
     except OSError:
-        return JSONResponse(status_code=422, content={"error": "이미지 파일을 해석할 수 없습니다."})
+        return JSONResponse(status_code=422, content={"error": "tileset image is invalid"})
 
     try:
         preview, patched = tile_stylize.stylize_tiles(
@@ -198,7 +173,7 @@ def stylize_object(
             columns=columns,
             tile_width=tile_width,
             tile_height=tile_height,
-            style_image=style_image,
+            style_prompt=style_prompt,
             alpha=alpha,
             work_size=work_size,
             alpha_erode=alpha_erode,
@@ -213,20 +188,21 @@ def stylize_object(
 
 @app.post("/stylize-monster")
 def stylize_monster(
-    style: UploadFile = File(...),
+    style_prompt: str = Form(...),
     sheet_path: str = Form(...),
     monster_key: str = Form(...),
     alpha: float = Form(1.0),
     alpha_erode: int = Form(0),
 ):
-    """몬스터 시트를 전경만 스타일·배경 보존으로 변환한다. 항상 최초 원본에서 변환해
-    색 누적을 피하고, 게임의 프레임 슬라이싱이 깨지지 않게 한다."""
+    """Style monster sheets while preserving the background as much as possible."""
     if not 0.0 <= alpha <= 1.0:
-        return JSONResponse(status_code=422, content={"error": "alpha는 0.0~1.0 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "alpha must be between 0.0 and 1.0"})
     if not 0 <= alpha_erode <= 3:
-        return JSONResponse(status_code=422, content={"error": "alpha_erode는 0~3 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "alpha_erode must be between 0 and 3"})
+    if not style_prompt.strip():
+        return JSONResponse(status_code=422, content={"error": "style_prompt is required"})
     if monster_key not in ("pig", "slime"):
-        return JSONResponse(status_code=422, content={"error": f"알 수 없는 몬스터 종류: {monster_key}"})
+        return JSONResponse(status_code=422, content={"error": f"unsupported monster key: {monster_key}"})
 
     try:
         sheet_bytes = asset_store.read_original_or_current(sheet_path)
@@ -238,14 +214,12 @@ def stylize_monster(
     try:
         sheet_image = Image.open(io.BytesIO(sheet_bytes))
         sheet_image.load()
-        style_image = Image.open(io.BytesIO(style.file.read()))
-        style_image.load()
     except OSError:
-        return JSONResponse(status_code=422, content={"error": "이미지 파일을 해석할 수 없습니다."})
+        return JSONResponse(status_code=422, content={"error": "sheet image is invalid"})
 
     try:
         result = monster_stylize.stylize_monster_sheet(
-            sheet_image, style_image, monster_key, alpha=alpha, alpha_erode=alpha_erode
+            sheet_image, style_prompt, monster_key, alpha=alpha, alpha_erode=alpha_erode
         )
     except ValueError as error:
         return JSONResponse(status_code=422, content={"error": str(error)})
@@ -259,40 +233,25 @@ def stylize_monster(
 
 @app.post("/batch-apply")
 def batch_apply(
-    style: UploadFile = File(...),
+    style_prompt: str = Form(...),
     targets: str = Form(...),
     alpha: float = Form(1.0),
     alpha_erode: int = Form(0),
 ):
-    """여러 대상을 한 요청으로 스타일 변환·적용한다(일괄). 대상마다 자기 소스에서 변환 후
-    백업하고 덮어쓴다. 클라이언트가 하나씩 적용하면 첫 적용의 Vite 리로드로 루프가 끊기므로,
-    서버에서 전부 처리한다. 대상: {kind:'asset',path} | {kind:'object',key} | {kind:'monster',sheet_path,monster_key}."""
+    """Apply a prompt-based style transfer to many targets."""
     if not 0.0 <= alpha <= 1.0:
-        return JSONResponse(status_code=422, content={"error": "alpha는 0.0~1.0 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "alpha must be between 0.0 and 1.0"})
     if not 0 <= alpha_erode <= 3:
-        return JSONResponse(status_code=422, content={"error": "alpha_erode는 0~3 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "alpha_erode must be between 0 and 3"})
+    if not style_prompt.strip():
+        return JSONResponse(status_code=422, content={"error": "style_prompt is required"})
+
     try:
         target_list = json.loads(targets)
-        assert isinstance(target_list, list) and 0 < len(target_list) <= 64
-    except (json.JSONDecodeError, AssertionError):
-        return JSONResponse(status_code=422, content={"error": "targets 형식이 올바르지 않습니다(1~64개)."})
+        assert isinstance(target_list, list) and 0 < len(target_list) <= 256
+    except (AssertionError, TypeError, json.JSONDecodeError):
+        return JSONResponse(status_code=422, content={"error": "targets payload is invalid"})
 
-    try:
-        style_image = Image.open(io.BytesIO(style.file.read()))
-        style_image.load()
-    except OSError:
-        return JSONResponse(status_code=422, content={"error": "스타일 이미지를 해석할 수 없습니다."})
-
-    def _png_bytes(image: Image.Image) -> bytes:
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        return buffer.getvalue()
-
-    # 변환을 모두 끝낸 뒤(아래 1단계) 파일 쓰기는 맨 마지막에 한 번에 한다(2단계). 쓰기를
-    # 변환 중간중간 하면 src/ 파일이 바뀔 때마다 Vite가 페이지를 새로고침해 N개면 N번
-    # 깜빡인다. 결과를 메모리(pending: 경로→이미지)에 모았다가 마지막에 몰아 쓰면, 쓰기들이
-    # 수 ms 안에 끝나 Vite 새로고침이 한 번으로 합쳐진다. 같은 타일셋을 쓰는 오브젝트들은
-    # 메모리에서 누적 패치해 그 타일셋도 한 번만 쓴다.
     pending: dict[str, Image.Image] = {}
 
     def _working(path: str) -> Image.Image:
@@ -311,8 +270,12 @@ def batch_apply(
                 path = target["path"]
                 source = Image.open(asset_store.resolve_asset_path(path))
                 source.load()
-                pending[path] = adain_service.style_transfer_image(
-                    source, style_image, alpha=alpha, alpha_erode=alpha_erode, preserve_size=True
+                pending[path] = freestyle_service.style_transfer_image(
+                    source,
+                    style_prompt,
+                    alpha=alpha,
+                    alpha_erode=alpha_erode,
+                    preserve_size=True,
                 )
                 applied.append(path)
             elif kind == "object":
@@ -320,11 +283,12 @@ def batch_apply(
                 meta = object_extract.read_meta(key)
                 cutout = Image.open(io.BytesIO(object_extract.read_png(key)))
                 cutout.load()
-                # 누끼 컷아웃은 RGBA라 알파 경로가 원본 크기를 보존한다(역패치에 크기 정합 필요).
-                styled = adain_service.style_transfer_image(
-                    cutout, style_image, alpha=alpha, alpha_erode=alpha_erode
+                styled = freestyle_service.style_transfer_image(
+                    cutout,
+                    style_prompt,
+                    alpha=alpha,
+                    alpha_erode=alpha_erode,
                 )
-                # 같은 타일셋을 공유하는 오브젝트들은 메모리상 working 이미지에 누적 패치한다.
                 pending[meta["tilesetPath"]] = tile_stylize.patch_tileset_from_object(
                     _working(meta["tilesetPath"]),
                     styled,
@@ -339,15 +303,18 @@ def batch_apply(
                 sheet = Image.open(io.BytesIO(asset_store.read_original_or_current(path)))
                 sheet.load()
                 pending[path] = monster_stylize.stylize_monster_sheet(
-                    sheet, style_image, target["monster_key"], alpha=alpha, alpha_erode=alpha_erode
+                    sheet,
+                    style_prompt,
+                    target["monster_key"],
+                    alpha=alpha,
+                    alpha_erode=alpha_erode,
                 )
                 applied.append(path)
             else:
-                failed.append({"target": str(target), "error": "알 수 없는 종류"})
+                failed.append({"target": str(target), "error": "unsupported target kind"})
         except (KeyError, TypeError, ValueError, FileNotFoundError, OSError) as error:
             failed.append({"target": str(target), "error": str(error)})
 
-    # 2단계: 모아둔 결과를 한 번에 쓴다 — Vite 새로고침이 한 번으로 합쳐진다.
     for path, image in pending.items():
         try:
             asset_store.backup_and_write(path, _png_bytes(image))
@@ -553,18 +520,20 @@ def ext_styled(project: str):
 
 
 @app.post("/ext/apply")
-def ext_apply(
-    style: UploadFile = File(...),
-    project: str = Form(...),
-    path: str = Form(...),
-    alpha: float = Form(1.0),
-    alpha_erode: int = Form(0),
-):
-    """외부 스프라이트 1장에 스타일을 적용해 백업 후 덮어쓴다. 항상 최초 원본에서 변환한다."""
-    if not 0.0 <= alpha <= 1.0:
-        return JSONResponse(status_code=422, content={"error": "alpha는 0.0~1.0 사이여야 합니다."})
-    if not 0 <= alpha_erode <= 3:
-        return JSONResponse(status_code=422, content={"error": "alpha_erode는 0~3 사이여야 합니다."})
+def ext_apply(payload: dict = Body(...)):
+    project = payload.get("project")
+    path = payload.get("path")
+    style_prompt = payload.get("style_prompt")
+    alpha = payload.get("alpha", 1.0)
+    alpha_erode = payload.get("alpha_erode", 0)
+    if not isinstance(project, str) or not isinstance(path, str):
+        return JSONResponse(status_code=422, content={"error": "project/path payload is invalid"})
+    if not isinstance(style_prompt, str) or not style_prompt.strip():
+        return JSONResponse(status_code=422, content={"error": "style_prompt is required"})
+    if not isinstance(alpha, (int, float)) or not 0.0 <= float(alpha) <= 1.0:
+        return JSONResponse(status_code=422, content={"error": "alpha must be between 0.0 and 1.0"})
+    if not isinstance(alpha_erode, int) or not 0 <= alpha_erode <= 3:
+        return JSONResponse(status_code=422, content={"error": "alpha_erode must be between 0 and 3"})
 
     try:
         source_bytes = external_assets.read_original_or_current(project, path)
@@ -576,18 +545,15 @@ def ext_apply(
     try:
         source = Image.open(io.BytesIO(source_bytes))
         source.load()
-        style_image = Image.open(io.BytesIO(style.file.read()))
-        style_image.load()
     except OSError:
-        return JSONResponse(status_code=422, content={"error": "이미지 파일을 해석할 수 없습니다."})
+        return JSONResponse(status_code=422, content={"error": "source image is invalid"})
 
-    if not _ext_area_ok(source) or not _ext_area_ok(style_image):
-        return JSONResponse(status_code=422, content={"error": "이미지의 추론 해상도가 한도(4096×4096 상당)를 초과합니다."})
+    if not _ext_area_ok(source):
+        return JSONResponse(status_code=422, content={"error": "source image is too large"})
 
     try:
-        # preserve_size=True: 시트 프레임 좌표가 어긋나지 않게 원본 해상도 유지.
-        result = adain_service.style_transfer_image(
-            source, style_image, alpha=alpha, alpha_erode=alpha_erode, preserve_size=True
+        result = freestyle_service.style_transfer_image(
+            source, style_prompt, alpha=float(alpha), alpha_erode=alpha_erode, preserve_size=True
         )
     except FileNotFoundError as error:
         return JSONResponse(status_code=503, content={"error": str(error)})
@@ -605,30 +571,24 @@ def ext_apply(
 
 @app.post("/ext/batch-apply")
 def ext_batch_apply(
-    style: UploadFile = File(...),
+    style_prompt: str = Form(...),
     project: str = Form(...),
     paths: str = Form(...),
     alpha: float = Form(1.0),
     alpha_erode: int = Form(0),
 ):
-    """여러 외부 스프라이트에 한 스타일을 일괄 적용한다(스타일 1회 업로드)."""
+    """Apply a prompt-based style transfer to many external project sprites."""
     if not 0.0 <= alpha <= 1.0:
-        return JSONResponse(status_code=422, content={"error": "alpha는 0.0~1.0 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "alpha must be between 0.0 and 1.0"})
     if not 0 <= alpha_erode <= 3:
-        return JSONResponse(status_code=422, content={"error": "alpha_erode는 0~3 사이여야 합니다."})
+        return JSONResponse(status_code=422, content={"error": "alpha_erode must be between 0 and 3"})
+    if not style_prompt.strip():
+        return JSONResponse(status_code=422, content={"error": "style_prompt is required"})
     try:
         path_list = json.loads(paths)
         assert isinstance(path_list, list) and 0 < len(path_list) <= 256
     except (json.JSONDecodeError, AssertionError):
-        return JSONResponse(status_code=422, content={"error": "paths 형식이 올바르지 않습니다(1~256개)."})
-
-    try:
-        style_image = Image.open(io.BytesIO(style.file.read()))
-        style_image.load()
-    except OSError:
-        return JSONResponse(status_code=422, content={"error": "스타일 이미지를 해석할 수 없습니다."})
-    if not _ext_area_ok(style_image):
-        return JSONResponse(status_code=422, content={"error": "스타일 이미지의 추론 해상도가 한도를 초과합니다."})
+        return JSONResponse(status_code=422, content={"error": "paths payload is invalid"})
 
     applied: list[str] = []
     failed: list[dict] = []
@@ -637,9 +597,9 @@ def ext_batch_apply(
             source = Image.open(io.BytesIO(external_assets.read_original_or_current(project, path)))
             source.load()
             if not _ext_area_ok(source):
-                raise ValueError("추론 해상도 한도 초과")
-            result = adain_service.style_transfer_image(
-                source, style_image, alpha=alpha, alpha_erode=alpha_erode, preserve_size=True
+                raise ValueError("source image is too large")
+            result = freestyle_service.style_transfer_image(
+                source, style_prompt, alpha=alpha, alpha_erode=alpha_erode, preserve_size=True
             )
             buffer = io.BytesIO()
             result.save(buffer, format="PNG")
@@ -674,5 +634,5 @@ def ext_revert(payload: dict = Body(...)):
 if __name__ == "__main__":
     import uvicorn
 
-    config = adain_service.get_config()
+    config = style_service_config.get_config()
     uvicorn.run(app, host=config["host"], port=config["port"])

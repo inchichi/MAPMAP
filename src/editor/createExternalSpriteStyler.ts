@@ -1,5 +1,5 @@
 // 헤더 '🎮 외부 게임 스타일' 버튼 + 모달.
-// 외부 게임(예: Love2D 'Legend of Lua')의 스프라이트 PNG에 AdaIN 스타일을 직접 입힌다.
+// External game sprite styler for text-guided FreeStyle prompts.
 // my-sample-rpg 에셋과는 별개로, 스타일 서비스의 /ext/* 엔드포인트(external_assets 게이트,
 // originals-ext/·backups-ext/)를 쓴다. 외부 폴더는 Vite 감시 밖이라 적용해도 자동 리로드가
 // 없다 — 게임을 다시 실행해야 반영된다(스프라이트는 시작 시 1회 로드).
@@ -80,18 +80,14 @@ export const createExternalSpriteStyler = (): ExternalSpriteStyler => {
 
   // ── 스타일 이미지 ──
   const styleCard = el('div', CARD)
-  styleCard.append(el('div', LABEL, '② 스타일 이미지'))
-  const styleRow = el('div', 'flex items-center gap-3')
-  const styleInput = el('input', 'hidden') as HTMLInputElement
-  styleInput.type = 'file'
-  styleInput.accept = 'image/png,image/jpeg,image/webp'
-  const stylePickButton = el('button', SUBTLE_BUTTON, '이미지 선택...') as HTMLButtonElement
-  stylePickButton.type = 'button'
-  const stylePreview = el('img', 'h-12 w-12 rounded-md object-cover border border-white/10 [image-rendering:auto]') as HTMLImageElement
-  stylePreview.style.display = 'none'
-  const styleName = el('span', 'text-xs text-zinc-400 truncate', '선택된 이미지가 없습니다')
-  styleRow.append(stylePickButton, stylePreview, styleName)
-  styleCard.append(styleRow, styleInput)
+  styleCard.append(el('div', LABEL, '② 스타일 프롬프트'))
+  const stylePromptInput = el(
+    'textarea',
+    'min-h-28 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-zinc-100 outline-none placeholder:text-zinc-500 resize-y'
+  ) as HTMLTextAreaElement
+  stylePromptInput.placeholder = '예: cozy autumn village, warm sunset light, soft brush strokes'
+  stylePromptInput.spellcheck = false
+  styleCard.append(stylePromptInput)
 
   // ── 옵션 ──
   const optCard = el('div', CARD)
@@ -150,7 +146,6 @@ export const createExternalSpriteStyler = (): ExternalSpriteStyler => {
   let project: ExtProject | null = null
   let sprites: ExtAsset[] = []
   let styled: ExtAsset[] = []
-  let styleFile: File | null = null
   let isBusy = false
   let cacheBust = 0
   let allRevertConfirmArmed = false
@@ -166,7 +161,7 @@ export const createExternalSpriteStyler = (): ExternalSpriteStyler => {
 
   const syncApplyButton = (): void => {
     const count = spritePicker.getSelected().length
-    applyButton.disabled = isBusy || count === 0 || styleFile === null
+    applyButton.disabled = isBusy || count === 0 || stylePromptInput.value.trim().length === 0
     applyButton.textContent = count > 1 ? `스타일 적용 (${count}개)` : '스타일 적용'
     spriteSelectAll.textContent = sprites.length > 0 && count === sprites.length ? '모두 해제' : '모두 선택'
   }
@@ -260,12 +255,12 @@ export const createExternalSpriteStyler = (): ExternalSpriteStyler => {
     form.set('project', project!.id)
     form.set('alpha', alphaInput.value)
     form.set('alpha_erode', erodeSelect.value)
-    form.set('style', styleFile!)
+    form.set('style_prompt', stylePromptInput.value.trim())
     return form
   }
 
   const runApply = async (): Promise<void> => {
-    if (isBusy || !project || !styleFile) {
+    if (isBusy || !project || stylePromptInput.value.trim().length === 0) {
       return
     }
     const paths = spritePicker.getSelected()
@@ -347,18 +342,7 @@ export const createExternalSpriteStyler = (): ExternalSpriteStyler => {
   }
 
   // ── 이벤트 ──
-  stylePickButton.addEventListener('click', () => styleInput.click())
-  styleInput.addEventListener('change', () => {
-    const file = styleInput.files?.[0] ?? null
-    styleFile = file
-    if (file) {
-      styleName.textContent = file.name
-      stylePreview.src = URL.createObjectURL(file)
-      stylePreview.style.display = ''
-    } else {
-      styleName.textContent = '선택된 이미지가 없습니다'
-      stylePreview.style.display = 'none'
-    }
+  stylePromptInput.addEventListener('input', () => {
     syncApplyButton()
   })
 
