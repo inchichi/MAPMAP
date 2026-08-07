@@ -24,12 +24,16 @@ from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.responses import JSONResponse, Response
 from PIL import Image
 
+import anchor_service
 import asset_store
 import external_assets
+import inventory
+import pipeline_run
 import sdxl_service
 import monster_stylize
 import object_extract
 import style_service_config
+import style_spec
 import tile_stylize
 
 app = FastAPI(title="SDXL img2img style-transfer service")
@@ -626,6 +630,115 @@ def ext_revert(payload: dict = Body(...)):
         except (ValueError, FileNotFoundError) as error:
             failed.append({"path": path, "error": str(error)})
     return {"reverted": reverted, "failed": failed}
+
+
+# ── SpecDriven Asset Restyling 파이프라인 (디벨롭 방향 8/6) ──
+# Stage 1: 에디터 LLM이 만든 StyleSpec 저장/조회 (immutable은 서버가 강제)
+# Stage 2: 스타일 앵커 생성·캐싱·승인 게이트
+# Stage 0: 에셋 인벤토리 (카테고리 라우팅의 근거)
+# Stage 3~5: 라우팅→변환→규격 스냅→QA→적용 (pipeline_run)
+
+
+@app.post("/pipeline/spec")
+def pipeline_save_spec(payload: dict = Body(...)):
+    try:
+        spec = style_spec.save_spec(payload)
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    return {"ok": True, "spec": spec}
+
+
+@app.get("/pipeline/specs")
+def pipeline_list_specs() -> dict:
+    return {"specs": style_spec.list_specs()}
+
+
+@app.get("/pipeline/spec/{style_id}")
+def pipeline_get_spec(style_id: str):
+    try:
+        return {"spec": style_spec.load_spec(style_id)}
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    except FileNotFoundError as error:
+        return JSONResponse(status_code=404, content={"error": str(error)})
+
+
+@app.post("/pipeline/anchors/{style_id}")
+def pipeline_generate_anchors(style_id: str, payload: dict = Body(default={})):
+    force = bool(payload.get("force"))
+    try:
+        return anchor_service.generate_anchors(style_id, force=force)
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    except FileNotFoundError as error:
+        return JSONResponse(status_code=404, content={"error": str(error)})
+
+
+@app.get("/pipeline/anchors/{style_id}")
+def pipeline_list_anchors(style_id: str) -> dict:
+    return {"style_id": style_id, "anchors": anchor_service.list_anchors(style_id)}
+
+
+@app.get("/pipeline/anchors/{style_id}/{name}")
+def pipeline_anchor_png(style_id: str, name: str):
+    try:
+        return Response(content=anchor_service.read_anchor(style_id, name), media_type="image/png")
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    except FileNotFoundError as error:
+        return JSONResponse(status_code=404, content={"error": str(error)})
+
+
+@app.post("/pipeline/anchors/{style_id}/approve")
+def pipeline_approve_anchors(style_id: str, payload: dict = Body(...)):
+    approved = payload.get("approved")
+    if not isinstance(approved, bool):
+        return JSONResponse(status_code=422, content={"error": "approved(bool)가 필요합니다."})
+    try:
+        return anchor_service.approve_anchors(style_id, approved)
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    except FileNotFoundError as error:
+        return JSONResponse(status_code=404, content={"error": str(error)})
+
+
+@app.get("/pipeline/inventory")
+def pipeline_inventory(rebuild: int = 0) -> dict:
+    if rebuild:
+        return inventory.build_inventory()
+    return inventory.load_inventory()
+
+
+@app.post("/pipeline/run")
+def pipeline_execute(payload: dict = Body(...)):
+    style_id = payload.get("style_id")
+    targets = payload.get("targets")
+    apply = bool(payload.get("apply"))
+    alpha_erode = payload.get("alpha_erode", 0)
+    if not isinstance(style_id, str) or not style_id:
+        return JSONResponse(status_code=422, content={"error": "style_id가 필요합니다."})
+    if not isinstance(targets, list) or not 0 < len(targets) <= 256:
+        return JSONResponse(status_code=422, content={"error": "targets는 1~256개 목록이어야 합니다."})
+    if not isinstance(alpha_erode, int) or not 0 <= alpha_erode <= 3:
+        return JSONResponse(status_code=422, content={"error": "alpha_erode는 0~3이어야 합니다."})
+
+    try:
+        report = pipeline_run.run_pipeline(
+            style_id, targets, apply=apply, alpha_erode=alpha_erode
+        )
+    except PermissionError as error:
+        return JSONResponse(status_code=409, content={"error": str(error)})
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    except FileNotFoundError as error:
+        return JSONResponse(status_code=404, content={"error": str(error)})
+
+    previews = report.pop("_previews", {})
+    for entry in report["results"]:
+        data = previews.get(entry.get("path"))
+        if data is not None:
+            entry["preview_png"] = base64.b64encode(data).decode("ascii")
+    return report
 
 
 if __name__ == "__main__":

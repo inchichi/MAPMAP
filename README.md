@@ -58,6 +58,7 @@ PixiJS v8로 렌더하는 **탑다운 2D 액션 RPG**. 맵은 직교(orthogonal)
 - **현재 맵 에셋 트리** — 현재 맵의 NPC·건물·오브젝트 목록(검색·전체 맵 토글)
 - **배치 팔레트** — 타일/오브젝트/NPC를 마우스로 맵에 배치, 맵별 `localStorage` 영속, NPC 수기 추가(외형·이름·대사)
 - **스타일 변환 UI** — SDXL 스타일 변환 모달 + 원본 복원 + 외부 게임 스프라이트 변환
+- **스타일 파이프라인(이번 추가)** — 시나리오 → StyleSpec(LLM) → 앵커 승인 게이트 → 카테고리 라우팅 일괄 변환 → 규격 스냅 → 자동 QA. 자세한 내용은 [docs/style-pipeline.md](docs/style-pipeline.md)
 - **평가/지표** — 생성 결과 수용/거부 평가, 세션 생성·검증 통과율 집계
 - **에디터 편의(이번 추가)** — 하단 입력창(컴포저) **드래그 높이 조절**, 트리·팔레트 항목 **마우스 호버 시 확대 미리보기 툴팁**
 
@@ -80,6 +81,7 @@ python server.py                  # 127.0.0.1:8765
 - **원본/백업/되돌리기** — 에셋별 원본 1회 시드 + 타임스탬프 백업, 항상 원본에서 다시 칠해 색 누적 방지
 - **몬스터 시트** — 배경 보존 + 전경만 변환(프레임 슬라이싱 유지)
 - **외부 게임** — `config.json`의 `lol`(Legend of Lua, Love2D) 에셋을 별도 네임스페이스로 변환
+- **SpecDriven 파이프라인** — StyleSpec 저장(immutable 강제) → 앵커 생성·승인 → 인벤토리 기반 카테고리 라우팅(지형은 circular padding 이음새 모드) → 팔레트 스냅·알파 재적용 → QA 게이트(실루엣 IoU·팔레트 준수·이음새) 통과분만 적용 ([docs/style-pipeline.md](docs/style-pipeline.md))
 
 > ⚠️ **PyTorch(`torch`)와 Diffusers가 필요**합니다. SDXL 모델은 최초 실행 시 다운로드되며, GPU와 충분한 VRAM이 필요합니다. 자세한 내용은 [docs/style-transfer.md](docs/style-transfer.md).
 

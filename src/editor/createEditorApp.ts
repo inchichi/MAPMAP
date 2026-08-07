@@ -39,10 +39,13 @@ import { convertGeneratedQuestToDefinition } from './questCodeGenerator'
 import { createGeneratedQuestValidationIssues } from './questJsonSchema'
 import { replacePendingQuests } from './pendingQuests'
 import { createStyleTransferModal } from './createStyleTransferModal'
+// SpecDriven 파이프라인(시나리오→StyleSpec→앵커 승인→일괄 변환+QA) — 디벨롭 방향 8/6.
+import { createStylePipelinePanel } from './createStylePipelinePanel'
 // my-sample-rpg 라이브 NPC 생성(자연어 → 플레이어 옆 스폰).
 import { generateNpcJson } from './npcJsonGenerator'
 // 게임이 localStorage에 저장한 수기/생성 NPC — 트리에 TMX 엔티티와 합쳐 보여주기 위해 읽는다.
 import { loadNpcsForMap, PENDING_NPCS_STORAGE_KEY } from './npcStore'
+import { resolveLegendEntitySpriteUrl } from './legendEntitySprite'
 
 // 하드코딩 어댑터가 엔티티를 못 찾은 미지의 게임을, LLM 분석이 찾은 editable 그룹으로 채운다.
 const buildEntitiesFromAnalysis = (
@@ -361,6 +364,7 @@ export const createEditorApp = ({
   let isAnalyzing = false
   let entityButtons: Array<{ entity: GameEntity; node: HTMLButtonElement }> = []
   let styleTransferModal: ReturnType<typeof createStyleTransferModal>
+  let stylePipelinePanel: ReturnType<typeof createStylePipelinePanel>
   // 라이브 게임(iframe)이 보고한 현재 맵 id. 트리를 이 맵의 요소만으로 좁힌다(showAllMaps면 전부).
   // 게임의 sceneId 와 에디터 map.id(=tmx 파일명)가 같아 직접 비교한다. 게임이 맵을 바꿀 때마다
   // 'game:scene-changed' 메시지로 갱신된다.
@@ -753,6 +757,17 @@ export const createEditorApp = ({
     styleTransferModal.openButton.click()
   })
   suggestionRow.append(styleTransferButton)
+  const stylePipelineButton = el('button', QUICK_CARD) as HTMLButtonElement
+  stylePipelineButton.type = 'button'
+  stylePipelineButton.title = '시나리오 → StyleSpec → 앵커 승인 → 일괄 변환+QA 파이프라인'
+  stylePipelineButton.append(
+    el('span', 'text-[14px] leading-none text-[#d4d4d4]', '스타일 파이프라인'),
+    el('span', 'text-[11px] leading-none text-[#777777] opacity-65', '시나리오 일괄 변환')
+  )
+  stylePipelineButton.addEventListener('click', () => {
+    stylePipelinePanel.openButton.click()
+  })
+  suggestionRow.append(stylePipelineButton)
   quickStart.append(suggestionRow)
 
   // 추천 의뢰 — 한 줄 칩. 설명은 툴팁(title)으로, 클릭하면 그대로 입력창에 들어간다.
@@ -1309,6 +1324,12 @@ export const createEditorApp = ({
     }
   })
   document.body.append(styleTransferModal.backdrop)
+  stylePipelinePanel = createStylePipelinePanel({
+    onAssetChanged: () => {
+      reloadButton.click()
+    }
+  })
+  document.body.append(stylePipelinePanel.backdrop)
   let mapSwitcherButtons: Array<{ id: string; button: HTMLButtonElement }> = []
   // 게임이 보고/선택한 현재 맵의 탭을 금색으로 강조한다(표시 전용). rpg는 연결 전 기본 맵(town).
   const updateSceneTabs = (): void => {
