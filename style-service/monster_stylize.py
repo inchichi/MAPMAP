@@ -2,7 +2,7 @@
 
 게임은 몬스터 시트를 매 로드마다 색(밝기·채도) 기반 전경 판정으로 프레임을 잘라낸다
 (loadMonsterPigAnimationTextures.ts / loadMonsterSlimeAnimationTextures.ts). 따라서 시트
-전체를 AdaIN으로 칠하면 배경색이 바뀌어 프레임 슬라이싱이 깨지고, 몬스터가 사각형 덩어리로
+전체를 SDXL로 칠하면 배경색이 바뀌어 프레임 슬라이싱이 깨지고, 몬스터가 사각형 덩어리로
 렌더된다.
 
 해결: 게임과 동일한 전경 판정으로 마스크를 만들어, 전경(캐릭터)만 스타일 결과로 바꾸고
@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image, ImageFilter
 
-import adain_service
+import sdxl_service
 
 # 게임 로더의 isPig/isSlimeForegroundPixel과 동일한 "배경" 조건. brightness=(r+g+b)/3,
 # saturation=max(r,g,b)-min(r,g,b). 전경 = NOT(배경) (+ 알파 0은 항상 배경).
@@ -40,18 +40,18 @@ def _background_mask(rgb: np.ndarray, monster_key: str) -> np.ndarray:
 
 def stylize_monster_sheet(
     sheet: Image.Image,
-    style: Image.Image,
+    style_prompt: str,
     monster_key: str,
     alpha: float = 1.0,
     alpha_erode: int = 0,
 ) -> Image.Image:
     """전경만 스타일, 배경은 원본 보존. 원본과 정확히 같은 크기를 반환한다."""
-    has_alpha = adain_service._has_alpha(sheet)
+    has_alpha = sdxl_service._has_alpha(sheet)
     original = sheet.convert("RGBA") if has_alpha else sheet.convert("RGB")
 
     # 전체 시트 스타일 변환(원본 크기 보존). 합성은 원본 해상도에서 한다.
-    styled = adain_service.style_transfer_image(
-        sheet, style, alpha=alpha, content_size=512, style_size=512, preserve_size=True
+    styled = sdxl_service.style_transfer_image(
+        sheet, style_prompt, alpha=alpha, content_size=512, preserve_size=True
     )
 
     orig_rgb = np.array(original.convert("RGB"))

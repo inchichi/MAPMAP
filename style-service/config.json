@@ -1,7 +1,10 @@
 {
-  "adainDir": "../../ADAIN",
-  "vggPath": "models/vgg_normalised.pth",
-  "decoderPath": "models/decoder.pth",
+  "sdxlModel": "stabilityai/stable-diffusion-xl-base-1.0",
+  "sdxlDevice": "cuda",
+  "sdxlSteps": 30,
+  "sdxlGuidanceScale": 5.0,
+  "sdxlStrength": 0.45,
+  "sdxlSeed": 123456789,
   "projectDir": "..",
   "assetsSubdir": "src/games/my-sample-rpg/assets",
   "externalProjects": {

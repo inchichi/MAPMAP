@@ -1,7 +1,7 @@
 """맵 오브젝트(타일 군집) 부분 스타일 변환.
 
 에디터가 보낸 셀 목록(맵 좌표 + 타일셋 로컬 타일 id)으로 오브젝트의 타일들을 맵 배치 그대로
-한 장으로 조립해 AdaIN을 적용하고, 변환된 픽셀을 타일셋 이미지의 해당 타일 자리에 되써넣는다.
+한 장으로 조립해 SDXL img2img를 적용하고, 변환된 픽셀을 타일셋 이미지의 해당 타일 자리에 되써넣는다.
 타일셋을 패치하므로 같은 타일을 쓰는 동일 오브젝트(예: 같은 모양의 나무 전부)가 함께 바뀐다.
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from PIL import Image
 
-import adain_service
+import sdxl_service
 
 # 픽셀아트 타일은 원본이 매우 작아(타일 몇 장 = 수십 px) 그대로는 스타일 통계가 빈약하다.
 # 정수배 NEAREST 업스케일(픽셀 경계 유지) 후 변환하고, BOX 다운스케일로 되돌린다.
@@ -111,7 +111,7 @@ def stylize_tiles(
     columns: int,
     tile_width: int,
     tile_height: int,
-    style_image: Image.Image,
+    style_prompt: str,
     alpha: float,
     work_size: int = DEFAULT_WORK_SIZE,
     alpha_erode: int = 0,
@@ -136,8 +136,8 @@ def stylize_tiles(
     )
     base = Image.new("RGB", work.size, _BACKGROUND_GRAY)
     base.paste(work, mask=work.getchannel("A"))
-    result_rgb = adain_service.style_transfer_image(
-        base, style_image, alpha=alpha, content_size=0, style_size=512
+    result_rgb = sdxl_service.style_transfer_image(
+        base, style_prompt, alpha=alpha, content_size=0
     )
     # VGG가 8배 다운/업샘플(ceil)이라 출력이 입력보다 약간 클 수 있다 — 원래 크기로 자른다.
     result_rgb = result_rgb.crop((0, 0, work.width, work.height))
@@ -146,7 +146,7 @@ def stylize_tiles(
 
     # 3) 알파: 조립 캔버스 전체에서 침식한다 — 타일 경계가 맞닿은 안쪽(불투명)은 깎이지
     #    않고 오브젝트의 진짜 외곽(투명 경계)만 깎여, 타일별 침식 때 생기는 이음새가 없다.
-    object_alpha = adain_service.erode_alpha(canvas.getchannel("A"), alpha_erode)
+    object_alpha = sdxl_service.erode_alpha(canvas.getchannel("A"), alpha_erode)
 
     # 오브젝트 미리보기: 변환 RGB + (침식된) 원본 알파 — 모양 보존.
     preview = result_rgb.convert("RGBA")

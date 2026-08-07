@@ -10,7 +10,7 @@
 |---|---|---|
 | 🎮 **게임** | `src/games/my-sample-rpg` | PixiJS v8로 렌더하는 탑다운 액션 RPG (Tiled 맵) |
 | 🛠 **에디터** | `src/editor` (`/editor.html`) | NPC 대사·퀘스트·배치·스타일을 자연어로 만드는 LLM 저작 도구 |
-| 🎨 **스타일 서비스** | `style-service` (Python) | AdaIN 신경망 스타일 변환 + 오브젝트 누끼 추출 |
+| 🎨 **스타일 서비스** | `style-service` (Python) | SDXL img2img 스타일 변환 + 오브젝트 누끼 추출 |
 
 ---
 
@@ -58,7 +58,8 @@ PixiJS v8로 렌더하는 **탑다운 2D 액션 RPG**. 맵은 직교(orthogonal)
 - **생성 → 검증(dry-run) → 적용** 파이프라인, 퀘스트는 후보 생성 → 선택 → 이벤트 JSON 생성의 2단계
 - **현재 맵 에셋 트리** — 현재 맵의 NPC·건물·오브젝트 목록(검색·전체 맵 토글)
 - **배치 팔레트** — 타일/오브젝트/NPC를 마우스로 맵에 배치, 맵별 `localStorage` 영속, NPC 수기 추가(외형·이름·대사)
-- **스타일 변환 UI** — AdaIN 스타일 변환 모달 + 원본 복원 + 외부 게임 스프라이트 변환
+- **스타일 변환 UI** — SDXL 스타일 변환 모달 + 원본 복원 + 외부 게임 스프라이트 변환
+- **스타일 파이프라인(이번 추가)** — 시나리오 → StyleSpec(LLM) → 앵커 승인 게이트 → 카테고리 라우팅 일괄 변환 → 규격 스냅 → 자동 QA. 자세한 내용은 [docs/style-pipeline.md](docs/style-pipeline.md)
 - **평가/지표** — 생성 결과 수용/거부 평가, 세션 생성·검증 통과율 집계
 - **에디터 편의(이번 추가)** — 하단 입력창(컴포저) **드래그 높이 조절**, 트리·팔레트 항목 **마우스 호버 시 확대 미리보기 툴팁**
 
@@ -68,7 +69,7 @@ PixiJS v8로 렌더하는 **탑다운 2D 액션 RPG**. 맵은 직교(orthogonal)
 
 ## 🎨 스타일 변환 서비스 (`style-service`)
 
-게임 스프라이트/타일/타일셋에 **AdaIN 신경망 스타일 변환**을 적용하는 로컬 Python(FastAPI/uvicorn) 서비스. 형제 폴더의 `ADAIN` PyTorch 프로젝트를 감싸며, Vite 프록시 `/api/style → 127.0.0.1:8765`로 에디터와 연결됩니다.
+게임 스프라이트/타일/타일셋에 **SDXL img2img 스타일 변환**을 적용하는 로컬 Python(FastAPI/uvicorn) 서비스. `stabilityai/stable-diffusion-xl-base-1.0`을 사용하며, Vite 프록시 `/api/style → 127.0.0.1:8765`로 에디터와 연결됩니다.
 
 ```bash
 cd chichi/style-service
@@ -81,8 +82,9 @@ python server.py                  # 127.0.0.1:8765
 - **원본/백업/되돌리기** — 에셋별 원본 1회 시드 + 타임스탬프 백업, 항상 원본에서 다시 칠해 색 누적 방지
 - **몬스터 시트** — 배경 보존 + 전경만 변환(프레임 슬라이싱 유지)
 - **외부 게임** — `config.json`의 `lol`(Legend of Lua, Love2D) 에셋을 별도 네임스페이스로 변환
+- **SpecDriven 파이프라인** — StyleSpec 저장(immutable 강제) → 앵커 생성·승인 → 인벤토리 기반 카테고리 라우팅(지형은 circular padding 이음새 모드) → 팔레트 스냅·알파 재적용 → QA 게이트(실루엣 IoU·팔레트 준수·이음새) 통과분만 적용 ([docs/style-pipeline.md](docs/style-pipeline.md))
 
-> ⚠️ **PyTorch(`torch`)가 필요**하지만 `requirements.txt`에는 없습니다(형제 `ADAIN` 쪽/기존 설치 가정). 이 환경은 GPU가 없어 CPU 추론으로 동작합니다. 가중치(`ADAIN/models/*.pth`)가 없으면 `/health`가 `degraded`로 보고합니다. 자세한 내용은 [docs/style-transfer.md](docs/style-transfer.md).
+> ⚠️ **PyTorch(`torch`)와 Diffusers가 필요**합니다. SDXL 모델은 최초 실행 시 다운로드되며, GPU와 충분한 VRAM이 필요합니다. 자세한 내용은 [docs/style-transfer.md](docs/style-transfer.md).
 
 ---
 
@@ -128,7 +130,7 @@ chichi/
 │  │     └─ lua/                 # 변환된 Lua 로직 스크립트(*.lua) + json-codec.lua
 │  ├─ editor/                    # LLM 시나리오 에디터(생성·검증·배치·스타일)
 │  └─ games/legend-of-lua/       # (빈 자리표시자 — 실제 빌드는 public/legend-of-lua)
-├─ style-service/          # Python AdaIN 스타일 변환 서비스(server.py 등)
+├─ style-service/          # Python SDXL 스타일 변환 서비스(server.py 등)
 ├─ public/
 │  ├─ vendor/lua/          # 런타임 Lua WASM (lua-5.3.6.mjs / .wasm)
 │  └─ legend-of-lua/       # Love2D love.js 사전 빌드(외부 게임)
@@ -158,8 +160,8 @@ chichi/
 
 ## 🧰 기술 스택
 
-TypeScript 5.9 · Vite 7 · PixiJS 8(`@pixi/tilemap`) · Tailwind CSS 4 · Vitest 3 · `@xmldom/xmldom`(TMX 파싱) · Lua 5.3.6(WASM, Emscripten) · Python(FastAPI/uvicorn) + PyTorch(AdaIN).
+TypeScript 5.9 · Vite 7 · PixiJS 8(`@pixi/tilemap`) · Tailwind CSS 4 · Vitest 3 · `@xmldom/xmldom`(TMX 파싱) · Lua 5.3.6(WASM, Emscripten) · Python(FastAPI/uvicorn) + PyTorch/Diffusers(SDXL).
 
 ## 📚 문서 (`docs/`)
 
-`architecture.md`(모듈 경계) · `tech-stack.md` · `coding-standards.md` · `git-rules.md` · `testing-strategy.md` · `ai-setup.md` · `style-transfer.md`(AdaIN 연동) · `lua-controller-api.md`(Lua 캐릭터 컨트롤러 계약) · `legend-of-lua-love-js.md` · `legend-of-lua-bridge-protocol.md`(외부 Love2D 게임 라이브 브리지).
+`architecture.md`(모듈 경계) · `tech-stack.md` · `coding-standards.md` · `git-rules.md` · `testing-strategy.md` · `ai-setup.md` · `style-transfer.md`(SDXL 연동) · `lua-controller-api.md`(Lua 캐릭터 컨트롤러 계약) · `legend-of-lua-love-js.md` · `legend-of-lua-bridge-protocol.md`(외부 Love2D 게임 라이브 브리지).

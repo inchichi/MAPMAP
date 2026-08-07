@@ -260,7 +260,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/llm/, '')
       },
-      // AdaIN 스타일 트랜스퍼 로컬 Python 서비스 — style-service/server.py (포트는 그쪽 config.json).
+      // SDXL img2img 스타일 변환 로컬 Python 서비스 — style-service/server.py (포트는 그쪽 config.json).
       '/api/style': {
         target: 'http://127.0.0.1:8765',
         changeOrigin: true,
