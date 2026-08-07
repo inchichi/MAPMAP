@@ -9,17 +9,8 @@ import {
 } from './loadGame'
 import { analyzeGame, type GameAnalysis } from './analyzeGame'
 import { extractTmxLayerNames, extractTmxObjects, type TmxObject } from './tmxObjects'
-import { readLocalStorage, writeLocalStorage } from './safeStorage'
-import { ANTHROPIC_MODEL } from './anthropicGenerate'
-import {
-  PROVIDER_LABEL,
-  PROVIDER_MODELS,
-  detectProvider,
-  getProviderModel,
-  setProviderModel,
-  validateApiKey,
-  type LlmProvider
-} from './llmProvider'
+import { readLocalStorage } from './safeStorage'
+import { LOCAL_LLM_MODEL } from './llmProvider'
 import {
   appendEventEvaluation,
   clearEventEvaluations,
@@ -43,9 +34,10 @@ import { createStyleTransferModal } from './createStyleTransferModal'
 import { createStylePipelinePanel } from './createStylePipelinePanel'
 // my-sample-rpg 라이브 NPC 생성(자연어 → 플레이어 옆 스폰).
 import { generateNpcJson } from './npcJsonGenerator'
-// 게임이 localStorage에 저장한 수기/생성 NPC — 트리에 TMX 엔티티와 합쳐 보여주기 위해 읽는다.
-import { loadNpcsForMap, PENDING_NPCS_STORAGE_KEY } from './npcStore'
+import { decideEditorAction } from './editorActionGenerator'
 import { resolveLegendEntitySpriteUrl } from './legendEntitySprite'
+// 게임이 localStorage에 저장한 수기/생성 NPC — 트리에 TMX 엔티티와 합쳐 보여주기 위해 읽는다.
+import { loadNpcsForMap, PENDING_NPCS_STORAGE_KEY, removeNpc } from './npcStore'
 
 // 하드코딩 어댑터가 엔티티를 못 찾은 미지의 게임을, LLM 분석이 찾은 editable 그룹으로 채운다.
 const buildEntitiesFromAnalysis = (
@@ -92,9 +84,6 @@ type CreateEditorAppInput = {
   initialFiles: GameFile[]
   gamePreviewUrl: string
 }
-
-const API_KEY_STORAGE_KEY = 'my-sample-rpg:anthropic-api-key'
-const MODEL_STORAGE_PREFIX = 'my-sample-rpg:model:'
 
 // 종류별 게임풍 SVG 아이콘 매핑(editorIcons.ts에서 손으로 그린 것들). emoji는 쓰지 않는다.
 const KIND_ICON: Record<string, EditorIconName> = {
@@ -330,25 +319,12 @@ const STEP_TEXT_DONE = 'text-[#b6bac1]'
 // 메인 에디터(차콜)보다 두세 단계 밝은 연회색 계층 — 모달이 떠 있을 때 명확히 분리돼 보인다.
 const SETTINGS_SECTION = 'rounded-2xl border-2 border-[#5a5a61] bg-[#45454b] p-4 flex flex-col gap-3'
 const SETTINGS_LABEL = 'text-base font-semibold text-[#e6e6e6]'
-const SETTINGS_INPUT =
-  'w-full rounded-lg border-2 border-[#5a5a61] bg-[#2e2e33] px-3 py-2.5 text-base text-[#e6e6e6] outline-none transition placeholder:text-[#9a9a9a] focus:border-[#569cd6] focus:ring-2 focus:ring-[#569cd6]/30'
 // 프로젝트 기본 버튼 — 연회색 보조 버튼 톤.
 const SETTINGS_BUTTON =
   'flex items-center justify-center gap-2.5 rounded-xl min-h-[48px] px-4 bg-[#4a4a50] text-[#e6e6e6] text-lg border border-[#5e5e66] transition hover:bg-[#56565c] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0'
 // 메인 액션(AI 게임 분석) — 밝은 회색 버튼으로 강조(블루 제거, 버튼 색 통일).
 const SETTINGS_BUTTON_SPECIAL =
   'flex items-center justify-center gap-2.5 rounded-xl min-h-[48px] px-4 bg-[#c6cad1] text-[#1c1d20] text-lg font-semibold border border-[#9aa0a8] transition hover:bg-[#d3d7dd] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0'
-// 제공사 표시 칩(Claude/GPT) — 키로 자동 감지되므로 클릭은 안 되고, 감지된 쪽만 블루 테두리.
-const PROVIDER_CHIP =
-  'rounded-xl px-5 py-2 text-[18px] leading-none bg-[#45454b] text-[#b6bac1] border-2 border-[#5e5e66]'
-const PROVIDER_CHIP_ACTIVE =
-  'rounded-xl px-5 py-2 text-[18px] leading-none bg-[#54545b] text-white border-2 border-[#569cd6]'
-// 모델 목록은 작은 태그로 — 선택된 것만 블루 테두리.
-const MODEL_CHIP =
-  'rounded-md px-2 py-1 text-[12px] leading-none bg-[#3f3f45] text-[#b6bac1] border border-[#5a5a61] transition hover:bg-[#4a4a50]'
-const MODEL_CHIP_ACTIVE =
-  'rounded-md px-2 py-1 text-[12px] leading-none bg-[#4a4a50] text-white border border-[#569cd6] ring-1 ring-[#569cd6]/40'
-
 export const createEditorApp = ({
   mountElement,
   initialFiles,
@@ -356,7 +332,6 @@ export const createEditorApp = ({
 }: CreateEditorAppInput): void => {
   let game: LoadedGame = loadGame(initialFiles)
   let currentFiles: GameFile[] = initialFiles
-  let apiKey = readLocalStorage(API_KEY_STORAGE_KEY) ?? ''
   let selectedEntity: GameEntity | undefined
   let currentResult: GenerationResult | undefined
   let currentAnalysis: GameAnalysis | undefined
@@ -464,12 +439,11 @@ export const createEditorApp = ({
     versionMeta.value.textContent = game.adapter.version ?? '—'
   }
   brand.append(editorIcon('sword', 20), brandText)
-  // 모델 배지 — 입력한 키의 provider(Claude/GPT)에 따라 동적으로 갱신된다.
-  // 모델명은 게임 분위기를 깨서 헤더 대신 설정 모달의 고급 설정 안에 산다.
+  // 모델 배지 — 에디터는 고정된 로컬 vLLM 모델만 사용한다.
   const modelBadge = el(
     'span',
     'self-start text-[12px] rounded-md px-2 py-0.5 bg-[#45454b] border border-[#5a5a61] text-[#b8b8b8]',
-    `Claude · ${ANTHROPIC_MODEL}`
+    `로컬 vLLM · ${LOCAL_LLM_MODEL}`
   )
   // 연결 상태 배지 — 28px 캡슐. 연결되면 초록(#72d36b)으로 바뀐다(iframe load 리스너에서 갱신).
   const connection = el('div', 'h-7 flex items-center gap-1.5 text-[11px] rounded-full px-2.5 bg-[#1a1a1c] border border-[#b6bac1]/28 text-[#9d9d9d]')
@@ -615,32 +589,9 @@ export const createEditorApp = ({
   analysisPanel.hidden = true
   const supportNote = el('div', 'rounded-lg border border-[#b6bac1]/22 bg-[#34363a] px-3 py-2 text-xs text-[#b6bac1]')
 
-  const apiKeyField = el('label', 'flex flex-col gap-2')
-  apiKeyField.append(el('span', SETTINGS_LABEL, 'API 키 — Claude 또는 GPT (자동 감지)'))
-  const apiKeyInput = el('input', SETTINGS_INPUT) as HTMLInputElement
-  apiKeyInput.type = 'password'
-  apiKeyInput.placeholder = 'sk-ant-… (Claude)  또는  sk-… (GPT)'
-  apiKeyInput.autocomplete = 'off'
-  apiKeyInput.value = apiKey
-  apiKeyField.append(apiKeyInput)
-  // 키 유효성 피드백(입력 시 디바운스로 갱신). 빈 문자열이면 자리만 차지하지 않게 둔다.
-  const apiKeyStatus = el('span', 'text-sm font-medium text-[#9d9d9d]', '')
-  apiKeyField.append(apiKeyStatus)
-
-  // 모델 선택 — 키는 모델을 정하지 않으므로, 감지된 provider의 모델 중에서 고른다(저장됨).
-  // 드롭다운 대신 게임식 선택 버튼. 실제 상태는 숨겨진 select가 그대로 들고 있어
-  // 기존 change 리스너·저장 로직이 전혀 바뀌지 않는다(칩 클릭 → select 값 변경 + change 디스패치).
+  // 모델은 프로젝트가 연결한 로컬 서버의 한 모델로 고정한다.
   const modelField = el('div', 'flex flex-col gap-2.5')
-  modelField.append(el('span', SETTINGS_LABEL, '모델 선택'))
-  const providerChips: Record<LlmProvider, HTMLElement> = {
-    anthropic: el('span', PROVIDER_CHIP, 'Claude'),
-    openai: el('span', PROVIDER_CHIP, 'GPT')
-  }
-  const providerRow = el('div', 'flex items-center gap-2')
-  providerRow.append(providerChips.anthropic, providerChips.openai)
-  const modelChips = el('div', 'flex flex-wrap gap-2')
-  const modelSelect = el('select', 'hidden') as HTMLSelectElement
-  modelField.append(providerRow, modelChips, modelSelect)
+  modelField.append(el('span', SETTINGS_LABEL, '고정 LLM'), modelBadge)
 
   // 필요하면 손잡이로 더 늘릴 수 있다(resize-y). placeholder는 예시 목록 형태.
   const promptField = el('label', 'flex flex-col gap-1')
@@ -1533,7 +1484,7 @@ export const createEditorApp = ({
 
   body.append(tree, center, side)
   // ---------- settings modal (헤더 ⚙) ----------
-  // API 키·폴더 열기·분석·복귀는 상시 노출 대신 여기로 모은다. 메인은 편집에 집중.
+  // 고정 LLM 정보·폴더 열기·분석·복귀는 상시 노출 대신 여기로 모은다. 메인은 편집에 집중.
   const settingsBackdrop = el('div', 'fixed inset-0 z-50 bg-black/60 backdrop-blur flex items-center justify-center p-4')
   // 숨김은 hidden 속성 대신 인라인 display로 제어한다 — `flex` 클래스의 display:flex가 [hidden]을
   // 덮어써 안 닫히는 사고를 막는다(인라인 스타일이 항상 이긴다).
@@ -1552,19 +1503,7 @@ export const createEditorApp = ({
   modelSection.append(modelField)
   const projectSection = el('div', SETTINGS_SECTION)
   projectSection.append(el('span', SETTINGS_LABEL, '프로젝트'), openButton, analyzeButton, resetButton)
-  // 고급 설정(API 키) — 일반 사용자에겐 보이지 않게 기본 접힘.
-  // 개발자용 영역이라 기본적으로 눈에 띄지 않게 — 작고 연한 토글.
-  const advancedToggle = el('button', 'self-start text-[13px] text-[#9d9d9d] transition hover:text-[#cccccc]', '▸ 고급 설정 (API 키)') as HTMLButtonElement
-  advancedToggle.type = 'button'
-  const advancedBody = el('div', SETTINGS_SECTION)
-  advancedBody.hidden = true
-  // API 키 + 현재 모델 배지 — 모델명은 헤더 대신 여기서만 보인다.
-  advancedBody.append(apiKeyField, modelBadge)
-  advancedToggle.addEventListener('click', () => {
-    advancedBody.hidden = !advancedBody.hidden
-    advancedToggle.textContent = `${advancedBody.hidden ? '▸' : '▾'} 고급 설정 (API 키)`
-  })
-  settingsPanel.append(settingsTitle, settingsClose, modelSection, projectSection, advancedToggle, advancedBody)
+  settingsPanel.append(settingsTitle, settingsClose, modelSection, projectSection)
   settingsBackdrop.append(settingsPanel)
 
   const closeSettings = (): void => {
@@ -1632,11 +1571,6 @@ export const createEditorApp = ({
       return
     }
 
-    if (apiKey.trim().length === 0) {
-      setStatus('분석하려면 먼저 Claude(Anthropic) API 키를 입력하세요.')
-      return
-    }
-
     isAnalyzing = true
     analyzeButton.disabled = true
     analyzeLabel.textContent = '분석 중...'
@@ -1644,7 +1578,7 @@ export const createEditorApp = ({
 
     const filesAtStart = currentFiles
     try {
-      const analysis = await analyzeGame({ apiKey: apiKey.trim(), files: filesAtStart })
+      const analysis = await analyzeGame({ apiKey: '', files: filesAtStart })
       // 분석 중 다른 프로젝트를 열었으면 이 결과는 버린다(레이스 방지).
       if (currentFiles !== filesAtStart) {
         return
@@ -2157,13 +2091,11 @@ export const createEditorApp = ({
     // 비활성 이유를 툴팁으로 — "왜 못 누르지?"를 절대 헷갈리지 않게(없으면 다음 단계 안내).
     generateButton.title = isGenerating
       ? '생성 중입니다…'
-      : apiKey.trim().length === 0
-        ? 'API 키를 먼저 입력하세요 (오른쪽 위 설정)'
-        : promptInput.value.trim().length === 0
-          ? '요청 내용을 입력하세요'
-          : !selectedEntity
-            ? '바로 생성할 수 있습니다 — 대상 객체를 고르면 더 정확합니다'
-            : '콘텐츠 생성'
+      : promptInput.value.trim().length === 0
+        ? '요청 내용을 입력하세요'
+        : !selectedEntity
+          ? '바로 생성할 수 있습니다 — 대상 객체를 고르면 더 정확합니다'
+          : '콘텐츠 생성'
     // 적용 버튼도 생성 중일 때만 잠근다 — 결과 없음/검증 전이면 클릭 시 runApply가 메시지로 안내한다.
     applyButton.disabled = isGenerating
     // 적용 버튼도 단계별 이유를 명시 — 생성 전/검증 전/지원 안 됨/적용 가능.
@@ -2346,7 +2278,7 @@ export const createEditorApp = ({
 
     try {
       const result = await generateQuestCandidates({
-        apiKey: apiKey.trim(),
+        apiKey: '',
         userPrompt: promptInput.value,
         profile,
         entity: selectedEntity,
@@ -2420,7 +2352,7 @@ export const createEditorApp = ({
       if (profile) {
         // 퀘스트 모드: 후보로 진짜 퀘스트 JSON을 생성한다(대사 이벤트가 아님).
         const quest = await generateQuestJson({
-          apiKey: apiKey.trim(),
+          apiKey: '',
           userPrompt: promptInput.value,
           profile,
           candidate,
@@ -2464,7 +2396,7 @@ export const createEditorApp = ({
         )
       } else {
         const result = await game.adapter.generate({
-          apiKey: apiKey.trim(),
+          apiKey: '',
           userPrompt: promptInput.value,
           entity: selectedEntity,
           profile: game.profile,
@@ -2596,7 +2528,7 @@ export const createEditorApp = ({
 
     try {
       const npc = await generateNpcJson({
-        apiKey: apiKey.trim(),
+        apiKey: '',
         userPrompt: promptInput.value
       })
       if (currentFiles !== filesAtStart) {
@@ -2645,13 +2577,27 @@ export const createEditorApp = ({
     }
   }
 
+  // 자연어 라우터가 고른 즉시 실행 작업도 기존 결과 보드/적용 파이프라인에 올린다.
+  const commitActionResult = (
+    result: GenerationResult,
+    activity: string,
+    message: string
+  ): void => {
+    currentDryRun = undefined
+    currentResult = result
+    historyCounter += 1
+    history = [{ n: historyCounter, result }, ...history].slice(0, HISTORY_LIMIT)
+    sessionTally = {
+      generations: sessionTally.generations + 1,
+      validatorPasses: sessionTally.validatorPasses + 1
+    }
+    activeBoardTab = 'verify'
+    logActivity(activity)
+    setStatus(message)
+  }
+
   const runGenerate = async (): Promise<void> => {
     if (isGenerating) {
-      return
-    }
-
-    if (apiKey.trim().length === 0) {
-      setStatus('먼저 Claude(Anthropic) API 키를 입력하세요.')
       return
     }
 
@@ -2660,16 +2606,189 @@ export const createEditorApp = ({
       return
     }
 
-    // 퀘스트 모드: '이야기 생성'은 1단계(후보 N개)를 만든다. 실제 이벤트는 후보를 골라 2단계에서.
-    if (candidateMode) {
-      await runGenerateCandidates()
-      return
-    }
+    // 모든 자연어 요청은 먼저 로컬 LLM이 에디터 도구를 고른다. 퀘스트/NPC 빠른시작은
+    // 모델에게 힌트로만 전달하고, 사용자가 프롬프트를 바꾸면 그 의도가 우선한다.
+    {
+      isGenerating = true
+      const filesAtStart = currentFiles
+      setStatus('에디터 작업 판단 중…')
+      render()
 
-    // NPC 추가 모드(my-sample-rpg): 단일 NPC 생성 → 적용 시 플레이어 옆 라이브 스폰.
-    if (npcMode) {
-      await runGenerateNpc()
-      return
+      try {
+        const editorGeneratedNpcs = game.maps.flatMap((map) => placedNpcEntities(map.id))
+        const entities = game.maps
+          .flatMap((map) => map.entities.concat(placedNpcEntities(map.id)))
+          .filter((entity) => !isTileClusterEntity(entity))
+        const scenes =
+          game.adapter.id === 'my-sample-rpg'
+            ? previewScenes.map(({ id, label }) => ({ id, label }))
+            : game.maps.map((map) => ({ id: map.id, label: map.name }))
+        const action = await decideEditorAction({
+          userPrompt: promptInput.value,
+          gameName: game.adapter.name,
+          selectedEntity,
+          entities,
+          editorGeneratedNpcs,
+          scenes,
+          modeHint: candidateMode ? '퀘스트 빠른 시작' : npcMode ? 'NPC 추가 빠른 시작' : undefined
+        })
+        if (currentFiles !== filesAtStart) {
+          return
+        }
+
+        if (
+          ![
+            'create_npc',
+            'delete_npc',
+            'create_quest',
+            'switch_scene',
+            'generate_content',
+            'other'
+          ].includes(action.action) ||
+          typeof action.target_id !== 'string' ||
+          typeof action.scene_id !== 'string'
+        ) {
+          throw new Error('에디터 작업 판별 결과가 올바르지 않습니다.')
+        }
+
+        if (action.action === 'create_npc') {
+          if (game.adapter.id !== 'my-sample-rpg') {
+            setStatus('현재 연결된 게임은 라이브 NPC 생성을 지원하지 않습니다.')
+            return
+          }
+          candidateMode = false
+          npcMode = true
+          isGenerating = false
+          render()
+          await runGenerateNpc()
+          return
+        }
+
+        if (action.action === 'create_quest') {
+          if (!game.profile) {
+            setStatus('현재 연결된 게임은 퀘스트 생성 프로필이 없습니다.')
+            return
+          }
+          candidateMode = true
+          npcMode = false
+          isGenerating = false
+          render()
+          await runGenerateCandidates()
+          return
+        }
+
+        if (action.action === 'switch_scene') {
+          const targetScene = scenes.find((scene) => scene.id === action.scene_id)
+          if (!targetScene) {
+            setStatus('전환할 씬 이름을 확인할 수 없습니다. 마을·사냥터·동굴 중에서 지정하세요.')
+            return
+          }
+          candidateMode = false
+          npcMode = false
+          const result: GenerationResult = {
+            label: '씬 전환 · ' + targetScene.label,
+            preview: JSON.stringify(
+              { action: 'switch_scene', scene_id: targetScene.id },
+              null,
+              2
+            ),
+            issues: [],
+            apply: () => {
+              currentMapId = targetScene.id
+              if (game.adapter.id === 'my-sample-rpg') {
+                iframe.contentWindow?.postMessage(
+                  { type: 'editor:switch-scene', sceneId: targetScene.id },
+                  '*'
+                )
+              } else {
+                iframe.contentWindow?.postMessage(
+                  {
+                    type: 'editor:goto-map',
+                    mapId: targetScene.id,
+                    mapName: targetScene.label
+                  },
+                  '*'
+                )
+              }
+              renderTree()
+              render()
+            },
+            bridgePayload: null
+          }
+          commitActionResult(
+            result,
+            '씬 전환 판단 — ' + targetScene.label,
+            '씬 확인: ' + targetScene.label + " — '적용'을 누르면 전환됩니다"
+          )
+          return
+        }
+
+        if (action.action === 'delete_npc') {
+          const selectedEntityId = selectedEntity?.id
+          const selectedNpc = selectedEntityId
+            ? editorGeneratedNpcs.find((npc) => npc.id === selectedEntityId)
+            : undefined
+          const target = action.target_id
+            ? editorGeneratedNpcs.find((npc) => npc.id === action.target_id)
+            : selectedNpc
+
+          if (game.adapter.id !== 'my-sample-rpg') {
+            setStatus('현재 연결된 게임은 에디터 NPC 삭제를 지원하지 않습니다.')
+            return
+          }
+          if (!target) {
+            setStatus('삭제할 에디터 생성 NPC를 선택하거나 이름을 정확히 입력하세요.')
+            return
+          }
+          candidateMode = false
+          npcMode = false
+
+          const result: GenerationResult = {
+            label: 'NPC 삭제 · ' + target.name,
+            preview: JSON.stringify(
+              { action: 'delete_npc', target_id: target.id, map_id: target.mapId },
+              null,
+              2
+            ),
+            issues: [],
+            // 실제 삭제는 기존 적용 버튼을 누를 때만 실행한다. 실수로 모델이 고른 대상을 즉시 지우지 않는다.
+            apply: () => {
+              removeNpc(target.mapId, target.id)
+              if (selectedEntity?.id === target.id) {
+                selectedEntity = undefined
+              }
+              renderTree()
+              render()
+            },
+            bridgePayload: null
+          }
+          commitActionResult(
+            result,
+            '"' + target.name + '" NPC 삭제 판단',
+            '삭제 대상 확인: ' + target.name + " — '적용'을 누르면 삭제됩니다"
+          )
+          return
+        }
+
+        if (action.action === 'other') {
+          setStatus('이 요청은 현재 에디터에서 실행할 수 있는 작업으로 해석되지 않았습니다.')
+          return
+        }
+
+        candidateMode = false
+        npcMode = false
+      } catch (error) {
+        if (currentFiles !== filesAtStart) {
+          return
+        }
+        setStatus(
+          '에디터 작업 판단 실패: ' + (error instanceof Error ? error.message : String(error))
+        )
+        return
+      } finally {
+        isGenerating = false
+        render()
+      }
     }
 
     isGenerating = true
@@ -2682,7 +2801,7 @@ export const createEditorApp = ({
 
     try {
       const result = await game.adapter.generate({
-        apiKey: apiKey.trim(),
+        apiKey: '',
         userPrompt: promptInput.value,
         entity: selectedEntity,
         profile: game.profile,
@@ -2850,10 +2969,8 @@ export const createEditorApp = ({
         `프로젝트 로드: ${game.adapter.name} · 맵 ${game.maps.length}개 · 엔티티 ${entityCount}개` +
           `${tileCount > 0 ? ` · 구조물 ${tileCount}개` : ''}${parseErrorNote()}`
       )
-      // 토큰이 있으면 LLM이 이 게임을 자동 분석한다(네 아이디어: 열면 LLM이 이해).
-      if (apiKey.trim().length > 0) {
-        void runAnalyze()
-      }
+      // 프로젝트를 열면 고정된 로컬 LLM이 자동으로 구조를 분석한다.
+      void runAnalyze()
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return
@@ -2889,110 +3006,6 @@ export const createEditorApp = ({
     setStatus(`내 게임으로 복귀했습니다.${parseErrorNote()}`)
   }
 
-  // 감지된 provider의 모델 목록으로 숨은 select와 게임식 선택 칩을 함께 채운다.
-  const populateModelSelect = (provider: LlmProvider): void => {
-    const current = getProviderModel(provider)
-    const models = PROVIDER_MODELS[provider]
-    // 저장된 값이 목록에 없으면(예: 옛 커스텀) 맨 앞에 추가해 선택을 보존한다.
-    const options = models.includes(current) ? models : [current, ...models]
-    modelSelect.replaceChildren(
-      ...options.map((modelId) => {
-        const option = el('option', '', modelId) as HTMLOptionElement
-        option.value = modelId
-        return option
-      })
-    )
-    modelSelect.value = current
-    // 제공사 칩(Claude/GPT)은 감지된 쪽만 금색으로 — 키가 정하므로 표시 전용.
-    providerChips.anthropic.className = provider === 'anthropic' ? PROVIDER_CHIP_ACTIVE : PROVIDER_CHIP
-    providerChips.openai.className = provider === 'openai' ? PROVIDER_CHIP_ACTIVE : PROVIDER_CHIP
-    // 모델 칩: 클릭하면 숨은 select에 값을 넣고 change를 쏴서 기존 저장 로직을 그대로 태운다.
-    modelChips.replaceChildren(
-      ...options.map((modelId) => {
-        const chip = el('button', modelId === current ? MODEL_CHIP_ACTIVE : MODEL_CHIP, modelId) as HTMLButtonElement
-        chip.type = 'button'
-        chip.addEventListener('click', () => {
-          modelSelect.value = modelId
-          modelSelect.dispatchEvent(new Event('change'))
-          // 금색 강조를 새 선택값으로 다시 그린다.
-          populateModelSelect(provider)
-        })
-        return chip
-      })
-    )
-  }
-
-  // 입력한 키의 provider를 감지해 모델 배지·드롭다운을 갱신하고, /v1/models로 유효성을 확인해 피드백한다.
-  let apiKeyCheckSeq = 0
-  const refreshApiKeyStatus = async (): Promise<void> => {
-    const key = apiKey.trim()
-    const provider = detectProvider(key)
-    if (provider) {
-      populateModelSelect(provider)
-      modelBadge.textContent = `${PROVIDER_LABEL[provider]} · ${getProviderModel(provider)}`
-    }
-    if (key.length === 0) {
-      apiKeyStatus.className = 'text-sm font-medium text-[#9d9d9d]'
-      apiKeyStatus.textContent = '키를 입력하세요.'
-      return
-    }
-    const seq = ++apiKeyCheckSeq
-    apiKeyStatus.className = 'text-sm font-medium text-[#9d9d9d]'
-    apiKeyStatus.textContent = '확인 중...'
-    const check = await validateApiKey(key)
-    // 확인 중 더 최신 입력이 있었으면 이 결과는 버린다(레이스 방지).
-    if (seq !== apiKeyCheckSeq) {
-      return
-    }
-    // 장부 종이 위에서 읽히는 진한 포인트 컬러(성공/경고/실패).
-    apiKeyStatus.className =
-      check.status === 'valid'
-        ? 'text-sm font-medium text-[#8fc96a]'
-        : check.status === 'invalid'
-          ? 'text-sm font-medium text-[#f48771]'
-          : 'text-sm font-medium text-[#d9a64f]'
-    const icon =
-      check.status === 'valid' ? '✓' : check.status === 'invalid' ? '✗' : 'ℹ'
-    apiKeyStatus.textContent = `${icon} ${check.message}`
-  }
-
-  let apiKeyDebounce: ReturnType<typeof setTimeout> | undefined
-  apiKeyInput.addEventListener('input', () => {
-    apiKey = apiKeyInput.value
-    // 저장이 막혀도(프라이빗 모드 등) 입력·생성 흐름은 끊기지 않게 한다. 키는 메모리에 유지된다.
-    const persisted = writeLocalStorage(API_KEY_STORAGE_KEY, apiKey)
-    render()
-    if (!persisted && apiKey.length > 0) {
-      setStatus('API 키를 저장하지 못했습니다(브라우저 저장소 차단). 이번 세션에만 사용됩니다.')
-    }
-    if (apiKeyDebounce !== undefined) {
-      clearTimeout(apiKeyDebounce)
-    }
-    apiKeyDebounce = setTimeout(() => {
-      void refreshApiKeyStatus()
-    }, 500)
-  })
-  // 모델 선택 → 현재 provider에 적용하고 저장. (키가 정하는 게 아니라 사용자가 고른다)
-  modelSelect.addEventListener('change', () => {
-    const provider = detectProvider(apiKey) ?? 'anthropic'
-    setProviderModel(provider, modelSelect.value)
-    writeLocalStorage(`${MODEL_STORAGE_PREFIX}${provider}`, modelSelect.value)
-    const detected = detectProvider(apiKey)
-    if (detected) {
-      modelBadge.textContent = `${PROVIDER_LABEL[detected]} · ${getProviderModel(detected)}`
-    }
-  })
-
-  // 저장된 모델(provider별)을 복원한 뒤, 저장돼 있던 키가 있으면 검증해 배지·모델·상태를 채운다.
-  for (const provider of ['anthropic', 'openai'] as const) {
-    const storedModel = readLocalStorage(`${MODEL_STORAGE_PREFIX}${provider}`)
-    if (storedModel) {
-      setProviderModel(provider, storedModel)
-    }
-  }
-  // 키가 없어도 기본 provider 모델 목록은 채워 둔다(빈 드롭다운 방지).
-  populateModelSelect(detectProvider(apiKey) ?? 'anthropic')
-  void refreshApiKeyStatus()
   resetButton.addEventListener('click', runReset)
   generateButton.addEventListener('click', () => {
     void runGenerate()
@@ -3101,6 +3114,5 @@ export const createEditorApp = ({
   if (game.parseErrors.length > 0) {
     setStatus(`기본 맵 일부를 읽지 못했습니다${parseErrorNote()}`)
   }
-  // 데모 흐름: 키가 없으면 키 입력에, 있으면 바로 프롬프트에 포커스.
-  ;(apiKey.trim().length > 0 ? promptInput : apiKeyInput).focus()
+  promptInput.focus()
 }

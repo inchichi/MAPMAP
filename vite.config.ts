@@ -248,14 +248,19 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/openai/, '')
       },
-      // 에디터의 Claude 호출을 서버사이드로 포워딩 → 브라우저 CORS 회피.
+      // 기존 게임/프레젠테이션용 Claude 호출을 서버사이드로 포워딩한다.
       '/api/anthropic': {
         target: 'https://api.anthropic.com',
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/anthropic/, '')
       },
-      // FreeStyle text-guided style transfer local Python service — style-service/server.py (port from config.json).
+      '/api/llm': {
+        target: 'http://100.115.43.82:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/llm/, '')
+      },
+      // SDXL img2img 스타일 변환 로컬 Python 서비스 — style-service/server.py (포트는 그쪽 config.json).
       '/api/style': {
         target: 'http://127.0.0.1:8765',
         changeOrigin: true,

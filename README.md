@@ -53,7 +53,8 @@ PixiJS v8로 렌더하는 **탑다운 2D 액션 RPG**. 맵은 직교(orthogonal)
 비개발자가 **자연어로 게임 콘텐츠를 만드는** LLM 저작 도구("마을 이야기 공방"). 임베드된 라이브 게임을 보면서 작업합니다.
 
 - **라이브 미리보기** — 게임을 iframe으로 띄우고 `postMessage`로 통신(에디터는 게임 런타임 코드를 직접 import하지 않음)
-- **LLM 생성** — API 키 접두사로 **Claude/GPT 자동 감지**, 공급자별 모델 선택. 키 검증·호출은 로컬 프록시(`/api/anthropic`, `/api/openai`) 경유
+- **LLM 생성** — 고정된 로컬 vLLM 서버(`100.115.43.82:8000`)의 `qwen36-27b-int4-best`를 사용한다. 브라우저 호출은 Vite 프록시(`/api/llm`)를 경유한다
+- **자연어 에디터 동작 라우팅** — 같은 LLM이 요청을 `create_npc`/`delete_npc`/`create_quest`/`switch_scene`/`generate_content` 도구 중 하나로 판별하고, 기존 생성·적용 파이프라인을 실행한다
 - **생성 → 검증(dry-run) → 적용** 파이프라인, 퀘스트는 후보 생성 → 선택 → 이벤트 JSON 생성의 2단계
 - **현재 맵 에셋 트리** — 현재 맵의 NPC·건물·오브젝트 목록(검색·전체 맵 토글)
 - **배치 팔레트** — 타일/오브젝트/NPC를 마우스로 맵에 배치, 맵별 `localStorage` 영속, NPC 수기 추가(외형·이름·대사)
@@ -62,7 +63,7 @@ PixiJS v8로 렌더하는 **탑다운 2D 액션 RPG**. 맵은 직교(orthogonal)
 - **평가/지표** — 생성 결과 수용/거부 평가, 세션 생성·검증 통과율 집계
 - **에디터 편의(이번 추가)** — 하단 입력창(컴포저) **드래그 높이 조절**, 트리·팔레트 항목 **마우스 호버 시 확대 미리보기 툴팁**
 
-> 타일 스타일 변환·NPC 팔레트·타일셋 미리보기는 현재 맵이 my-sample-rpg 에셋일 때만 활성화됩니다. LLM 호출은 dev 서버 프록시가 필요하고, 스타일 변환은 아래 Python 서비스가 떠 있어야 합니다.
+> 타일 스타일 변환·NPC 팔레트·타일셋 미리보기는 현재 맵이 my-sample-rpg 에셋일 때만 활성화됩니다. 에디터 LLM 호출은 dev 서버 프록시와 `100.115.43.82:8000` 서버가 필요하고, 스타일 변환은 아래 Python 서비스가 떠 있어야 합니다.
 
 ---
 
@@ -114,7 +115,7 @@ npm run lua:build      # 또는 fetch+build: npm run lua:sync
 chichi/
 ├─ index.html              # 게임 진입 (#app → src/games/my-sample-rpg/main.ts)
 ├─ editor.html             # 에디터 진입 (#editor-root → src/editor/editorPage.ts)
-├─ vite.config.ts          # 멀티 페이지 빌드 + /api 프록시(openai·anthropic·style)
+├─ vite.config.ts          # 멀티 페이지 빌드 + /api 프록시(llm·openai·anthropic·style)
 ├─ vitest.lua-logic.config.ts   # 게임 로직 Lua 브리지 스펙용
 ├─ vitest.lua-bridge.config.ts  # 캐릭터 컨트롤러 런타임 브리지 스펙용
 ├─ src/
@@ -153,7 +154,7 @@ chichi/
 | `npm run lua:build` / `lua:sync` | Lua WASM 빌드 / 소스 fetch+빌드 |
 | `npm run lua:test` | Node 기반 Lua WASM 테스트 하니스 |
 
-프록시(개발 서버): `/api/openai → api.openai.com`, `/api/anthropic → api.anthropic.com`, `/api/style → 127.0.0.1:8765`.
+프록시(개발 서버): `/api/llm → 100.115.43.82:8000`, `/api/openai → api.openai.com`, `/api/anthropic → api.anthropic.com`, `/api/style → 127.0.0.1:8765`.
 
 ---
 
