@@ -576,7 +576,11 @@ export const createStylePipelinePanel = (
   // 픽셀아트는 48px 썸네일로는 변환 품질을 판단할 수 없다. 카드를 클릭하면 변환 전/후를
   // 정수배 확대(NEAREST 렌더링)로 나란히 놓아 실루엣·팔레트 변화가 눈으로 확인되게 한다.
   // '전' 이미지는 /pipeline/original에서 받는다 — 이미 적용된 에셋이라도 최초 원본이 나온다.
-  const ZOOM_STEPS = [1, 2, 4, 8]
+  // 'fit'은 전체가 프레임에 들어오게 맞춘다 — 타일셋은 1402×1122처럼 크고 95%가 투명해서
+  // 정수배 확대로 열면 빈 영역만 보인다. 그래서 기본값이 fit이다.
+  type Zoom = 'fit' | number
+  const ZOOM_STEPS: Zoom[] = ['fit', 1, 2, 4, 8]
+  const ZOOM_LABEL = (zoom: Zoom): string => (zoom === 'fit' ? '맞춤' : `${zoom}×`)
   const CHECKERBOARD =
     'repeating-conic-gradient(#2a2a2d 0% 25%, #1b1b1e 0% 50%) 50% / 16px 16px'
 
@@ -622,29 +626,116 @@ export const createStylePipelinePanel = (
   const detailAxes = el('div', 'flex flex-wrap gap-3')
   detailPanel.append(detailHeader, detailToolbar, detailGrid, detailAxes)
 
-  let detailZoom = 4
+  let detailZoom: Zoom = 'fit'
+  // 원본의 불투명 영역(내용 bbox). 정수배 확대로 바꿀 때 이 지점으로 스크롤해, 투명한
+  // 여백이 아니라 실제 그림이 화면에 오게 한다.
+  let contentBox: { x: number; y: number } | undefined
+
+  // fit 배율은 두 패널이 공유한다 — 프레임 높이가 서로 조금 달라 각자 계산하면 전/후가
+  // 다른 크기로 그려져 나란히 비교가 어긋난다.
+  const sharedFitScale = (): number => {
+    let scale = 1
+    for (const image of [beforePane.image, afterPane.image]) {
+      const frame = image.parentElement
+      if (!frame || image.naturalWidth === 0) {
+        continue
+      }
+      // p-3(12px) 좌우 패딩을 뺀 실제 표시 폭·높이에 맞춘다.
+      scale = Math.min(
+        scale,
+        (frame.clientWidth - 24) / image.naturalWidth,
+        (frame.clientHeight - 24) / image.naturalHeight
+      )
+    }
+    return scale > 0 ? scale : 1
+  }
+
   const applyZoom = (): void => {
     for (const [index, button] of zoomButtons.entries()) {
-      const scale = ZOOM_STEPS[index]
-      button.className = scale === detailZoom ? BUTTON_PRIMARY : BUTTON
+      button.className = ZOOM_STEPS[index] === detailZoom ? BUTTON_PRIMARY : BUTTON
     }
+    const scale = detailZoom === 'fit' ? sharedFitScale() : detailZoom
     for (const image of [beforePane.image, afterPane.image]) {
-      if (image.naturalWidth > 0) {
-        image.style.width = `${image.naturalWidth * detailZoom}px`
+      if (image.naturalWidth === 0) {
+        continue
+      }
+      image.style.width = `${Math.max(1, Math.round(image.naturalWidth * scale))}px`
+      // fit일 때는 다운스케일이라 NEAREST가 심하게 깨진다 — 그때만 보간을 허용한다.
+      image.style.imageRendering = scale < 1 ? 'auto' : 'pixelated'
+      const frame = image.parentElement
+      if (frame && contentBox && detailZoom !== 'fit') {
+        frame.scrollLeft = Math.max(0, contentBox.x * scale - 24)
+        frame.scrollTop = Math.max(0, contentBox.y * scale - 24)
       }
     }
   }
-  for (const scale of ZOOM_STEPS) {
-    const button = el('button', BUTTON, `${scale}×`) as HTMLButtonElement
+  for (const zoom of ZOOM_STEPS) {
+    const button = el('button', BUTTON, ZOOM_LABEL(zoom)) as HTMLButtonElement
     button.type = 'button'
     button.addEventListener('click', () => {
-      detailZoom = scale
+      detailZoom = zoom
       applyZoom()
     })
     zoomButtons.push(button)
     detailToolbar.append(button)
   }
   detailToolbar.append(detailMeta, detailSave)
+
+  // 두 프레임의 스크롤을 묶는다 — 따로 움직이면 같은 부분을 비교할 수 없다.
+  const syncScroll = (from: HTMLElement, to: HTMLElement): void => {
+    let mirroring = false
+    from.addEventListener('scroll', () => {
+      if (mirroring) {
+        mirroring = false
+        return
+      }
+      mirroring = true
+      to.scrollLeft = from.scrollLeft
+      to.scrollTop = from.scrollTop
+    })
+  }
+  {
+    const beforeFrame = beforePane.image.parentElement
+    const afterFrame = afterPane.image.parentElement
+    if (beforeFrame && afterFrame) {
+      syncScroll(beforeFrame, afterFrame)
+      syncScroll(afterFrame, beforeFrame)
+    }
+  }
+
+  // 원본의 불투명 영역 좌상단을 찾는다(캔버스로 알파 스캔). 큰 타일셋은 내용이 한쪽에
+  // 몰려 있어, 이걸 모르면 확대 시 빈 곳에 착지한다.
+  const findContentOrigin = (image: HTMLImageElement): { x: number; y: number } | undefined => {
+    const { naturalWidth: width, naturalHeight: height } = image
+    if (width === 0 || width * height > 4096 * 4096) {
+      return undefined
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d', { willReadFrequently: true })
+    if (!context) {
+      return undefined
+    }
+    context.drawImage(image, 0, 0)
+    let pixels: Uint8ClampedArray
+    try {
+      pixels = context.getImageData(0, 0, width, height).data
+    } catch {
+      return undefined // 다른 출처 이미지면 캔버스가 오염돼 읽을 수 없다
+    }
+    let minX = width
+    let minY = height
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        if (pixels[(y * width + x) * 4 + 3] > 0) {
+          if (x < minX) minX = x
+          if (y < minY) minY = y
+        }
+      }
+    }
+    return minX < width && minY < height ? { x: minX, y: minY } : undefined
+  }
 
   const closeDetail = (): void => {
     detailBackdrop.classList.add('hidden')
@@ -674,11 +765,21 @@ export const createStylePipelinePanel = (
       .filter(Boolean)
       .join(' · ')
 
+    // 대상이 바뀌면 매번 전체가 보이는 상태로 시작한다 — 앞 대상에서 쓰던 8× 배율이
+    // 남아 있으면 큰 타일셋에서 투명한 여백만 보인다.
+    detailZoom = 'fit'
+    contentBox = undefined
+
     const styledUrl = `data:image/png;base64,${result.preview_png}`
     afterPane.image.onload = applyZoom
     afterPane.image.src = styledUrl
     beforePane.image.onload = () => {
-      detailMeta.textContent = `${beforePane.image.naturalWidth}×${beforePane.image.naturalHeight}px`
+      const { naturalWidth: width, naturalHeight: height } = beforePane.image
+      contentBox = findContentOrigin(beforePane.image)
+      const opaqueNote = contentBox && (contentBox.x > 0 || contentBox.y > 0)
+        ? ` · 내용 시작 ${contentBox.x},${contentBox.y}`
+        : ''
+      detailMeta.textContent = `${width}×${height}px${opaqueNote}`
       applyZoom()
     }
     beforePane.image.src = originalUrlOf(result)
