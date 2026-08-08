@@ -83,6 +83,7 @@ AI 출력을 그대로 쓰지 않는다:
 | GET | `/pipeline/anchors/{id}` · `/{id}/{name}` | 앵커 목록/PNG |
 | POST | `/pipeline/anchors/{id}/approve` | 승인 게이트 (`{"approved":bool}`) |
 | GET | `/pipeline/inventory` | 인벤토리(`?rebuild=1` 재빌드) |
+| GET | `/pipeline/original?path=` | 변환 전 원본 PNG(적용 후에도 최초 원본) — 결과 확대 비교용 |
 | POST | `/pipeline/run` | 실행: `{style_id, targets:[{path}], apply, alpha_erode}` → 결과+QA 리포트+미리보기 |
 
 ## 에디터 사용법
@@ -94,6 +95,10 @@ AI 출력을 그대로 쓰지 않는다:
 3. **앵커 생성** → 4장 확인 → **승인** (반려하면 재생성)
 4. 카테고리별 대상 체크 → **파이프라인 실행** → QA 리포트 확인
 5. "QA 통과분 즉시 적용" 체크 시 게임 에셋에 반영(기존 백업/되돌리기 체계 그대로)
+
+리포트의 결과 카드를 **클릭하면 변환 전/후를 나란히 확대 비교**한다. 픽셀 그리드가 뭉개지지
+않도록 NEAREST로 렌더하고 1×/2×/4×/8× 정수배 확대를 지원하며, 체커보드 배경으로 알파(투명)
+영역을 확인할 수 있다. 'PNG 저장'으로 결과만 따로 내려받을 수도 있다.
 
 ## 테스트
 

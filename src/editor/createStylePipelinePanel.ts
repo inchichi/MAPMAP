@@ -463,6 +463,138 @@ export const createStylePipelinePanel = (
   }
 
   // ── Stage 3~5 실행 + QA 리포트 ──
+  // ── 결과 확대 비교 오버레이 ──
+  // 픽셀아트는 48px 썸네일로는 변환 품질을 판단할 수 없다. 카드를 클릭하면 변환 전/후를
+  // 정수배 확대(NEAREST 렌더링)로 나란히 놓아 실루엣·팔레트 변화가 눈으로 확인되게 한다.
+  // '전' 이미지는 /pipeline/original에서 받는다 — 이미 적용된 에셋이라도 최초 원본이 나온다.
+  const ZOOM_STEPS = [1, 2, 4, 8]
+  const CHECKERBOARD =
+    'repeating-conic-gradient(#2a2a2d 0% 25%, #1b1b1e 0% 50%) 50% / 16px 16px'
+
+  const detailBackdrop = el(
+    'div',
+    'fixed inset-0 z-[70] hidden items-center justify-center bg-black/85 p-6'
+  )
+  const detailPanel = el(
+    'div',
+    'flex max-h-full w-full max-w-5xl flex-col gap-3 rounded-2xl border border-white/10 bg-[#161618] p-4'
+  )
+  detailBackdrop.append(detailPanel)
+
+  const detailHeader = el('div', 'flex items-center justify-between gap-3')
+  const detailTitle = el('h3', 'text-[13px] font-semibold text-zinc-200 truncate')
+  const detailClose = el('button', 'text-zinc-500 hover:text-zinc-200 text-xl leading-none', '×')
+  detailClose.type = 'button'
+  detailHeader.append(detailTitle, detailClose)
+
+  const detailToolbar = el('div', 'flex items-center gap-2')
+  const zoomButtons: HTMLButtonElement[] = []
+  const detailSave = el('a', `${BUTTON} ml-auto no-underline`, 'PNG 저장') as HTMLAnchorElement
+  const detailMeta = el('span', 'text-[11px] text-zinc-500')
+
+  const detailGrid = el('div', 'grid grid-cols-2 gap-3 overflow-auto')
+  const makePane = (label: string) => {
+    const pane = el('div', 'flex flex-col gap-1.5 min-w-0')
+    const caption = el('span', 'text-[11px] text-zinc-400', label)
+    const frame = el(
+      'div',
+      'flex items-center justify-center overflow-auto rounded-lg border border-white/10 min-h-[200px] max-h-[58vh] p-3'
+    )
+    frame.style.background = CHECKERBOARD
+    const image = el('img', '[image-rendering:pixelated] max-w-none') as HTMLImageElement
+    frame.append(image)
+    pane.append(caption, frame)
+    return { pane, image }
+  }
+  const beforePane = makePane('변환 전 (원본)')
+  const afterPane = makePane('변환 후 (규격 스냅 + QA 통과 여부)')
+  detailGrid.append(beforePane.pane, afterPane.pane)
+
+  const detailAxes = el('div', 'flex flex-wrap gap-3')
+  detailPanel.append(detailHeader, detailToolbar, detailGrid, detailAxes)
+
+  let detailZoom = 4
+  const applyZoom = (): void => {
+    for (const [index, button] of zoomButtons.entries()) {
+      const scale = ZOOM_STEPS[index]
+      button.className = scale === detailZoom ? BUTTON_PRIMARY : BUTTON
+    }
+    for (const image of [beforePane.image, afterPane.image]) {
+      if (image.naturalWidth > 0) {
+        image.style.width = `${image.naturalWidth * detailZoom}px`
+      }
+    }
+  }
+  for (const scale of ZOOM_STEPS) {
+    const button = el('button', BUTTON, `${scale}×`) as HTMLButtonElement
+    button.type = 'button'
+    button.addEventListener('click', () => {
+      detailZoom = scale
+      applyZoom()
+    })
+    zoomButtons.push(button)
+    detailToolbar.append(button)
+  }
+  detailToolbar.append(detailMeta, detailSave)
+
+  const closeDetail = (): void => {
+    detailBackdrop.classList.add('hidden')
+    detailBackdrop.classList.remove('flex')
+  }
+  detailClose.addEventListener('click', closeDetail)
+  detailBackdrop.addEventListener('click', (event) => {
+    if (event.target === detailBackdrop) {
+      closeDetail()
+    }
+  })
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !detailBackdrop.classList.contains('hidden')) {
+      closeDetail()
+    }
+  })
+
+  const openDetail = (result: PipelineResult): void => {
+    if (!result.preview_png) {
+      return
+    }
+    detailTitle.textContent = `${result.path}${result.category ? ` · ${CATEGORY_LABEL[result.category] ?? result.category}` : ''}`
+
+    const styledUrl = `data:image/png;base64,${result.preview_png}`
+    afterPane.image.onload = applyZoom
+    afterPane.image.src = styledUrl
+    beforePane.image.onload = () => {
+      detailMeta.textContent = `${beforePane.image.naturalWidth}×${beforePane.image.naturalHeight}px`
+      applyZoom()
+    }
+    beforePane.image.src = `/api/style/pipeline/original?path=${encodeURIComponent(result.path)}`
+
+    detailSave.href = styledUrl
+    detailSave.download = `${result.path.split('/').pop() ?? 'styled'}`
+
+    detailAxes.textContent = ''
+    if (result.error) {
+      detailAxes.append(el('span', 'text-[12px] text-red-400', `오류: ${result.error}`))
+    }
+    for (const [axis, value] of Object.entries(result.qa?.axes ?? {})) {
+      const chip = el(
+        'span',
+        `rounded-lg border px-2 py-1 text-[11px] ${
+          value.passed
+            ? 'border-emerald-400/30 text-emerald-300'
+            : 'border-amber-400/40 text-amber-300'
+        }`,
+        `${AXIS_LABEL[axis] ?? axis} ${value.score}${value.metric ? ` (${value.metric})` : ''} ${value.passed ? '통과' : '미달'}`
+      )
+      detailAxes.append(chip)
+    }
+
+    detailBackdrop.classList.remove('hidden')
+    detailBackdrop.classList.add('flex')
+    applyZoom()
+  }
+
+  backdrop.append(detailBackdrop)
+
   const renderReport = (results: PipelineResult[], summary: { total: number; qa_passed: number; applied: number; failed: number }): void => {
     reportArea.textContent = ''
     reportArea.append(
@@ -473,9 +605,19 @@ export const createStylePipelinePanel = (
       )
     )
     for (const result of results) {
-      const card = el('div', 'flex items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-2')
+      const card = el(
+        'div',
+        `flex items-center gap-3 rounded-lg border border-white/10 bg-black/20 p-2 ${
+          result.preview_png ? 'cursor-zoom-in hover:border-amber-400/40 hover:bg-black/40' : ''
+        }`
+      )
       if (result.preview_png) {
-        const image = el('img', 'h-12 w-12 rounded object-contain bg-black/40') as HTMLImageElement
+        card.title = '클릭하면 원본과 나란히 확대 비교합니다'
+        card.addEventListener('click', () => openDetail(result))
+        const image = el(
+          'img',
+          'h-12 w-12 rounded object-contain bg-black/40 [image-rendering:pixelated]'
+        ) as HTMLImageElement
         image.src = `data:image/png;base64,${result.preview_png}`
         card.append(image)
       }

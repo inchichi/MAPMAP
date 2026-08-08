@@ -702,6 +702,19 @@ def pipeline_approve_anchors(style_id: str, payload: dict = Body(...)):
         return JSONResponse(status_code=404, content={"error": str(error)})
 
 
+@app.get("/pipeline/original")
+def pipeline_original(path: str):
+    """변환 전 원본 PNG. 이미 적용된 에셋이라도 originals/에 시드된 최초 원본을 돌려주므로
+    QA 리포트의 '전/후' 비교가 적용 여부와 무관하게 항상 올바른 쪽을 보여준다."""
+    try:
+        data = asset_store.read_original_or_current(path)
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    except FileNotFoundError as error:
+        return JSONResponse(status_code=404, content={"error": str(error)})
+    return Response(content=data, media_type="image/png")
+
+
 @app.get("/pipeline/inventory")
 def pipeline_inventory(rebuild: int = 0) -> dict:
     if rebuild:
