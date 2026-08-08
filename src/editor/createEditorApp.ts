@@ -43,6 +43,8 @@ import { createStylePipelinePanel } from './createStylePipelinePanel'
 import { generateNpcJson } from './npcJsonGenerator'
 import { decideEditorAction } from './editorActionGenerator'
 import { resolveLegendEntitySpriteUrl } from './legendEntitySprite'
+// 맵 인식 시 묶인 오브젝트 누끼 자동 추출(분기 B·스타일 모달 '추출' 탭의 입력).
+import { requestMapObjectExtraction } from './extractMapObjects'
 // 게임이 localStorage에 저장한 수기/생성 NPC — 트리에 TMX 엔티티와 합쳐 보여주기 위해 읽는다.
 import { loadNpcsForMap, PENDING_NPCS_STORAGE_KEY, removeNpc } from './npcStore'
 
@@ -3153,6 +3155,12 @@ export const createEditorApp = ({
     showAllMaps = false
     renderTree()
     render()
+    // 이 맵의 묶인 오브젝트를 누끼로 추출해 둔다(맵당 1회, 실패해도 무시).
+    // 스타일 모달 '추출' 탭·배치 팔레트·파이프라인 분기 B가 이 결과를 대상으로 쓴다.
+    const changedMap = game.maps.find((candidate) => candidate.id === data.sceneId)
+    if (changedMap) {
+      void requestMapObjectExtraction(changedMap, currentFiles)
+    }
   })
   // '적용'으로 스폰된 NPC는 게임(iframe)이 localStorage(PENDING_NPCS_STORAGE_KEY)에 저장한다.
   // 같은 origin이라 부모(에디터) 창에 'storage' 이벤트가 오므로, 그때 트리를 다시 그려 새 NPC를

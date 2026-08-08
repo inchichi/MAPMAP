@@ -15,6 +15,10 @@ import sdxl_service
 # 정수배 NEAREST 업스케일(픽셀 경계 유지) 후 변환하고, BOX 다운스케일로 되돌린다.
 DEFAULT_WORK_SIZE = 512
 
+# 업스케일 후 이미지의 긴 변 상한. SDXL은 1024² 근처가 설계점이라 한 변이 수천 px가 되면
+# 어텐션 메모리가 급증한다(면적 상한만으로는 납작한 오브젝트를 못 막는다).
+MAX_WORK_EDGE = 1536
+
 # 변환 결과에서 원본이 완전 투명했던 픽셀은 되살리지 않는다 — 타일 모양(알파)은 보존된다.
 _BACKGROUND_GRAY = (128, 128, 128)
 
@@ -115,6 +119,7 @@ def stylize_tiles(
     alpha: float,
     work_size: int = DEFAULT_WORK_SIZE,
     alpha_erode: int = 0,
+    strength: float | None = None,
 ) -> tuple[Image.Image, Image.Image]:
     """(오브젝트 미리보기 RGBA, 패치된 타일셋 RGBA)를 반환한다."""
     # 1) 오브젝트 조립(누끼 캔버스).
@@ -125,6 +130,10 @@ def stylize_tiles(
     # 업스케일 배율을 먼저 계산해 작업 면적에 상한을 둔다 — 멀리 떨어진 셀 두 개만으로
     # bbox가 거대해지고(셀 극값 기준) 거기에 업스케일까지 곱해지면 메모리가 폭주한다.
     scale = max(1, round(work_size / min(canvas.size))) if work_size > 0 else 1
+    # 짧은 변만 보고 배율을 잡으면 납작한 오브젝트(예: 가로 담장 1600x160)가 4800x480 같은
+    # 극단적 종횡비로 SDXL에 들어가 VRAM이 터진다. 긴 변도 작업 한도 안에 들어오게 배율을 깎는다.
+    if scale > 1 and max(canvas.size) * scale > MAX_WORK_EDGE:
+        scale = max(1, MAX_WORK_EDGE // max(canvas.size))
     if canvas.width * canvas.height * scale * scale > 4096 * 4096:
         raise ValueError("변환 대상이 너무 큽니다(셀 좌표 범위 초과). 더 작은 오브젝트를 선택하세요.")
 
@@ -137,7 +146,7 @@ def stylize_tiles(
     base = Image.new("RGB", work.size, _BACKGROUND_GRAY)
     base.paste(work, mask=work.getchannel("A"))
     result_rgb = sdxl_service.style_transfer_image(
-        base, style_prompt, alpha=alpha, content_size=0
+        base, style_prompt, alpha=alpha, content_size=0, strength=strength
     )
     # VGG가 8배 다운/업샘플(ceil)이라 출력이 입력보다 약간 클 수 있다 — 원래 크기로 자른다.
     result_rgb = result_rgb.crop((0, 0, work.width, work.height))

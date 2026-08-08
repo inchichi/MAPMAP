@@ -116,10 +116,14 @@ def list_assets() -> dict:
     return {"assets": asset_store.list_assets()}
 
 
-def _png_b64(image: Image.Image) -> str:
+def _png_bytes(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
-    return base64.b64encode(buffer.getvalue()).decode("ascii")
+    return buffer.getvalue()
+
+
+def _png_b64(image: Image.Image) -> str:
+    return base64.b64encode(_png_bytes(image)).decode("ascii")
 
 
 @app.post("/stylize-object")
@@ -715,6 +719,30 @@ def pipeline_original(path: str):
     return Response(content=data, media_type="image/png")
 
 
+@app.get("/pipeline/object-original")
+def pipeline_object_original(key: str):
+    """묶인 오브젝트의 '변환 전' 캔버스.
+
+    extracted-objects/<key>.png는 추출 시점의 '현재' 타일셋에서 뜬 것이라, 한 번
+    스타일을 적용한 뒤 다시 추출되면 그게 원본처럼 보인다. 파이프라인은 항상
+    originals/의 최초 타일셋에서 조립하므로, 전/후 비교도 같은 원본에서 떠야 맞다.
+    """
+    try:
+        meta = object_extract.read_meta(key)
+        tileset_image = Image.open(
+            io.BytesIO(asset_store.read_original_or_current(meta["tilesetPath"]))
+        )
+        tileset_image.load()
+        canvas, _, _ = tile_stylize.compose_object_canvas(
+            tileset_image, meta["cells"], meta["columns"], meta["tileWidth"], meta["tileHeight"]
+        )
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    except (FileNotFoundError, KeyError) as error:
+        return JSONResponse(status_code=404, content={"error": str(error)})
+    return Response(content=_png_bytes(canvas), media_type="image/png")
+
+
 @app.get("/pipeline/inventory")
 def pipeline_inventory(rebuild: int = 0) -> dict:
     if rebuild:
@@ -748,7 +776,9 @@ def pipeline_execute(payload: dict = Body(...)):
 
     previews = report.pop("_previews", {})
     for entry in report["results"]:
-        data = previews.get(entry.get("path"))
+        # 미리보기는 결과 id로 찾는다 — 묶인 오브젝트(분기 B)는 여러 오브젝트가 같은
+        # tilesetPath를 공유해서 path로 키를 잡으면 서로 덮어쓴다.
+        data = previews.get(entry.get("id"))
         if data is not None:
             entry["preview_png"] = base64.b64encode(data).decode("ascii")
     return report

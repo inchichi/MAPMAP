@@ -49,9 +49,34 @@
 
 | 분기 | strength 배율 | 추가 처리 |
 |---|---|---|
-| terrain_tile | ×0.7 (구조 우선) | **circular padding 몽키패치**(UNet/VAE Conv2d) — 이음새 1단계 |
-| object | ×1.0 | — |
-| character_sprite | ×0.85 | 실루엣 하드 제약(Stage 4 알파 재적용). pig/slime 시트는 기존 배경 보존 경로(`monster_stylize`) 재사용 |
+| terrain_tile (A) | ×0.7 (구조 우선) | **circular padding 몽키패치**(UNet/VAE Conv2d) — 이음새 1단계 |
+| object — 단일 파일 | ×1.0 | — |
+| **object — 묶인 오브젝트 (B)** | ×1.0 | **셀 조립 → 한 장으로 변환 → 타일셋 역패치** (아래 참조) |
+| character_sprite (C) | ×0.85 | 실루엣 하드 제약(Stage 4 알파 재적용). pig/slime 시트는 기존 배경 보존 경로(`monster_stylize`) 재사용 |
+
+#### 분기 B — 묶인 오브젝트 (타일 군집)
+
+나무·건물처럼 **타일셋 안 여러 타일로 그려진 오브젝트**를 위한 경로다. 타일셋 PNG를 통째로
+변환하면 오브젝트 하나가 수백 타일 중 일부로 섞여 형태가 무너진다(7/29 "타일이 단체로
+합쳐져 있으면 안 바뀜"). 대신 변환 단위를 **파일이 아니라 오브젝트**로 바꾼다.
+
+1. 사이드카 메타(`extracted-objects/<key>.json`)의 셀 목록으로 오브젝트를 **맵 배치 그대로 한 장에 조립**
+   (`tile_stylize.compose_object_canvas`). 타일 원본이 알파를 가져 결과가 곧 누끼 RGBA다.
+2. 정수배 NEAREST 업스케일 → 변환 → BOX 다운스케일 (`stylize_tiles`, 픽셀아트 타일은 원본이
+   너무 작아 그대로는 스타일 통계가 빈약하다)
+3. Stage 4 규격 스냅 → Stage 5 QA. **타일 격자를 알고 있으므로 이음새 축까지 평가**된다.
+4. QA 통과 시 `object_extract.apply_styled_object`가 결과를 타일별로 잘라 **원래 타일 좌표에 역패치**.
+   백업·원본 시드는 기존 `asset_store` 경로를 그대로 탄다.
+
+조립 원본은 항상 `originals/`의 최초 타일셋에서 뜬다 — 여러 번 돌려도 색이 누적되지 않는다.
+같은 타일을 공유하는 다른 오브젝트가 있으면 함께 바뀌므로, 목록에 `공유 타일 N` 배지로 표시한다.
+
+실행 요청의 타깃은 두 형태를 받는다:
+
+```json
+{"path": "src/games/my-sample-rpg/assets/tilesets/town-32.png"}   // 단일 파일 (A/C)
+{"kind": "extracted-object", "key": "tree_1"}                      // 묶인 오브젝트 (B)
+```
 
 "타일은 낮게, 컨셉은 높게"(denoising strength 카테고리 분리)가 여기 구현되어 있다.
 

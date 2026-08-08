@@ -31,14 +31,28 @@ type InventoryAsset = {
   tileset?: { tileWidth: number; tileHeight: number; columns: number }
 }
 
+// 분기 B 대상 — 타일 군집으로 이루어진 '묶인 오브젝트'(나무·건물 등). 파일 하나가 아니라
+// 타일셋 안의 셀 묶음이라, 실행 시 path가 아니라 key로 보낸다.
+type ExtractedObject = {
+  key: string
+  label: string
+  tilesetPath: string
+  cells: unknown[]
+  sharedOutsideCells?: number
+}
+
 type QaAxis = { score: number; passed: boolean; metric?: string }
 type PipelineResult = {
+  id?: string
   path: string
+  label?: string
+  key?: string
   category?: string
   qa?: { passed: boolean; axes: Record<string, QaAxis> }
   applied: boolean
   error?: string
   preview_png?: string
+  sharedOutsideCells?: number
 }
 
 export interface StylePipelinePanel {
@@ -173,7 +187,7 @@ export const createStylePipelinePanel = (
     el(
       'p',
       HINT,
-      '지형은 낮은 강도+circular padding(이음새), 캐릭터는 실루엣 하드 제약, 전부 팔레트 스냅 후 QA(실루엣 IoU·팔레트 준수·이음새)를 통과한 것만 적용된다.'
+      '지형은 낮은 강도+circular padding(이음새), 묶인 오브젝트는 셀을 한 장으로 조립해 변환 후 타일셋에 역패치, 캐릭터는 실루엣 하드 제약. 전부 팔레트 스냅 후 QA(실루엣 IoU·팔레트 준수·이음새)를 통과한 것만 적용된다.'
     )
   )
   const targetList = el('div', 'flex flex-col gap-1 max-h-[220px] overflow-y-auto pr-1')
@@ -196,7 +210,11 @@ export const createStylePipelinePanel = (
   let savedStyleId: string | undefined
   let anchorsApproved = false
   let inventoryAssets: InventoryAsset[] = []
+  let extractedObjects: ExtractedObject[] = []
   const selectedPaths = new Set<string>()
+  // 묶인 오브젝트는 파일 경로가 없어 key로 따로 관리한다.
+  const selectedObjectKeys = new Set<string>()
+  const selectedCount = (): number => selectedPaths.size + selectedObjectKeys.size
 
   const syncGates = (): void => {
     saveSpecButton.disabled = currentSpec === undefined
@@ -209,7 +227,7 @@ export const createStylePipelinePanel = (
         ? `승인됨 — ${savedStyleId} 실행 가능`
         : '미승인 — 승인 전에는 실행이 차단된다'
       : ''
-    runButton.disabled = !anchorsApproved || selectedPaths.size === 0
+    runButton.disabled = !anchorsApproved || selectedCount() === 0
   }
 
   const renderPalette = (): void => {
@@ -441,6 +459,8 @@ export const createStylePipelinePanel = (
           } else {
             selectedPaths.delete(asset.path)
           }
+          // 그룹 헤더 체크 상태는 렌더 시점에만 계산되므로 다시 그려야 실제 선택과 맞는다.
+          renderTargets()
           syncGates()
         })
         const shortName = asset.path.split('/').slice(-2).join('/')
@@ -448,9 +468,84 @@ export const createStylePipelinePanel = (
         targetList.append(row)
       }
     }
+
+    // 분기 B — 묶인 오브젝트. 파일 목록과 성격이 달라(타일셋 안의 셀 묶음) 맨 아래에
+    // 별도 그룹으로 둔다. 에디터가 맵을 인식할 때 추출되므로 비어 있을 수 있다.
+    const objectGroupHeader = el('div', 'flex items-center gap-2 mt-2')
+    const objectToggle = el('input', '') as HTMLInputElement
+    objectToggle.type = 'checkbox'
+    objectToggle.disabled = extractedObjects.length === 0
+    objectToggle.addEventListener('change', () => {
+      for (const object of extractedObjects) {
+        if (objectToggle.checked) {
+          selectedObjectKeys.add(object.key)
+        } else {
+          selectedObjectKeys.delete(object.key)
+        }
+      }
+      renderTargets()
+      syncGates()
+    })
+    objectToggle.checked =
+      extractedObjects.length > 0 && extractedObjects.every((object) => selectedObjectKeys.has(object.key))
+    objectGroupHeader.append(
+      objectToggle,
+      el(
+        'span',
+        'text-[12px] font-semibold text-zinc-300',
+        `묶인 오브젝트 · 타일 군집 (${extractedObjects.length})`
+      )
+    )
+    targetList.append(objectGroupHeader)
+
+    if (extractedObjects.length === 0) {
+      targetList.append(
+        el(
+          'span',
+          'pl-5 text-[11px] text-zinc-500',
+          '아직 추출된 오브젝트가 없습니다 — 에디터에서 맵을 한 번 열면 자동 추출됩니다.'
+        )
+      )
+      return
+    }
+
+    for (const object of extractedObjects) {
+      const row = el('label', 'flex items-center gap-2 pl-5 text-[12px] text-zinc-400 hover:text-zinc-200 cursor-pointer')
+      const checkbox = el('input', '') as HTMLInputElement
+      checkbox.type = 'checkbox'
+      checkbox.checked = selectedObjectKeys.has(object.key)
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+          selectedObjectKeys.add(object.key)
+        } else {
+          selectedObjectKeys.delete(object.key)
+        }
+        renderTargets()
+        syncGates()
+      })
+      const cellCount = Array.isArray(object.cells) ? object.cells.length : 0
+      row.append(checkbox, document.createTextNode(`${object.label} · 타일 ${cellCount}장`))
+      // 이 오브젝트가 쓰는 타일을 다른 오브젝트도 쓰면, 패치가 그쪽에도 함께 반영된다.
+      if (object.sharedOutsideCells && object.sharedOutsideCells > 0) {
+        row.append(
+          el('span', 'text-[10px] text-amber-400/80', `공유 타일 ${object.sharedOutsideCells}`)
+        )
+      }
+      targetList.append(row)
+    }
   }
 
   const loadInventory = (): void => {
+    // 묶인 오브젝트 목록은 실패해도 파일 목록 표시를 막지 않는다(추출 전일 수 있음).
+    void fetch('/api/style/extracted-objects')
+      .then(async (response) => (await response.json()) as { objects?: ExtractedObject[] })
+      .then((payload) => {
+        extractedObjects = payload.objects ?? []
+        renderTargets()
+      })
+      .catch(() => {
+        extractedObjects = []
+      })
     void fetch('/api/style/pipeline/inventory')
       .then(async (response) => (await response.json()) as { assets?: InventoryAsset[] })
       .then((payload) => {
@@ -463,6 +558,20 @@ export const createStylePipelinePanel = (
   }
 
   // ── Stage 3~5 실행 + QA 리포트 ──
+  // 결과 표시 이름 — 묶인 오브젝트는 경로가 아니라 라벨(나무 등)로 보여준다.
+  // 실패한 대상은 path 없이 label만 있을 수 있어 순서대로 폴백한다.
+  const resultName = (result: PipelineResult): string =>
+    result.key
+      ? result.label ?? result.key
+      : (result.path ?? result.label ?? result.id ?? '(알 수 없음)').split('/').slice(-2).join('/')
+
+  // 변환 전 원본 이미지 주소. 둘 다 originals/의 최초 원본에서 뜬다 — 추출 시점 PNG를
+  // 쓰면 이미 스타일이 적용된 타일셋에서 다시 추출된 그림이 '원본'으로 보일 수 있다.
+  const originalUrlOf = (result: PipelineResult): string =>
+    result.key
+      ? `/api/style/pipeline/object-original?key=${encodeURIComponent(result.key)}`
+      : `/api/style/pipeline/original?path=${encodeURIComponent(result.path ?? '')}`
+
   // ── 결과 확대 비교 오버레이 ──
   // 픽셀아트는 48px 썸네일로는 변환 품질을 판단할 수 없다. 카드를 클릭하면 변환 전/후를
   // 정수배 확대(NEAREST 렌더링)로 나란히 놓아 실루엣·팔레트 변화가 눈으로 확인되게 한다.
@@ -557,7 +666,13 @@ export const createStylePipelinePanel = (
     if (!result.preview_png) {
       return
     }
-    detailTitle.textContent = `${result.path}${result.category ? ` · ${CATEGORY_LABEL[result.category] ?? result.category}` : ''}`
+    const kindLabel = result.key
+      ? '묶인 오브젝트'
+      : CATEGORY_LABEL[result.category ?? ''] ?? result.category ?? ''
+    // 묶인 오브젝트는 어느 타일셋에 되박히는지도 함께 보여준다.
+    detailTitle.textContent = [resultName(result), kindLabel, result.key ? result.path : undefined]
+      .filter(Boolean)
+      .join(' · ')
 
     const styledUrl = `data:image/png;base64,${result.preview_png}`
     afterPane.image.onload = applyZoom
@@ -566,10 +681,12 @@ export const createStylePipelinePanel = (
       detailMeta.textContent = `${beforePane.image.naturalWidth}×${beforePane.image.naturalHeight}px`
       applyZoom()
     }
-    beforePane.image.src = `/api/style/pipeline/original?path=${encodeURIComponent(result.path)}`
+    beforePane.image.src = originalUrlOf(result)
 
     detailSave.href = styledUrl
-    detailSave.download = `${result.path.split('/').pop() ?? 'styled'}`
+    detailSave.download = result.key
+      ? `${result.key}.png`
+      : `${result.path?.split('/').pop() ?? 'styled.png'}`
 
     detailAxes.textContent = ''
     if (result.error) {
@@ -624,13 +741,18 @@ export const createStylePipelinePanel = (
       const info = el('div', 'flex flex-col gap-0.5 min-w-0')
       const nameRow = el('div', 'flex items-center gap-2')
       nameRow.append(
-        el('span', 'text-[12px] text-zinc-200 truncate', result.path.split('/').slice(-2).join('/')),
+        el('span', 'text-[12px] text-zinc-200 truncate', resultName(result)),
         el(
           'span',
           `text-[11px] ${result.error ? 'text-red-400' : result.qa?.passed ? 'text-emerald-400' : 'text-amber-400'}`,
           result.error ? `오류: ${result.error}` : result.qa?.passed ? (result.applied ? 'QA 통과 · 적용됨' : 'QA 통과') : 'QA 실패'
         )
       )
+      if (result.key) {
+        nameRow.append(
+          el('span', 'rounded border border-white/10 px-1.5 text-[10px] text-zinc-400', '묶인 오브젝트')
+        )
+      }
       info.append(nameRow)
       if (result.qa) {
         const axisRow = el('div', 'flex flex-wrap gap-2')
@@ -651,20 +773,24 @@ export const createStylePipelinePanel = (
   }
 
   runButton.addEventListener('click', () => {
-    if (!savedStyleId || selectedPaths.size === 0) {
+    if (!savedStyleId || selectedCount() === 0) {
       return
     }
     runButton.disabled = true
     // 직전 실행 결과를 먼저 비운다 — GPU 작업은 수 분 걸리는데 그동안 옛 카드가 남아
     // 있으면 이미 끝난 것으로 오해하게 된다.
     reportArea.textContent = ''
-    setStatus(`파이프라인 실행 중 — 대상 ${selectedPaths.size}개 (GPU 작업)…`)
+    setStatus(`파이프라인 실행 중 — 대상 ${selectedCount()}개 (GPU 작업)…`)
     void fetch('/api/style/pipeline/run', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         style_id: savedStyleId,
-        targets: [...selectedPaths].map((path) => ({ path })),
+        targets: [
+          ...[...selectedPaths].map((path) => ({ path })),
+          // 분기 B — 셀 묶음이라 경로가 아니라 key로 보낸다.
+          ...[...selectedObjectKeys].map((key) => ({ kind: 'extracted-object', key }))
+        ],
         apply: applyCheckbox.checked
       })
     })
