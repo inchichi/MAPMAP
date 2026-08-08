@@ -655,6 +655,9 @@ export const createStylePipelinePanel = (
       return
     }
     runButton.disabled = true
+    // 직전 실행 결과를 먼저 비운다 — GPU 작업은 수 분 걸리는데 그동안 옛 카드가 남아
+    // 있으면 이미 끝난 것으로 오해하게 된다.
+    reportArea.textContent = ''
     setStatus(`파이프라인 실행 중 — 대상 ${selectedPaths.size}개 (GPU 작업)…`)
     void fetch('/api/style/pipeline/run', {
       method: 'POST',
@@ -694,6 +697,10 @@ export const createStylePipelinePanel = (
     backdrop.classList.remove('hidden')
     backdrop.classList.add('flex')
     setStatus('')
+    // 이전 실행의 QA 리포트는 지운 상태에서 연다 — 남아 있으면 이번 실행 결과와 섞여
+    // 어떤 카드가 방금 나온 것인지 구분되지 않는다. 확대 비교 오버레이도 함께 닫는다.
+    reportArea.textContent = ''
+    closeDetail()
     loadInventory()
     // 저장된 스펙이 있으면 이어서 작업할 수 있게 목록에서 최신 것을 불러온다.
     void fetch('/api/style/pipeline/specs')
