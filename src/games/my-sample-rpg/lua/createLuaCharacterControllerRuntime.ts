@@ -27,6 +27,7 @@ import {
   type LuaControllerRuntimeEvent
 } from './luaControllerApi'
 import { parseLuaControllerRuntimeEvents } from './luaRuntimeEventMarshaling'
+import { QUEST_STATUS_NOT_STARTED } from '../questLog'
 
 export type LuaControllerScriptSource = {
   source: string
@@ -637,7 +638,9 @@ function ${LUA_CONTROLLER_PUBLIC_API_NAME}.quest.get_status(quest_id)
   if type(value) == 'string' then
     return value
   end
-  return 'not_started'
+  -- 스냅샷에 없는 퀘스트의 폴백. TS 상수를 그대로 보간해 표기 드리프트를 원천 차단한다
+  -- (밑줄로 어긋나면 Lua 쪽 상태 비교가 예외 없이 조용히 전부 거짓이 된다).
+  return '${QUEST_STATUS_NOT_STARTED}'
 end
 
 function ${LUA_CONTROLLER_PUBLIC_API_NAME}.quest.is_unlocked(quest_id)

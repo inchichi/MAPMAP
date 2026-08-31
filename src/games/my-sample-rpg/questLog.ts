@@ -29,6 +29,10 @@ export type QuestStatus =
   | 'ready-to-turn-in'
   | 'completed'
 
+// Lua 런타임의 get_status 폴백이 이 값을 그대로 쓴다. 타입에 묶여 있어 QuestStatus를 바꾸면
+// 여기서 컴파일이 깨지고, Lua 쪽 표기도 자동으로 따라온다(밑줄/하이픈 드리프트 구조적 차단).
+export const QUEST_STATUS_NOT_STARTED: QuestStatus = 'not-started'
+
 export type QuestObjectiveType =
   | 'monster-defeat'
   | 'item-use'

@@ -415,7 +415,7 @@ end
         {
           kind: 'show-character-message',
           characterId: character.id,
-          message: 'not_started/false/0/[]',
+          message: 'not-started/false/0/[]',
           durationMilliseconds: 1000
         }
       ])

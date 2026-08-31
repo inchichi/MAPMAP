@@ -1,5 +1,5 @@
 import {
-  QUEST_DEFINITIONS,
+  getAllQuestDefinitions,
   getQuestProgress,
   isQuestUnlocked,
   type QuestLogState
@@ -34,7 +34,9 @@ export const buildLuaRuntimeSnapshot = ({
   }
   const booleans: Record<string, boolean> = {}
 
-  for (const definition of QUEST_DEFINITIONS) {
+  // 정적 + 에디터 생성(동적) 퀘스트를 모두 넣는다. 정적만 돌면 생성 퀘스트의 q:status 키가
+  // 아예 없어서 Lua가 폴백값만 받고, 생성 콘텐츠의 상태 분기가 조용히 죽는다.
+  for (const definition of getAllQuestDefinitions()) {
     const progress = getQuestProgress(questLog, definition.id)
     strings[`q:status:${definition.id}`] = progress.status
     booleans[`q:unlocked:${definition.id}`] = isQuestUnlocked(questLog, definition.id)
