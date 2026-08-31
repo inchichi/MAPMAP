@@ -1,0 +1,13 @@
+이 디렉터리의 타일은 Dungeon Crawl Stone Soup(DCSS) 프로젝트의 rltiles에서
+가져왔다: https://github.com/crawl/crawl (crawl-ref/source/rltiles)
+
+DCSS rltiles의 라이선스 고지(crawl-ref/source/rltiles/license.txt):
+  "Part of the graphic tiles used in this program are from the public
+   domain roguelike tileset 'RLTiles'. Some of the tiles have been modified.
+   You can find the original tileset at: http://rltiles.sf.net"
+
+즉 퍼블릭 도메인 RLTiles의 파생물이며, 파일명 접두사는 원본 저장소의
+하위 디렉터리(dngn/wall, dngn/floor, dngn/water, dngn/doors, dngn/gateways,
+dngn/altars, dngn/statues, dngn/traps, dngn 루트, item)를 나타낸다.
+scripts/append-dcss-cave-tiles.py 가 이 파일들을 town-32 타일셋 시트에
+cave_* type 이름으로 덧붙인다.

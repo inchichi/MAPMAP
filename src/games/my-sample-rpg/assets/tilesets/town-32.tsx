@@ -5,10 +5,10 @@
   name="town-32"
   tilewidth="32"
   tileheight="32"
-  tilecount="560"
+  tilecount="712"
   columns="8"
 >
-  <image source="town-32.png" width="256" height="2240"/>
+  <image source="town-32.png" width="256" height="2848"/>
   <tile id="0" type="planter_tree_canopy"/>
   <tile id="1" type="planter_tree_shadow"/>
   <tile id="2" type="planter_stone_bowl"/>
@@ -556,4 +556,154 @@
   <tile id="556" type="bottle_tall_clear"/>
   <tile id="557" type="bottle_tall_clear_alt"/>
   <tile id="558" type="shovel_small"/>
+  <tile id="560" type="edge_dirt_grass_01"/>
+  <tile id="561" type="edge_dirt_grass_02"/>
+  <tile id="562" type="edge_dirt_grass_03"/>
+  <tile id="563" type="edge_dirt_grass_04"/>
+  <tile id="564" type="edge_dirt_grass_05"/>
+  <tile id="565" type="edge_dirt_grass_06"/>
+  <tile id="566" type="edge_dirt_grass_07"/>
+  <tile id="567" type="edge_dirt_grass_08"/>
+  <tile id="568" type="edge_dirt_grass_09"/>
+  <tile id="569" type="edge_dirt_grass_10"/>
+  <tile id="570" type="edge_dirt_grass_11"/>
+  <tile id="571" type="edge_dirt_grass_12"/>
+  <tile id="572" type="edge_dirt_grass_13"/>
+  <tile id="573" type="edge_dirt_grass_14"/>
+  <tile id="574" type="edge_dirt_grass_15"/>
+  <tile id="575" type="edge_dirt_grass_corner_0"/>
+  <tile id="576" type="edge_dirt_grass_corner_1"/>
+  <tile id="577" type="edge_dirt_grass_corner_2"/>
+  <tile id="578" type="edge_dirt_grass_corner_3"/>
+  <tile id="579" type="edge_cobble_grass_01"/>
+  <tile id="580" type="edge_cobble_grass_02"/>
+  <tile id="581" type="edge_cobble_grass_03"/>
+  <tile id="582" type="edge_cobble_grass_04"/>
+  <tile id="583" type="edge_cobble_grass_05"/>
+  <tile id="584" type="edge_cobble_grass_06"/>
+  <tile id="585" type="edge_cobble_grass_07"/>
+  <tile id="586" type="edge_cobble_grass_08"/>
+  <tile id="587" type="edge_cobble_grass_09"/>
+  <tile id="588" type="edge_cobble_grass_10"/>
+  <tile id="589" type="edge_cobble_grass_11"/>
+  <tile id="590" type="edge_cobble_grass_12"/>
+  <tile id="591" type="edge_cobble_grass_13"/>
+  <tile id="592" type="edge_cobble_grass_14"/>
+  <tile id="593" type="edge_cobble_grass_15"/>
+  <tile id="594" type="edge_cobble_grass_corner_0"/>
+  <tile id="595" type="edge_cobble_grass_corner_1"/>
+  <tile id="596" type="edge_cobble_grass_corner_2"/>
+  <tile id="597" type="edge_cobble_grass_corner_3"/>
+  <tile id="600" type="cave_wall_lair_00"/>
+  <tile id="601" type="cave_wall_lair_01"/>
+  <tile id="602" type="cave_wall_lair_02"/>
+  <tile id="603" type="cave_wall_lair_vine"/>
+  <tile id="604" type="cave_wall_slime_00"/>
+  <tile id="605" type="cave_wall_slime_01"/>
+  <tile id="606" type="cave_wall_slime_02"/>
+  <tile id="607" type="cave_wall_catacombs_00"/>
+  <tile id="608" type="cave_wall_catacombs_01"/>
+  <tile id="609" type="cave_wall_catacombs_02"/>
+  <tile id="610" type="cave_wall_catacombs_03"/>
+  <tile id="611" type="cave_wall_catacombs_04"/>
+  <tile id="612" type="cave_wall_catacombs_skull_00"/>
+  <tile id="613" type="cave_wall_catacombs_skull_01"/>
+  <tile id="614" type="cave_wall_crypt_00"/>
+  <tile id="615" type="cave_wall_crypt_candle_00"/>
+  <tile id="616" type="cave_wall_crypt_candle_01"/>
+  <tile id="617" type="cave_wall_crystal_00"/>
+  <tile id="618" type="cave_wall_crystal_01"/>
+  <tile id="619" type="cave_wall_crystal_lightblue"/>
+  <tile id="620" type="cave_wall_crystal_lightgreen"/>
+  <tile id="621" type="cave_shadow_n"/>
+  <tile id="622" type="cave_shadow_n_dark"/>
+  <tile id="623" type="cave_shadow_w"/>
+  <tile id="624" type="cave_shadow_e"/>
+  <tile id="625" type="cave_shadow_nw"/>
+  <tile id="626" type="cave_shadow_ne"/>
+  <tile id="627" type="cave_floor_pebble_00"/>
+  <tile id="628" type="cave_floor_pebble_01"/>
+  <tile id="629" type="cave_floor_pebble_02"/>
+  <tile id="630" type="cave_floor_pebble_03"/>
+  <tile id="631" type="cave_floor_pebble_04"/>
+  <tile id="632" type="cave_floor_pebble_05"/>
+  <tile id="633" type="cave_floor_pebble_06"/>
+  <tile id="634" type="cave_floor_pebble_07"/>
+  <tile id="635" type="cave_floor_pebble_08"/>
+  <tile id="636" type="cave_floor_moss_00"/>
+  <tile id="637" type="cave_floor_moss_01"/>
+  <tile id="638" type="cave_floor_moss_02"/>
+  <tile id="639" type="cave_floor_moss_03"/>
+  <tile id="640" type="cave_floor_bog_00"/>
+  <tile id="641" type="cave_floor_bog_01"/>
+  <tile id="642" type="cave_floor_bog_02"/>
+  <tile id="643" type="cave_floor_bog_03"/>
+  <tile id="644" type="cave_floor_blood_00"/>
+  <tile id="645" type="cave_floor_blood_01"/>
+  <tile id="646" type="cave_floor_blood_02"/>
+  <tile id="647" type="cave_floor_blood_03"/>
+  <tile id="648" type="cave_floor_blood_04"/>
+  <tile id="649" type="cave_floor_blood_05"/>
+  <tile id="650" type="cave_floor_blood_06"/>
+  <tile id="651" type="cave_floor_blood_07"/>
+  <tile id="652" type="cave_floor_blood_08"/>
+  <tile id="653" type="cave_floor_blood_09"/>
+  <tile id="654" type="cave_floor_blood_10"/>
+  <tile id="655" type="cave_floor_blood_11"/>
+  <tile id="656" type="cave_floor_limestone_00"/>
+  <tile id="657" type="cave_floor_limestone_01"/>
+  <tile id="658" type="cave_floor_limestone_02"/>
+  <tile id="659" type="cave_floor_limestone_03"/>
+  <tile id="660" type="cave_floor_limestone_04"/>
+  <tile id="661" type="cave_floor_limestone_05"/>
+  <tile id="662" type="cave_floor_crystal_00"/>
+  <tile id="663" type="cave_floor_crystal_01"/>
+  <tile id="664" type="cave_floor_crystal_02"/>
+  <tile id="665" type="cave_slime_overlay_e"/>
+  <tile id="666" type="cave_slime_overlay_n"/>
+  <tile id="667" type="cave_slime_overlay_ne"/>
+  <tile id="668" type="cave_slime_overlay_nw"/>
+  <tile id="669" type="cave_slime_overlay_s"/>
+  <tile id="670" type="cave_slime_overlay_se"/>
+  <tile id="671" type="cave_slime_overlay_sw"/>
+  <tile id="672" type="cave_slime_overlay_w"/>
+  <tile id="673" type="cave_water_00"/>
+  <tile id="674" type="cave_water_01"/>
+  <tile id="675" type="cave_water_deep_00"/>
+  <tile id="676" type="cave_water_deep_01"/>
+  <tile id="677" type="cave_water_shallow_00"/>
+  <tile id="678" type="cave_water_shallow_01"/>
+  <tile id="679" type="cave_water_bord_top"/>
+  <tile id="680" type="cave_water_bord_btm"/>
+  <tile id="681" type="cave_water_bord_lft"/>
+  <tile id="682" type="cave_water_bord_rgt"/>
+  <tile id="683" type="cave_water_bord_tl"/>
+  <tile id="684" type="cave_water_bord_tr"/>
+  <tile id="685" type="cave_water_bord_bl"/>
+  <tile id="686" type="cave_water_bord_br"/>
+  <tile id="687" type="cave_gate_broken_left"/>
+  <tile id="688" type="cave_gate_broken_middle"/>
+  <tile id="689" type="cave_gate_broken_right"/>
+  <tile id="690" type="cave_arch_stone"/>
+  <tile id="691" type="cave_arch_hell"/>
+  <tile id="692" type="cave_burrow"/>
+  <tile id="693" type="cave_brazier_00"/>
+  <tile id="694" type="cave_brazier_01"/>
+  <tile id="695" type="cave_altar_slime"/>
+  <tile id="696" type="cave_altar_skulls"/>
+  <tile id="697" type="cave_statue_bust"/>
+  <tile id="698" type="cave_idol_gold"/>
+  <tile id="699" type="cave_column_00"/>
+  <tile id="700" type="cave_column_01"/>
+  <tile id="701" type="cave_column_02"/>
+  <tile id="702" type="cave_mould_00"/>
+  <tile id="703" type="cave_mould_01"/>
+  <tile id="704" type="cave_gold_00"/>
+  <tile id="705" type="cave_gold_01"/>
+  <tile id="706" type="cave_gold_02"/>
+  <tile id="707" type="cave_gold_03"/>
+  <tile id="708" type="cave_web_ne"/>
+  <tile id="709" type="cave_web_nw"/>
+  <tile id="710" type="cave_web_se"/>
+  <tile id="711" type="cave_web_sw"/>
 </tileset>

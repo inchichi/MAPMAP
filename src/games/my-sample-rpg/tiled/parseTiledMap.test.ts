@@ -81,12 +81,12 @@ describe('parseTiledMap', () => {
       name: 'town-32',
       tileWidth: 32,
       tileHeight: 32,
-      tileCount: 560,
+      tileCount: 712,
       columns: 8,
       image: {
         source: 'town-32.png',
         width: 256,
-        height: 2240
+        height: 2848
       },
       tileTypes: {},
       tileProperties: {}
@@ -172,13 +172,20 @@ describe('parseTiledMap', () => {
     expect(map.height).toBe(50)
     expect(map.pixelWidth).toBe(1600)
     expect(map.pixelHeight).toBe(1600)
-    expect(map.layers).toHaveLength(1)
-    expect(map.layers[0].name).toBe('ground')
+    expect(map.layers.map((layer) => layer.name)).toEqual([
+      'ground',
+      'shadow_lower',
+      'object',
+      'shadow_upper',
+      'object_upper',
+      'deco',
+      'roof'
+    ])
     expect(map.layers[0].tiles[0]).toMatchObject({
       x: 0,
       y: 0,
-      gid: 517,
-      localId: 516,
+      gid: 457,
+      localId: 456,
       flipHorizontally: false,
       flipVertically: false,
       flipDiagonally: false
@@ -315,7 +322,15 @@ describe('parseTiledMap', () => {
     expect(map.height).toBe(34)
     expect(map.pixelWidth).toBe(1088)
     expect(map.pixelHeight).toBe(1088)
-    expect(map.layers).toHaveLength(1)
+    expect(map.layers.map((layer) => layer.name)).toEqual([
+      'ground',
+      'shadow_lower',
+      'object',
+      'shadow_upper',
+      'object_upper',
+      'deco',
+      'roof'
+    ])
     expect(map.eventLayers.map((layer) => layer.name)).toEqual([
       'characters',
       'portals'
