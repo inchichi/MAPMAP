@@ -43,6 +43,7 @@ import {
 import type { EventReward, HolidayDialogueEventSpec } from '../eventGeneration'
 import { processInteractionEvents } from '../interaction/processInteractionEvents'
 import {
+  PLAYER_EQUIPMENT_ITEM_DEFINITIONS,
   type PlayerEquipment,
   type PlayerEquipmentSlotId
 } from '../playerEquipment'
@@ -82,6 +83,7 @@ import {
   recordItemUseQuestProgress,
   recordMonsterDefeatQuestProgress,
   recordQuestObjectiveProgress,
+  getQuestProgress,
   recordShopOpenQuestProgress,
   recordTalkQuestProgress,
   startQuest,
@@ -185,6 +187,13 @@ import {
 } from './createPauseMenuOverlay'
 import { createQuestLogOverlay } from './createQuestLogOverlay'
 import { createQuestTrackerOverlay } from './createQuestTrackerOverlay'
+import {
+  startScenarioRun,
+  type ScenarioRewardGrant,
+  type ScenarioRun
+} from '../scenario/scenarioRuntime'
+import { createScenarioFlagAccess, getScenarioForNpc } from '../scenario/scenarioStore'
+import { POTION_ITEM_DEFINITIONS } from '../potionShop'
 
 type CreatePixiTiledMapViewInput = {
   mountElement: HTMLElement
@@ -514,6 +523,13 @@ const NPC_PORTRAITS: Record<string, string> = {
   [POTION_SHOP_NPC_ID]: potionMerchantPortraitUrl,
   santa: santaPortraitUrl
 }
+
+// 시나리오 reward 노드는 item_id 만 담는다. 인벤토리 표시는 라벨이 필요하므로
+// 기존 정의(포션·장비)에서 해석하고, 모르는 id 는 id 그대로 노출한다.
+const SCENARIO_REWARD_ITEM_LABEL_BY_ID: Record<string, string> = Object.fromEntries([
+  ...POTION_ITEM_DEFINITIONS.map((item) => [item.id, item.label] as const),
+  ...PLAYER_EQUIPMENT_ITEM_DEFINITIONS.map((item) => [item.id, item.label] as const)
+])
 
 const SIGN_POST_APPEARANCE_TYPE = 'sign_inn'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
@@ -2260,6 +2276,118 @@ export const createPixiTiledMapView = async ({
     requestSceneTransition(touchedPortal)
     return true
   }
+  // 시나리오 v2: talk 트리거. 퀘스트보다 먼저 가로챈다 — 생성(동적) 콘텐츠가 정적보다 앞서는
+  // 기존 규칙(questLog.getQuestDefinitionsForNpc 의 동적 우선)과 같은 방향이다.
+  let activeScenarioRun: ScenarioRun | undefined
+
+  const grantScenarioRewards = (reward: ScenarioRewardGrant) => {
+    if (reward.gold > 0) {
+      currentPlayerInventory = {
+        ...currentPlayerInventory,
+        gold: currentPlayerInventory.gold + reward.gold
+      }
+      onPlayerInventoryChange(currentPlayerInventory)
+    }
+    if (reward.items.length > 0) {
+      currentPlayerInventory = addQuestItemRewardsToInventory(
+        currentPlayerInventory,
+        reward.items.map((item) => ({
+          id: item.item_id,
+          label: SCENARIO_REWARD_ITEM_LABEL_BY_ID[item.item_id] ?? item.item_id,
+          quantity: item.quantity
+        }))
+      )
+      onPlayerInventoryChange(currentPlayerInventory)
+    }
+    grantPlayerExperienceReward(reward.experience)
+    syncPlayerUiOverlays()
+  }
+
+  const startScenarioForNpc = (npcCharacter: CharacterState) => {
+    const scenario = getScenarioForNpc(npcCharacter.id)
+    if (!scenario) {
+      return
+    }
+
+    const flagAccess = createScenarioFlagAccess(scenario.scenario_id)
+    activeScenarioRun = startScenarioRun(
+      scenario,
+      {
+        presentDialogue: (request, respond) => {
+          hideCharacterMessage(request.speaker)
+          const speakerCharacter = characterStates.find(
+            (character) => character.id === request.speaker
+          )
+          npcDialogueOverlay.show({
+            portraitUrl: NPC_PORTRAITS[request.speaker] ?? '',
+            name: speakerCharacter?.displayText ?? request.speaker,
+            lines: request.lines,
+            choices: request.choices,
+            onChoice: (choiceIndex) => respond(choiceIndex),
+            onComplete: () => respond(undefined)
+          })
+        },
+        grantReward: grantScenarioRewards,
+        getQuestStatus: (questId) => getQuestProgress(currentQuestLog, questId).status,
+        getFlag: flagAccess.get,
+        setFlag: flagAccess.set
+      },
+      () => {
+        activeScenarioRun = undefined
+      }
+    )
+  }
+
+  const handleScenarioInteractionEvents = (
+    events: GameEvent[],
+    now: number
+  ): GameEvent[] => {
+    const unhandledEvents: GameEvent[] = []
+
+    for (const event of events) {
+      if (event.kind !== 'interaction-requested') {
+        unhandledEvents.push(event)
+        continue
+      }
+
+      // 시나리오 실행 중에는 새 상호작용을 전부 삼킨다 — 대화 위에 퀘스트/Lua 대사가
+      // 겹쳐 뜨는 것을 막는다(이동 잠금은 MVP 범위 밖, 기존 VN 대화와 동일한 스텁).
+      if (activeScenarioRun?.isRunning()) {
+        continue
+      }
+
+      const sourceCharacter = characterStates.find(
+        (character) => character.id === event.sourceCharacterId
+      )
+      if (!sourceCharacter) {
+        unhandledEvents.push(event)
+        continue
+      }
+
+      const targetCharacter = resolveCharacterInteractionTarget({
+        sourceCharacter,
+        targetCharacters: characterStates,
+        canReceiveInteraction: (character) =>
+          getScenarioForNpc(character.id) !== undefined
+      })
+      if (!targetCharacter) {
+        unhandledEvents.push(event)
+        continue
+      }
+
+      const lockKey = `${sourceCharacter.id}:${targetCharacter.id}:scenario`
+      const lockedUntil = interactionLockUntilByCharacterPair.get(lockKey) ?? 0
+      if (lockedUntil > now) {
+        continue
+      }
+
+      startScenarioForNpc(targetCharacter)
+      interactionLockUntilByCharacterPair.set(lockKey, now + 1000)
+    }
+
+    return unhandledEvents
+  }
+
   const handleQuestInteractionEvents = (
     events: GameEvent[],
     now: number
@@ -5745,7 +5873,7 @@ export const createPixiTiledMapView = async ({
       }
 
       const interactionEvents = handleQuestInteractionEvents(
-        gameEventQueue.drain(),
+        handleScenarioInteractionEvents(gameEventQueue.drain(), now),
         now
       )
 

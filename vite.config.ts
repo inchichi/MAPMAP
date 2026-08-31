@@ -1,6 +1,8 @@
 import {
+  appendFileSync,
   createReadStream,
   existsSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   statSync
@@ -156,6 +158,83 @@ const MIME_TYPES: Record<string, string> = {
 // public/ 하위에서 love.js 빌드 폴더(index.html + love.js가 있는 곳)를 찾아, 그 경로 요청을
 // Vite의 HTML 처리보다 먼저 가로채 정적 파일 그대로 내보낸다(.wasm MIME 포함). dev 전용이며
 // 프로덕션(빌드 산출물 정적 서빙)에는 영향이 없다.
+// 로컬 LLM 호출의 전체 계보(프롬프트·출력·상태·지연)를 JSONL 로 축적한다.
+// 파인튜닝 착수 조건(수용 예제 300~500개) 판단과 실패 유형 분석의 유일한 데이터 원천이다.
+// notes/ 는 gitignore 라 로그가 저장소를 더럽히지 않는다. dev 전용.
+const LLM_PROXY_TARGET = 'http://100.115.43.82:8000'
+const LLM_LOG_PATH = fileURLToPath(new URL('./notes/llm-proxy-log.jsonl', import.meta.url))
+
+const logLlmCalls = (): Plugin => ({
+  name: 'log-llm-calls',
+  apply: 'serve',
+  configureServer(server) {
+    // 직접 등록 → Vite 내부 proxy 보다 먼저 실행된다(serveLoveJsBuilds 와 같은 기법).
+    server.middlewares.use((req, res, next) => {
+      const rawUrl = (req.url ?? '').split('?')[0]
+      if (req.method !== 'POST' || !rawUrl.startsWith('/api/llm/')) {
+        next()
+        return
+      }
+
+      const chunks: Buffer[] = []
+      req.on('data', (chunk) => chunks.push(chunk))
+      req.on('end', async () => {
+        const requestBody = Buffer.concat(chunks).toString('utf8')
+        const targetUrl = LLM_PROXY_TARGET + rawUrl.replace(/^\/api\/llm/, '')
+        const startedAt = Date.now()
+
+        const writeLog = (entry: Record<string, unknown>) => {
+          try {
+            mkdirSync(fileURLToPath(new URL('./notes', import.meta.url)), { recursive: true })
+            appendFileSync(
+              LLM_LOG_PATH,
+              JSON.stringify({ ts: new Date().toISOString(), url: rawUrl, ...entry }) + '\n'
+            )
+          } catch {
+            // 로깅 실패가 생성 자체를 막으면 안 된다.
+          }
+        }
+
+        try {
+          const upstream = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: requestBody
+          })
+          const responseBody = await upstream.text()
+          writeLog({
+            status: upstream.status,
+            ms: Date.now() - startedAt,
+            request: safeJsonParse(requestBody),
+            response: safeJsonParse(responseBody)
+          })
+          res.statusCode = upstream.status
+          res.setHeader('content-type', upstream.headers.get('content-type') ?? 'application/json')
+          res.end(responseBody)
+        } catch (error) {
+          writeLog({
+            status: 0,
+            ms: Date.now() - startedAt,
+            request: safeJsonParse(requestBody),
+            error: String(error)
+          })
+          res.statusCode = 502
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify({ error: { message: `LLM 서버 연결 실패: ${String(error)}` } }))
+        }
+      })
+    })
+  }
+})
+
+const safeJsonParse = (text: string): unknown => {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text.slice(0, 4000)
+  }
+}
+
 const serveLoveJsBuilds = (): Plugin => ({
   name: 'serve-lovejs-builds',
   apply: 'serve',
@@ -231,7 +310,7 @@ const serveLoveJsBuilds = (): Plugin => ({
 })
 
 export default defineConfig({
-  plugins: [tailwindcss(), serveLoveJsBuilds()],
+  plugins: [tailwindcss(), serveLoveJsBuilds(), logLlmCalls()],
   build: {
     rollupOptions: {
       input: {
@@ -256,7 +335,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api\/anthropic/, '')
       },
       '/api/llm': {
-        target: 'http://100.115.43.82:8000',
+        target: LLM_PROXY_TARGET,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/llm/, '')
       },

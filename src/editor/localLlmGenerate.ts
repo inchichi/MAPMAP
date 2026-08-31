@@ -33,18 +33,22 @@ export const generateJsonWithLocalLlm = async <T>({
   input,
   schemaName,
   schema,
-  model = LOCAL_LLM_MODEL
+  model = LOCAL_LLM_MODEL,
+  maxTokens = 4096,
+  structuredOutput = false
 }: {
   instructions: string
   input: string
   schemaName: string
   schema: object
   model?: string
+  maxTokens?: number
+  // true면 vLLM 문법 강제(response_format: json_schema)를 시도한다. 서버가 거부하면(4xx)
+  // 기존 json_object + 프롬프트 스키마 주입으로 자동 폴백한다 — 호출부는 모드를 몰라도 된다.
+  structuredOutput?: boolean
 }): Promise<T> => {
-  const response = await fetch(LOCAL_LLM_ENDPOINT, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
+  const requestBody = (useJsonSchema: boolean) =>
+    JSON.stringify({
       model,
       messages: [
         {
@@ -58,11 +62,27 @@ export const generateJsonWithLocalLlm = async <T>({
         },
         { role: 'user', content: input }
       ],
-      max_tokens: 4096,
-      response_format: { type: 'json_object' },
+      max_tokens: maxTokens,
+      response_format: useJsonSchema
+        ? { type: 'json_schema', json_schema: { name: schemaName, schema, strict: true } }
+        : { type: 'json_object' },
       chat_template_kwargs: { enable_thinking: false }
     })
+
+  let response = await fetch(LOCAL_LLM_ENDPOINT, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: requestBody(structuredOutput)
   })
+
+  if (structuredOutput && !response.ok && response.status < 500) {
+    // 배포 vLLM이 json_schema를 안 받는 경우 — 검토 보고서 §8의 폴백 경로.
+    response = await fetch(LOCAL_LLM_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: requestBody(false)
+    })
+  }
 
   const rawText = await response.text()
   let payload: LocalLlmResponse & LocalLlmErrorResponse = {}

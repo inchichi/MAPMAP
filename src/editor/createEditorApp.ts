@@ -29,6 +29,12 @@ import { dryRunQuestApply } from './dryRunQuestApply'
 import { convertGeneratedQuestToDefinition } from './questCodeGenerator'
 import { createGeneratedQuestValidationIssues } from './questJsonSchema'
 import { replacePendingQuests } from './pendingQuests'
+import { appendPendingScenario } from './pendingScenarios'
+import {
+  generateScenarioWithLlm,
+  ScenarioGenerationError
+} from './scenarioGenerator'
+import { MY_SAMPLE_RPG_SCENARIO_REGISTRY } from './scenarioRegistry'
 import { createStyleTransferModal } from './createStyleTransferModal'
 // SpecDriven 파이프라인(시나리오→StyleSpec→앵커 승인→일괄 변환+QA) — 디벨롭 방향 8/6.
 import { createStylePipelinePanel } from './createStylePipelinePanel'
@@ -631,6 +637,7 @@ export const createEditorApp = ({
   }> = [
     { label: 'NPC 대사', desc: '대화 생성', text: '마법사가 플레이어에게 경고하는 대사를 추가해줘', primary: true, icon: 'npc' },
     { label: '퀘스트', desc: '의뢰 생성', text: '마을 주민이 부탁하는 숨겨진 퀘스트를 만들어줘', primary: true, icon: 'scroll', quest: true },
+    { label: '시나리오', desc: '분기 이벤트', text: '마법사가 수상한 내기를 제안하는 시나리오를 만들어줘. 참가 여부를 선택할 수 있고, 이기면 보상을 주고, 다시 말 걸면 다른 대사가 나와야 해', primary: true, icon: 'scroll' },
     { label: '스타일 변경', desc: '외형 수정', text: '이 나무를 가을 분위기의 나무로 바꿔줘', primary: false, icon: 'crystal' },
     { label: 'NPC 추가', desc: '주민 생성', text: '마을에 새로운 주민 NPC를 추가해줘', primary: false, icon: 'npc' },
     { label: '건물 추가', desc: '구조물 배치', text: '마을 광장에 새로운 건물을 추가해줘', primary: false, icon: 'building' },
@@ -2520,6 +2527,100 @@ export const createEditorApp = ({
 
   // NPC 추가(my-sample-rpg): 자연어로 NPC 한 명을 생성한다. '적용'이 게임 iframe에 editor:spawn-npc를
   // 보내면, 실행 중인 게임이 플레이어 옆 빈 칸에 실제 CharacterState로 스폰한다(대사 상호작용 포함).
+  // 시나리오 v2: 자연어 → 2단계 생성(골격→장면) → 결정적 그래프 검증 → 적용(localStorage 주입).
+  // "시나리오를 뽑고, 실제 데이터로 만들어, 게임에 적용"의 전체 고리다.
+  const runGenerateScenario = async (): Promise<void> => {
+    isGenerating = true
+    const filesAtStart = currentFiles
+    setStatus('시나리오 생성 시작…')
+    render()
+
+    try {
+      const generated = await generateScenarioWithLlm({
+        request: promptInput.value,
+        registry: MY_SAMPLE_RPG_SCENARIO_REGISTRY,
+        onProgress: (message) => {
+          setStatus(message)
+        }
+      })
+      if (currentFiles !== filesAtStart) {
+        return
+      }
+
+      const scenario = generated.scenario
+      const warnings = generated.issues.filter((issue) => issue.severity === 'warning')
+      // 사람이 읽는 요약(장면 흐름·플래그) + 원본 JSON. 검증 error 는 생성기 안에서 0이 될 때까지
+      // 재시도되므로 여기 도달한 결과는 실행 가능함이 보장된다.
+      const flowSummary = scenario.scenes
+        .map((scene) => {
+          const last = scene.steps.at(-1)
+          const to =
+            last?.type === 'goto'
+              ? `→ ${last.scene}`
+              : last?.type === 'branch'
+                ? `→ ${last.then_scene} | ${last.else_scene}`
+                : last?.type === 'choice'
+                  ? `→ ${last.options.map((option) => option.goto).join(' | ')}`
+                  : '→ (끝)'
+          return `  ${scene.id} (${scene.steps.length}스텝) ${to}`
+        })
+        .join('\n')
+      const preview = [
+        `제목: ${scenario.title}`,
+        `트리거: ${scenario.trigger.npc_id} 에게 말 걸기`,
+        `플래그: ${scenario.flags.join(', ') || '(없음)'}`,
+        `장면 흐름 (진입: ${scenario.entry_scene})`,
+        flowSummary,
+        `LLM 호출 ${generated.llmCalls}회`,
+        '',
+        JSON.stringify(scenario, null, 2)
+      ].join('\n')
+
+      const result: GenerationResult = {
+        label: scenario.title || scenario.scenario_id,
+        preview,
+        issues: warnings.map((issue) => `${issue.path} - ${issue.message}`),
+        // 적용: localStorage 에 저장 → 게임이 storage 이벤트로 등록소를 갱신 →
+        // 다음 상호작용부터 그 NPC 가 이 시나리오를 실행한다(새로고침 불필요).
+        apply: () => {
+          appendPendingScenario(scenario)
+        },
+        bridgePayload: null
+      }
+      currentDryRun = undefined
+      currentResult = result
+      historyCounter += 1
+      history = [{ n: historyCounter, result }, ...history].slice(0, HISTORY_LIMIT)
+      sessionTally = {
+        generations: sessionTally.generations + 1,
+        validatorPasses: sessionTally.validatorPasses + 1
+      }
+      activeBoardTab = 'verify'
+      logActivity(`"${result.label}" 시나리오 생성`)
+      setStatus(
+        `생성 완료: ${result.label} — 검증 통과(경고 ${warnings.length}건). ` +
+          `'적용'하면 ${scenario.trigger.npc_id} 에게 말 걸 때 실행됩니다`
+      )
+    } catch (error) {
+      if (currentFiles !== filesAtStart) {
+        return
+      }
+      if (error instanceof ScenarioGenerationError) {
+        // 검증을 못 넘은 생성물 — dry-run 게이트가 Apply 를 막은 것. 이슈를 그대로 보여준다.
+        sessionTally = {
+          generations: sessionTally.generations + 1,
+          validatorPasses: sessionTally.validatorPasses
+        }
+        setStatus(`생성 실패(검증 미통과): ${error.message}`)
+      } else {
+        setStatus(`생성 실패: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    } finally {
+      isGenerating = false
+      render()
+    }
+  }
+
   const runGenerateNpc = async (): Promise<void> => {
     isGenerating = true
     const filesAtStart = currentFiles
@@ -2641,6 +2742,7 @@ export const createEditorApp = ({
             'create_npc',
             'delete_npc',
             'create_quest',
+            'create_scenario',
             'switch_scene',
             'generate_content',
             'other'
@@ -2661,6 +2763,19 @@ export const createEditorApp = ({
           isGenerating = false
           render()
           await runGenerateNpc()
+          return
+        }
+
+        if (action.action === 'create_scenario') {
+          if (game.adapter.id !== 'my-sample-rpg') {
+            setStatus('현재 연결된 게임은 시나리오 생성을 지원하지 않습니다.')
+            return
+          }
+          candidateMode = false
+          npcMode = false
+          isGenerating = false
+          render()
+          await runGenerateScenario()
           return
         }
 

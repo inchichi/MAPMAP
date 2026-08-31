@@ -5,6 +5,7 @@ export type EditorActionName =
   | 'create_npc'
   | 'delete_npc'
   | 'create_quest'
+  | 'create_scenario'
   | 'switch_scene'
   | 'generate_content'
   | 'other'
@@ -46,6 +47,7 @@ export const decideEditorAction = async ({
       'Use create_npc for adding or spawning one new NPC.',
       'Use delete_npc only for deleting an existing editor-generated NPC.',
       'Use create_quest for creating a new quest or mission. This starts the quest candidate workflow.',
+      'Use create_scenario for a branching event or story: dialogue with player choices, conditional branches, state that changes on revisit, or a staged encounter. Keywords: 시나리오, 이벤트 스토리, 선택지, 분기.',
       'Use switch_scene for changing the live preview to a named scene or map.',
       'Use generate_content for dialogue, NPC behavior, event, description, or other content changes handled by the game adapter.',
       'Use other only for a question or a request that is not an editor operation.',
@@ -94,6 +96,7 @@ export const decideEditorAction = async ({
             'create_npc',
             'delete_npc',
             'create_quest',
+            'create_scenario',
             'switch_scene',
             'generate_content',
             'other'

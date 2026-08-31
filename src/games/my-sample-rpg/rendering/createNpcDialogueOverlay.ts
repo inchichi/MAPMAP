@@ -23,6 +23,19 @@ const ensureStyleInjected = () => {
 .npc-dialogue-overlay__portrait {
   transition: opacity 220ms ease, transform 220ms ease;
 }
+.npc-dialogue-overlay__choice {
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+.npc-dialogue-overlay__choice:hover {
+  background-color: #f7ecd4;
+}
+.npc-dialogue-overlay__choice:active {
+  transform: translateY(1px);
+}
+.npc-dialogue-overlay__choice:focus-visible {
+  outline: 2px solid rgba(111, 89, 58, 0.5);
+  outline-offset: 1px;
+}
 `
   document.head.append(style)
 }
@@ -31,6 +44,10 @@ type ShowNpcDialogueInput = {
   portraitUrl: string
   name: string
   lines: string[]
+  // 마지막 줄에서 함께 뜨는 선택지 라벨. 있으면 그 줄에서는 넘겨서 닫을 수 없고,
+  // 클릭 또는 숫자키(1~4)로 하나를 골라야 한다. 고르면 닫히고 onChoice(index)가 호출된다.
+  choices?: string[]
+  onChoice?: (choiceIndex: number) => void
   onComplete?: () => void
 }
 
@@ -157,17 +174,68 @@ export const createNpcDialogueOverlay = ({
     pointerEvents: 'none'
   } as CSSStyleDeclaration)
 
-  dialogueBox.append(dialogueText, advanceIndicator)
+  const choiceList = document.createElement('div')
+  choiceList.className = 'npc-dialogue-overlay__choices'
+  Object.assign(choiceList.style, {
+    display: 'none',
+    flexDirection: 'column',
+    gap: 'clamp(6px, 1vh, 10px)',
+    marginTop: 'clamp(10px, 1.6vh, 18px)',
+    // dialogueText 와 같은 보정값 — 초상화와 겹치지 않게.
+    paddingLeft: 'clamp(0px, 6vw, 90px)'
+  } as CSSStyleDeclaration)
+
+  dialogueBox.append(dialogueText, choiceList, advanceIndicator)
   overlayRoot.append(portrait, nameBanner, dialogueBox)
   mountElement.append(overlayRoot)
 
   let lines: string[] = []
   let lineIndex = 0
   let open = false
+  let choices: string[] = []
+  let onChoice: ((choiceIndex: number) => void) | undefined
   let onComplete: (() => void) | undefined
+
+  // 선택지는 마지막 줄에서만 뜬다.
+  const isChoicePhase = (): boolean => choices.length > 0 && lineIndex >= lines.length - 1
+
+  // 선택지 개수가 매번 달라 show() 마다 버튼을 다시 만든다.
+  const renderChoiceButtons = (labels: string[]) => {
+    choiceList.replaceChildren()
+    for (const [index, label] of labels.entries()) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'npc-dialogue-overlay__choice'
+      button.textContent = `${index + 1}. ${label}`
+      button.setAttribute('aria-label', label)
+      Object.assign(button.style, {
+        width: '100%',
+        boxSizing: 'border-box',
+        padding: 'clamp(8px, 1.2vh, 14px) clamp(14px, 1.6vw, 22px)',
+        textAlign: 'left',
+        fontFamily: 'inherit',
+        fontSize: 'clamp(14px, 2.2vh, 24px)',
+        color: TEXT_DARK,
+        background: `linear-gradient(180deg, ${PARCHMENT} 0%, ${PARCHMENT_DEEP} 100%)`,
+        border: `1px solid ${BORDER_BROWN}`,
+        borderRadius: '6px',
+        boxShadow: `0 0 0 1px ${BORDER_BROWN_SOFT}, inset 0 1px 0 rgba(255,255,255,0.75)`,
+        cursor: 'pointer'
+      } as CSSStyleDeclaration)
+      button.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        selectChoice(index)
+      })
+      choiceList.append(button)
+    }
+  }
 
   const renderCurrentLine = () => {
     dialogueText.textContent = lines[lineIndex] ?? ''
+    const showsChoices = isChoicePhase()
+    choiceList.style.display = showsChoices ? 'flex' : 'none'
+    advanceIndicator.style.display = showsChoices ? 'none' : ''
     const isLast = lineIndex >= lines.length - 1
     advanceIndicator.textContent = isLast ? '✕' : '▼'
   }
@@ -183,11 +251,15 @@ export const createNpcDialogueOverlay = ({
     window.removeEventListener('keydown', handleKeyDown, true)
     lines = []
     lineIndex = 0
+    choices = []
+    choiceList.replaceChildren()
+    choiceList.style.display = 'none'
   }
 
   // 다음 줄로. 마지막 줄에서 더 넘기면 닫고 onComplete 호출.
+  // 선택지 단계에서는 넘겨서 닫을 수 없다 — 골라야 한다.
   const advance = () => {
-    if (!open) {
+    if (!open || isChoicePhase()) {
       return
     }
     if (lineIndex < lines.length - 1) {
@@ -200,8 +272,29 @@ export const createNpcDialogueOverlay = ({
     completion?.()
   }
 
+  // advance 와 같은 관용구: 콜백을 붙잡고 → 닫고 → 호출. onChoice 안에서 show() 가
+  // 재진입해도 상태가 엉키지 않는 순서다.
+  const selectChoice = (choiceIndex: number) => {
+    if (!open || !isChoicePhase()) {
+      return
+    }
+    const select = onChoice
+    hide()
+    select?.(choiceIndex)
+  }
+
   const handleKeyDown = (event: KeyboardEvent) => {
     if (!open) {
+      return
+    }
+    // 선택지 단계: 숫자키 1~4 로 고른다.
+    if (isChoicePhase() && event.code.startsWith('Digit')) {
+      const index = Number(event.code.slice(5)) - 1
+      if (index >= 0 && index < choices.length) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        selectChoice(index)
+      }
       return
     }
     if (
@@ -218,6 +311,10 @@ export const createNpcDialogueOverlay = ({
     if (event.code === 'Escape') {
       event.preventDefault()
       event.stopImmediatePropagation()
+      if (isChoicePhase()) {
+        // 선택을 회피해 닫으면 호출자가 임의 선택으로 오인한다 — 선택지에서는 Escape 를 막는다.
+        return
+      }
       const completion = onComplete
       hide()
       completion?.()
@@ -232,12 +329,16 @@ export const createNpcDialogueOverlay = ({
 
   const show = (input: ShowNpcDialogueInput) => {
     const validLines = input.lines.filter((line) => line.trim().length > 0)
-    if (validLines.length === 0) {
+    const nextChoices = input.choices ?? []
+    if (validLines.length === 0 && nextChoices.length === 0) {
       return
     }
     lines = validLines
     lineIndex = 0
+    choices = nextChoices
+    onChoice = input.onChoice
     onComplete = input.onComplete
+    renderChoiceButtons(nextChoices)
     if (input.portraitUrl) {
       portrait.src = input.portraitUrl
       portrait.style.display = ''
