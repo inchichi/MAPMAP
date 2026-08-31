@@ -109,7 +109,7 @@ AI 출력을 그대로 쓰지 않는다:
 | POST | `/pipeline/anchors/{id}/approve` | 승인 게이트 (`{"approved":bool}`) |
 | GET | `/pipeline/inventory` | 인벤토리(`?rebuild=1` 재빌드) |
 | GET | `/pipeline/original?path=` | 변환 전 원본 PNG(적용 후에도 최초 원본) — 결과 확대 비교용 |
-| POST | `/pipeline/run` | 실행: `{style_id, targets:[{path}], apply, alpha_erode}` → 결과+QA 리포트+미리보기 |
+| POST | `/pipeline/run` | 실행: `{style_id, targets:[{path}], apply, alpha_erode, strength_override?}` → 결과+QA 리포트+미리보기 |
 
 ## 에디터 사용법
 
@@ -123,6 +123,10 @@ AI 출력을 그대로 쓰지 않는다:
 
 리포트의 결과 카드를 **클릭하면 변환 전/후를 나란히 확대 비교**한다. 체커보드 배경으로
 알파(투명) 영역을 확인할 수 있고, 'PNG 저장'으로 결과만 따로 내려받을 수 있다.
+
+`Strength 스윕`을 켜고 `0.2, 0.3, 0.4`처럼 값을 입력하면 선택한 대상마다 지정한
+strength를 순차 실행하고 결과를 카드 그리드로 표시한다. 스윕 결과는 게임에 적용되지
+않으며, 각 카드에서 strength와 QA 점수를 비교할 수 있다.
 
 배율은 **맞춤(기본) / 1× / 2× / 4× / 8×**. 타일셋은 1402×1122처럼 크면서 95%가 투명한
 경우가 많아, 정수배로 열면 빈 여백만 보인다. 그래서 기본값이 전체를 프레임에 넣는 맞춤이고,

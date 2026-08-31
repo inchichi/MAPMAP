@@ -48,12 +48,15 @@ type PipelineResult = {
   label?: string
   key?: string
   category?: string
+  strength?: number
   qa?: { passed: boolean; axes: Record<string, QaAxis> }
   applied: boolean
   error?: string
   preview_png?: string
   sharedOutsideCells?: number
 }
+type PipelineSummary = { total: number; qa_passed: number; applied: number; failed: number }
+type PipelineReport = { strength?: number; results: PipelineResult[]; summary: PipelineSummary }
 
 export interface StylePipelinePanel {
   openButton: HTMLButtonElement
@@ -212,6 +215,21 @@ export const createStylePipelinePanel = (
     )
   )
   const targetList = el('div', 'flex flex-col gap-1 max-h-[220px] overflow-y-auto pr-1')
+  const strengthSweepRow = el('div', 'flex flex-wrap items-center gap-2')
+  const strengthSweepCheckbox = el('input', '') as HTMLInputElement
+  strengthSweepCheckbox.type = 'checkbox'
+  const strengthSweepInput = el('input', `${INPUT} max-w-[220px]`) as HTMLInputElement
+  strengthSweepInput.type = 'text'
+  strengthSweepInput.value = '0.2, 0.3, 0.4'
+  strengthSweepInput.placeholder = '예: 0.2, 0.3, 0.4'
+  strengthSweepInput.disabled = true
+  const strengthSweepLabel = el('label', 'flex items-center gap-1.5 text-[12px] text-zinc-300')
+  strengthSweepLabel.append(strengthSweepCheckbox, document.createTextNode('Strength 스윕'))
+  strengthSweepRow.append(
+    strengthSweepLabel,
+    strengthSweepInput,
+    el('span', HINT, '쉼표로 입력한 값마다 미리보기를 생성합니다. 스윕 중에는 적용하지 않습니다.')
+  )
   const runButtonRow = el('div', 'flex items-center gap-3')
   const applyCheckboxLabel = el('label', 'flex items-center gap-1.5 text-[12px] text-zinc-300')
   const applyCheckbox = el('input', '') as HTMLInputElement
@@ -222,7 +240,7 @@ export const createStylePipelinePanel = (
   runButton.disabled = true
   runButtonRow.append(runButton, applyCheckboxLabel)
   const reportArea = el('div', 'flex flex-col gap-2')
-  runSection.append(targetList, runButtonRow, reportArea)
+  runSection.append(targetList, strengthSweepRow, runButtonRow, reportArea)
 
   modal.append(header, statusLine, specSection, anchorSection, runSection)
 
@@ -248,8 +266,22 @@ export const createStylePipelinePanel = (
         ? `승인됨 — ${savedStyleId} 실행 가능`
         : '미승인 — 승인 전에는 실행이 차단된다'
       : ''
+    strengthSweepInput.disabled = !strengthSweepCheckbox.checked
+    applyCheckbox.disabled = strengthSweepCheckbox.checked
+    if (strengthSweepCheckbox.checked) {
+      applyCheckbox.checked = false
+    }
     runButton.disabled = !anchorsApproved || selectedCount() === 0
   }
+
+  strengthSweepCheckbox.addEventListener('change', () => {
+    syncGates()
+    setStatus(
+      strengthSweepCheckbox.checked
+        ? 'Strength 스윕 모드: 입력한 강도별 결과를 카드로 비교합니다.'
+        : ''
+    )
+  })
 
   const renderPalette = (): void => {
     paletteRow.textContent = ''
@@ -890,50 +922,157 @@ export const createStylePipelinePanel = (
     }
   }
 
+  const renderSweepReport = (reports: PipelineReport[]): void => {
+    const results = reports.flatMap((report) => report.results)
+    const qaPassed = results.filter((result) => result.qa?.passed).length
+    const failed = results.filter((result) => result.error).length
+    reportArea.textContent = ''
+    reportArea.append(
+      el(
+        'p',
+        'text-[12px] text-zinc-300',
+        `Strength 스윕 완료 · 결과 ${results.length}개 · QA 통과 ${qaPassed} · 오류 ${failed}`
+      )
+    )
+    const grid = el('div', 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3')
+    for (const result of results) {
+      const card = el(
+        'div',
+        `rounded-lg border border-white/10 bg-black/20 p-3 ${
+          result.preview_png ? 'cursor-zoom-in hover:border-amber-400/40 hover:bg-black/40' : ''
+        }`
+      )
+      if (result.preview_png) {
+        card.title = '클릭하면 원본과 결과를 크게 비교합니다.'
+        card.addEventListener('click', () => openDetail(result))
+        const image = el(
+          'img',
+          'h-48 w-full rounded object-contain bg-black/40 [image-rendering:pixelated]'
+        ) as HTMLImageElement
+        image.src = `data:image/png;base64,${result.preview_png}`
+        image.alt = resultName(result)
+        card.append(image)
+      }
+      const info = el('div', 'mt-2 flex flex-col gap-1')
+      const strength = result.strength !== undefined ? result.strength.toFixed(2) : '?'
+      info.append(
+        el('span', 'text-[12px] font-semibold text-zinc-200', `${resultName(result)} · strength ${strength}`)
+      )
+      if (result.error) {
+        info.append(el('span', 'text-[11px] text-red-400', result.error))
+      } else if (result.qa) {
+        const axisRow = el('div', 'flex flex-wrap gap-1.5')
+        for (const [axis, value] of Object.entries(result.qa.axes)) {
+          axisRow.append(
+            el(
+              'span',
+              `text-[11px] ${value.passed ? 'text-zinc-500' : value.advisory ? 'text-sky-400' : 'text-amber-400'}`,
+              axisText(axis, value)
+            )
+          )
+        }
+        info.append(axisRow)
+      }
+      card.append(info)
+      grid.append(card)
+    }
+    reportArea.append(grid)
+  }
+
+  const parseSweepStrengths = (): number[] | undefined => {
+    const values = strengthSweepInput.value
+      .split(/[,\s]+/)
+      .filter(Boolean)
+      .map(Number)
+    if (
+      values.length === 0 ||
+      values.length > 8 ||
+      values.some((value) => !Number.isFinite(value) || value < 0.1 || value > 0.9)
+    ) {
+      return undefined
+    }
+    return [...new Set(values)].sort((a, b) => a - b)
+  }
+
+  const requestPipeline = async (styleId: string, strengthOverride?: number): Promise<PipelineReport> => {
+    const targets = [
+      ...[...selectedPaths].map((path) => ({ path })),
+      ...[...selectedObjectKeys].map((key) => ({ kind: 'extracted-object' as const, key }))
+    ]
+    const body: {
+      style_id: string
+      targets: typeof targets
+      apply: boolean
+      strength_override?: number
+    } = {
+      style_id: styleId,
+      targets,
+      apply: strengthOverride === undefined && applyCheckbox.checked
+    }
+    if (strengthOverride !== undefined) {
+      body.strength_override = strengthOverride
+    }
+
+    const response = await fetch('/api/style/pipeline/run', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    const payload = (await response.json()) as {
+      error?: string
+      strength?: number
+      results?: PipelineResult[]
+      summary?: PipelineSummary
+    }
+    if (!response.ok || !payload.results || !payload.summary) {
+      throw new Error(payload.error ?? `실행 실패 (HTTP ${response.status})`)
+    }
+    const results = payload.results.map((result) => ({
+      ...result,
+      strength: result.strength ?? payload.strength ?? strengthOverride
+    }))
+    return { strength: payload.strength ?? strengthOverride, results, summary: payload.summary }
+  }
+
   runButton.addEventListener('click', () => {
     if (!savedStyleId || selectedCount() === 0) {
       return
     }
+    const styleId = savedStyleId
+    const sweepStrengths = strengthSweepCheckbox.checked ? parseSweepStrengths() : undefined
+    if (strengthSweepCheckbox.checked && !sweepStrengths) {
+      setStatus('Strength는 0.1~0.9 범위에서 최대 8개까지 입력하세요.', true)
+      return
+    }
     runButton.disabled = true
-    // 직전 실행 결과를 먼저 비운다 — GPU 작업은 수 분 걸리는데 그동안 옛 카드가 남아
-    // 있으면 이미 끝난 것으로 오해하게 된다.
     reportArea.textContent = ''
-    setStatus(`파이프라인 실행 중 — 대상 ${selectedCount()}개 (GPU 작업)…`)
-    void fetch('/api/style/pipeline/run', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        style_id: savedStyleId,
-        targets: [
-          ...[...selectedPaths].map((path) => ({ path })),
-          // 분기 B — 셀 묶음이라 경로가 아니라 key로 보낸다.
-          ...[...selectedObjectKeys].map((key) => ({ kind: 'extracted-object', key }))
-        ],
-        apply: applyCheckbox.checked
-      })
-    })
-      .then(async (response) => {
-        const payload = (await response.json()) as {
-          error?: string
-          results?: PipelineResult[]
-          summary?: { total: number; qa_passed: number; applied: number; failed: number }
+    void (async () => {
+      try {
+        if (sweepStrengths) {
+          const reports: PipelineReport[] = []
+          for (const [index, strength] of sweepStrengths.entries()) {
+            setStatus(`Strength ${strength.toFixed(2)} 실행 중 (${index + 1}/${sweepStrengths.length}) — GPU 작업…`)
+            reports.push(await requestPipeline(styleId, strength))
+          }
+          renderSweepReport(reports)
+          setStatus('Strength 스윕 완료 — 카드 그리드에서 결과를 비교하세요.')
+          return
         }
-        if (!response.ok || !payload.results || !payload.summary) {
-          throw new Error(payload.error ?? `실행 실패 (HTTP ${response.status})`)
-        }
-        renderReport(payload.results, payload.summary)
+
+        setStatus(`파이프라인 실행 중 — 대상 ${selectedCount()}개 (GPU 작업)…`)
+        const report = await requestPipeline(styleId)
+        renderReport(report.results, report.summary)
         setStatus('파이프라인 완료 — QA 리포트를 확인하세요.')
-        if (payload.summary.applied > 0) {
+        if (report.summary.applied > 0) {
           onAssetChanged?.()
         }
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         setStatus(`실행 실패: ${error instanceof Error ? error.message : String(error)}`, true)
-      })
-      .finally(() => {
+      } finally {
         runButton.disabled = false
         syncGates()
-      })
+      }
+    })()
   })
 
   // ── 열기/닫기 ──

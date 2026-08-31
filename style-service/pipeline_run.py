@@ -205,7 +205,8 @@ def _run_object_target(target: dict, spec: dict, alpha_erode: int) -> tuple[dict
 
 
 def run_pipeline(style_id: str, targets: list[dict], apply: bool = False,
-                 alpha_erode: int = 0, force_unapproved: bool = False) -> dict:
+                 alpha_erode: int = 0, force_unapproved: bool = False,
+                 strength_override: float | None = None) -> dict:
     """대상 목록을 라우팅→변환→규격 스냅→QA까지 돌리고, apply면 통과분만 덮어쓴다.
 
     targets 두 형태:
@@ -218,6 +219,14 @@ def run_pipeline(style_id: str, targets: list[dict], apply: bool = False,
         raise PermissionError(
             "앵커가 승인되지 않았습니다. 앵커를 생성·확인·승인한 뒤 실행하세요(승인 게이트)."
         )
+
+    run_strength = float(
+        spec["style_strength"] if strength_override is None else strength_override
+    )
+    run_spec = spec if strength_override is None else {
+        **spec,
+        "style_strength": run_strength,
+    }
 
     results: list[dict] = []
     previews: dict[str, bytes] = {}
@@ -236,7 +245,7 @@ def run_pipeline(style_id: str, targets: list[dict], apply: bool = False,
                 "label": str(target.get("key") if is_object else target.get("path")),
             }
             if is_object:
-                entry, data = _run_object_target(target, spec, alpha_erode)
+                entry, data = _run_object_target(target, run_spec, alpha_erode)
                 if apply and entry["qa"]["passed"]:
                     # 셀 정보로 타일셋에 역패치 — 백업·원본 시드는 asset_store가 담당한다.
                     object_extract.apply_styled_object(entry["key"], data)
@@ -244,12 +253,13 @@ def run_pipeline(style_id: str, targets: list[dict], apply: bool = False,
                 else:
                     entry["applied"] = False
             else:
-                entry, data = _run_asset_target(target, spec, alpha_erode)
+                entry, data = _run_asset_target(target, run_spec, alpha_erode)
                 if apply and entry["qa"]["passed"]:
                     asset_store.backup_and_write(entry["path"], data)
                     entry["applied"] = True
                 else:
                     entry["applied"] = False
+            entry["strength"] = run_strength
             previews[entry["id"]] = data
         except Exception as error:  # noqa: BLE001 — 아래 설명 참고
             # 대상 하나의 실패로 배치 전체를 잃지 않는다. GPU 작업은 대상당 수 분이 걸리고
@@ -264,6 +274,7 @@ def run_pipeline(style_id: str, targets: list[dict], apply: bool = False,
     passed = sum(1 for entry in results if entry.get("qa", {}).get("passed"))
     return {
         "style_id": style_id,
+        "strength": run_strength,
         "results": results,
         "summary": {
             "total": len(results),

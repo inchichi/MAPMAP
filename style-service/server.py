@@ -756,16 +756,29 @@ def pipeline_execute(payload: dict = Body(...)):
     targets = payload.get("targets")
     apply = bool(payload.get("apply"))
     alpha_erode = payload.get("alpha_erode", 0)
+    strength_override = payload.get("strength_override")
     if not isinstance(style_id, str) or not style_id:
         return JSONResponse(status_code=422, content={"error": "style_id가 필요합니다."})
     if not isinstance(targets, list) or not 0 < len(targets) <= 256:
         return JSONResponse(status_code=422, content={"error": "targets는 1~256개 목록이어야 합니다."})
     if not isinstance(alpha_erode, int) or not 0 <= alpha_erode <= 3:
         return JSONResponse(status_code=422, content={"error": "alpha_erode는 0~3이어야 합니다."})
+    if strength_override is not None and (
+        isinstance(strength_override, bool)
+        or not isinstance(strength_override, (int, float))
+        or not 0.1 <= float(strength_override) <= 0.9
+    ):
+        return JSONResponse(status_code=422, content={"error": "strength_override는 0.1~0.9이어야 합니다."})
 
     try:
         report = pipeline_run.run_pipeline(
-            style_id, targets, apply=apply, alpha_erode=alpha_erode
+            style_id,
+            targets,
+            apply=apply,
+            alpha_erode=alpha_erode,
+            strength_override=(
+                float(strength_override) if strength_override is not None else None
+            ),
         )
     except PermissionError as error:
         return JSONResponse(status_code=409, content={"error": str(error)})
