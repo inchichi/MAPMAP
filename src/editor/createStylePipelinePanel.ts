@@ -41,7 +41,7 @@ type ExtractedObject = {
   sharedOutsideCells?: number
 }
 
-type QaAxis = { score: number; passed: boolean; metric?: string }
+type QaAxis = { score: number; passed: boolean; metric?: string; advisory?: boolean; edge?: number; luma?: number }
 type PipelineResult = {
   id?: string
   path: string
@@ -75,8 +75,29 @@ const CATEGORY_LABEL: Record<string, string> = {
 const AXIS_LABEL: Record<string, string> = {
   silhouette_iou: '실루엣 IoU',
   palette_compliance: '팔레트 준수',
-  seam: '이음새'
+  seam: '이음새',
+  content_fidelity: '내용 충실도'
 }
+
+// 미달해도 종합 판정을 막지 않는 축(advisory)은 색과 문구를 따로 준다 — 임계값이
+// 아직 소표본 기준이라 '차단'이 아니라 '보고 판단하라'는 신호로 쓴다.
+const axisText = (axis: string, value: QaAxis): string => {
+  const label = AXIS_LABEL[axis] ?? axis
+  const detail = value.metric
+    ? ` (${value.metric})`
+    : value.edge !== undefined && value.luma !== undefined
+      ? ` (엣지 ${value.edge} · 명암 ${value.luma})`
+      : ''
+  const verdict = value.passed ? '통과' : value.advisory ? '낮음' : '미달'
+  return `${label} ${value.score}${detail} ${verdict}`
+}
+
+const axisTone = (value: QaAxis): string =>
+  value.passed
+    ? 'border-emerald-400/30 text-emerald-300'
+    : value.advisory
+      ? 'border-sky-400/40 text-sky-300'
+      : 'border-amber-400/40 text-amber-300'
 
 const BUTTON =
   'rounded-lg px-3 py-1.5 text-sm bg-white/[0.06] border border-white/10 text-zinc-200 transition hover:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed'
@@ -796,12 +817,8 @@ export const createStylePipelinePanel = (
     for (const [axis, value] of Object.entries(result.qa?.axes ?? {})) {
       const chip = el(
         'span',
-        `rounded-lg border px-2 py-1 text-[11px] ${
-          value.passed
-            ? 'border-emerald-400/30 text-emerald-300'
-            : 'border-amber-400/40 text-amber-300'
-        }`,
-        `${AXIS_LABEL[axis] ?? axis} ${value.score}${value.metric ? ` (${value.metric})` : ''} ${value.passed ? '통과' : '미달'}`
+        `rounded-lg border px-2 py-1 text-[11px] ${axisTone(value)}`,
+        axisText(axis, value)
       )
       detailAxes.append(chip)
     }
@@ -861,8 +878,8 @@ export const createStylePipelinePanel = (
           axisRow.append(
             el(
               'span',
-              `text-[11px] ${value.passed ? 'text-zinc-500' : 'text-amber-400'}`,
-              `${AXIS_LABEL[axis] ?? axis} ${value.score}${value.metric ? ` (${value.metric})` : ''}`
+              `text-[11px] ${value.passed ? 'text-zinc-500' : value.advisory ? 'text-sky-400' : 'text-amber-400'}`,
+              axisText(axis, value)
             )
           )
         }

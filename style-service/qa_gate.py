@@ -5,6 +5,10 @@
 - 이음새: 경계 패치 LPIPS — `pip install lpips`가 있으면 지각 거리, 없으면
   경계 양쪽 픽셀 통계 차이(그래디언트 근사)로 폴백. 문서: "이음새를 눈이 아니라
   숫자로 보기 시작."
+- 내용 충실도: 원본과 결과의 엣지·명암 상관 — 실루엣 안쪽 '내용'이 보존됐는지.
+  위 세 축은 전부 결과물 자체나 마스크만 보므로, 모델이 입력을 무시하고 다른 그림을
+  그려도 전부 통과한다(벽돌 타일 -> 도시 풍경). 이 축만 원본과 결과를 비교한다.
+  임계값이 아직 소표본 기준이라 advisory(경고 전용)로 종합 판정에서 제외한다.
 
 각 축은 0.0(나쁨)~1.0(좋음) 점수 + 통과 여부를 돌려주고, run_qa가 종합 판정한다.
 """
@@ -20,6 +24,9 @@ import postprocess
 SILHOUETTE_IOU_MIN = 0.995   # Stage 4가 알파를 재적용하므로 사실상 1.0이어야 정상
 PALETTE_COMPLIANCE_MIN = 0.999  # 팔레트 스냅 후이므로 1.0이어야 정상
 SEAM_SCORE_MIN = 0.55        # 경계 지각 거리 기반(낮을수록 이음새 불연속이 큼)
+# 잠정값. Flux 스프라이트 20장 실측에서 내용 보존 0.77~0.92 / 재생성 0.04~0.12로 갈렸고,
+# 그 사이 구간을 잡았다. 표본이 작아 advisory로만 쓴다 — 캘리브레이션 후 차단으로 승격할 것.
+CONTENT_FIDELITY_MIN = 0.35
 
 _lpips_model = None
 _lpips_failed = False
@@ -138,6 +145,70 @@ def seam_score(image: Image.Image, tile_width: int, tile_height: int, patch: int
     }
 
 
+def _sobel_magnitude(gray: np.ndarray) -> np.ndarray:
+    """외부 의존성 없이 Sobel 엣지 강도를 계산한다(scipy/skimage 불필요)."""
+    kernel_x = np.array([[1.0, 0.0, -1.0], [2.0, 0.0, -2.0], [1.0, 0.0, -1.0]])
+
+    def correlate(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+        out = np.zeros_like(image)
+        rows, cols = image.shape
+        for i in range(3):
+            for j in range(3):
+                out[1:-1, 1:-1] += kernel[i, j] * image[i:i + rows - 2, j:j + cols - 2]
+        return out
+
+    return np.hypot(correlate(gray, kernel_x), correlate(gray, kernel_x.T))
+
+
+def _masked_correlation(a: np.ndarray, b: np.ndarray, mask: np.ndarray) -> float:
+    """마스크 안쪽에서의 피어슨 상관. 한쪽이 평탄하면 0.0, 둘 다 평탄하면 1.0."""
+    va, vb = a[mask], b[mask]
+    if va.size < 16:
+        return 1.0
+    va = va - va.mean()
+    vb = vb - vb.mean()
+    na, nb = float((va * va).sum()), float((vb * vb).sum())
+    if na <= 1e-9 and nb <= 1e-9:
+        return 1.0          # 원본도 결과도 단색 — 보존할 내용이 없다
+    if na <= 1e-9 or nb <= 1e-9:
+        return 0.0          # 한쪽만 단색 — 내용이 사라졌거나 새로 생겼다
+    return float((va * vb).sum() / np.sqrt(na * nb))
+
+
+def content_fidelity(original: Image.Image, styled: Image.Image) -> dict:
+    """실루엣 '안쪽' 내용이 원본과 얼마나 같은지.
+
+    실루엣 IoU와 팔레트 준수는 결과물만 보므로, 알파만 맞으면 안에 무엇이 그려져도
+    통과한다. 이 축은 원본과 결과의 명암·엣지 구조를 직접 비교해 그 구멍을 막는다.
+    반환: {"score", "edge", "luma", "pixels"} — score는 0~1로 클램프한 평균.
+    """
+    base = original.convert("RGBA")
+    result = styled.convert("RGBA")
+    if result.size != base.size:
+        result = result.resize(base.size, Image.NEAREST)
+
+    alpha = np.array(base.getchannel("A"))
+    mask = alpha > 0
+    if not mask.any():
+        mask = np.ones_like(alpha, dtype=bool)
+
+    gray_a = np.asarray(base.convert("L"), dtype=np.float64)
+    gray_b = np.asarray(result.convert("L"), dtype=np.float64)
+
+    luma = _masked_correlation(gray_a, gray_b, mask)
+    # 엣지는 3x3 커널이 가장자리를 못 쓰므로 마스크를 1픽셀 안쪽으로 줄인다.
+    inner = np.zeros_like(mask)
+    inner[1:-1, 1:-1] = mask[1:-1, 1:-1]
+    edge = _masked_correlation(_sobel_magnitude(gray_a), _sobel_magnitude(gray_b), inner)
+
+    return {
+        "score": float(max(0.0, min(1.0, 0.5 * edge + 0.5 * luma))),
+        "edge": round(float(edge), 4),
+        "luma": round(float(luma), 4),
+        "pixels": int(mask.sum()),
+    }
+
+
 def run_qa(
     original: Image.Image,
     styled: Image.Image,
@@ -148,9 +219,18 @@ def run_qa(
     """축별 점수 + 종합 판정. 타일 크기가 주어지면 이음새 축도 평가한다."""
     iou = silhouette_iou(original, styled)
     compliance = palette_compliance(styled, spec)
+    fidelity = content_fidelity(original, styled)
     axes = {
         "silhouette_iou": {"score": round(iou, 4), "passed": iou >= SILHOUETTE_IOU_MIN},
         "palette_compliance": {"score": round(compliance, 4), "passed": compliance >= PALETTE_COMPLIANCE_MIN},
+        # advisory=True — 점수는 남기되 종합 판정(passed)에는 반영하지 않는다.
+        "content_fidelity": {
+            "score": round(fidelity["score"], 4),
+            "passed": fidelity["score"] >= CONTENT_FIDELITY_MIN,
+            "advisory": True,
+            "edge": fidelity["edge"],
+            "luma": fidelity["luma"],
+        },
     }
     if tile_width and tile_height:
         seam = seam_score(styled, tile_width, tile_height)
@@ -160,4 +240,5 @@ def run_qa(
             "metric": seam["metric"],
             "pairs": seam["pairs"],
         }
-    return {"passed": all(axis["passed"] for axis in axes.values()), "axes": axes}
+    blocking = [axis for axis in axes.values() if not axis.get("advisory")]
+    return {"passed": all(axis["passed"] for axis in blocking), "axes": axes}
