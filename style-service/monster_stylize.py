@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image, ImageFilter
 
-import sdxl_service
+import style_backend
 
 # 게임 로더의 isPig/isSlimeForegroundPixel과 동일한 "배경" 조건. brightness=(r+g+b)/3,
 # saturation=max(r,g,b)-min(r,g,b). 전경 = NOT(배경) (+ 알파 0은 항상 배경).
@@ -46,12 +46,13 @@ def stylize_monster_sheet(
     alpha_erode: int = 0,
 ) -> Image.Image:
     """전경만 스타일, 배경은 원본 보존. 원본과 정확히 같은 크기를 반환한다."""
-    has_alpha = sdxl_service._has_alpha(sheet)
+    has_alpha = style_backend._has_alpha(sheet)
     original = sheet.convert("RGBA") if has_alpha else sheet.convert("RGB")
 
     # 전체 시트 스타일 변환(원본 크기 보존). 합성은 원본 해상도에서 한다.
-    styled = sdxl_service.style_transfer_image(
-        sheet, style_prompt, alpha=alpha, content_size=512, preserve_size=True
+    styled = style_backend.style_transfer_image(
+        sheet, style_prompt, alpha=alpha, content_size=512, alpha_erode=alpha_erode,
+        preserve_size=True
     )
 
     orig_rgb = np.array(original.convert("RGB"))

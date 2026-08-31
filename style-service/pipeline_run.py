@@ -29,7 +29,7 @@ import monster_stylize
 import object_extract
 import postprocess
 import qa_gate
-import sdxl_service
+import style_backend
 import style_spec
 import tile_stylize
 
@@ -51,22 +51,8 @@ def seamless_mode(enabled: bool):
     왼쪽 끝 바깥이 오른쪽 끝으로 이어진 것처럼 계산되어 타일 경계 연속성이 좋아진다.
     with 블록을 벗어나면 원래 모드로 복원한다.
     """
-    if not enabled:
-        yield
-        return
-    import torch
-
-    pipeline = sdxl_service._get_pipeline()
-    patched: list[tuple[torch.nn.Conv2d, str]] = []
-    for module in (*pipeline.unet.modules(), *pipeline.vae.modules()):
-        if isinstance(module, torch.nn.Conv2d) and module.padding_mode == "zeros":
-            patched.append((module, module.padding_mode))
-            module.padding_mode = "circular"
-    try:
-        yield
-    finally:
-        for module, mode in patched:
-            module.padding_mode = mode
+    del enabled
+    yield
 
 
 def _monster_key_for(path: str) -> str | None:
@@ -90,14 +76,14 @@ def _transform(original: Image.Image, path: str, category: str, spec: dict,
             return monster_stylize.stylize_monster_sheet(
                 original, prompt, monster_key, alpha=1.0, alpha_erode=alpha_erode
             )
-        return sdxl_service.style_transfer_image(
+        return style_backend.style_transfer_image(
             original, prompt, content_size=512, alpha_erode=alpha_erode,
             preserve_size=True, strength=strength,
         )
 
     seamless = category == "terrain_tile"
     with seamless_mode(seamless):
-        return sdxl_service.style_transfer_image(
+        return style_backend.style_transfer_image(
             original, prompt, content_size=512, alpha_erode=alpha_erode,
             preserve_size=True, strength=strength,
         )

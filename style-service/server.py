@@ -28,15 +28,16 @@ import anchor_service
 import asset_store
 import external_assets
 import inventory
+import kontext_client
 import pipeline_run
-import sdxl_service
+import style_backend
 import monster_stylize
 import object_extract
 import style_service_config
 import style_spec
 import tile_stylize
 
-app = FastAPI(title="SDXL img2img style-transfer service")
+app = FastAPI(title="FLUX.1 Kontext style-edit service")
 
 # 드라이브-바이 방어: multipart POST는 CORS preflight 없이 어느 웹사이트에서든 127.0.0.1로
 # 직접 보낼 수 있다(응답은 못 읽어도 쓰기는 성공). Origin 헤더가 있는 변조 요청은 로컬 출처
@@ -57,12 +58,19 @@ async def reject_foreign_origins(request, call_next):
 
 @app.get("/health")
 def health() -> dict:
-    config = style_service_config.get_config()
-    missing = [] if config["sdxl_model"] else ["SDXL model"]
+    status = kontext_client.get_runtime_status()
+    missing = []
+    if not status["cuda_available"]:
+        missing.append("CUDA")
+    if not status["hf_token_present"]:
+        missing.append("HF_TOKEN")
+    if not status["lora_file_present"]:
+        missing.append("Kontext LoRA")
     return {
         "status": "ok" if not missing else "degraded",
         "missing": missing,
-        "sdxl_model": str(config["sdxl_model"]),
+        "service": "FLUX.1-Kontext-dev",
+        **status,
     }
 
 @app.post("/style-transfer")
@@ -95,7 +103,7 @@ def style_transfer(
         return JSONResponse(status_code=422, content={"error": "?대?吏 ?뚯씪???댁꽍?????놁뒿?덈떎."})
 
     try:
-        result = sdxl_service.style_transfer_image(
+        result = style_backend.style_transfer_image(
             content_image,
             style_prompt,
             alpha=alpha,
@@ -275,7 +283,7 @@ def batch_apply(
                 path = target["path"]
                 source = Image.open(asset_store.resolve_asset_path(path))
                 source.load()
-                pending[path] = sdxl_service.style_transfer_image(
+                pending[path] = style_backend.style_transfer_image(
                     source,
                     style_prompt,
                     alpha=alpha,
@@ -288,7 +296,7 @@ def batch_apply(
                 meta = object_extract.read_meta(key)
                 cutout = Image.open(io.BytesIO(object_extract.read_png(key)))
                 cutout.load()
-                styled = sdxl_service.style_transfer_image(
+                styled = style_backend.style_transfer_image(
                     cutout,
                     style_prompt,
                     alpha=alpha,
@@ -557,7 +565,7 @@ def ext_apply(payload: dict = Body(...)):
         return JSONResponse(status_code=422, content={"error": "source image is too large"})
 
     try:
-        result = sdxl_service.style_transfer_image(
+        result = style_backend.style_transfer_image(
             source, style_prompt, alpha=float(alpha), alpha_erode=alpha_erode, preserve_size=True
         )
     except FileNotFoundError as error:
@@ -603,7 +611,7 @@ def ext_batch_apply(
             source.load()
             if not _ext_area_ok(source):
                 raise ValueError("source image is too large")
-            result = sdxl_service.style_transfer_image(
+            result = style_backend.style_transfer_image(
                 source, style_prompt, alpha=alpha, alpha_erode=alpha_erode, preserve_size=True
             )
             buffer = io.BytesIO()

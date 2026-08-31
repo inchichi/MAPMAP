@@ -224,7 +224,7 @@ export const createStylePipelinePanel = (
   strengthSweepInput.placeholder = '예: 0.2, 0.3, 0.4'
   strengthSweepInput.disabled = true
   const strengthSweepLabel = el('label', 'flex items-center gap-1.5 text-[12px] text-zinc-300')
-  strengthSweepLabel.append(strengthSweepCheckbox, document.createTextNode('Strength 스윕'))
+  strengthSweepLabel.append(strengthSweepCheckbox, document.createTextNode('edit intensity 스윕'))
   strengthSweepRow.append(
     strengthSweepLabel,
     strengthSweepInput,
@@ -278,7 +278,7 @@ export const createStylePipelinePanel = (
     syncGates()
     setStatus(
       strengthSweepCheckbox.checked
-        ? 'Strength 스윕 모드: 입력한 강도별 결과를 카드로 비교합니다.'
+        ? 'edit intensity 스윕 모드: 입력한 강도별 결과를 카드로 비교합니다.'
         : ''
     )
   })
@@ -296,7 +296,7 @@ export const createStylePipelinePanel = (
       paletteRow.append(swatch)
     }
     paletteRow.append(
-      el('span', 'text-[11px] text-zinc-500', `강도 ${currentSpec.style_strength} · immutable: ${currentSpec.immutable.join(', ')}`)
+      el('span', 'text-[11px] text-zinc-500', `edit intensity ${currentSpec.style_strength} · immutable: ${currentSpec.immutable.join(', ')}`)
     )
   }
 
@@ -931,7 +931,7 @@ export const createStylePipelinePanel = (
       el(
         'p',
         'text-[12px] text-zinc-300',
-        `Strength 스윕 완료 · 결과 ${results.length}개 · QA 통과 ${qaPassed} · 오류 ${failed}`
+        `edit intensity 스윕 완료 · 결과 ${results.length}개 · QA 통과 ${qaPassed} · 오류 ${failed}`
       )
     )
     const grid = el('div', 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3')
@@ -956,7 +956,7 @@ export const createStylePipelinePanel = (
       const info = el('div', 'mt-2 flex flex-col gap-1')
       const strength = result.strength !== undefined ? result.strength.toFixed(2) : '?'
       info.append(
-        el('span', 'text-[12px] font-semibold text-zinc-200', `${resultName(result)} · strength ${strength}`)
+        el('span', 'text-[12px] font-semibold text-zinc-200', `${resultName(result)} · edit intensity ${strength}`)
       )
       if (result.error) {
         info.append(el('span', 'text-[11px] text-red-400', result.error))
@@ -1041,7 +1041,7 @@ export const createStylePipelinePanel = (
     const styleId = savedStyleId
     const sweepStrengths = strengthSweepCheckbox.checked ? parseSweepStrengths() : undefined
     if (strengthSweepCheckbox.checked && !sweepStrengths) {
-      setStatus('Strength는 0.1~0.9 범위에서 최대 8개까지 입력하세요.', true)
+      setStatus('edit intensity는 0.1~0.9 범위에서 최대 8개까지 입력하세요.', true)
       return
     }
     runButton.disabled = true
@@ -1051,11 +1051,11 @@ export const createStylePipelinePanel = (
         if (sweepStrengths) {
           const reports: PipelineReport[] = []
           for (const [index, strength] of sweepStrengths.entries()) {
-            setStatus(`Strength ${strength.toFixed(2)} 실행 중 (${index + 1}/${sweepStrengths.length}) — GPU 작업…`)
+            setStatus(`edit intensity ${strength.toFixed(2)} 실행 중 (${index + 1}/${sweepStrengths.length}) — GPU 작업…`)
             reports.push(await requestPipeline(styleId, strength))
           }
           renderSweepReport(reports)
-          setStatus('Strength 스윕 완료 — 카드 그리드에서 결과를 비교하세요.')
+          setStatus('edit intensity 스윕 완료 — 카드 그리드에서 결과를 비교하세요.')
           return
         }
 

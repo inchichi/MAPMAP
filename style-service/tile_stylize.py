@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from PIL import Image
 
-import sdxl_service
+import style_backend
 
 # 픽셀아트 타일은 원본이 매우 작아(타일 몇 장 = 수십 px) 그대로는 스타일 통계가 빈약하다.
 # 정수배 NEAREST 업스케일(픽셀 경계 유지) 후 변환하고, BOX 다운스케일로 되돌린다.
@@ -145,7 +145,7 @@ def stylize_tiles(
     )
     base = Image.new("RGB", work.size, _BACKGROUND_GRAY)
     base.paste(work, mask=work.getchannel("A"))
-    result_rgb = sdxl_service.style_transfer_image(
+    result_rgb = style_backend.style_transfer_image(
         base, style_prompt, alpha=alpha, content_size=0, strength=strength
     )
     # VGG가 8배 다운/업샘플(ceil)이라 출력이 입력보다 약간 클 수 있다 — 원래 크기로 자른다.
@@ -155,7 +155,7 @@ def stylize_tiles(
 
     # 3) 알파: 조립 캔버스 전체에서 침식한다 — 타일 경계가 맞닿은 안쪽(불투명)은 깎이지
     #    않고 오브젝트의 진짜 외곽(투명 경계)만 깎여, 타일별 침식 때 생기는 이음새가 없다.
-    object_alpha = sdxl_service.erode_alpha(canvas.getchannel("A"), alpha_erode)
+    object_alpha = style_backend.erode_alpha(canvas.getchannel("A"), alpha_erode)
 
     # 오브젝트 미리보기: 변환 RGB + (침식된) 원본 알파 — 모양 보존.
     preview = result_rgb.convert("RGBA")
