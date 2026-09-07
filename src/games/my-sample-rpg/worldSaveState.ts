@@ -12,6 +12,7 @@ export type WorldSaveState = {
   version: number
   sceneId: string
   questProgressByQuestId: Record<string, QuestProgress>
+  collectedCoinTileKeysBySceneId: Record<string, string[]>
 }
 
 const QUEST_STATUSES: ReadonlySet<string> = new Set([
@@ -54,14 +55,40 @@ const normalizeQuestProgress = (
   }
 }
 
+// 획득한 코인 키 목록은 버전 1 스키마에 추가된 필드다. 필드가 없는 기존
+// 세이브는 빈 객체로 정규화되므로 버전을 올리지 않는다(올리면 세이브 폐기).
+const normalizeCollectedCoinTileKeys = (
+  value: unknown
+): Record<string, string[]> => {
+  if (!isRecord(value)) {
+    return {}
+  }
+
+  const collectedBySceneId: Record<string, string[]> = {}
+
+  for (const [sceneId, keys] of Object.entries(value)) {
+    if (!Array.isArray(keys)) {
+      continue
+    }
+
+    collectedBySceneId[sceneId] = [
+      ...new Set(keys.filter((key): key is string => typeof key === 'string'))
+    ]
+  }
+
+  return collectedBySceneId
+}
+
 export const serializeWorldSaveState = (input: {
   sceneId: string
   questLog: QuestLogState
+  collectedCoinTileKeysBySceneId: Record<string, string[]>
 }): string =>
   JSON.stringify({
     version: WORLD_SAVE_STATE_VERSION,
     sceneId: input.sceneId,
-    questProgressByQuestId: input.questLog.progressByQuestId
+    questProgressByQuestId: input.questLog.progressByQuestId,
+    collectedCoinTileKeysBySceneId: input.collectedCoinTileKeysBySceneId
   } satisfies WorldSaveState)
 
 export const parseStoredWorldSaveState = (
@@ -104,6 +131,9 @@ export const parseStoredWorldSaveState = (
   return {
     version: WORLD_SAVE_STATE_VERSION,
     sceneId: parsed.sceneId,
-    questProgressByQuestId
+    questProgressByQuestId,
+    collectedCoinTileKeysBySceneId: normalizeCollectedCoinTileKeys(
+      parsed.collectedCoinTileKeysBySceneId
+    )
   }
 }

@@ -291,6 +291,9 @@ let questLog = storedWorldState
       }
     })
   : createInitialQuestLog()
+// 씬별로 이미 획득한 바닥 코인 타일 키 — 다시 방문해도 사라진 채 유지된다.
+let collectedCoinTileKeysBySceneId: Record<string, string[]> =
+  storedWorldState?.collectedCoinTileKeysBySceneId ?? {}
 // 에디터가 생성·주입한 동적 퀘스트를 런타임 퀘스트 엔진에 등록하고, 진행도 항목을 채운다.
 // 부팅 전에 questLog를 갱신해야 bootstrapScene이 그걸 렌더러로 넘긴다(배지·추적·완료 전부 작동).
 const applyPendingQuests = (): void => {
@@ -421,6 +424,18 @@ const bootstrapScene = async (
     },
     onQuestLogChange: (nextQuestLog) => {
       questLog = nextQuestLog
+      saveWorldState()
+    },
+    collectedCoinTileKeys: collectedCoinTileKeysBySceneId[sceneId] ?? [],
+    onCoinPileCollected: (tileKey) => {
+      const collected = collectedCoinTileKeysBySceneId[sceneId] ?? []
+
+      if (!collected.includes(tileKey)) {
+        collectedCoinTileKeysBySceneId = {
+          ...collectedCoinTileKeysBySceneId,
+          [sceneId]: [...collected, tileKey]
+        }
+      }
       saveWorldState()
     },
     onMerchantInventoryChange: (nextInventory) => {
@@ -1009,7 +1024,11 @@ function saveWorldState(): void {
   try {
     window.localStorage.setItem(
       WORLD_SAVE_STATE_STORAGE_KEY,
-      serializeWorldSaveState({ sceneId: activeSceneId, questLog })
+      serializeWorldSaveState({
+        sceneId: activeSceneId,
+        questLog,
+        collectedCoinTileKeysBySceneId
+      })
     )
   } catch {
     // localStorage 사용 불가 시 조용히 건너뛴다.

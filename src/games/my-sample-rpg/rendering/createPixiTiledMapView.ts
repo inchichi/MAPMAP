@@ -41,6 +41,7 @@ import {
   type GameEvent
 } from '../events/createGameEventQueue'
 import type { EventReward, HolidayDialogueEventSpec } from '../eventGeneration'
+import { createCoinPileTileKey, getCoinPileGoldAmount } from '../coinPiles'
 import { processInteractionEvents } from '../interaction/processInteractionEvents'
 import {
   getEquippedPlayerAttackBonus,
@@ -233,6 +234,9 @@ type CreatePixiTiledMapViewInput = {
     nextControlBindings: PlayerControlBindings
   ) => void
   onQuestLogChange: (nextQuestLog: QuestLogState) => void
+  // 이 씬에서 이미 획득한 바닥 코인 타일 키(`x,y`) — 렌더에서 제외된다.
+  collectedCoinTileKeys: readonly string[]
+  onCoinPileCollected: (tileKey: string) => void
   onMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   onPotionMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   audioSettings: AudioSettings
@@ -621,6 +625,8 @@ const MONSTER_GOLD_DROP_AMOUNT_TEXT_STYLE = new TextStyle({
 })
 const MONSTER_GOLD_DROP_PICKUP_WIDTH = 14
 const MONSTER_GOLD_DROP_PICKUP_HEIGHT = 14
+const COIN_PILE_PICKUP_WIDTH = 20
+const COIN_PILE_PICKUP_HEIGHT = 20
 const MONSTER_EQUIPMENT_DROP_RENDER_SIZE = 24
 const MONSTER_EQUIPMENT_DROP_PICKUP_WIDTH = 20
 const MONSTER_EQUIPMENT_DROP_PICKUP_HEIGHT = 20
@@ -1036,6 +1042,8 @@ export const createPixiTiledMapView = async ({
   onPlayerSkillSlotsChange,
   onPlayerControlBindingsChange,
   onQuestLogChange,
+  collectedCoinTileKeys,
+  onCoinPileCollected,
   onMerchantInventoryChange,
   onPotionMerchantInventoryChange,
   audioSettings,
@@ -1241,6 +1249,13 @@ export const createPixiTiledMapView = async ({
   >()
   const monsterGoldDrops = new Map<string, MonsterGoldDrop>()
   const monsterEquipmentDrops = new Map<string, MonsterEquipmentDrop>()
+  // 맵에 배치된 바닥 코인 더미(shadow_lower 레이어의 cave_prop_gold_* 타일).
+  // CompositeTilemap 은 타일 단위 제거가 불가능해 개별 스프라이트로 분리해 둔다.
+  const coinPileSprites = new Map<
+    string,
+    { sprite: Sprite; goldAmount: number; tileX: number; tileY: number }
+  >()
+  const collectedCoinTileKeySet = new Set(collectedCoinTileKeys)
   const renderedCharacters = new Map<string, RenderedCharacterNode>()
   const renderedPortals = new Map<string, RenderedPortalNode>()
   const characterPixelWidth =
@@ -2981,6 +2996,7 @@ export const createPixiTiledMapView = async ({
 
     const tilemap = new CompositeTilemap()
     const transformedTileLayer = new Container()
+    const coinPileLayer = new Container()
 
     tilemap.label = `layer:${layer.name}`
     tilemap.alpha = layer.opacity
@@ -2988,6 +3004,7 @@ export const createPixiTiledMapView = async ({
     transformedTileLayer.label = `layer:${layer.name}:transforms`
     transformedTileLayer.alpha = layer.opacity
     transformedTileLayer.visible = layer.visible
+    coinPileLayer.label = `layer:${layer.name}:coin-piles`
 
     for (const tile of layer.tiles) {
       const tileset = resolveTilesetForTile(tile, map.tilesets)
@@ -2995,6 +3012,43 @@ export const createPixiTiledMapView = async ({
 
       if (!renderResources) {
         throw new Error(`Missing render resources for tileset ${tileset.source}`)
+      }
+
+      // 획득 가능한 코인 타일은 CompositeTilemap 에 굽지 않고 개별 스프라이트로
+      // 분리해, 획득 시 그 타일만 제거할 수 있게 한다.
+      const coinGoldAmount = getCoinPileGoldAmount(tileset.tileTypes[tile.localId])
+
+      if (coinGoldAmount !== undefined) {
+        const tileKey = createCoinPileTileKey(tile.x, tile.y)
+
+        if (collectedCoinTileKeySet.has(tileKey)) {
+          continue
+        }
+
+        // 뒤집힌 타일은 기존 transform 스프라이트 경로로 방향을 보존한다
+        // (anchor 가 달라지므로 픽업 판정은 스프라이트가 아닌 타일 좌표로 계산).
+        const coinSprite = hasTileTransform(tile)
+          ? createTransformedTileSprite(
+              renderResources.tileTextures[tile.localId],
+              tile,
+              map.tileWidth,
+              map.tileHeight
+            )
+          : new Sprite(renderResources.tileTextures[tile.localId])
+
+        if (!hasTileTransform(tile)) {
+          coinSprite.position.set(tile.x * map.tileWidth, tile.y * map.tileHeight)
+        }
+        coinSprite.alpha = layer.opacity
+        coinSprite.visible = layer.visible
+        coinPileLayer.addChild(coinSprite)
+        coinPileSprites.set(tileKey, {
+          sprite: coinSprite,
+          goldAmount: coinGoldAmount,
+          tileX: tile.x,
+          tileY: tile.y
+        })
+        continue
       }
 
       if (hasTileTransform(tile)) {
@@ -3018,6 +3072,7 @@ export const createPixiTiledMapView = async ({
 
     world.addChild(tilemap)
     world.addChild(transformedTileLayer)
+    world.addChild(coinPileLayer)
   }
 
   if (!depthSortedLayer) {
@@ -4535,6 +4590,56 @@ export const createPixiTiledMapView = async ({
       drop.container.removeFromParent()
       drop.container.destroy({ children: true })
       monsterGoldDrops.delete(dropId)
+    }
+  }
+
+  // 맵 바닥 코인 더미 위를 밟으면 골드를 획득하고 타일 스프라이트를 제거한다.
+  const resolveCoinPilePickups = () => {
+    if (coinPileSprites.size === 0) {
+      return
+    }
+
+    const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
+    const playerRect = {
+      x: playerCharacter.position.x * map.tileWidth,
+      y: playerCharacter.position.y * map.tileHeight,
+      width: playerCharacter.collisionSize.width * map.tileWidth,
+      height: playerCharacter.collisionSize.height * map.tileHeight
+    }
+
+    for (const [tileKey, coinPile] of coinPileSprites) {
+      const coinRect = {
+        x:
+          (coinPile.tileX + 0.5) * map.tileWidth -
+          COIN_PILE_PICKUP_WIDTH / 2,
+        y:
+          (coinPile.tileY + 0.5) * map.tileHeight -
+          COIN_PILE_PICKUP_HEIGHT / 2,
+        width: COIN_PILE_PICKUP_WIDTH,
+        height: COIN_PILE_PICKUP_HEIGHT
+      }
+
+      if (!doCollisionRectsIntersect(playerRect, coinRect)) {
+        continue
+      }
+
+      currentPlayerInventory = {
+        ...currentPlayerInventory,
+        gold: currentPlayerInventory.gold + coinPile.goldAmount
+      }
+      onPlayerInventoryChange(currentPlayerInventory)
+      showCharacterDamageText(
+        PLAYER_CHARACTER_ID,
+        `+${coinPile.goldAmount} 골드`,
+        EVADE_TEXT_DURATION_MILLISECONDS,
+        EVADE_TEXT_STYLE
+      )
+      syncPlayerUiOverlays()
+      coinPile.sprite.removeFromParent()
+      coinPile.sprite.destroy()
+      coinPileSprites.delete(tileKey)
+      collectedCoinTileKeySet.add(tileKey)
+      onCoinPileCollected(tileKey)
     }
   }
 
@@ -6082,6 +6187,7 @@ export const createPixiTiledMapView = async ({
       resolveMonsterContactDamage(now)
       resolveMonsterGoldDropPickups()
       resolveMonsterEquipmentDropPickups()
+      resolveCoinPilePickups()
       syncActiveMonsterGoldDrops(now)
       syncActiveMonsterEquipmentDrops(now)
 
@@ -7010,6 +7116,10 @@ export const createPixiTiledMapView = async ({
       monsterEquipmentDrop.container.destroy({ children: true })
     }
     monsterEquipmentDrops.clear()
+    for (const coinPile of coinPileSprites.values()) {
+      coinPile.sprite.destroy()
+    }
+    coinPileSprites.clear()
     monsterPigAnimatedSprites.clear()
     monsterPigAnimationModes.clear()
     monsterPigBehaviorStates.clear()
