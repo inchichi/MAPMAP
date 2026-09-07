@@ -1,16 +1,22 @@
-"""동굴(cave.tmx) 보스 소굴 생성기 — DCSS 타일 기반.
+"""동굴(cave.tmx) 보스 소굴 생성기 — LPC 타일 기반.
 
-디자인: "The Sundered Foundry" 지형(심사 패널 우승안) + DCSS(Dungeon Crawl
-Stone Soup, 퍼블릭 도메인) 동굴 어휘. 타일은 scripts/append-dcss-cave-tiles.py가
-town-32 시트에 덧붙인 cave_* 타일을 쓴다(gid 매핑: scripts/dcss-cave-gids.json).
+디자인: "The Sundered Foundry" 지형(심사 패널 우승안)은 그대로, 타일 어휘를
+DCSS에서 LPC(OpenGameArt, town-32와 같은 부드러운 32px 계열)로 교체했다.
+타일은 scripts/append-cave-tiles.py가 town-32 시트에 덧붙인 cave_* 타일을
+쓴다(gid 매핑: scripts/lpc-cave-gids.json).
 
   서쪽 이끼 현관 → 협곡 핀치 → 문지기(말캉이) 굴 앞 제단 → 수정 골방(보상)
-  → 전망대 허브 → 탁한 심연 호수 위 석회암 둑길 → 부서진 관문 → 해골 벽과
-  혈흔 바닥의 최종 아레나(꿀꿀이) — 금화 더미와 황금 우상이 그의 전리품이다.
+  → 전망대 허브 → 심연 호수 위 석회암 둑길 → 황금 기둥 관문 → 최종 아레나
+  (꿀꿀이) — 황금 제단과 금화 더미가 그의 전리품이다.
+
+자연스러운 경계가 핵심이다: 재질을 칸이 아니라 코너 격자(35x35)에 얹고,
+각 칸은 네 코너의 재질 조합으로 LPC 전환 타일을 고른다(사냥터의 잔디↔흙
+경계와 같은 유기적 디더 경계가 벽↔바닥을 포함한 모든 재질 경계에 생긴다).
+벽은 ground 레이어에 평면 암반 덩어리로 그리고, 충돌은 object 레이어의
+투명 블록(INVISIBLE_BLOCK)이 담당한다.
 
 town.tmx 레이어 규약(ground/shadow_lower/object/shadow_upper/object_upper/
-deco/roof)을 따른다. object = 충돌 + 캐릭터와 y-정렬. DCSS 벽 그림자
-(cave_shadow_*)를 shadow_lower에 깔아 벽이 바닥 위로 솟은 입체로 읽히게 한다.
+deco/roof)을 따른다. object = 충돌 + 캐릭터와 y-정렬.
 
 이 씬은 sceneIntro '동굴' 문자열로 보스 씬 판정되어 몬스터가 2배 스케일로
 렌더된다 — 모든 동선은 3폭 이상, 두 보스 주변 5x5는 완전 개방을 보장한다.
@@ -22,7 +28,7 @@ import re
 from collections import deque
 
 SRC = 'src/games/my-sample-rpg/assets/maps/cave.tmx'
-GIDS_PATH = 'scripts/dcss-cave-gids.json'
+GIDS_PATH = 'scripts/lpc-cave-gids.json'
 W = H = 34
 
 # ---------------------------------------------------------------- 지형 원본
@@ -71,48 +77,22 @@ assert len(GRID) == H and all(len(r) == W for r in GRID)
 
 G = json.load(open(GIDS_PATH))   # cave_* 이름 → gid
 
-# ---- 팔레트(전부 DCSS, 시각 검증 완료) ----
-FLOOR_PEBBLE = [G[f'cave_floor_pebble_{i:02d}'] for i in range(9)]
-FLOOR_MOSS = [G[f'cave_floor_moss_{i:02d}'] for i in range(4)]
-FLOOR_BOG = [G[f'cave_floor_bog_{i:02d}'] for i in range(4)]
-FLOOR_LIME = [G[f'cave_floor_limestone_{i:02d}'] for i in range(6)]
-FLOOR_BLOOD_CLEAN = [G[f'cave_floor_blood_{i:02d}'] for i in range(8)]    # 옅은 얼룩
-FLOOR_BLOOD_HEAVY = [G[f'cave_floor_blood_{i:02d}'] for i in range(8, 12)]  # 짙은 혈흔
-FLOOR_CRYSTAL = [G[f'cave_floor_crystal_{i:02d}'] for i in range(3)]
+# ---- 재질(=LPC 지형 이름). 코너 동률은 뒤쪽(높은 우선순위)이 이긴다 ----
+DB, DT, GD, MB, GV = 'Dirt_Brown', 'Dirt_Tan', 'Grass_Dark', 'Mud_Brown', 'Gravel_1'
+ST, SW, MBr, MG = 'Stone_Tan', 'Stone_White', 'Mudstone_Brown', 'Mudstone_Gray'
+WT, WD, HB = 'Water', 'Water_Deep', 'Hole_Black'
+RG, RD, RB = 'Rock_Gray', 'Rock_Dark', 'Rock_Black'
+PRIORITY = [DB, DT, GD, MB, GV, ST, SW, MBr, MG, WT, WD, HB, RG, RD, RB]
+PRI = {m: i for i, m in enumerate(PRIORITY)}
+WALLS_M = {RG, RD, RB}
+# 코너 조합이 벤더에 없을 때의 강등 사슬 — 끝은 어디와도 어울리는 DB/RB
+FALLBACK = {SW: DT, ST: DT, MBr: MG, MG: DT, GD: DB, MB: DB, GV: DB,
+            DT: DB, WD: WT, WT: DB, HB: RB, RG: RB, RD: RB}
 
-WALL_LAIR = [G['cave_wall_lair_00'], G['cave_wall_lair_01'], G['cave_wall_lair_02']]
-WALL_LAIR_VINE = G['cave_wall_lair_vine']
-WALL_SLIME = [G[f'cave_wall_slime_{i:02d}'] for i in range(3)]
-WALL_CATA = [G[f'cave_wall_catacombs_{i:02d}'] for i in range(5)]
-WALL_CATA_SKULL = [G['cave_wall_catacombs_skull_00'], G['cave_wall_catacombs_skull_01']]
-WALL_CRYPT = G['cave_wall_crypt_00']
-WALL_CANDLE = [G['cave_wall_crypt_candle_00'], G['cave_wall_crypt_candle_01']]
-WALL_CRYSTAL = [G['cave_wall_crystal_00'], G['cave_wall_crystal_01']]
-WALL_CRYSTAL_GLOW = [G['cave_wall_crystal_lightblue'], G['cave_wall_crystal_lightgreen']]
-
-SHADOW_N, SHADOW_W, SHADOW_NW, SHADOW_NE = (
-    G['cave_shadow_n'], G['cave_shadow_w'], G['cave_shadow_nw'], G['cave_shadow_ne'])
-
-WATER = [G['cave_water_deep_00'], G['cave_water_deep_01']]  # 파란 깊은 물 — 이끼 바닥과 확실히 구분
-BORD = {d: G[f'cave_water_bord_{d}'] for d in ('top', 'btm', 'lft', 'rgt', 'tl', 'tr', 'bl', 'br')}
-
-GATE_BROKEN = [G['cave_gate_broken_left'], G['cave_gate_broken_middle'], G['cave_gate_broken_right']]
-ARCH_HELL = G['cave_arch_hell']
-BURROW = G['cave_burrow']
-
-BRAZIER = [G['cave_brazier_00'], G['cave_brazier_01']]
-ALTAR_SLIME = G['cave_altar_slime']
-ALTAR_SKULLS = G['cave_altar_skulls']
-STATUE_BUST = G['cave_statue_bust']
-IDOL_GOLD = G['cave_idol_gold']
-COLUMNS_ = [G['cave_column_00'], G['cave_column_01'], G['cave_column_02']]
-MOULD = [G['cave_mould_00'], G['cave_mould_01']]
-GOLD = [G[f'cave_gold_{i:02d}'] for i in range(4)]
-WEB = {d: G[f'cave_web_{d}'] for d in ('ne', 'nw', 'se', 'sw')}
-SLIME_OV = {d: G[f'cave_slime_overlay_{d}'] for d in ('e', 'n', 'ne', 'nw', 's', 'se', 'sw', 'w')}
-
-SHADE = 64          # town-32의 반투명 어둠 — 아치 문턱/남단 그라데이션에 계속 쓴다
-VIGNETTE = 503
+INVISIBLE_BLOCK = 302   # 완전 투명 타일 — 보이지 않는 충돌만 남긴다
+SHADE = 64              # town-32의 반투명 어둠
+ROCK_PILE = [527, 528]  # town-32 기본 바위 더미 — 사냥터와 같은 소품
+CRYSTAL_TOWN = 494      # town-32 파란 수정 덩어리(사냥터 남쪽 자갈밭과 동일)
 
 LAYER_NAMES = ['ground', 'shadow_lower', 'object', 'shadow_upper',
                'object_upper', 'deco', 'roof']
@@ -154,191 +134,277 @@ def zone(x, y):
     return 'cave'
 
 
-# ---------------------------------------------------------------- ground
+# ---------------------------------------------------------------- 칸 재질 결정
+MAT = [[None] * W for _ in range(H)]
 for y in range(H):
     for x in range(W):
         ch = at(x, y)
-        if ch in VOID_CHARS:
-            put('ground', x, y, WATER[0] if rnd.random() < 0.7 else WATER[1])
-            continue
         z = zone(x, y)
-        # 벽 밑에도 바닥을 깔아 둔다(타일 가장자리 틈 방지)
-        if ch in 's1':
-            gid = FLOOR_LIME[rnd.randrange(4)]          # 제단/둑길 — 밝은 석회암
-        elif ch in 'bg':
-            gid = FLOOR_LIME[3 + rnd.randrange(3)]      # 관문 앞 — 낡은 석회암
-        elif ch == 'm':
-            gid = FLOOR_BLOOD_CLEAN[rnd.randrange(8)]   # 혈흔 무대(짙은 얼룩은 아래서)
-        elif ch == '2':
-            gid = FLOOR_BLOOD_HEAVY[1]                  # 보스 앵커 — 가장 짙은 자국
+        if ch in '#%':
+            m = {'arena': RD}.get(z, RB)   # 그로토 벽은 아래서 바닥 근처만 밝힌다
+        elif ch == '~':
+            m = WT                      # 깊이는 아래서 다시 나눈다
+        elif ch in 's1':
+            m = SW if y >= 20 else ST   # 둑길 스판은 흰 석회암, 제단은 황갈 석판
+        elif ch == 'b':
+            m = DB if y <= 24 else MG   # 호숫가 문턱은 흙, 아레나 앞마당은 잿빛 돌
+        elif ch == 'g':
+            m = MG
+        elif ch in 'm2':
+            m = MBr
+        elif ch == ',':
+            m = GD
         elif z == 'arena':
-            gid = FLOOR_BLOOD_CLEAN[rnd.randrange(4)]   # 아레나 전체가 자갈 포장
-        elif z == 'foyer':
-            gid = FLOOR_MOSS[rnd.randrange(4)]          # 바깥 숲의 이끼가 스며든 현관
+            m = MG
+        elif z == 'grotto':
+            m = GV
         else:
-            gid = FLOOR_PEBBLE[rnd.randrange(9)]
-        put('ground', x, y, gid)
+            m = DB
+        MAT[y][x] = m
 
-# 말캉이 서식 고리 — 제단 석회암 둘레 한 겹은 늪으로(슬라임이 헤집은 땅)
-for y in range(6, 11):
-    for x in range(14, 19):
-        if not (15 <= x <= 17 and 7 <= y <= 9):
-            put('ground', x, y, FLOOR_BOG[rnd.randrange(4)])
+# 관문 좌우 벽(x14-20, y24-27)은 아레나 존이라도 검은 암반으로 — 통로 바닥(MG)과
+# 잿빛 벽(RD)이 코너에서 섞이는 것을 줄여 관문이 어두운 목구멍처럼 읽힌다
+for y in range(24, 28):
+    for x in range(14, 21):
+        if is_wall(x, y):
+            MAT[y][x] = RB
 
-# 현관 이끼가 통로 쪽으로 번지다 끊긴다 — 재질 경계를 흐리는 소량의 침식
-for y in range(9, 13):
-    for x in range(10, 14):
-        if is_floor(x, y) and rnd.random() < 0.35:
-            put('ground', x, y, FLOOR_MOSS[rnd.randrange(4)])
-
-# 짙은 혈흔은 보스 주변에 집중 — '여기서 수없이 싸웠다'
-for y in range(H):
-    for x in range(W):
-        if at(x, y) != 'm':
-            continue
-        if abs(x - 21) <= 1 and abs(y - 29) <= 1:
-            if rnd.random() < 0.7:
-                put('ground', x, y, FLOOR_BLOOD_HEAVY[rnd.randrange(4)])
-        elif rnd.random() < 0.15:
-            put('ground', x, y, FLOOR_BLOOD_HEAVY[rnd.randrange(4)])
-
-# 수정 골방 바닥 — 발광 수정 무늬가 군데군데
-for x, y in ((27, 4), (29, 5), (28, 7), (26, 5), (30, 3)):
-    if is_floor(x, y):
-        put('ground', x, y, FLOOR_CRYSTAL[rnd.randrange(3)])
-
-# ---------------------------------------------------------------- object: 벽
+# 그로토 벽은 바닥에 면한 두 겹만 밝은 회색 암반 — 수정 광맥이 박힌 골방 분위기,
+# 구석까지 온통 밝아지는 것은 막는다
 grotto_floor = [(x, y) for y in range(H) for x in range(W)
                 if zone(x, y) == 'grotto' and is_floor(x, y)]
-
-
-def near_grotto(x, y):
-    return any(abs(x - fx) <= 1 and abs(y - fy) <= 1 for fx, fy in grotto_floor)
-
-
 for y in range(H):
     for x in range(W):
-        if not is_wall(x, y):
+        if MAT[y][x] == RB and zone(x, y) == 'grotto' and any(
+                abs(x - fx) <= 2 and abs(y - fy) <= 2 for fx, fy in grotto_floor):
+            MAT[y][x] = RG
+
+# 말캉이 서식 고리 — 제단 석판 둘레 두 겹은 늪으로(슬라임이 헤집은 땅).
+# 중앙 회랑의 이끼(,)가 통째로 초록 슬래브로 읽히는 것도 이 늪이 끊어준다
+for y in range(5, 12):
+    for x in range(13, 20):
+        if not (15 <= x <= 17 and 7 <= y <= 9) and is_floor(x, y):
+            MAT[y][x] = MB
+
+# 굴 아가리: 벽 속의 검은 구멍(HB↔RB 유기 전환). 그로토 쪽 굴은 주변 벽을
+# 검은 암반으로 바꿔 HB와 어울리게 한다
+MAT[2][16] = HB
+for yy in range(1, 4):
+    for xx in range(28, 31):
+        MAT[yy][xx] = RB
+MAT[2][29] = HB
+
+# 심연 호수 깊이: 물가에서 두 칸 이상 떨어진 물은 짙은 심연.
+# 벽에 붙은 물가는 흙 비탈로 — 암반↔물 직접 전환 타일이 없기도 하지만,
+# 가파른 흙 둔덕이 호숫가답기도 하다(충돌은 그대로 물이다).
+for y in range(H):
+    for x in range(W):
+        if at(x, y) != '~':
             continue
-        if y >= 24:
-            # 관문 성벽/아레나 — 해골 납골당 석벽
-            r = rnd.random()
-            gid = WALL_CRYPT if r < 0.08 else WALL_CATA[rnd.randrange(5)]
-        elif zone(x, y) == 'grotto' and near_grotto(x, y):
-            # 골방에 면한 벽에 수정이 '박혀' 있다 — 전면 크리스탈은 얼음궁전처럼 보여
-            # 암벽 사이 광맥처럼 드문드문만
-            r = rnd.random()
-            gid = (WALL_CRYSTAL_GLOW[rnd.randrange(2)] if r < 0.1
-                   else WALL_CRYSTAL[rnd.randrange(2)] if r < 0.32
-                   else WALL_LAIR[rnd.randrange(3)])
-        elif 13 <= x <= 19 and y <= 2:
-            # 굴 아가리 둘레 — 슬라임이 삭힌 바위
-            gid = WALL_SLIME[rnd.randrange(3)]
-        else:
-            r = rnd.random()
-            gid = WALL_LAIR_VINE if r < 0.06 else WALL_LAIR[rnd.randrange(3)]
-        put('object', x, y, gid)
+        if any(is_wall(x + dx, y + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
+            MAT[y][x] = DB
+        elif all(at(x + dx, y + dy) == '~' and MAT[y + dy][x + dx] != DB
+                 for dx in (-1, 0, 1) for dy in (-1, 0, 1) if (dx, dy) != (0, 0)):
+            MAT[y][x] = WD
 
-# 아레나 북벽의 해골 상감 — 보스 등 뒤로 해골들이 박혀 있다
-# (x16-18은 관문 통로라 절대 밟지 않는다)
-for x, wx in ((15, 0), (22, 1), (27, 0), (29, 1)):
-    put('object', x, 26, WALL_CATA_SKULL[wx])
-# 촛불 벽감 — 관문 좌우와 옥좌벽
-for x, wx in ((14, 0), (20, 1), (26, 0)):
-    put('object', x, 26, WALL_CANDLE[wx])
+# 본굴 바닥에 이끼가 스미는 얼룩 — 현관에서 통로 쪽으로 번지다 끊긴다
+for cx, cy, r in ((11, 10, 2), (15, 13, 1), (17, 15, 1), (20, 4, 1)):
+    for y in range(cy - r, cy + r + 1):
+        for x in range(cx - r, cx + r + 1):
+            if is_floor(x, y) and MAT[y][x] == DB and rnd.random() < 0.8:
+                MAT[y][x] = GD
 
-# 굴 아가리(말캉이의 굴 · 골방의 옆굴) — 이끼 낀 통나무 굴 입구
-put('object', 16, 2, BURROW)
-put('object', 29, 2, BURROW)
+# 벽 앞치마: 벽 재질과 전환 타일이 없는 바닥 재질이 벽에 닿으면 그 존의
+# 기본 흙/돌로 바꾼다 — 암반은 맨땅과 만나는 게 자연스럽기도 하다
+VENDORED_WALL_PAIRS = {(RB, DB), (RB, DT), (RB, GV), (RB, HB), (RB, RD), (RB, RG),
+                       (RD, DB), (RD, MG), (RD, RG), (RG, DB), (RG, GV)}
+for y in range(H):
+    for x in range(W):
+        m = MAT[y][x]
+        if m in WALLS_M or m == HB:
+            continue
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                nm = MAT[y + dy][x + dx] if 0 <= x + dx < W and 0 <= y + dy < H else RB
+                if nm in WALLS_M and (nm, m) not in VENDORED_WALL_PAIRS:
+                    MAT[y][x] = MG if zone(x, y) == 'arena' else DB
+                    break
+            else:
+                continue
+            break
 
-# ---------------------------------------------------------------- 관문(y25-26)
-# 부서진 나무 관문이 통로 위에 걸려 있다 — 개구부는 위 레이어(deco), 통행 가능
-for i, x in enumerate((16, 17, 18)):
-    put('deco', x, 25, GATE_BROKEN[i])
-# 지옥 아치 표석 — 둑길 축 정면, 관문 앞(위 레이어라 그 밑을 지나간다)
-put('deco', 17, 24, ARCH_HELL)
+# ---------------------------------------------------------------- 코너 격자
+def corner_mat(cx, cy):
+    """코너 (cx,cy)에 닿는 최대 4칸의 다수결 재질(동률은 우선순위)."""
+    votes = {}
+    for dx, dy in ((-1, -1), (0, -1), (-1, 0), (0, 0)):
+        x, y = cx + dx, cy + dy
+        m = MAT[y][x] if 0 <= x < W and 0 <= y < H else RB
+        votes[m] = votes.get(m, 0) + 1
+    return max(votes, key=lambda m: (votes[m], PRI[m]))
+
+
+LAT = [[corner_mat(cx, cy) for cx in range(W + 1)] for cy in range(H + 1)]
+
+
+def combo_legal(tl, tr, bl, br):
+    """네 코너 재질 조합에 벤더 타일이 있는가(난수 없음 — 합법화 판정용)."""
+    mats = {tl, tr, bl, br}
+    if len(mats) == 1:
+        return f'cave_fill_{tl}_00' in G
+    if len(mats) == 2:
+        a, b = sorted(mats, key=lambda m: PRI[m])
+        mask = sum(1 << i for i, c in enumerate((tl, tr, bl, br)) if c == b)
+        return f'cave_edge_{a}__{b}_m{mask:02d}' in G
+    return False
+
+
+def combo_name(tl, tr, bl, br):
+    """네 코너 재질 → 벤더 타일 이름(변형은 난수로 선택)."""
+    mats = {tl, tr, bl, br}
+    if len(mats) == 1:
+        # 변형 1은 큰 싱크홀 무늬라 얼룩처럼 보인다 — 밋밋한 0과 잔무늬 2,3만 쓴다
+        variants = [k for k in (f'cave_fill_{tl}_{i:02d}' for i in (0, 2, 3)) if k in G]
+        weights = [8] + [1] * (len(variants) - 1)
+        return rnd.choices(variants, weights=weights)[0]
+    a, b = sorted(mats, key=lambda m: PRI[m])
+    mask = sum(1 << i for i, c in enumerate((tl, tr, bl, br)) if c == b)
+    base = f'cave_edge_{a}__{b}_m{mask:02d}'
+    if f'{base}_v1' in G and rnd.random() < 0.5:
+        return f'{base}_v1'
+    return base
+
+
+# 합법화: 조합이 벤더에 없으면 폴백 가능한 최고 우선순위 코너를 강등한다.
+# 코너는 이웃 타일과 공유되므로 전역 고정점까지 반복한다.
+for _sweep in range(40):
+    changed = 0
+    for y in range(H):
+        for x in range(W):
+            if combo_legal(LAT[y][x], LAT[y][x + 1], LAT[y + 1][x], LAT[y + 1][x + 1]):
+                continue
+            corners = [(y, x), (y, x + 1), (y + 1, x), (y + 1, x + 1)]
+            movable = [c for c in corners if LAT[c[0]][c[1]] in FALLBACK]
+            assert movable, f'({x},{y}) 강등 불가: ' + str([LAT[cy_][cx_] for cy_, cx_ in corners])
+            cy_, cx_ = max(movable, key=lambda c: PRI[LAT[c[0]][c[1]]])
+            LAT[cy_][cx_] = FALLBACK[LAT[cy_][cx_]]
+            changed += 1
+    if not changed:
+        break
+else:
+    raise SystemExit('코너 조합 합법화가 수렴하지 않음')
+
+# ---------------------------------------------------------------- ground
+for y in range(H):
+    for x in range(W):
+        name = combo_name(LAT[y][x], LAT[y][x + 1], LAT[y + 1][x], LAT[y + 1][x + 1])
+        put('ground', x, y, G[name])
+
+# ---------------------------------------------------------------- object: 충돌
+# 벽은 ground에 그렸으므로 충돌은 전부 투명 블록. 물도 빠질 수 없는 심연이다 —
+# 이걸 막지 않으면 석회암 둑길도, 그 끝의 관문도 의미가 없어진다.
+for y in range(H):
+    for x in range(W):
+        if is_wall(x, y) or at(x, y) in VOID_CHARS:
+            put('object', x, y, INVISIBLE_BLOCK)
 
 # ---------------------------------------------------------------- 소품
-put('object', 16, 5, ALTAR_SLIME)     # 문지기의 점액 제단 — 굴과 무대 사이
-put('object', 25, 28, ALTAR_SKULLS)   # 최종 아레나의 해골 무더기
-put('object', 12, 29, STATUE_BUST)    # 잊힌 악마 흉상
-put('object', 26, 30, IDOL_GOLD)      # 꿀꿀이의 황금 우상(전리품 더미의 중심)
-put('object', 25, 30, GOLD[2])
-put('object', 27, 31, GOLD[1])
-put('object', 24, 31, GOLD[0])
-put('object', 28, 30, GOLD[3])
+def stamp(name_prefix, x, y, cols, rows_, solid_rows=1):
+    """멀티타일 소품. 바닥 solid_rows 행은 object(충돌+y정렬), 위는 object_upper."""
+    for r in range(rows_):
+        for c in range(cols):
+            key = f'cave_prop_{name_prefix}_r{r}c{c}'
+            gid = G.get(key if rows_ * cols > 1 else f'cave_prop_{name_prefix}')
+            if not gid:
+                continue
+            ty = y - (rows_ - 1) + r
+            layer = 'object' if r >= rows_ - solid_rows else 'object_upper'
+            put(layer, x + c, ty, gid)
+
+
+put('object', 16, 5, G['cave_prop_cauldron_goo'])    # 문지기의 점액 솥
+stamp('altar_gold', 25, 30, 3, 2, solid_rows=2)      # 꿀꿀이의 황금 제단(전리품)
+stamp('statue_hood', 12, 29, 1, 2)                   # 잊힌 수도승 석상
+stamp('obelisk', 28, 5, 1, 2)                        # 수정 골방의 오벨리스크
+stamp('skull_pile', 26, 28, 2, 1)                    # 최종 아레나의 해골 무더기
+stamp('crystal_tall', 27, 3, 1, 2)                   # 골방 어귀의 장신 수정 기둥
+
+# 수정 군집 — 골방(그로토)에 town 수정과 LPC 수정을 섞어 광맥처럼
+for x, y, g in ((26, 4, CRYSTAL_TOWN), (30, 4, G['cave_prop_crystal_a']),
+                (29, 6, CRYSTAL_TOWN), (26, 7, G['cave_prop_crystal_c'])):
+    if is_floor(x, y):
+        put('object', x, y, g)
+
+# 금화 더미 — 황금 제단 둘레(밟고 지나갈 수 있는 데칼)
+for x, y, i in ((24, 30, 0), (27, 31, 1), (24, 31, 2), (28, 30, 3)):
+    put('shadow_lower', x, y, G[f'cave_prop_gold_{i:02d}'])
 
 col_i = 0
 for y in range(H):
     for x in range(W):
         ch = at(x, y)
-        if ch == 'B':                         # 무너진 기둥 — 돌진 회피 엄폐물
-            put('object', x, y, COLUMNS_[col_i % 3])
+        if ch == 'B':                         # 무너진 바위 — 돌진 회피 엄폐물
+            put('object', x, y, G['cave_prop_boulder'])
+        elif ch == 'r':                       # 잔해 — 사냥터와 같은 바위 더미
+            put('object', x, y, ROCK_PILE[col_i % 2])
             col_i += 1
-        elif ch == 'r':
-            put('object', x, y, COLUMNS_[col_i % 3])
-            col_i += 1
-        elif ch == 'c':                       # 발광 이끼 무더기
-            put('object', x, y, MOULD[(x + y) % 2])
+        elif ch == 'c':                       # 발광 식물(그로토는 수정)
+            if zone(x, y) == 'grotto':
+                put('object', x, y, CRYSTAL_TOWN)
+            else:
+                put('object', x, y, G['cave_prop_glow_plant_a' if (x + y) % 2 else 'cave_prop_glow_plant_b'])
 
-# 화로 — 조명이 남하할수록 잦아들고, 아레나엔 관문 쪽 한 쌍뿐(안쪽은 촛불 벽감뿐).
-# (20,27)은 꿀꿀이 5x5 개방 구역이라 동쪽 화로는 (24,27)로 물린다.
+# 화로 — 조명이 남하할수록 잦아들고, 아레나엔 관문 쪽 한 쌍뿐.
 for i, (x, y) in enumerate(((1, 8), (1, 13), (13, 5), (19, 5), (19, 11),
                             (14, 19), (14, 27), (24, 27))):
-    put('object', x, y, BRAZIER[i % 2])
+    put('object', x, y, G[f'cave_prop_brazier_{i % 2:02d}'])
+
+# 관문 — 황금 기둥 한 쌍이 통로를 지킨다(벽 위에 3단 기둥, 위 두 단은
+# 캐릭터 위에 그려져 문틀처럼 읽힌다)
+for gx in (15, 19):
+    put('object', gx, 26, G['cave_prop_pillar_gold_r2c0'])
+    put('object_upper', gx, 25, G['cave_prop_pillar_gold_r1c0'])
+    put('object_upper', gx, 24, G['cave_prop_pillar_gold_r0c0'])
 
 # ---------------------------------------------------------------- shadow_lower
-# DCSS 벽 그림자: 북/서에 벽이 있는 바닥에 그림자 — 벽이 즉시 입체로 읽힌다
+# 벽 그림자: 북/서에 벽이 있는 바닥에 부드러운 그림자 — 벽이 즉시 입체로 읽힌다
 for y in range(H):
     for x in range(W):
         if not is_floor(x, y):
             continue
         n, w_ = is_wall(x, y - 1), is_wall(x - 1, y)
         if n and w_:
-            put('shadow_lower', x, y, SHADOW_NW)
+            put('shadow_lower', x, y, G['cave_shadow_nw'])
         elif n:
-            put('shadow_lower', x, y, SHADOW_NE if is_wall(x + 1, y) else SHADOW_N)
+            put('shadow_lower', x, y, G['cave_shadow_ne'] if is_wall(x + 1, y) else G['cave_shadow_n'])
         elif w_:
-            put('shadow_lower', x, y, SHADOW_W)
+            put('shadow_lower', x, y, G['cave_shadow_w'])
 
-# 호수 물가 — 바닥과 닿는 면에 탁한 물결 가장자리
+# 잔해 링 데칼 — 흙바닥/자갈밭에 드문드문(길과 무대는 피한다)
 for y in range(H):
     for x in range(W):
-        if at(x, y) not in VOID_CHARS:
+        if not is_floor(x, y) or at(x, y) not in '.c':
             continue
-        n, s = is_floor(x, y - 1), is_floor(x, y + 1)
-        w_, e = is_floor(x - 1, y), is_floor(x + 1, y)
-        gid = 0
-        if n and w_:
-            gid = BORD['tl']
-        elif n and e:
-            gid = BORD['tr']
-        elif s and w_:
-            gid = BORD['bl']
-        elif s and e:
-            gid = BORD['br']
-        elif n:
-            gid = BORD['top']
-        elif s:
-            gid = BORD['btm']
-        elif w_:
-            gid = BORD['lft']
-        elif e:
-            gid = BORD['rgt']
-        if gid:
-            put('shadow_lower', x, y, gid)
+        m = MAT[y][x]
+        if m == DB and rnd.random() < 0.05 or m == GV and rnd.random() < 0.08:
+            if not L['shadow_lower'][y * W + x]:
+                put('shadow_lower', x, y, G[f'cave_prop_rubble_{rnd.randrange(6):02d}'])
 
-# 슬라임 자국 — 굴에서 제단까지 기어 내려온 흔적
-for x, y, d in ((16, 3, 's'), (16, 4, 's'), (15, 4, 'e'), (17, 4, 'w'),
-                (14, 6, 'ne'), (18, 6, 'nw'), (14, 10, 'se'), (18, 10, 'sw')):
-    if is_floor(x, y):
-        put('shadow_lower', x, y, SLIME_OV[d])
+# 점액 자국 — 굴에서 솥까지 기어 내려온 흔적
+for x, y in ((16, 3), (16, 4), (15, 6), (17, 10)):
+    if is_floor(x, y) and not L['shadow_lower'][y * W + x]:
+        put('shadow_lower', x, y, G['cave_prop_goo_puddle'])
 
-# 아치 문턱 어둠(문턱 앞칸 바닥) + 통과하는 순간 플레이어까지 어두워지는 한 줄
+# 아레나의 유골 — 수없이 쓰러진 도전자들
+for x, y, k in ((13, 28, 'skull'), (23, 31, 'bone_scatter'), (28, 28, 'bone_scatter'),
+                (17, 30, 'skull'), (12, 31, 'bone_scatter')):
+    if is_floor(x, y) and not L['shadow_lower'][y * W + x]:
+        put('shadow_lower', x, y, G[f'cave_prop_{k}'])
+
+# 관문 문턱 어둠 + 통과하는 순간 플레이어까지 어두워지는 한 줄
 for x in (16, 17, 18):
     put('shadow_lower', x, 24, SHADE)
     put('shadow_upper', x, 26, SHADE)
-put('shadow_lower', 16, 3, VIGNETTE)   # 굴 아가리 밑 비네트
 
 # 최종 아레나 남단이 어둠에 잠긴다
 for x in range(11, 31):
@@ -350,7 +416,7 @@ for x in range(11, 31):
 for x, y, d in ((11, 27, 'nw'), (30, 27, 'ne'), (10, 3, 'nw'), (23, 3, 'ne'),
                 (11, 32, 'sw'), (30, 32, 'se')):
     if is_floor(x, y):
-        put('deco', x, y, WEB[d])
+        put('deco', x, y, G[f'cave_prop_web_{d}'])
 
 # ---------------------------------------------------------------- 검증
 walls = {(i % W, i // W) for i, g in enumerate(L['object']) if g}
@@ -368,7 +434,7 @@ while q:
 CHECK = [('진입스폰', (2, 10)), ('에디터스폰(맵중앙)', (17, 17)),
          ('귀환포탈상', (0, 10)), ('귀환포탈하', (0, 11)),
          ('말캉이-보스', (16, 8)), ('꿀꿀이-보스', (21, 29)),
-         ('둑길중앙', (17, 21)), ('아치통로', (17, 25)), ('아치통로2', (17, 26)),
+         ('둑길중앙', (17, 21)), ('관문통로', (17, 25)), ('관문통로2', (17, 26)),
          ('앞마당서', (13, 24)), ('앞마당동', (26, 24)),
          ('수정골방', (28, 4)), ('현관', (1, 9))]
 problems = []
@@ -377,6 +443,22 @@ for name, pt in CHECK:
         problems.append(f'{name}{pt} 벽/오브젝트에 막힘')
     elif pt not in seen:
         problems.append(f'{name}{pt} 도달 불가')
+
+# 둑길을 치우면 아레나가 끊겨야 한다 — 호수가 실제로 길을 막는지 반증으로 확인
+detour = {(x, y) for y in range(H) for x in range(W)
+          if at(x, y) not in VOID_CHARS and (x, y) not in walls
+          and not (16 <= x <= 18 and 20 <= y <= 23)}
+reach = {(2, 10)} & detour
+dq = deque(reach)
+while dq:
+    x, y = dq.popleft()
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        nb = (x + dx, y + dy)
+        if nb in detour and nb not in reach:
+            reach.add(nb)
+            dq.append(nb)
+if (21, 29) in reach:
+    problems.append('둑길 없이도 최종 아레나에 도달 — 호수가 길을 막지 못한다')
 
 for name, (bx, by) in (('말캉이', (16, 8)), ('꿀꿀이', (21, 29))):
     for dy in range(-2, 3):
@@ -393,7 +475,7 @@ for y in range(H):
         if (x, y) not in walls and (x, y) not in ((0, 10), (0, 11)):
             problems.append(f'외곽 개방: ({x},{y})')
 
-MAX_GID = 712
+MAX_GID = max(max(G.values()), SHADE, INVISIBLE_BLOCK, CRYSTAL_TOWN, *ROCK_PILE)
 for name in LAYER_NAMES:
     bad = [g for g in L[name] if g and not (1 <= g <= MAX_GID)]
     if bad:
@@ -408,7 +490,7 @@ if problems:
     for p in problems:
         print('   -', p)
     raise SystemExit(1)
-print('검증 통과: 스폰/포탈/두 보스/둑길/아치 모두 도달 가능, 보스 5x5 개방, 외곽 밀폐')
+print('검증 통과: 스폰/포탈/두 보스/둑길/관문 모두 도달 가능, 보스 5x5 개방, 외곽 밀폐')
 
 # ---------------------------------------------------------------- TMX 출력
 src = open(SRC).read()

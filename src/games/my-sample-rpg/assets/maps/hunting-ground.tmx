@@ -383,7 +383,7 @@
   <object id="5" name="꿀꿀이-1" type="character" x="224" y="160" width="32" height="32">
    <properties>
     <property name="blocksMovement" type="bool" value="true"/>
-    <property name="monster.level" type="int" value="3"/>
+    <property name="monster.level" type="int" value="2"/>
     <property name="type" value="monster_pig"/>
    </properties>
   </object>
@@ -397,7 +397,7 @@
   <object id="8" name="꿀꿀이-2" type="character" x="832" y="160" width="32" height="32">
    <properties>
     <property name="blocksMovement" type="bool" value="true"/>
-    <property name="monster.level" type="int" value="3"/>
+    <property name="monster.level" type="int" value="2"/>
     <property name="type" value="monster_pig"/>
    </properties>
   </object>

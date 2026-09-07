@@ -1141,7 +1141,9 @@ export const createEditorApp = ({
   const previewScenes: Array<{ id: string; label: string; icon: EditorIconName }> = [
     { id: 'town', label: '마을', icon: 'building' },
     { id: 'hunting-ground', label: '사냥터', icon: 'sword' },
-    { id: 'cave', label: '동굴', icon: 'crystal' }
+    { id: 'cave', label: '동굴', icon: 'crystal' },
+    { id: 'crystal-mine', label: '수정 광산', icon: 'orb' },
+    { id: 'harvest-village', label: '황금이삭', icon: 'tree' }
   ]
   const mapSwitcher = el('div', 'flex items-center gap-1')
   // 새 창/새로고침은 아이콘 버튼으로 — 의미는 title(툴팁)로 유지한다.

@@ -1,9 +1,12 @@
 import huntingGroundMapXml from './assets/maps/hunting-ground.tmx?raw'
 import caveMapXml from './assets/maps/cave.tmx?raw'
+import crystalMineMapXml from './assets/maps/crystal-mine.tmx?raw'
+import harvestVillageMapXml from './assets/maps/harvest-village.tmx?raw'
 import townMapXml from './assets/maps/town.tmx?raw'
 import replyWithMessageControllerLua from './assets/lua/reply-with-message.lua?raw'
 import wanderNearHomeControllerLua from './assets/lua/wander-near-home.lua?raw'
 import vnDialogueControllerLua from './assets/lua/vn-dialogue.lua?raw'
+import mineOreControllerLua from './assets/lua/mine-ore.lua?raw'
 import huntingGroundMusicUrl from './assets/sounds/전투브금.mp3'
 import townMusicUrl from './assets/sounds/브금5.mp3'
 import questFinUrl from './assets/tilesets/quest_fin.png'
@@ -79,6 +82,11 @@ import {
 } from '../../editor/pendingScenarios'
 import { registerScenarios } from './scenario/scenarioStore'
 import { getSceneIntroMessage } from './sceneIntro'
+import {
+  WORLD_SAVE_STATE_STORAGE_KEY,
+  parseStoredWorldSaveState,
+  serializeWorldSaveState
+} from './worldSaveState'
 import { createPixiTiledMapView } from './rendering/createPixiTiledMapView'
 import {
   loadPendingEvents,
@@ -101,7 +109,7 @@ import type {
 } from './rendering/createPixiTiledMapView'
 import './styles.css'
 
-type SceneId = 'town' | 'hunting-ground' | 'cave'
+type SceneId = 'town' | 'hunting-ground' | 'cave' | 'crystal-mine' | 'harvest-village'
 
 type SceneSpawn = {
   x: number
@@ -137,7 +145,7 @@ type SceneRenderer = {
 
 // 배경음악(BGM) 전역 사용 여부. false면 어떤 씬에서도 BGM을 재생하지 않는다(효과음은 그대로).
 // 저장된 볼륨 설정과 무관하게 코드에서 끄는 스위치 — 다시 켜려면 true로 바꾸면 된다.
-const BGM_ENABLED = false
+const BGM_ENABLED = true
 
 const AUDIO_SETTINGS_STORAGE_KEY = 'my-sample-rpg:audio-settings'
 const EVENT_DRAFT_MODE_STORAGE_KEY = 'my-sample-rpg:event-draft-mode'
@@ -200,6 +208,18 @@ const parsedCaveMap = parseTiledMap({
     '../tilesets/town-32.tsx': townTilesetXml
   }
 })
+const parsedCrystalMineMap = parseTiledMap({
+  mapXml: crystalMineMapXml,
+  externalTilesets: {
+    '../tilesets/town-32.tsx': townTilesetXml
+  }
+})
+const parsedHarvestVillageMap = parseTiledMap({
+  mapXml: harvestVillageMapXml,
+  externalTilesets: {
+    '../tilesets/town-32.tsx': townTilesetXml
+  }
+})
 const tinyDungeonTileset = parseTiledTileset({
   firstGid: 1,
   source: '../tilesets/tiny-dungeon-16.tsx',
@@ -209,6 +229,7 @@ const characterSpriteScale = 2
 const replyWithMessageScriptId = 'reply-with-message'
 const wanderNearHomeScriptId = 'wander-near-home'
 const vnDialogueScriptId = 'vn-dialogue'
+const mineOreScriptId = 'mine-ore'
 const availableLuaControllerScriptsById: Record<string, { source: string }> = {
   [replyWithMessageScriptId]: {
     source: replyWithMessageControllerLua
@@ -218,17 +239,24 @@ const availableLuaControllerScriptsById: Record<string, { source: string }> = {
   },
   [vnDialogueScriptId]: {
     source: vnDialogueControllerLua
+  },
+  [mineOreScriptId]: {
+    source: mineOreControllerLua
   }
 }
 const sceneMaps: Record<SceneId, typeof parsedTownMap> = {
   town: parsedTownMap,
   'hunting-ground': parsedHuntingGroundMap,
-  cave: parsedCaveMap
+  cave: parsedCaveMap,
+  'crystal-mine': parsedCrystalMineMap,
+  'harvest-village': parsedHarvestVillageMap
 }
 const sceneMusicUrls: Record<SceneId, string> = {
   town: townMusicUrl,
   'hunting-ground': huntingGroundMusicUrl,
-  cave: huntingGroundMusicUrl
+  cave: huntingGroundMusicUrl,
+  'crystal-mine': huntingGroundMusicUrl,
+  'harvest-village': townMusicUrl
 }
 const storedPlayerSaveState = readStoredPlayerSaveState()
 const playerProfile = storedPlayerSaveState?.profile ?? createInitialPlayerProfile()
@@ -245,7 +273,24 @@ let playerQuickslots =
 let playerSkillSlots =
   storedPlayerSaveState?.skillSlots ?? createInitialPlayerSkillSlots()
 let playerControlBindings = readStoredPlayerControlBindings()
-let questLog = createInitialQuestLog()
+// 저장된 월드 상태(퀘스트 진행 + 마지막 씬) 복원 — 없으면 초기 상태.
+const storedWorldState = ((): ReturnType<typeof parseStoredWorldSaveState> => {
+  try {
+    return parseStoredWorldSaveState(
+      window.localStorage.getItem(WORLD_SAVE_STATE_STORAGE_KEY)
+    )
+  } catch {
+    return undefined
+  }
+})()
+let questLog = storedWorldState
+  ? ensureQuestProgressEntries({
+      progressByQuestId: {
+        ...createInitialQuestLog().progressByQuestId,
+        ...storedWorldState.questProgressByQuestId
+      }
+    })
+  : createInitialQuestLog()
 // 에디터가 생성·주입한 동적 퀘스트를 런타임 퀘스트 엔진에 등록하고, 진행도 항목을 채운다.
 // 부팅 전에 questLog를 갱신해야 bootstrapScene이 그걸 렌더러로 넘긴다(배지·추적·완료 전부 작동).
 const applyPendingQuests = (): void => {
@@ -297,6 +342,8 @@ const bootstrapScene = async (
 
   // 현재 씬을 기억한다 — 에디터가 퀘스트를 라이브로 주입하면 이 씬을 다시 부팅해 반영한다.
   activeSceneId = sceneId
+  saveWorldState()
+  savePlayerState()
 
   // 에디터 프리뷰(부모 창)에 현재 맵을 알린다 — 에디터가 그 맵의 편집 가능한 요소만 보여줄 수 있게.
   // 모든 맵 전환(초기 로드·포털 이동·에디터 맵 버튼)이 이 함수를 거치므로 여기 한 곳이면 전부 커버된다.
@@ -374,6 +421,7 @@ const bootstrapScene = async (
     },
     onQuestLogChange: (nextQuestLog) => {
       questLog = nextQuestLog
+      saveWorldState()
     },
     onMerchantInventoryChange: (nextInventory) => {
       merchantInventory = nextInventory
@@ -951,6 +999,23 @@ function savePlayerState(): void {
   }
 }
 
+window.setInterval(() => {
+  savePlayerState()
+  saveWorldState()
+}, 20_000)
+
+// 월드 상태(퀘스트 로그 + 현재 씬)를 저장한다. 씬 진입/퀘스트 변화 때마다 호출.
+function saveWorldState(): void {
+  try {
+    window.localStorage.setItem(
+      WORLD_SAVE_STATE_STORAGE_KEY,
+      serializeWorldSaveState({ sceneId: activeSceneId, questLog })
+    )
+  } catch {
+    // localStorage 사용 불가 시 조용히 건너뛴다.
+  }
+}
+
 const renderFatalError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)
 
@@ -990,6 +1055,16 @@ if (import.meta.hot) {
     }
 
     activeControllerRuntime.updateLuaControllerScript(vnDialogueScriptId, {
+      source: nextModule.default
+    })
+  })
+
+  import.meta.hot.accept('./assets/lua/mine-ore.lua?raw', (nextModule) => {
+    if (!nextModule || !activeControllerRuntime) {
+      return
+    }
+
+    activeControllerRuntime.updateLuaControllerScript(mineOreScriptId, {
       source: nextModule.default
     })
   })
@@ -1138,7 +1213,13 @@ window.addEventListener('message', (event) => {
 
   const sceneId = data.sceneId
 
-  if (sceneId === 'town' || sceneId === 'hunting-ground' || sceneId === 'cave') {
+  if (
+    sceneId === 'town' ||
+    sceneId === 'hunting-ground' ||
+    sceneId === 'cave' ||
+    sceneId === 'crystal-mine' ||
+    sceneId === 'harvest-village'
+  ) {
     questLog = recordSceneEnterQuestProgress(questLog, sceneId)
     void bootstrapScene(sceneId).catch(renderFatalError)
   }
@@ -1151,5 +1232,9 @@ void initLuaGameLogic()
     console.warn('[lua] 게임 로직 Lua 초기화 실패 — TS 폴백으로 계속합니다.', error)
   })
   .finally(() => {
-    void bootstrapScene('town').catch(renderFatalError)
+    const startSceneId =
+      storedWorldState && storedWorldState.sceneId in sceneMaps
+        ? (storedWorldState.sceneId as SceneId)
+        : 'town'
+    void bootstrapScene(startSceneId).catch(renderFatalError)
   })

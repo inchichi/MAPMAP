@@ -18,6 +18,10 @@ import {
   usePlayerInventoryConsumable
 } from '../lua/luaGameLogic'
 import { getResponsiveUiScale } from './getResponsiveUiScale'
+import {
+  TOWN_TILESET_IMAGE_HEIGHT,
+  TOWN_TILESET_IMAGE_WIDTH
+} from './townTilesetImageSize'
 
 type CreatePlayerInventoryOverlayInput = {
   mountElement: HTMLElement
@@ -78,8 +82,8 @@ const UI_SPRITESHEET_WIDTH = 512
 const UI_SPRITESHEET_HEIGHT = 512
 const TINY_DUNGEON_TILESET_WIDTH = 192
 const TINY_DUNGEON_TILESET_HEIGHT = 176
-const TOWN_TILESET_WIDTH = 256
-const TOWN_TILESET_HEIGHT = 2240
+const TOWN_TILESET_WIDTH = TOWN_TILESET_IMAGE_WIDTH
+const TOWN_TILESET_HEIGHT = TOWN_TILESET_IMAGE_HEIGHT
 const WEAPON_SWORD_IMAGE_WIDTH = 337
 const WEAPON_SWORD_IMAGE_HEIGHT = 344
 const WEAPON_AXE_IMAGE_WIDTH = 355
@@ -123,6 +127,19 @@ const TINY_DUNGEON_CONSUMABLE_ICON_FRAMES = {
     }
   }
 } as const
+// 수정 광석 아이콘 — town-32 기본 타일(gid 494, 파란 수정 덤불). 기본 600타일
+// 영역이라 시트가 아래로 자라도 좌표가 밀리지 않는다.
+const CRYSTAL_ORE_ICON_FRAME = {
+  imageUrl: TOWN_TILESET_IMAGE_URL,
+  imageWidth: TOWN_TILESET_WIDTH,
+  imageHeight: TOWN_TILESET_HEIGHT,
+  frame: {
+    x: 160,
+    y: 1952,
+    width: 32,
+    height: 32
+  }
+}
 const BUTTON_SQUARE_FRAME = {
   x: 293,
   y: 294,
@@ -741,6 +758,8 @@ export const createPlayerInventoryOverlay = ({
         return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['health-potion']
       case 'mana-potion':
         return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['mana-potion']
+      case 'crystal-ore':
+        return CRYSTAL_ORE_ICON_FRAME
       default:
         return undefined
     }

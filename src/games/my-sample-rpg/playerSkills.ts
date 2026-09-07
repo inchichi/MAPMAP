@@ -8,11 +8,15 @@ export type PlayerSkillDisplayInfo = {
 }
 
 export const PLAYER_PROTECT_SKILL_ID = 'protect'
+export const PLAYER_DASH_SKILL_ID = 'dash'
+export const PLAYER_FOCUS_SKILL_ID = 'focus'
 export const PLAYER_SKILL_UNLOCK_LEVEL = 1
 
 const PLAYER_SKILL_PROFILE_INDEX_BY_ID: Record<string, number> = {
   [PLAYER_SMASH_SKILL_ID]: 0,
-  [PLAYER_PROTECT_SKILL_ID]: 1
+  [PLAYER_PROTECT_SKILL_ID]: 1,
+  [PLAYER_DASH_SKILL_ID]: 2,
+  [PLAYER_FOCUS_SKILL_ID]: 3
 }
 
 const PLAYER_SMASH_SKILL_MANA_COST_BY_LEVEL: Record<number, number> = {
@@ -48,6 +52,11 @@ const PLAYER_PROTECT_SKILL_ICON_URL = new URL(
   import.meta.url
 ).href
 
+// 집중: 레벨당 회복량 증가. 돌진: 구르기 돌격 + 도착 즉시 공격.
+export const getPlayerFocusSkillManaRestoreByLevel = (
+  skillLevel: number
+): number => 4 + Math.max(1, Math.floor(skillLevel)) * 2
+
 const PLAYER_SKILL_DISPLAY_INFO_BY_ID: Record<string, PlayerSkillDisplayInfo> = {
   [PLAYER_SMASH_SKILL_ID]: {
     label: '스매시',
@@ -57,6 +66,16 @@ const PLAYER_SKILL_DISPLAY_INFO_BY_ID: Record<string, PlayerSkillDisplayInfo> = 
   [PLAYER_PROTECT_SKILL_ID]: {
     label: '방어 자세',
     description: '레벨이 오를수록 더 오래 유지되는 방어 스킬',
+    iconUrl: PLAYER_PROTECT_SKILL_ICON_URL
+  },
+  [PLAYER_DASH_SKILL_ID]: {
+    label: '돌진',
+    description: '앞으로 굴러 돌격하고, 도착하자마자 베어낸다',
+    iconUrl: PLAYER_SMASH_SKILL_ICON_URL
+  },
+  [PLAYER_FOCUS_SKILL_ID]: {
+    label: '집중',
+    description: '호흡을 가다듬어 마나를 회복한다 (레벨당 회복량 증가)',
     iconUrl: PLAYER_PROTECT_SKILL_ICON_URL
   }
 }
@@ -130,6 +149,10 @@ export const getPlayerSkillManaCostById = (
 
   if (skillId === PLAYER_PROTECT_SKILL_ID) {
     return 2
+  }
+
+  if (skillId === PLAYER_DASH_SKILL_ID) {
+    return 3
   }
 
   return 0

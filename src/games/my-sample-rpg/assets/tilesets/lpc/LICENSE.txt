@@ -1,0 +1,75 @@
+LPC cave tiles — 출처와 라이선스
+================================
+
+이 디렉터리의 sheet__terrain.png / sheet__props.png 는 아래 OpenGameArt
+팩들에서 타일을 선별·재배열(일부 합성·색 보정)해 만든 것이다.
+scripts/append-cave-tiles.py 가 이 시트를 town-32 타일셋 뒤에 덧붙인다.
+
+이 디렉터리의 이미지에는 CC-BY-SA 소재가 포함되므로, 파생 시트
+(sheet__*.png 및 town-32.png 의 동굴 타일 행)는 CC-BY-SA 3.0/4.0 조건을
+따른다. https://creativecommons.org/licenses/by-sa/4.0/
+
+1. [LPC] Terrains — 지형 채움/전환 타일 전부 (sheet__terrain.png)
+   bluecarrot16, Lanea Zimmerman (Sharm), Daniel Eddeland (Daneeklu),
+   Richard Kettering (Jetrel), Zachariah Husiar (Zabin), Hyptosis,
+   Casper Nilsson, Buko Studios, Nushio, ZaPaper, billknye,
+   William Thompson, caeles, Redshrike, Bertram, Rayane Félix (RayaneFLX)
+   License: CC-BY-SA 4.0 / CC-BY-SA 3.0
+   https://opengameart.org/content/lpc-terrains
+   전체 크레딧: CREDITS-lpc-terrains.txt (이미지와 함께 유지할 것)
+   변경: 타일 선별·재배열, 물 픽셀 채도/명도 하향(탁한 동굴 호수 톤).
+
+2. [LPC] Cavern and ruin tiles — 아치, 수정, 석상, 오벨리스크, 황금 기둥/제단,
+   룬 비석, 상자, 바위 (sheet__props.png 일부)
+   Reemax / Tuomo Untinen 외, based on LPC assets by Lanea Zimmerman (Sharm),
+   Daniel Armstrong (HughSpectrum), Hyptosis, Johann C, Johannes Sjölund
+   (wulax), Stephen Challener (Redshrike), William.Thompsonj, Daniel Eddeland
+   License: CC-BY-SA 3.0
+   https://opengameart.org/content/lpc-cavern-and-ruin-tiles
+   전체 크레딧: CREDITS-cavern-ruins.txt (이미지와 함께 유지할 것)
+
+3. [LPC] Dungeon Elements — 해골/유골, 발광 식물, 점액 솥, 오물 데칼,
+   화로의 불꽃 프레임 (sheet__props.png 일부)
+   Sharm (Lanea Zimmerman) 그림, William.Thompsonj 기여.
+   License: CC-BY 3.0 (multi-licensed: CC-BY 4.0/3.0, OGA-BY 3.0, GPL 3.0/2.0)
+   https://opengameart.org/content/lpc-dungeon-elements
+   변경: 화로는 불꽃 프레임을 Cavern-and-ruin의 바위 위에 합성한 것.
+
+4. LPC Caves — 잔해 링 데칼 (sheet__props.png 일부)
+   Lanea Zimmerman (Sharm), 수정 mikest. License: CC0
+   https://opengameart.org/content/lpc-caves
+
+5. Dungeon Crawl Stone Soup (DCSS) 타일 — 금화 더미 4종, 거미줄 4종
+   (sheet__props.png 일부). License: CC0 / public domain (RLTiles 파생)
+   https://github.com/crawl/crawl
+
+town-32 기본 타일(id 0-599)은 이 라이선스와 무관하다.
+
+--- 마을(황금이삭) 소품 — sheet__village.png ---
+
+6. [LPC] Trees — 나무/덤불 전부
+   bluecarrot16, Jetrel, Zabin, Hyptosis, Surt, Buch, Johann Charlot,
+   Stephen Challener and the Open Surge team, Gaurav Munjal, Ivan Voirol,
+   Guido Bos, Yar, Paulina Riva, William.Thompsonj, Casper Nilsson, ansimuz,
+   qubodup, Bart K., Blarumyrran, Lanea Zimmerman (Sharm), Leonard Pabin,
+   Chris Phillips, Barbara Rivera, Talosaurus.
+   License: CC-BY-SA 3.0. https://opengameart.org/content/lpc-trees
+   전체 크레딧: CREDITS-trees.txt (이미지와 함께 유지할 것)
+
+7. [LPC] Flowers / Plants / Fungi / Wood — 꽃/생울타리/수풀/부들/토피어리
+   bluecarrot16, Guido Bos, Ivan Voirol, SpiderDave, William.Thompsonj, Yar,
+   Stephen Challener and the Open Surge team, Gaurav Munjal, Johann Charlot,
+   Casper Nilsson, Jetrel, Zabin, Hyptosis, Surt, Lanea Zimmerman,
+   George Bailey, ansimuz, Buch, Open Pixel Project contributors.
+   License: CC-BY-SA 3.0.
+   https://opengameart.org/content/lpc-flowers-plants-fungi-wood
+   전체 크레딧: CREDITS-plants.txt (이미지와 함께 유지할 것)
+
+8. [LPC] Medieval Village Decorations — 우물/수레/건초/장작/허수아비/간판/벤치
+   License: CC-BY-SA 4.0 / CC-BY-SA 3.0.
+   https://opengameart.org/content/lpc-medieval-village-decorations
+
+9. [LPC] Farming tilesets, magic animations and UI elements — 울타리/밀밭/
+   갈이흙/무성한 풀 타일
+   Daniel Eddeland (daneeklu). License: CC-BY-SA 3.0 / GPL 3.0.
+   https://opengameart.org/content/lpc-farming-tilesets-magic-animations-and-ui-elements

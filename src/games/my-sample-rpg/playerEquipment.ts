@@ -35,6 +35,9 @@ export type PlayerEquipmentItemDefinition = PlayerEquipmentItem & {
   slotId: PlayerEquipmentSlotId
   icon: PlayerEquipmentIcon
   price: number
+  // 전투 보정 — 무기는 공격력, 방어구/장신구는 피해 감소. 없으면 0으로 본다.
+  attackBonus?: number
+  defense?: number
 }
 
 export type PlayerEquipmentSlot = {
@@ -68,6 +71,7 @@ export const EQUIPMENT_SLOT_IDS: PlayerEquipmentSlotId[] = [
 export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] = [
   {
     id: 'basic-sword',
+    attackBonus: 2,
     slotId: 'weapon',
     label: '기본 무기',
     level: 1,
@@ -80,6 +84,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'basic-armor',
+    defense: 1,
     slotId: 'armor',
     label: '기본 옷',
     level: 1,
@@ -92,6 +97,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'basic-boots',
+    defense: 1,
     slotId: 'boots',
     label: '기본 신발',
     level: 1,
@@ -104,6 +110,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'basic-charm',
+    defense: 1,
     slotId: 'accessory',
     label: '기본 장신구',
     level: 1,
@@ -116,6 +123,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'bronze-sword',
+    attackBonus: 4,
     slotId: 'weapon',
     label: '청동 검',
     level: 2,
@@ -128,6 +136,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'iron-sword',
+    attackBonus: 6,
     slotId: 'weapon',
     label: '강철 검',
     level: 2,
@@ -139,7 +148,21 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     }
   },
   {
+    id: 'pickaxe',
+    attackBonus: 2,
+    slotId: 'weapon',
+    label: '곡괭이',
+    level: 1,
+    description: '광맥에서 광석을 캐는 채굴 도구',
+    price: 150,
+    icon: {
+      key: 'weapon-axe',
+      scale: 0.08
+    }
+  },
+  {
     id: 'battle-axe',
+    attackBonus: 7,
     slotId: 'weapon',
     label: '전투 도끼',
     level: 2,
@@ -152,6 +175,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'long-spear',
+    attackBonus: 6,
     slotId: 'weapon',
     label: '장창',
     level: 2,
@@ -164,6 +188,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'quick-dagger',
+    attackBonus: 4,
     slotId: 'weapon',
     label: '단검',
     level: 1,
@@ -176,6 +201,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'spiked-mace',
+    attackBonus: 7,
     slotId: 'weapon',
     label: '철퇴',
     level: 3,
@@ -188,6 +214,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'magic-staff',
+    attackBonus: 5,
     slotId: 'weapon',
     label: '마법 지팡이',
     level: 3,
@@ -200,6 +227,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'iron-armor',
+    defense: 3,
     slotId: 'armor',
     label: '철 옷',
     level: 2,
@@ -212,6 +240,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'Leather_Armor',
+    defense: 2,
     slotId: 'armor',
     label: '가죽 갑옷',
     level: 2,
@@ -224,6 +253,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'Leather_Helmet',
+    defense: 1,
     slotId: 'hat',
     label: '가죽 투구',
     level: 2,
@@ -236,6 +266,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'Chain_Armor',
+    defense: 3,
     slotId: 'armor',
     label: '사슬 갑옷',
     level: 2,
@@ -248,6 +279,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'Chain_Helmet',
+    defense: 2,
     slotId: 'hat',
     label: '사슬 투구',
     level: 2,
@@ -260,6 +292,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'Iron_Armor',
+    defense: 4,
     slotId: 'armor',
     label: '철 갑옷',
     level: 3,
@@ -272,6 +305,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'Iron_Helmet',
+    defense: 3,
     slotId: 'hat',
     label: '철 투구',
     level: 3,
@@ -284,6 +318,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'leather-boots',
+    defense: 2,
     slotId: 'boots',
     label: '가죽 신발',
     level: 2,
@@ -296,6 +331,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   },
   {
     id: 'smith-charm',
+    defense: 2,
     slotId: 'accessory',
     label: '수호 부적',
     level: 2,
@@ -362,6 +398,27 @@ export const createPlayerEquipmentItemFromDefinition = (
   level: definition.level,
   description: definition.description
 })
+
+// 장착 중인 장비의 전투 보정 합계 — 렌더러의 공격/피격 계산에 더해진다.
+export const getEquippedPlayerAttackBonus = (
+  equipment: Pick<PlayerEquipment, 'slots'>
+): number =>
+  equipment.slots.reduce((total, slot) => {
+    const definition = slot.item
+      ? getPlayerEquipmentItemDefinitionById(slot.item.id)
+      : undefined
+    return total + (definition?.attackBonus ?? 0)
+  }, 0)
+
+export const getEquippedPlayerDefense = (
+  equipment: Pick<PlayerEquipment, 'slots'>
+): number =>
+  equipment.slots.reduce((total, slot) => {
+    const definition = slot.item
+      ? getPlayerEquipmentItemDefinitionById(slot.item.id)
+      : undefined
+    return total + (definition?.defense ?? 0)
+  }, 0)
 
 export const getPlayerEquipmentItemDefinitionById = (
   itemId: string

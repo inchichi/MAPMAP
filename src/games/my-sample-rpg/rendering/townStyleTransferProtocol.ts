@@ -4,8 +4,9 @@ export const TOWN_STYLE_TRANSFER_ENDPOINT = TOWN_STYLE_TRANSFER_RESPONSE_ENDPOIN
 export const TOWN_STYLE_TRANSFER_HOST_MODEL = 'gpt-5'
 export const TOWN_STYLE_TRANSFER_MODEL = TOWN_STYLE_TRANSFER_HOST_MODEL
 
-// town-32.png is a tall portrait tile sheet (256x2240), so 1024x1536 is the
-// closest supported portrait edit size.
+// town-32.png is a very tall portrait tile sheet (256px wide; its height grows
+// whenever the tile generators append rows — see townTilesetImageSize.ts), so
+// 1024x1536 is the closest supported portrait edit size.
 export const TOWN_STYLE_TRANSFER_SIZE = '1024x1536'
 
 export const TOWN_TILESET_SOURCE_URL = new URL(

@@ -14,6 +14,14 @@ const MONSTER_PIG_SHEET_URL = new URL(
   '../assets/monsters/monster-pig-sheet.png',
   import.meta.url
 ).href
+const MONSTER_ROCK_SHEET_URL = new URL(
+  '../assets/monsters/pa2/rock-idle.png',
+  import.meta.url
+).href
+const MONSTER_MUSHROOM_SHEET_URL = new URL(
+  '../assets/monsters/pa2/mushroom-idle.png',
+  import.meta.url
+).href
 
 // 몬스터 스프라이트 시트의 idle 밴드(상/하)와 프레임 수 — 첫 idle 프레임만 잘라 팝업에 보여준다.
 // (시트 프레임은 동적 검출이라 정확 크롭이 어려워 첫 프레임 베스트에포트.)
@@ -38,6 +46,20 @@ const MONSTER_POPUP_SPRITES: Record<string, MonsterPopupSprite> = {
     idleBottom: 145,
     idleFrameCount: 4,
     label: '돼지'
+  },
+  monster_rock: {
+    sheetUrl: MONSTER_ROCK_SHEET_URL,
+    idleTop: 0,
+    idleBottom: 34,
+    idleFrameCount: 14,
+    label: '바위돌이'
+  },
+  monster_mushroom: {
+    sheetUrl: MONSTER_MUSHROOM_SHEET_URL,
+    idleTop: 0,
+    idleBottom: 32,
+    idleFrameCount: 14,
+    label: '버섯돌이'
   }
 }
 
@@ -46,9 +68,14 @@ const POTION_LABELS: Record<string, string> = {
   'mana-potion': '마나 회복 포션'
 }
 
+const MATERIAL_LABELS: Record<string, string> = {
+  'crystal-ore': '수정 광석'
+}
+
 const resolveItemLabel = (itemId: string): string =>
   getPlayerEquipmentItemDefinitionById(itemId)?.label ??
   POTION_LABELS[itemId] ??
+  MATERIAL_LABELS[itemId] ??
   itemId
 
 export type QuestTargetDescriptor =

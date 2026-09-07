@@ -81,12 +81,12 @@ describe('parseTiledMap', () => {
       name: 'town-32',
       tileWidth: 32,
       tileHeight: 32,
-      tileCount: 712,
+      tileCount: 1264,
       columns: 8,
       image: {
         source: 'town-32.png',
         width: 256,
-        height: 2848
+        height: 5056
       },
       tileTypes: {},
       tileProperties: {}
@@ -207,7 +207,7 @@ describe('parseTiledMap', () => {
         visible: true,
         properties: {
           blocksMovement: true,
-          'monster.level': 3,
+          'monster.level': 2,
           type: 'monster_pig'
         },
         appearanceType: 'monster_pig'
@@ -239,7 +239,7 @@ describe('parseTiledMap', () => {
         visible: true,
         properties: {
           blocksMovement: true,
-          'monster.level': 3,
+          'monster.level': 2,
           type: 'monster_pig'
         },
         appearanceType: 'monster_pig'
@@ -346,7 +346,7 @@ describe('parseTiledMap', () => {
         visible: true,
         properties: {
           blocksMovement: true,
-          'monster.level': 3,
+          'monster.level': 8,
           type: 'monster_pig'
         },
         appearanceType: 'monster_pig'
@@ -360,7 +360,7 @@ describe('parseTiledMap', () => {
         visible: true,
         properties: {
           blocksMovement: true,
-          'monster.level': 1,
+          'monster.level': 6,
           type: 'monster_slime'
         },
         appearanceType: 'monster_slime'

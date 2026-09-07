@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import mineOreControllerLua from '../assets/lua/mine-ore.lua?raw'
+
 import {
   createInitialPlayerCharacter,
   createLuaCharacterController,
@@ -497,6 +499,51 @@ end
         { kind: 'request-scene-transition', sceneId: 'cave', x: 96, y: 128 },
         { kind: 'play-sound', soundId: 'levelUp' }
       ])
+    } finally {
+      runtime.destroy()
+    }
+  })
+
+  it('mines ore through the real mine-ore controller script', async () => {
+    const runtime = await createBridgeRuntime({ source: mineOreControllerLua })
+    const character = createBridgeCharacter()
+    const player = createInitialPlayerCharacter({ mapWidth: 20, mapHeight: 20 })
+
+    try {
+      runtime.attachCharacter(character, character.controller)
+
+      // 곡괭이가 없으면 안내 메시지만 — 광석 지급 없음
+      runtime.pushSnapshot({ strings: {}, numbers: {}, booleans: {} })
+      runtime.handleInteraction(character, character.controller, player)
+      const withoutPickaxe = runtime.drainEvents()
+      expect(withoutPickaxe).toHaveLength(1)
+      expect(withoutPickaxe[0]).toMatchObject({ kind: 'show-character-message' })
+
+      // 곡괭이를 가지면 광석 1개 + 채굴음 + 안내
+      runtime.pushSnapshot({
+        strings: {},
+        numbers: { 'inv:pickaxe': 1 },
+        booleans: {}
+      })
+      runtime.handleInteraction(character, character.controller, player)
+      const mined = runtime.drainEvents()
+      expect(mined).toEqual([
+        { kind: 'request-inventory-add', itemId: 'crystal-ore', quantity: 1 },
+        { kind: 'play-sound', soundId: 'playerSwordHit' },
+        expect.objectContaining({ kind: 'show-character-message' })
+      ])
+
+      // 기본 4회를 다 캐면 광맥이 바닥난다 — 이후엔 지급 없이 안내만
+      for (let swing = 0; swing < 3; swing += 1) {
+        runtime.handleInteraction(character, character.controller, player)
+        runtime.drainEvents()
+      }
+      runtime.handleInteraction(character, character.controller, player)
+      const depleted = runtime.drainEvents()
+      expect(
+        depleted.some((event) => event.kind === 'request-inventory-add')
+      ).toBe(false)
+      expect(depleted).toHaveLength(1)
     } finally {
       runtime.destroy()
     }

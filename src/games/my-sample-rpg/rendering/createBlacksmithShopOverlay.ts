@@ -16,6 +16,10 @@ import {
   getPotionShopItemDefinitionById
 } from '../lua/luaGameLogic'
 import type { PlayerInventory } from '../playerInventory'
+import {
+  TOWN_TILESET_IMAGE_HEIGHT,
+  TOWN_TILESET_IMAGE_WIDTH
+} from './townTilesetImageSize'
 
 type CreateBlacksmithShopOverlayInput = {
   mountElement: HTMLElement
@@ -237,8 +241,8 @@ const EQUIPMENT_ICON_FRAME_BY_KEY: Record<
   },
   'town-crate-sword-right': {
     imageUrl: new URL('../assets/tilesets/town-32.png', import.meta.url).href,
-    imageWidth: 256,
-    imageHeight: 2240,
+    imageWidth: TOWN_TILESET_IMAGE_WIDTH,
+    imageHeight: TOWN_TILESET_IMAGE_HEIGHT,
     frame: {
       x: 64,
       y: 1504,

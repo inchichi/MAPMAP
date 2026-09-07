@@ -6,8 +6,8 @@ import {
 } from './monsterEquipmentDrops'
 
 describe('rollMonsterEquipmentDrop', () => {
-  it('returns one weapon or armor drop within the 90 percent drop chance', () => {
-    const randomValues = [0.29, 0.99]
+  it('returns one weapon or armor drop within the 20 percent drop chance', () => {
+    const randomValues = [0.19, 0.99]
 
     expect(rollMonsterEquipmentDrop(() => randomValues.shift() ?? 0)).toEqual({
       dropId: 'Iron_Helmet_drop',
@@ -16,8 +16,8 @@ describe('rollMonsterEquipmentDrop', () => {
     })
   })
 
-  it('returns no equipment drop outside the 90 percent drop chance', () => {
-    expect(rollMonsterEquipmentDrop(() => 0.9)).toBeUndefined()
+  it('returns no equipment drop outside the 20 percent drop chance', () => {
+    expect(rollMonsterEquipmentDrop(() => 0.2)).toBeUndefined()
   })
 
   it('exposes all armor folder equipment drops', () => {

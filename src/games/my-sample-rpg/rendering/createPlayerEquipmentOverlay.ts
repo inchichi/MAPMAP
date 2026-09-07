@@ -17,6 +17,10 @@ import {
   unequipPlayerEquipmentSlot
 } from '../lua/luaGameLogic'
 import { getResponsiveUiScale } from './getResponsiveUiScale'
+import {
+  TOWN_TILESET_IMAGE_HEIGHT,
+  TOWN_TILESET_IMAGE_WIDTH
+} from './townTilesetImageSize'
 
 type CreatePlayerEquipmentOverlayInput = {
   mountElement: HTMLElement
@@ -74,8 +78,8 @@ const UI_SPRITESHEET_WIDTH = 512
 const UI_SPRITESHEET_HEIGHT = 512
 const TINY_DUNGEON_TILESET_WIDTH = 192
 const TINY_DUNGEON_TILESET_HEIGHT = 176
-const TOWN_TILESET_WIDTH = 256
-const TOWN_TILESET_HEIGHT = 2240
+const TOWN_TILESET_WIDTH = TOWN_TILESET_IMAGE_WIDTH
+const TOWN_TILESET_HEIGHT = TOWN_TILESET_IMAGE_HEIGHT
 const WEAPON_SWORD_IMAGE_WIDTH = 337
 const WEAPON_SWORD_IMAGE_HEIGHT = 344
 const WEAPON_AXE_IMAGE_WIDTH = 355

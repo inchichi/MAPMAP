@@ -59,7 +59,8 @@ export const BLACKSMITH_INITIAL_STOCK_ITEM_IDS = [
   'Iron_Armor',
   'Iron_Helmet',
   'leather-boots',
-  'smith-charm'
+  'smith-charm',
+  'pickaxe'
 ] as const
 export const DEFAULT_BLACKSMITH_INVENTORY_SLOT_COUNT =
   BLACKSMITH_INITIAL_STOCK_ITEM_IDS.length
@@ -223,11 +224,18 @@ export const sellBlacksmithShopItem = ({
     })
   }
 
+  // 스택 아이템은 1개 단위로 판다 — 슬롯 전체를 지우고 1개 값만 주던 손해를 막는다.
   const nextPlayerInventory = withInventoryGold(
-    clearPlayerInventorySlot({
-      inventory: playerInventory,
-      slotIndex: playerSlotIndex
-    }),
+    playerItem.quantity > 1
+      ? setPlayerInventorySlot({
+          inventory: playerInventory,
+          slotIndex: playerSlotIndex,
+          item: { ...playerItem, quantity: playerItem.quantity - 1 }
+        })
+      : clearPlayerInventorySlot({
+          inventory: playerInventory,
+          slotIndex: playerSlotIndex
+        }),
     playerInventory.gold + itemPrice
   )
   const nextMerchantInventory = withInventoryGold(
@@ -243,11 +251,17 @@ export const sellBlacksmithShopItem = ({
   }
 }
 
+// 장비/포션 카탈로그 밖의 재료 아이템 매입가 — 채굴 광석의 골드 소비처.
+const BLACKSMITH_MATERIAL_PRICE_BY_ID: Record<string, number> = {
+  'crystal-ore': 70
+}
+
 export const getBlacksmithShopTradeItemPriceById = (
   itemId: string
 ): number | undefined =>
   getPlayerEquipmentItemDefinitionById(itemId)?.price ??
-  getPotionShopItemDefinitionById(itemId)?.price
+  getPotionShopItemDefinitionById(itemId)?.price ??
+  BLACKSMITH_MATERIAL_PRICE_BY_ID[itemId]
 
 const createPlayerInventoryItemFromEquipmentDefinition = (
   definition: PlayerEquipmentItemDefinition
