@@ -1251,4 +1251,5 @@
   <tile id="1254" type="town_prop_well_roof_r1c0"/>
   <tile id="1255" type="town_prop_well_roof_r1c1"/>
   <tile id="1256" type="town_prop_wheat_tile"/>
+  <tile id="1257" type="town_prop_fence_v"/>
 </tileset>

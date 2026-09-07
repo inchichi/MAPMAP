@@ -655,5 +655,6 @@
  "town_prop_well_roof_r0c1": 1254,
  "town_prop_well_roof_r1c0": 1255,
  "town_prop_well_roof_r1c1": 1256,
- "town_prop_wheat_tile": 1257
+ "town_prop_wheat_tile": 1257,
+ "town_prop_fence_v": 1258
 }

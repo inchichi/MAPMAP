@@ -3283,5 +3283,10 @@
   "name": "town_prop_wheat_tile",
   "sheet": "sheet__village.png",
   "index": 110
+ },
+ {
+  "name": "town_prop_fence_v",
+  "sheet": "sheet__village.png",
+  "index": 111
  }
 ]

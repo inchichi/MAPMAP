@@ -592,14 +592,14 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     giverNpcId: POTION_MERCHANT_NPC_ID,
     giverName: '물약상인',
     title: '수로 끝의 마을',
-    trackerLabel: '황금이삭 마을 방문',
+    trackerLabel: '딴따라마을 방문',
     prerequisiteQuestIds: [POTION_SURVIVAL_BASICS_QUEST_ID],
     requestText:
-      '남쪽 수교 아래 계단이 황금이삭 마을로 이어진다. 촌장님께 안부를 전해 달라.',
+      '남쪽 수교 아래 계단이 딴따라마을로 이어진다. 촌장님께 안부를 전해 달라.',
     guideText:
-      '마을 남쪽 수교의 중앙 아치 계단으로 내려가 황금이삭 마을의 마리네 촌장을 만나자.',
+      '마을 남쪽 수교의 중앙 아치 계단으로 내려가 딴따라마을의 마리네 촌장을 만나자.',
     startDialogueLines: [
-      '우리 물약 약초의 절반은 황금이삭 마을 들녘에서 온단다.',
+      '우리 물약 약초의 절반은 딴따라마을 들녘에서 온단다.',
       '남쪽 수교 아치 밑 계단으로 내려가면 바로 그 마을이야.',
       '우물가에 계신 마리네 촌장님께 내 안부 좀 전해 주겠니?'
     ],
@@ -614,7 +614,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     objectives: [
       {
         id: 'enter-harvest-village',
-        label: '황금이삭 마을 진입',
+        label: '딴따라마을 진입',
         required: 1,
         type: 'scene-enter',
         target: {

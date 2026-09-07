@@ -1,11 +1,11 @@
-"""황금이삭 마을(harvest-village.tmx) 생성기.
+"""딴따라마을(harvest-village.tmx) 생성기.
 
-디자인: 4안 심사 패널 우승안 "harvest-village · 황금이삭 마을" + 이식
+디자인: 4안 심사 패널 우승안 "harvest-village" + 이식
 (빨래터, 가로등-꽃 가로수길 축선, 시장 넘침 상자). 티르코네일 수교의 물이
 흘러내려와 들녘을 적시는 하류 농촌 마을 — 북벽 전체가 그 수교이고, 중앙
 아치 관문으로 두 마을이 이어진다.
 
-  북쪽 관문 아치 → 가로등 가로수길 → 우물 광장(수확 종탑) → 동쪽 장터와
+  북쪽 관문 아치 → 가로등 가로수길 → 우물 광장 → 동쪽 장터와
   울타리 밭(밀·갈이흙) → 서쪽 개울(관개 수로)가 개울가 오두막·빨래터를 지나
   방죽못으로 → 남서 과수원 → 남쪽 촌장 농원 저택(대저택).
 
@@ -31,7 +31,9 @@ G = json.load(open(GIDS_PATH))
 rnd = random.Random(20260907)
 
 # ---- town-32 기본 gid ----
-GRASS, GRASS_ALT = 517, 518
+# 주의: 518은 잔디가 아니라 우측에 흙 세로줄이 붙은 전환 타일(시트 이름 거짓말).
+# 잔디 변형은 사냥터 생성기와 같은 457을 쓴다.
+GRASS, GRASS_ALT = 517, 457
 DIRT, COBBLE = 507, 515
 DIRT_EDGE_BASE, COBBLE_EDGE_BASE = 561, 580   # mask1..15 + 대각4
 WATER_L, WATER, WATER_R = 309, 310, 311        # 석재 수로 물(수교 문법)
@@ -79,7 +81,7 @@ def extract_templates():
     TW = 50
     BOXES = {
         'mansion_blue': (17, 0, 34, 17), 'house_red': (12, 30, 19, 40),
-        'clock_tower': (25, 31, 30, 39), 'market_tent': (30, 31, 38, 39),
+        'market_tent': (30, 31, 38, 39),
         'stall_awning': (10, 12, 15, 17), 'fountain': (18, 12, 21, 16),
         'aqueduct': (0, 44, 50, 50),
     }
@@ -321,25 +323,25 @@ for y in range(0, 6):
 stamp_template('mansion_blue', 22, 40)
 stamp_template('house_red', 11, 9)
 stamp_template('house_red', 19, 10)
-stamp_template('clock_tower', 23, 20)
 stamp_template('market_tent', 33, 17)
 stamp_template('stall_awning', 42, 24)
 stamp_template('stall_awning', 42, 34)
 
 # ---------------------------------------------------------------- 울타리 밭
 def fence_rect(x0, y0, x1, y1, gates=()):
-    """둘레 피켓 울타리(1타일 완결형 — 세로 변도 같은 타일: 탑다운 관례상
-    울타리는 항상 정면을 본다). gates 위치는 가로변이면 문짝, 세로변이면 개구부."""
+    """둘레 피켓 울타리. 가로변은 정면 피켓(fence_h_m), 세로변은 측면 세로
+    레일(fence_v — 판자가 상하로 이어지는 전용 타일)이라 끊김 없이 이어진다.
+    gates 위치는 개구부(닫힌 문짝 타일은 충돌이 생겨 길을 막는다)."""
     for x in range(x0, x1 + 1):
         for y in (y0, y1):
             if (x, y) in gates:
-                continue   # 문은 개구부 — 닫힌 문짝 타일은 충돌이 생겨 길을 막는다
+                continue
             put('object', x, y, vprop('fence_h_m'))
     for y in range(y0 + 1, y1):
         for x in (x0, x1):
             if (x, y) in gates:
                 continue
-            put('object', x, y, vprop('fence_h_m'))
+            put('object', x, y, vprop('fence_v'))
 
 
 def field_rows(x0, y0, x1, y1, kind='wheat'):
@@ -395,8 +397,6 @@ stamp_vprop('bench', 27, 33, 2, 1)
 stamp_vprop('bench', 34, 33, 2, 1)
 for x, y in ((25, 28), (36, 28), (25, 34), (37, 34)):
     put_lamp(x, y)
-# 종탑(시계탑) 앞 팻말
-put('object', 28, 26, vprop('sign_blank'))
 # 가로수길(척추) — 가로등+꽃 리듬(축선 액자: 이식안)
 for y in (9, 15, 21):
     put_lamp(26, y)
@@ -488,7 +488,7 @@ while q:
 
 CHECK = [
     ('관문도착', (29, 7)), ('에디터스폰(맵중앙)', (30, 30)), ('우물앞', (32, 31)),
-    ('종탑앞', (26, 27)), ('장터앞', (36, 25)), ('밭A문', (43, 14)), ('밭B문', (52, 34)),
+    ('장터앞', (36, 25)), ('밭A문', (43, 14)), ('밭B문', (52, 34)),
     ('건초마당', (43, 48)), ('오두막1문', (14, 19)), ('오두막2문', (22, 19)),
     ('빨래터', (10, 17)), ('방죽못벤치', (13, 45)), ('과수원', (17, 43)),
     ('저택정면', (30, 57)), ('갈림길', (19, 38)), ('수문', (10, 8)),
