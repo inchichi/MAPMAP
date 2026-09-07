@@ -323,7 +323,10 @@ applyPendingQuests()
 // 같은 NPC 를 쓰면 에디터 생성분이 이긴다(registerScenarios 는 마지막 등록 우선).
 // 주의: pendingScenarios 는 부팅 시 지우지 않는다. 플래그가 인메모리(MVP)라
 // localStorage 정의가 새로고침 간 유일한 지속층이다(퀘스트 1회 소비 지뢰의 재발 방지).
-registerScenarios([SHELL_GAME_SCENARIO, ...loadPendingScenarios()])
+const pendingScenarioSnapshot = loadPendingScenarios()
+registerScenarios([SHELL_GAME_SCENARIO, ...pendingScenarioSnapshot], {
+  priorityNpcIds: pendingScenarioSnapshot.map((scenario) => scenario.trigger.npc_id)
+})
 let merchantInventory = createInitialBlacksmithInventory()
 let potionMerchantInventory = createInitialPotionInventory()
 let activeControllerRuntime:
@@ -1128,7 +1131,10 @@ window.addEventListener('storage', (event) => {
   // 에디터가 시나리오를 적용하면 등록소를 갱신한다. 트리거는 다음 상호작용에서 조회되므로
   // 재부팅 없이 즉시 반영된다.
   if (event.key === PENDING_SCENARIOS_STORAGE_KEY) {
-    registerScenarios(loadPendingScenarios())
+    const pendingScenarios = loadPendingScenarios()
+    registerScenarios(pendingScenarios, {
+      priorityNpcIds: pendingScenarios.map((scenario) => scenario.trigger.npc_id)
+    })
     return
   }
 

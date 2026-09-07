@@ -34,8 +34,16 @@ import {
   generateScenarioWithLlm,
   ScenarioGenerationError
 } from './scenarioGenerator'
+import { SHELL_GAME_SCENARIO } from './scenarioGoldExample'
 import { MY_SAMPLE_RPG_SCENARIO_REGISTRY } from './scenarioRegistry'
 import { formatScenarioAsText } from './scenarioTextFormat'
+import { createScenarioValidationIssues } from './scenarioValidator'
+import {
+  createScenarioDemoReport,
+  formatScenarioDemoReport,
+  SCENARIO_DEMO_PROMPT,
+  type ScenarioDemoSource
+} from './scenarioDemo'
 import { createStyleTransferModal } from './createStyleTransferModal'
 // SpecDriven 파이프라인(시나리오→StyleSpec→앵커 승인→일괄 변환+QA) — 디벨롭 방향 8/6.
 import { createStylePipelinePanel } from './createStylePipelinePanel'
@@ -45,6 +53,7 @@ import { decideEditorAction } from './editorActionGenerator'
 import { resolveLegendEntitySpriteUrl } from './legendEntitySprite'
 // 맵 인식 시 묶인 오브젝트 누끼 자동 추출(분기 B·스타일 모달 '추출' 탭의 입력).
 import { requestMapObjectExtraction } from './extractMapObjects'
+import type { GeneratedScenarioJson } from '../games/my-sample-rpg/scenario/scenarioTypes'
 // 게임이 localStorage에 저장한 수기/생성 NPC — 트리에 TMX 엔티티와 합쳐 보여주기 위해 읽는다.
 import { loadNpcsForMap, PENDING_NPCS_STORAGE_KEY, removeNpc } from './npcStore'
 
@@ -726,6 +735,14 @@ export const createEditorApp = ({
     stylePipelinePanel.openButton.click()
   })
   suggestionRow.append(stylePipelineButton)
+  const scenarioDemoButton = el('button', QUICK_CARD) as HTMLButtonElement
+  scenarioDemoButton.type = 'button'
+  scenarioDemoButton.title = 'LLM 없이 검증된 시나리오를 바로 불러와 게임에 적용합니다'
+  scenarioDemoButton.append(
+    el('span', 'text-[14px] leading-none text-[#d4d4d4]', '시나리오 데모'),
+    el('span', 'text-[11px] leading-none text-[#777777] opacity-65', '고정 예제 실행')
+  )
+  suggestionRow.append(scenarioDemoButton)
   quickStart.append(suggestionRow)
 
   // 예시 요청 — 한 줄 칩. 설명은 툴팁(title)으로, 클릭하면 그대로 입력창에 들어간다.
@@ -2491,6 +2508,98 @@ export const createEditorApp = ({
   // 보내면, 실행 중인 게임이 플레이어 옆 빈 칸에 실제 CharacterState로 스폰한다(대사 상호작용 포함).
   // 시나리오 v2: 자연어 → 2단계 생성(골격→장면) → 결정적 그래프 검증 → 적용(localStorage 주입).
   // "시나리오를 뽑고, 실제 데이터로 만들어, 게임에 적용"의 전체 고리다.
+  type ScenarioDemoIssues = ReturnType<typeof createScenarioValidationIssues>
+
+  const createScenarioGenerationResult = ({
+    scenario,
+    source,
+    llmCalls,
+    issues
+  }: {
+    scenario: GeneratedScenarioJson
+    source: ScenarioDemoSource
+    llmCalls: number
+    issues: ScenarioDemoIssues
+  }): GenerationResult => {
+    const report = createScenarioDemoReport({ scenario, source, llmCalls, issues })
+    const flowSummary = scenario.scenes
+      .map((scene) => {
+        const last = scene.steps.at(-1)
+        const to =
+          last?.type === 'goto'
+            ? `→ ${last.scene}`
+            : last?.type === 'branch'
+              ? `→ ${last.then_scene} | ${last.else_scene}`
+              : last?.type === 'choice'
+                ? `→ ${last.options.map((option) => option.goto).join(' | ')}`
+                : '→ (끝)'
+        return `  ${scene.id} (${scene.steps.length}스텝) ${to}`
+      })
+      .join('\n')
+    const warnings = issues.filter((issue) => issue.severity === 'warning')
+    const preview = [
+      formatScenarioDemoReport(report),
+      '',
+      formatScenarioAsText(scenario),
+      '',
+      `제목: ${scenario.title}`,
+      `트리거: ${scenario.trigger.npc_id} 에게 말 걸기`,
+      `플래그: ${scenario.flags.join(', ') || '(없음)'}`,
+      `장면 흐름 (진입: ${scenario.entry_scene})`,
+      flowSummary,
+      '',
+      JSON.stringify(scenario, null, 2)
+    ].join('\n')
+
+    return {
+      label: scenario.title || scenario.scenario_id,
+      preview,
+      issues: warnings.map((issue) => `${issue.path} - ${issue.message}`),
+      // 적용: localStorage 에 저장 → 게임이 storage 이벤트로 등록소를 갱신 →
+      // 다음 상호작용부터 그 NPC 가 이 시나리오를 실행한다(새로고침 불필요).
+      apply: () => {
+        appendPendingScenario(scenario)
+      },
+      bridgePayload: null
+    }
+  }
+
+  const commitScenarioResult = ({
+    scenario,
+    source,
+    llmCalls,
+    issues,
+    countAsGeneration
+  }: {
+    scenario: GeneratedScenarioJson
+    source: ScenarioDemoSource
+    llmCalls: number
+    issues: ScenarioDemoIssues
+    countAsGeneration: boolean
+  }): GenerationResult => {
+    const errors = issues.filter((issue) => issue.severity === 'error')
+    if (errors.length > 0) {
+      throw new ScenarioGenerationError('시나리오 데모가 검증을 통과하지 못했습니다.', errors)
+    }
+
+    const result = createScenarioGenerationResult({ scenario, source, llmCalls, issues })
+    currentDryRun = undefined
+    currentResult = result
+    historyCounter += 1
+    history = [{ n: historyCounter, result }, ...history].slice(0, HISTORY_LIMIT)
+    if (countAsGeneration) {
+      sessionTally = {
+        generations: sessionTally.generations + 1,
+        validatorPasses: sessionTally.validatorPasses + 1
+      }
+    }
+    activeBoardTab = 'verify'
+    logActivity(
+      source === 'fixed' ? '고정 데모 시나리오 로드' : `"${result.label}" 시나리오 생성`
+    )
+    return result
+  }
+
   const runGenerateScenario = async (): Promise<void> => {
     isGenerating = true
     const filesAtStart = currentFiles
@@ -2510,39 +2619,14 @@ export const createEditorApp = ({
       }
 
       const scenario = generated.scenario
+      const result = commitScenarioResult({
+        scenario,
+        source: 'generated',
+        llmCalls: generated.llmCalls,
+        issues: generated.issues,
+        countAsGeneration: true
+      })
       const warnings = generated.issues.filter((issue) => issue.severity === 'warning')
-      // 사람이 읽는 대본 텍스트 + 원본 JSON. 검증 error 는 생성기 안에서 0이 될 때까지
-      // 재시도되므로 여기 도달한 결과는 실행 가능함이 보장된다.
-      const preview = [
-        '── 대본 (검토용 텍스트) ──',
-        formatScenarioAsText(scenario),
-        `LLM 호출 ${generated.llmCalls}회`,
-        '',
-        '── JSON (적용 원본) ──',
-        JSON.stringify(scenario, null, 2)
-      ].join('\n')
-
-      const result: GenerationResult = {
-        label: scenario.title || scenario.scenario_id,
-        preview,
-        issues: warnings.map((issue) => `${issue.path} - ${issue.message}`),
-        // 적용: localStorage 에 저장 → 게임이 storage 이벤트로 등록소를 갱신 →
-        // 다음 상호작용부터 그 NPC 가 이 시나리오를 실행한다(새로고침 불필요).
-        apply: () => {
-          appendPendingScenario(scenario)
-        },
-        bridgePayload: null
-      }
-      currentDryRun = undefined
-      currentResult = result
-      historyCounter += 1
-      history = [{ n: historyCounter, result }, ...history].slice(0, HISTORY_LIMIT)
-      sessionTally = {
-        generations: sessionTally.generations + 1,
-        validatorPasses: sessionTally.validatorPasses + 1
-      }
-      activeBoardTab = 'verify'
-      logActivity(`"${result.label}" 시나리오 생성`)
       setStatus(
         `생성 완료: ${result.label} — 검증 통과(경고 ${warnings.length}건). ` +
           `'적용'하면 ${scenario.trigger.npc_id} 에게 말 걸 때 실행됩니다`
@@ -2563,6 +2647,37 @@ export const createEditorApp = ({
       }
     } finally {
       isGenerating = false
+      render()
+    }
+  }
+
+  const loadScenarioDemo = (): void => {
+    if (isGenerating) {
+      return
+    }
+
+    const issues = createScenarioValidationIssues(
+      SHELL_GAME_SCENARIO,
+      MY_SAMPLE_RPG_SCENARIO_REGISTRY
+    )
+    activeSuggestion = '시나리오'
+    candidateMode = false
+    npcMode = false
+    fillPrompt(SCENARIO_DEMO_PROMPT)
+    updateQuickCards()
+
+    try {
+      const result = commitScenarioResult({
+        scenario: SHELL_GAME_SCENARIO,
+        source: 'fixed',
+        llmCalls: 0,
+        issues,
+        countAsGeneration: false
+      })
+      render()
+      setStatus(`고정 데모 준비 완료: ${result.label} — 검증 통과. '적용'을 눌러 게임에서 실행하세요`)
+    } catch (error) {
+      setStatus(`고정 데모 준비 실패: ${error instanceof Error ? error.message : String(error)}`)
       render()
     }
   }
@@ -3080,6 +3195,7 @@ export const createEditorApp = ({
   generateButton.addEventListener('click', () => {
     void runGenerate()
   })
+  scenarioDemoButton.addEventListener('click', loadScenarioDemo)
   promptInput.addEventListener('input', () => {
     // 생성 버튼은 생성 중일 때만 잠근다 — 키·요청은 클릭 시 runGenerate가 안내(되게 눌러지게).
     generateButton.disabled = isGenerating
