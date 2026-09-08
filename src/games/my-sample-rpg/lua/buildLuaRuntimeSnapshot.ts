@@ -4,6 +4,7 @@ import {
   isQuestUnlocked,
   type QuestLogState
 } from '../questLog'
+import type { PlayerEquipment } from '../playerEquipment'
 import type { PlayerInventory } from '../playerInventory'
 import type { PlayerProfile } from '../playerProfile'
 import type { LuaRuntimeSnapshot } from './createLuaCharacterControllerRuntime'
@@ -14,11 +15,15 @@ import type { LuaRuntimeSnapshot } from './createLuaCharacterControllerRuntime'
 export const buildLuaRuntimeSnapshot = ({
   questLog,
   inventory,
+  equipment,
   profile,
   sceneId
 }: {
   questLog: QuestLogState
   inventory: PlayerInventory
+  // 장착 중인 장비도 '보유'로 센다 — 곡괭이를 보조 장비 슬롯에 장착한 채로도
+  // 광맥의 get_item_count('pickaxe') 검사가 통과해야 한다. 미전달이면 인벤토리만 센다.
+  equipment?: PlayerEquipment
   profile: PlayerProfile
   sceneId: string
 }): LuaRuntimeSnapshot => {
@@ -50,6 +55,13 @@ export const buildLuaRuntimeSnapshot = ({
     if (slot) {
       const key = `inv:${slot.id}`
       numbers[key] = (numbers[key] ?? 0) + slot.quantity
+    }
+  }
+
+  for (const slot of equipment?.slots ?? []) {
+    if (slot.item) {
+      const key = `inv:${slot.item.id}`
+      numbers[key] = (numbers[key] ?? 0) + 1
     }
   }
 

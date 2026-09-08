@@ -35,6 +35,7 @@ import {
   ScenarioGenerationError
 } from './scenarioGenerator'
 import { MY_SAMPLE_RPG_SCENARIO_REGISTRY } from './scenarioRegistry'
+import { formatScenarioAsText } from './scenarioTextFormat'
 import { createStyleTransferModal } from './createStyleTransferModal'
 // SpecDriven 파이프라인(시나리오→StyleSpec→앵커 승인→일괄 변환+QA) — 디벨롭 방향 8/6.
 import { createStylePipelinePanel } from './createStylePipelinePanel'
@@ -388,10 +389,10 @@ export const createEditorApp = ({
   }
   // 이번 세션 집계: 생성 수 + Validator 통과 수. 프로젝트를 바꾸면 초기화한다.
   let sessionTally: SessionGenerationTally = { generations: 0, validatorPasses: 0 }
-  // 퀘스트 모드(2단계 생성): '퀘스트' 빠른시작을 고르면 켜진다. 1단계는 자연어 후보 N개를 만들고,
-  // 유저가 하나를 골라 2단계에서 그 후보만 이벤트 JSON으로 만든 뒤 드라이런 검증→적용한다.
+  // 퀘스트 모드(2단계 생성): 라우팅이 create_quest 로 판별하면 켜진다. 1단계는 자연어 후보 N개를
+  // 만들고, 유저가 하나를 골라 2단계에서 그 후보만 이벤트 JSON으로 만든 뒤 드라이런 검증→적용한다.
   let candidateMode = false
-  // 'NPC 추가'(my-sample-rpg) 모드: 자연어로 NPC를 생성해 적용 시 플레이어 옆에 라이브 스폰한다.
+  // NPC 생성 모드(my-sample-rpg): 라우팅이 create_npc 로 판별하면 켜진다. 적용 시 플레이어 옆 라이브 스폰.
   let npcMode = false
   let candidates: QuestCandidate[] = []
   let selectedCandidateIndex: number | undefined
@@ -622,7 +623,7 @@ export const createEditorApp = ({
     promptInput.focus()
   }
 
-  // 빠른 시작 — 아이콘 카드. 클릭하면 입력창이 채워지고 카드에 '✓ 선택됨' 상태가 남아
+  // 작업 유형 — 아이콘 카드. 클릭하면 입력창이 채워지고 카드에 '✓ 선택됨' 상태가 남아
   // "지금 내가 뭘 만드는 중인지"가 보인다(표시 전용 상태).
   // primary: 대표 액션(핵심 기능) 표시 — 카드가 한 단계 강조된다.
   // Quick Actions — 자주 쓰는 6개 작업. 아이콘으로 먼저 구분되고, 클릭하면 입력창이 채워진다.
@@ -635,19 +636,17 @@ export const createEditorApp = ({
     icon: EditorIconName
     quest?: boolean
   }> = [
-    { label: 'NPC 대사', desc: '대화 생성', text: '마법사가 플레이어에게 경고하는 대사를 추가해줘', primary: true, icon: 'npc' },
-    { label: '퀘스트', desc: '의뢰 생성', text: '마을 주민이 부탁하는 숨겨진 퀘스트를 만들어줘', primary: true, icon: 'scroll', quest: true },
-    { label: '시나리오', desc: '분기 이벤트', text: '마법사가 수상한 내기를 제안하는 시나리오를 만들어줘. 참가 여부를 선택할 수 있고, 이기면 보상을 주고, 다시 말 걸면 다른 대사가 나와야 해', primary: true, icon: 'scroll' },
-    { label: '스타일 변경', desc: '외형 수정', text: '이 나무를 가을 분위기의 나무로 바꿔줘', primary: false, icon: 'crystal' },
-    { label: 'NPC 추가', desc: '주민 생성', text: '마을에 새로운 주민 NPC를 추가해줘', primary: false, icon: 'npc' },
-    { label: '건물 추가', desc: '구조물 배치', text: '마을 광장에 새로운 건물을 추가해줘', primary: false, icon: 'building' },
-    { label: '이벤트 수정', desc: '동작 변경', text: '이 포털이 동굴 입구로 연결되도록 수정해줘', primary: false, icon: 'portal' }
+    // 시나리오·스타일 계열만 남긴다. 퀘스트·NPC 추가·대사·건물·이벤트 수정은 별도 유형 없이
+    // 자유 입력으로 충분하다 — 요청을 쓰면 라우팅(decideEditorAction)이 알맞은 흐름
+    // (퀘스트 후보 2단계·NPC 라이브 스폰 등)을 자동으로 고른다.
+    { label: '시나리오', desc: '분기 이벤트 생성', text: '마법사가 수상한 내기를 제안하는 시나리오를 만들어줘. 참가 여부를 선택할 수 있고, 이기면 보상을 주고, 다시 말 걸면 다른 대사가 나와야 해', primary: true, icon: 'scroll' },
+    { label: '스타일 변경', desc: '외형 수정', text: '이 나무를 가을 분위기의 나무로 바꿔줘', primary: false, icon: 'crystal' }
   ]
   let activeSuggestion: string | undefined
   // 빠른 템플릿 선택 — 기본은 완전 중립(회색 테두리, 금색 없음). 약한 hover, 금색은 active(클릭)만.
   const QUICK_CARD =
     'h-[52px] flex flex-col items-start justify-center gap-1 rounded-lg px-3 text-left bg-[#1a1a1c] border border-[#3c3c3c] transition duration-[180ms] ease-out hover:bg-[#242427] hover:border-[#4a4a4a]'
-  // 대표 액션(NPC 대사·퀘스트)도 기본은 다른 카드와 똑같은 중립으로 둔다(초기 진입 시
+  // 대표 액션(퀘스트·시나리오)도 기본은 다른 카드와 똑같은 중립으로 둔다(초기 진입 시
   // 선택된 것처럼 미리 강조되면 안 됨). 강조는 active(클릭)에만.
   const QUICK_CARD_PRIMARY = QUICK_CARD
   // 선택된 도구 — Figma/Notion/Linear 식 차분한 강조: 소프트 그레이 필 + 한 단계 밝은 얇은 테두리
@@ -655,7 +654,7 @@ export const createEditorApp = ({
   const QUICK_CARD_ACTIVE =
     'h-[52px] flex flex-col items-start justify-center gap-1 rounded-lg px-3 text-left bg-[#52555b] border border-[#9296a0] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition duration-[180ms] ease-out hover:bg-[#5a5d63]'
   const quickStart = el('div', 'flex flex-wrap items-center gap-1.5')
-  quickStart.append(el('span', 'text-[10px] leading-none text-[#777777]', '빠른 시작'))
+  quickStart.append(el('span', 'text-[10px] leading-none text-[#777777]', '작업 유형'))
   const suggestionRow = el('div', 'flex flex-wrap gap-1.5')
   const quickCards = SUGGESTIONS.map((suggestion) => {
     const card = el('button', suggestion.primary ? QUICK_CARD_PRIMARY : QUICK_CARD) as HTMLButtonElement
@@ -687,11 +686,10 @@ export const createEditorApp = ({
   for (const quickCard of quickCards) {
     quickCard.card.addEventListener('click', () => {
       activeSuggestion = quickCard.label
-      // quest:true 카드만 2단계(후보→선택→검증) 모드. 다른 빠른시작은 기존 단일 생성 흐름.
+      // 작업 유형 선택은 예문 채우기 + 표시 전용. 특수 모드(퀘스트 후보·NPC 스폰)는
+      // 만들기 시점의 라우팅(decideEditorAction)이 켠다.
       candidateMode = quickCard.quest
-      // 'NPC 추가'(my-sample-rpg)는 NPC 생성 모드 — 적용 시 플레이어 옆 라이브 스폰.
-      npcMode =
-        quickCard.label === 'NPC 추가' && game.adapter.id === 'my-sample-rpg'
+      npcMode = false
       candidates = []
       selectedCandidateIndex = undefined
       editingCandidateIndex = undefined
@@ -728,16 +726,16 @@ export const createEditorApp = ({
   suggestionRow.append(stylePipelineButton)
   quickStart.append(suggestionRow)
 
-  // 추천 의뢰 — 한 줄 칩. 설명은 툴팁(title)으로, 클릭하면 그대로 입력창에 들어간다.
+  // 예시 요청 — 한 줄 칩. 설명은 툴팁(title)으로, 클릭하면 그대로 입력창에 들어간다.
   const RECOMMENDED = [
     { title: '마법사의 경고', desc: '플레이어에게 위험 경고', text: '마법사가 플레이어에게 위험을 경고하는 대사를 추가해줘' },
-    { title: '숨겨진 퀘스트', desc: '새로운 보상 의뢰', text: '마을 주민이 부탁하는 숨겨진 퀘스트를 만들어줘' },
+    { title: '숨겨진 퀘스트', desc: '새로운 보상 퀘스트', text: '마을 주민이 부탁하는 숨겨진 퀘스트를 만들어줘' },
     { title: '계절 변화', desc: '가을 분위기로 변경', text: '이 나무를 가을 분위기의 나무로 바꿔줘' }
   ]
   // 도움말처럼 보이게: 더 어두운 배경 + 흐린 테두리 + 좌측 배지 — 입력창과 즉시 구분된다.
   const recommendBoard = el('div', 'flex flex-wrap items-center gap-1.5 rounded-lg bg-[#050506] border border-white/[0.06] px-2 py-1.5')
   recommendBoard.append(
-    el('span', 'rounded px-2 py-0.5 text-[11px] leading-none text-[#b6bac1] bg-[#b6bac1]/10 border border-[#b6bac1]/25', '추천 의뢰')
+    el('span', 'rounded px-2 py-0.5 text-[11px] leading-none text-[#b6bac1] bg-[#b6bac1]/10 border border-[#b6bac1]/25', '예시 요청')
   )
   for (const item of RECOMMENDED) {
     const chip = el('button', 'h-[26px] flex items-center rounded-full px-2.5 text-[11px] leading-none text-[#b6bac1]/75 bg-white/[0.02] border border-[#b6bac1]/18 transition hover:border-[#b6bac1] hover:bg-[#242427] hover:text-[#f2dfb3]', item.title) as HTMLButtonElement
@@ -768,7 +766,7 @@ export const createEditorApp = ({
   const primaryGroup = el('div', 'flex flex-col gap-1')
   primaryGroup.append(
     primaryRow,
-    el('span', 'text-[11px] leading-[1.3] text-[#777777] opacity-70', '선택한 대상의 새 퀘스트·대사를 만듭니다.')
+    el('span', 'text-[11px] leading-[1.3] text-[#777777] opacity-70', '요청한 내용으로 퀘스트·시나리오·대사 등을 생성합니다.')
   )
   const utilityGroup = el('div', 'flex flex-wrap items-center gap-1.5')
   utilityGroup.append(
@@ -1111,14 +1109,10 @@ export const createEditorApp = ({
       )
       return chip
     }
-    // 현재 편집 모드 — 고른 빠른시작(액션)에서 파생. 없으면 '탐색'.
+    // 현재 편집 모드 — 고른 작업 유형에서 파생. 없으면 '탐색'.
     const MODE_LABEL: Record<string, string> = {
-      'NPC 대사': 'NPC 대사 편집',
-      퀘스트: '퀘스트 작성',
-      '스타일 변경': '스타일 편집',
-      'NPC 추가': 'NPC 생성',
-      '건물 추가': '건물 배치',
-      '이벤트 수정': '이벤트 설정'
+      시나리오: '시나리오 작성',
+      '스타일 변경': '스타일 편집'
     }
     const chips: HTMLElement[] = [
       mapChip,
@@ -1399,58 +1393,28 @@ export const createEditorApp = ({
   // settings-game-font: ESC/왼쪽 패널과 같은 둥근 픽셀 폰트로 통일.
   // 화면의 주인공 — 다른 패널보다 밝은 금색 그라데이션 테두리(과한 glow 없이 은은하게).
   // 세로를 아끼려 제목·설명을 한 줄에 같이 두고, 높이 상한도 낮춰 게임 화면에 공간을 양보한다.
-  // 화면의 주인공 '마을 의뢰서' — 다른 패널보다 밝은 배경 + 2px 금색 테두리,
+  // 화면의 주인공 '콘텐츠 생성 요청' 패널 — 다른 패널보다 밝은 배경 + 2px 금색 테두리,
   // 입력에 포커스되면 은은한 발광(focus-within)으로 "여기에 쓰면 된다"가 바로 보이게.
-  // 게임 화면이 주인공 — 의뢰서는 화면의 약 1/3 이하로 압축한다.
+  // 게임 화면이 주인공 — 요청 패널은 화면의 약 1/3 이하로 압축한다.
   const composer = el('div', 'settings-game-font shrink-0 max-h-[36%] overflow-y-auto rounded-xl box-grad-border box-grad-border--strong box-grad-border--thick [--bgb:#141416] text-[#d4d4d4] p-2.5 flex flex-col gap-1.5 transition focus-within:shadow-[0_0_20px_rgba(222,170,90,0.25)]')
   // 제목은 하나, 설명도 한 줄만 — 정보를 줄여 흐름(선택→작성→생성)이 먼저 읽히게.
   const composerTitle = el('div', 'flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 min-w-0')
   const composerTitleRow = el('div', 'flex items-center gap-2')
   composerTitleRow.append(
     editorIcon('scroll', 20),
-    el('span', 'text-[18px] font-semibold leading-none text-[#d4d7dc]', '퀘스트 의뢰서')
+    el('span', 'text-[18px] font-semibold leading-none text-[#d4d7dc]', '콘텐츠 생성 요청')
   )
   composerTitle.append(
     composerTitleRow,
-    el('span', 'text-[13px] text-[#9d9d9d] opacity-75', '선택한 대상에게 원하는 이야기나 변화를 작성하세요.')
+    el('span', 'text-[13px] text-[#9d9d9d] opacity-75', '생성할 콘텐츠를 자연어로 작성하세요. 대상 선택은 선택 사항이며, 지정하면 더 정확한 결과를 얻습니다.')
   )
-  // 우측 상단: 진행 상태 — 완료는 초록 '…완료', 현재는 금색 '…중', 미완료는 흐리게.
-  const COMPOSER_STEPS = [
-    { todo: '① 대상 선택', doing: '① 대상 선택 중', done: '① 대상 선택 완료' },
-    { todo: '② 요청 작성', doing: '② 요청 작성 중', done: '② 요청 작성 완료' },
-    { todo: '③ 생성 대기', doing: '③ 생성 대기', done: '③ 생성 완료' }
-  ]
-  const composerStepEls = COMPOSER_STEPS.map((step) =>
-    el('span', 'text-[11px] text-[#9d9d9d] opacity-45', step.todo)
-  )
-  const composerSteps = el('div', 'hidden md:flex items-center gap-2')
-  composerSteps.append(...composerStepEls)
-  // 진행 상태 갱신(표시 전용): 선택 전 → ①, 요청 비었으면 → ②, 채워지면 → ③.
-  const updateComposerSteps = (): void => {
-    const current = !selectedEntity ? 0 : promptInput.value.trim().length === 0 ? 1 : 2
-    composerStepEls.forEach((node, index) => {
-      const step = COMPOSER_STEPS[index]
-      if (!step) {
-        return
-      }
-      if (index < current) {
-        node.className = 'text-[11px] text-[#78c26d] opacity-60'
-        node.textContent = step.done
-      } else if (index === current) {
-        // 현재 단계만 금색 알약으로 또렷하게.
-        node.className = 'text-[11px] leading-none text-white bg-[#b6bac1] rounded-full px-2 py-1'
-        node.textContent = step.doing
-      } else {
-        node.className = 'text-[11px] text-[#9d9d9d] opacity-40'
-        node.textContent = step.todo
-      }
-    })
-  }
+  // 우측 상단: 선택된 대상 카드만 표시한다(선택 없으면 비움) — 대상 선택은 필수가 아니라
+  // 진행 단계·안내 배지로 상태를 알리지 않는다.
   const composerRight = el('div', 'flex items-center gap-3 shrink-0')
-  composerRight.append(composerSteps, targetLine)
+  composerRight.append(targetLine)
   const composerTop = el('div', 'flex flex-wrap items-start justify-between gap-2')
   composerTop.append(composerTitle, composerRight)
-  // 제목 → 빠른 시작 → 입력창 → 추천 의뢰 → 생성 버튼: 보조 행은 전부 다른 줄에 병합했다.
+  // 제목 → 작업 유형 → 입력창 → 예시 요청 → 생성 버튼: 보조 행은 전부 다른 줄에 병합했다.
   // 최근 생성 결과 한 줄 — 처음엔 발표용 예시, 실제 결과가 생기면 그 라벨로 바뀐다(render()가 갱신).
   const recentResultLine = el('div', 'text-[10px] leading-[1.4] text-[#777777]')
   composer.append(composerTop, supportNote, quickStart, promptField, recommendBoard, actions, status, recentResultLine)
@@ -2025,13 +1989,8 @@ export const createEditorApp = ({
       )
       targetLine.replaceChildren(selectedCard)
     } else {
-      // 선택 전: 오류처럼 보이지 않게 흐린 회색 안내 톤("대상 선택 필요").
-      const emptyCardBadge = el('span', 'fade-in inline-flex items-center gap-2 rounded-lg px-3 py-1.5 bg-[#1a1a1c]/70 border border-[#b6bac1]/20 opacity-80')
-      emptyCardBadge.append(
-        editorIcon('target', 16),
-        el('span', 'text-[12px] leading-none text-[#9d9d9d]', '대상 선택 필요')
-      )
-      targetLine.replaceChildren(emptyCardBadge)
+      // 선택 전: 아무것도 표시하지 않는다 — 대상 선택은 필수가 아니라 상태를 알릴 필요가 없다.
+      targetLine.replaceChildren()
     }
 
     for (const { entity, node } of entityButtons) {
@@ -2120,8 +2079,8 @@ export const createEditorApp = ({
     // 복사·내보내기도 생성 중일 때만 잠근다 — 결과 없으면 클릭 시 메시지로 안내(되게 눌러지게).
     copyButton.disabled = isGenerating
     exportButton.disabled = isGenerating
-    copyButton.title = currentResult ? '결과 JSON 복사' : '먼저 콘텐츠를 생성하세요'
-    exportButton.title = currentResult ? '결과를 .json 파일로 내보내기' : '먼저 콘텐츠를 생성하세요'
+    copyButton.title = currentResult ? '생성 결과 복사' : '먼저 콘텐츠를 생성하세요'
+    exportButton.title = currentResult ? '결과를 파일로 내보내기' : '먼저 콘텐츠를 생성하세요'
     // 결과 보드 채우기(표시 전용): 목록 4줄은 항상 보이고, 상세 창 내용만 갱신된다.
     // 목록 카드 우측 상태 배지(캡슐) — 색으로 상태가 한눈에 들어온다.
     const BADGE = 'h-[20px] flex items-center gap-1.5 rounded-full px-2 text-[10px] font-semibold leading-none whitespace-nowrap bg-[#242427]'
@@ -2252,8 +2211,7 @@ export const createEditorApp = ({
     if (candidateMode) {
       renderCandidates()
     }
-    // 표시 전용 UI 동기화: 요약 카드 · 맵 탭 강조 · 진행 단계 바 · 컴포저 진행 상태 · 맵 통계.
-    updateComposerSteps()
+    // 표시 전용 UI 동기화: 요약 카드 · 맵 탭 강조 · 진행 단계 바 · 맵 통계.
     updatePreviewStats()
     updateSummary()
     updateSelectionNameplate()
@@ -2551,30 +2509,14 @@ export const createEditorApp = ({
 
       const scenario = generated.scenario
       const warnings = generated.issues.filter((issue) => issue.severity === 'warning')
-      // 사람이 읽는 요약(장면 흐름·플래그) + 원본 JSON. 검증 error 는 생성기 안에서 0이 될 때까지
+      // 사람이 읽는 대본 텍스트 + 원본 JSON. 검증 error 는 생성기 안에서 0이 될 때까지
       // 재시도되므로 여기 도달한 결과는 실행 가능함이 보장된다.
-      const flowSummary = scenario.scenes
-        .map((scene) => {
-          const last = scene.steps.at(-1)
-          const to =
-            last?.type === 'goto'
-              ? `→ ${last.scene}`
-              : last?.type === 'branch'
-                ? `→ ${last.then_scene} | ${last.else_scene}`
-                : last?.type === 'choice'
-                  ? `→ ${last.options.map((option) => option.goto).join(' | ')}`
-                  : '→ (끝)'
-          return `  ${scene.id} (${scene.steps.length}스텝) ${to}`
-        })
-        .join('\n')
       const preview = [
-        `제목: ${scenario.title}`,
-        `트리거: ${scenario.trigger.npc_id} 에게 말 걸기`,
-        `플래그: ${scenario.flags.join(', ') || '(없음)'}`,
-        `장면 흐름 (진입: ${scenario.entry_scene})`,
-        flowSummary,
+        '── 대본 (검토용 텍스트) ──',
+        formatScenarioAsText(scenario),
         `LLM 호출 ${generated.llmCalls}회`,
         '',
+        '── JSON (적용 원본) ──',
         JSON.stringify(scenario, null, 2)
       ].join('\n')
 
@@ -3030,8 +2972,17 @@ export const createEditorApp = ({
       return
     }
 
-    const fileName = `${currentResult.label || 'generated'}.json`
-    const blob = new Blob([currentResult.preview], { type: 'application/json' })
+    // preview 가 순수 JSON 이면 .json, 대본 텍스트가 섞인 결과(시나리오 등)면 .txt 로 저장한다.
+    let isJson = true
+    try {
+      JSON.parse(currentResult.preview)
+    } catch {
+      isJson = false
+    }
+    const fileName = `${currentResult.label || 'generated'}.${isJson ? 'json' : 'txt'}`
+    const blob = new Blob([currentResult.preview], {
+      type: isJson ? 'application/json' : 'text/plain'
+    })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -3133,8 +3084,6 @@ export const createEditorApp = ({
     // 글자수 카운터 + 자동 높이 갱신.
     promptCounter.textContent = `${promptInput.value.length}자`
     autoSizePrompt()
-    // 진행 상태(요청 작성 중 ↔ 생성 대기)도 입력에 따라 갱신(표시 전용).
-    updateComposerSteps()
     updateStepBar()
   })
   // ⌘/Ctrl+Enter로 빠르게 생성(데모 흐름용). runGenerate가 자체 가드(키·프롬프트·생성중)를 가진다.

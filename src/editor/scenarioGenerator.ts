@@ -82,6 +82,7 @@ const OUTLINE_INSTRUCTIONS = [
   '- goes_to 에는 그 장면에서 이동할 수 있는 장면 id 만 적는다(끝나는 장면이면 빈 배열).',
   '- 이야기가 상태를 가지려면 flags 를 선언한다(예: 클리어 여부, 보상 수령 여부 — snake_case).',
   '- 선택지로 갈라지는 지점과 플래그로 갈라지는 지점을 최소 1개씩 넣는다.',
+  '- 끝나는 장면(goes_to 빈 배열)의 purpose 에 선택지가 필요한 전개를 넣지 않는다 — 선택은 갈 곳이 있는 장면에서만.',
   '- trigger.npc_id 와 cast 는 주어진 NPC 목록에서만 고른다.'
 ].join('\n')
 
@@ -94,6 +95,9 @@ const sceneInstructions = (outline: ScenarioOutline): string =>
     '- 대사는 한국어로, 캐릭터의 말투를 살려 짧고 게임에 어울리게 쓴다.',
     '- 장면의 마지막은 반드시 goto / end / branch / choice 중 하나다(그냥 끝나면 안 된다).',
     '- goto·branch·choice 의 이동 대상은 골격의 goes_to 와 일치시켜라.',
+    '- 자기 자신 장면으로 goto 하는 것은 무한 루프라 금지다.',
+    '- 이동 가능한 장면이 없는 말단 장면에는 goto·choice·branch 를 쓸 수 없다.',
+    '  선택 연출이 필요해도 choice 없이 say·reward·set_flag 로 풀고 end 로 끝내라.',
     '- 조건·1회성은 선언된 플래그로 표현한다. 선언 밖의 플래그는 쓸 수 없다.',
     '- choice 옵션의 show_if 는 "조건이 참일 때만 보이는 선택지"다(예: 아직 안 받은 보상 받기).',
     '',
@@ -182,6 +186,27 @@ export const generateScenarioWithLlm = async ({
 }): Promise<GenerateScenarioResult> => {
   let llmCalls = 0
 
+  // LLM 호출의 일시적 실패(응답 잘림·반복 열화·JSON 파싱 실패)는 같은 입력을 재샘플하면
+  // 대개 해소된다 — 다단계 파이프라인이 호출 한 번의 열화로 전부 무너지지 않게 감싼다.
+  // 검증 실패(ScenarioGenerationError)는 여기서 다루지 않는다: 그건 되먹임 재생성의 몫.
+  const withTransientRetry = async <T>(run: () => Promise<T>, attempts = 2): Promise<T> => {
+    let lastError: unknown
+    for (let attempt = 0; attempt <= attempts; attempt += 1) {
+      try {
+        return await run()
+      } catch (error) {
+        if (error instanceof ScenarioGenerationError) {
+          throw error
+        }
+        lastError = error
+        if (attempt < attempts) {
+          onProgress?.('LLM 응답 이상 — 같은 요청을 다시 시도하는 중…')
+        }
+      }
+    }
+    throw lastError
+  }
+
   const callOutline = async (feedback?: ScenarioValidationIssue[]) => {
     llmCalls += 1
     return generate<ScenarioOutline>({
@@ -206,10 +231,10 @@ export const generateScenarioWithLlm = async ({
 
   // Stage 1: 골격 생성(+1회 재시도)
   onProgress?.('1/2단계 — 장면 골격을 생성하는 중…')
-  let outline = await callOutline()
+  let outline = await withTransientRetry(() => callOutline())
   let outlineIssues = createOutlineIssues(outline, registry)
   if (outlineIssues.length > 0) {
-    outline = await callOutline(outlineIssues)
+    outline = await withTransientRetry(() => callOutline(outlineIssues))
     outlineIssues = createOutlineIssues(outline, registry)
     if (outlineIssues.length > 0) {
       throw new ScenarioGenerationError('골격 생성이 검증을 통과하지 못했다.', outlineIssues)
@@ -235,7 +260,7 @@ export const generateScenarioWithLlm = async ({
         `이 장면에서 이동 가능한 장면: ${
           outlineScene && outlineScene.goes_to.length > 0
             ? outlineScene.goes_to.join(', ')
-            : '(없음 — end 로 끝나야 한다)'
+            : '(없음 — goto·choice·branch 금지, 반드시 end 로 끝나야 한다)'
         }`,
         ...(feedback && feedback.length > 0
           ? [
@@ -246,7 +271,11 @@ export const generateScenarioWithLlm = async ({
           : [])
       ].join('\n'),
       schemaName: `scenario_scene_${sceneId}`,
-      schema: createScenarioSceneSchema(registry, { sceneId, ...frozen }),
+      schema: createScenarioSceneSchema(registry, {
+        sceneId,
+        ...frozen,
+        goesTo: outlineScene?.goes_to ?? []
+      }),
       maxTokens: 4096
     })
   }
@@ -255,7 +284,7 @@ export const generateScenarioWithLlm = async ({
   const scenes: ScenarioScene[] = []
   for (const [index, sceneId] of sceneIds.entries()) {
     onProgress?.(`2/2단계 — 장면 채우는 중 (${index + 1}/${sceneIds.length}: ${sceneId})…`)
-    scenes.push(await callScene(sceneId))
+    scenes.push(await withTransientRetry(() => callScene(sceneId)))
   }
 
   const assemble = (): GeneratedScenarioJson => ({
@@ -310,7 +339,7 @@ export const generateScenarioWithLlm = async ({
       }
       retriesBySceneId.set(sceneId, attempted + 1)
       onProgress?.(`검증 실패 장면 재생성 중 (${sceneId}, ${attempted + 1}/${maxSceneRetries})…`)
-      scenes[index] = await callScene(sceneId, sceneIssues)
+      scenes[index] = await withTransientRetry(() => callScene(sceneId, sceneIssues))
     }
 
     issues = createScenarioValidationIssues(assemble(), registry)

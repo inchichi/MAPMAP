@@ -46,10 +46,20 @@ import { processInteractionEvents } from '../interaction/processInteractionEvent
 import {
   getEquippedPlayerAttackBonus,
   getEquippedPlayerDefense,
+  getEquippedPlayerWeaponAttackKind,
   PLAYER_EQUIPMENT_ITEM_DEFINITIONS,
   type PlayerEquipment,
   type PlayerEquipmentSlotId
 } from '../playerEquipment'
+import {
+  createPlayerProjectile,
+  getPlayerProjectileDirectionFromFacing,
+  getPlayerProjectileHitRect,
+  getPlayerProjectileRotation,
+  stepPlayerProjectile,
+  type PlayerProjectileKind,
+  type PlayerProjectileState
+} from '../playerProjectile'
 import {
   type PlayerInventory,
   type PlayerInventoryItem
@@ -157,6 +167,12 @@ import {
   createWallTileLookup,
   isWallTileAt
 } from '../tiled/createWallTileLookup'
+import {
+  doCollisionRectsIntersect,
+  isCharacterPositionBlocked,
+  resolveCornerAssistNudge,
+  type CollisionRect
+} from './characterCollision'
 import type {
   ParsedTiledMap,
   ParsedTiledTile,
@@ -274,13 +290,6 @@ type ProtectVfxRenderResources = {
 type ResolvedCharacterAppearanceTexture = {
   texture: Texture
   renderScale: number
-}
-
-type CollisionRect = {
-  x: number
-  y: number
-  width: number
-  height: number
 }
 
 type ActiveCharacterMessage = {
@@ -800,6 +809,13 @@ const PLAYER_WEAPON_APPEARANCE_CONFIG_BY_ITEM_ID: Record<
     worldScale: 0.085,
     idleOffsetX: -2,
     idleOffsetY: 3
+  },
+  'hunting-bow': {
+    // 임시 인핸드 활 — Legend of Lua 에셋(6x13px). 본편 스타일 활 스프라이트가 생기면 교체.
+    imageUrl: '/legend-sprites/items/bow1.png',
+    worldScale: 1.6,
+    idleOffsetX: -2,
+    idleOffsetY: 2
   }
 }
 const PLAYER_ARMOR_EQUIPMENT_CONFIG = {
@@ -1249,6 +1265,13 @@ export const createPixiTiledMapView = async ({
   >()
   const monsterGoldDrops = new Map<string, MonsterGoldDrop>()
   const monsterEquipmentDrops = new Map<string, MonsterEquipmentDrop>()
+  // 무기별 기본 공격 발사체(화살·에너지볼). 이동/수명은 playerProjectile.ts 순수 로직,
+  // 여기는 스프라이트·벽/몬스터 판정·데미지 배선만 담당한다.
+  const activePlayerProjectiles = new Map<
+    string,
+    { state: PlayerProjectileState; sprite: Container }
+  >()
+  let playerProjectileCounter = 0
   // 맵에 배치된 바닥 코인 더미(shadow_lower 레이어의 cave_prop_gold_* 타일).
   // CompositeTilemap 은 타일 단위 제거가 불가능해 개별 스프라이트로 분리해 둔다.
   const coinPileSprites = new Map<
@@ -1566,7 +1589,150 @@ export const createPixiTiledMapView = async ({
     const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
     playerAttackReadyAtMilliseconds =
       now + PLAYER_ATTACK_COOLDOWN_MILLISECONDS
-    startPlayerWeaponAttackMotion(playerCharacter, now)
+
+    // 장착 무기의 공격 방식 분기: 근접은 기존 스윙+슬래시, 활/마법은 발사체.
+    const attackKind = getEquippedPlayerWeaponAttackKind(currentPlayerEquipment)
+
+    if (attackKind === 'melee') {
+      startPlayerWeaponAttackMotion(playerCharacter, now)
+      return
+    }
+
+    // 원거리: 무기 스윙 모션은 재사용하되 슬래시 VFX·근접 판정은 만들지 않는다
+    // (suppressDamage 로 resolvePlayerAttackDamage 의 폴백 프로브 경로까지 봉인).
+    playerAttackStartedAtMilliseconds = now
+    playerAttackResolvedStartedAtMilliseconds = now
+    playerAttackFacing = playerCharacter.facing
+    spawnPlayerProjectile(
+      playerCharacter,
+      attackKind === 'bow' ? 'arrow' : 'energy-ball'
+    )
+    gameSoundEffects.play(attackKind === 'bow' ? 'playerRollWhoosh' : 'playerSkill')
+  }
+
+  // 발사체 비주얼은 전용 아트가 아직 없어 Graphics 로 그린다(골드 드랍 동전과 같은 방식).
+  const createArrowProjectileSprite = (rotation: number): Container => {
+    const container = new Container()
+    const arrow = new Graphics()
+    // 오른쪽(+x)을 향해 그린 뒤 진행 방향으로 회전: 몸통 → 촉 → 깃 순서.
+    arrow.rect(-7, -1, 11, 2)
+    arrow.fill({ color: 0x8b5a2b })
+    arrow.poly([7, -3, 12, 0, 7, 3])
+    arrow.fill({ color: 0xd8dde4 })
+    arrow.poly([-7, -3, -3, 0, -7, 3])
+    arrow.fill({ color: 0xf2f2e9 })
+    container.addChild(arrow)
+    container.rotation = rotation
+    return container
+  }
+
+  const createEnergyBallProjectileSprite = (): Container => {
+    const container = new Container()
+    const glow = new Graphics()
+    glow.circle(0, 0, 8)
+    glow.fill({ color: 0x7fd4ff, alpha: 0.35 })
+    const core = new Graphics()
+    core.circle(0, 0, 4.5)
+    core.fill({ color: 0xe8f7ff })
+    core.stroke({ color: 0x9fe0ff, width: 1.5 })
+    container.addChild(glow, core)
+    return container
+  }
+
+  const spawnPlayerProjectile = (
+    character: CharacterState,
+    kind: PlayerProjectileKind
+  ) => {
+    const direction = getPlayerProjectileDirectionFromFacing(character.facing)
+    const state = createPlayerProjectile({
+      kind,
+      originX: character.position.x * map.tileWidth + characterPixelWidth / 2,
+      originY: character.position.y * map.tileHeight + characterPixelHeight / 2,
+      direction
+    })
+    const sprite =
+      kind === 'arrow'
+        ? createArrowProjectileSprite(getPlayerProjectileRotation(direction))
+        : createEnergyBallProjectileSprite()
+
+    playerProjectileCounter += 1
+    const projectileId = `player-projectile-${playerProjectileCounter}`
+    sprite.label = projectileId
+    sprite.position.set(state.x, state.y)
+    sprite.zIndex = Math.round(state.y + map.tileHeight)
+    depthSortedLayer?.addChild(sprite)
+    activePlayerProjectiles.set(projectileId, { state, sprite })
+  }
+
+  // 기본 공격 데미지 = 스탯 공격력 + 장비 보너스. 스탯 항은 공격 종류로 갈린다:
+  // 마법(에너지볼)은 지력 기반 마법 공격력, 근접·활은 힘 기반 물리 공격력.
+  const getPlayerBasicAttackDamage = (isMagic: boolean): number =>
+    (isMagic
+      ? playerStatEffects.getPlayerMagicAttackPower(playerProfile)
+      : playerStatEffects.getPlayerPhysicalAttackPower(playerProfile)) +
+    getEquippedPlayerAttackBonus(currentPlayerEquipment)
+
+  // 매 프레임: 발사체 이동 → 벽/사거리/몬스터 판정 → 스프라이트 동기화.
+  const updatePlayerProjectiles = (now: number, deltaMilliseconds: number) => {
+    for (const [projectileId, projectile] of activePlayerProjectiles) {
+      const { next, expired } = stepPlayerProjectile(
+        projectile.state,
+        deltaMilliseconds
+      )
+      projectile.state = next
+
+      let finished = expired
+
+      if (
+        !finished &&
+        isWallTileAt(
+          wallTiles,
+          Math.floor(next.x / map.tileWidth),
+          Math.floor(next.y / map.tileHeight)
+        )
+      ) {
+        finished = true
+      }
+
+      if (!finished) {
+        const targetMonster = resolveClosestMonsterInCollisionRect(
+          getPlayerProjectileHitRect(next)
+        )
+
+        if (targetMonster) {
+          applyDamageToMonster(
+            targetMonster.id,
+            getPlayerBasicAttackDamage(next.kind === 'energy-ball'),
+            now
+          )
+          finished = true
+        }
+      }
+
+      if (finished) {
+        projectile.sprite.removeFromParent()
+        projectile.sprite.destroy({ children: true })
+        activePlayerProjectiles.delete(projectileId)
+        continue
+      }
+
+      projectile.sprite.position.set(next.x, next.y)
+      projectile.sprite.zIndex = Math.round(next.y + map.tileHeight)
+
+      if (next.kind === 'energy-ball') {
+        // 에너지볼만 은은한 맥동 — 진행 거리 기반이라 일시정지 중에는 멈춘다.
+        const pulse = 1 + 0.12 * Math.sin(next.traveledPixels / 9)
+        projectile.sprite.scale.set(pulse)
+      }
+    }
+  }
+
+  const clearPlayerProjectiles = () => {
+    for (const projectile of activePlayerProjectiles.values()) {
+      projectile.sprite.removeFromParent()
+      projectile.sprite.destroy({ children: true })
+    }
+    activePlayerProjectiles.clear()
   }
   const triggerPlayerRoll = (
     vector: PlayerRollVector,
@@ -4705,6 +4871,7 @@ export const createPixiTiledMapView = async ({
     clearPlayerSlashEffectSprite()
     clearPlayerProtectSkillEffectSprite()
     clearPlayerSmashSkillEffectSprites()
+    clearPlayerProjectiles()
     playerProtectSkillActiveUntilMilliseconds = 0
     playerProtectSkillReadyAtMilliseconds = now + PLAYER_RESPAWN_DELAY_MILLISECONDS
     playerDamageInvulnerableUntilMilliseconds = 0
@@ -4755,6 +4922,7 @@ export const createPixiTiledMapView = async ({
     clearPlayerSlashEffectSprite()
     clearPlayerProtectSkillEffectSprite()
     clearPlayerSmashSkillEffectSprites()
+    clearPlayerProjectiles()
     playerProtectSkillActiveUntilMilliseconds = 0
     playerProtectSkillReadyAtMilliseconds = now
     playerDamageInvulnerableUntilMilliseconds = 0
@@ -5002,12 +5170,8 @@ export const createPixiTiledMapView = async ({
         })
 
     if (targetCharacter) {
-      applyDamageToMonster(
-        targetCharacter.id,
-        playerStatEffects.getPlayerPhysicalAttackPower(playerProfile) +
-          getEquippedPlayerAttackBonus(currentPlayerEquipment),
-        now
-      )
+      // 근접 기본 공격 — 마법 무기는 발사체 경로로 가므로 여기는 항상 물리다.
+      applyDamageToMonster(targetCharacter.id, getPlayerBasicAttackDamage(false), now)
       playerAttackResolvedStartedAtMilliseconds =
         playerAttackStartedAtMilliseconds
     }
@@ -5811,6 +5975,39 @@ export const createPixiTiledMapView = async ({
       )
       .map((character) => createCollisionRectFromCharacter(character))
 
+  // 막힌 축과 직각으로 살짝 정렬시켜 한 칸 통로에 걸리지 않게 한다.
+  const applyCornerAssist = (
+    character: CharacterState,
+    deltaX: number,
+    deltaY: number,
+    blockingRects: CollisionRect[]
+  ): CharacterState => {
+    const nudge = resolveCornerAssistNudge({
+      wallTiles,
+      blockingRects,
+      x: character.position.x,
+      y: character.position.y,
+      width: character.collisionSize.width,
+      height: character.collisionSize.height,
+      deltaX,
+      deltaY
+    })
+
+    if (!nudge) {
+      return character
+    }
+
+    return moveCharacterState({
+      character,
+      delta: {
+        x: nudge.axis === 'x' ? nudge.amount : 0,
+        y: nudge.axis === 'y' ? nudge.amount : 0
+      },
+      mapWidth: map.width,
+      mapHeight: map.height
+    })
+  }
+
   const tryMoveCharacter = (
     characterId: string,
     deltaX: number,
@@ -5818,6 +6015,8 @@ export const createPixiTiledMapView = async ({
     options: {
       preserveFacing?: boolean
       ignoreMonsterBlocking?: boolean
+      // 한 칸 통로에 들어갈 때 격자에 자동 정렬시킨다(플레이어 조작 이동에만).
+      cornerAssist?: boolean
     } = {}
   ): boolean => {
     const currentCharacter = getCharacterStateById(characterId)
@@ -5866,6 +6065,8 @@ export const createPixiTiledMapView = async ({
         )
       ) {
         nextCharacter = nextXCharacter
+      } else if (options.cornerAssist) {
+        nextCharacter = applyCornerAssist(nextCharacter, deltaX, deltaY, blockingRects)
       }
     }
 
@@ -5891,6 +6092,8 @@ export const createPixiTiledMapView = async ({
         )
       ) {
         nextCharacter = nextYCharacter
+      } else if (options.cornerAssist) {
+        nextCharacter = applyCornerAssist(nextCharacter, deltaX, deltaY, blockingRects)
       }
     }
 
@@ -5980,10 +6183,13 @@ export const createPixiTiledMapView = async ({
 
         if (intent) {
           if (intent.movement) {
+            // 코너 어시스트는 플레이어 조작 이동에만 — 몬스터가 한 칸 길목을
+            // 통과하게 되면 난이도가 바뀌고, 구르기·넉백은 각자 고유 규칙이 있다.
             const didMove = tryMoveCharacter(
               character.id,
               intent.movement.x,
-              intent.movement.y
+              intent.movement.y,
+              character.id === PLAYER_CHARACTER_ID ? { cornerAssist: true } : {}
             )
 
             if (character.id === PLAYER_CHARACTER_ID && didMove) {
@@ -6184,6 +6390,7 @@ export const createPixiTiledMapView = async ({
 
       resolvePlayerAttackDamage(now)
       resolvePlayerSmashSkillDamage(now)
+      updatePlayerProjectiles(now, app.ticker.deltaMS)
       resolveMonsterContactDamage(now)
       resolveMonsterGoldDropPickups()
       resolveMonsterEquipmentDropPickups()
@@ -6195,6 +6402,7 @@ export const createPixiTiledMapView = async ({
       const runtimeSnapshot = buildLuaRuntimeSnapshot({
         questLog: currentQuestLog,
         inventory: currentPlayerInventory,
+        equipment: currentPlayerEquipment,
         profile: playerProfile,
         sceneId
       })
@@ -7108,6 +7316,7 @@ export const createPixiTiledMapView = async ({
     monsterContactDamageLockedUntilById.clear()
     monsterRespawnAtById.clear()
     clearPlayerSmashSkillEffectSprites()
+    clearPlayerProjectiles()
     for (const monsterGoldDrop of monsterGoldDrops.values()) {
       monsterGoldDrop.container.destroy({ children: true })
     }
@@ -7343,40 +7552,6 @@ const clampScrollOffset = (value: number, max: number): number =>
 const clampCameraZoom = (value: number): number =>
   Math.max(CAMERA_MIN_ZOOM, Math.min(value, CAMERA_MAX_ZOOM))
 
-const isCharacterPositionBlocked = (
-  wallTiles: Set<string>,
-  blockingRects: CollisionRect[],
-  x: number,
-  y: number,
-  width: number,
-  height: number
-): boolean => {
-  const epsilon = 1e-6
-  const minTileX = Math.floor(x + epsilon)
-  const maxTileX = Math.floor(x + width - epsilon)
-  const minTileY = Math.floor(y + epsilon)
-  const maxTileY = Math.floor(y + height - epsilon)
-
-  for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
-    for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
-      if (isWallTileAt(wallTiles, tileX, tileY)) {
-        return true
-      }
-    }
-  }
-
-  return blockingRects.some((blockingRect) =>
-    doCollisionRectsIntersect(
-      blockingRect,
-      {
-        x,
-        y,
-        width,
-        height
-      }
-    )
-  )
-}
 
 const createGrassTileLookup = (map: ParsedTiledMap): Set<string> => {
   const groundLayer = map.layers.find(
@@ -7441,15 +7616,6 @@ const getCharacterDepthSortValue = (
   characterPixelHeight: number,
   tileHeight: number
 ): number => characterY * tileHeight + characterPixelHeight
-
-const doCollisionRectsIntersect = (
-  left: CollisionRect,
-  right: CollisionRect
-): boolean =>
-  left.x < right.x + right.width &&
-  left.x + left.width > right.x &&
-  left.y < right.y + right.height &&
-  left.y + left.height > right.y
 
 const isPlayerRollModifierCode = (code: string): boolean =>
   code === 'ShiftLeft' || code === 'ShiftRight'

@@ -140,6 +140,7 @@ import {
 // 위 모듈들의 TS 폴백 + 게임 호출부 시그니처용 타입.
 import {
   getPlayerPhysicalAttackPower as tsGetPlayerPhysicalAttackPower,
+  getPlayerMagicAttackPower as tsGetPlayerMagicAttackPower,
   getPlayerMovementSpeedTilesPerSecond as tsGetPlayerMovementSpeedTilesPerSecond,
   getPlayerEvadeChance as tsGetPlayerEvadeChance,
   shouldPlayerEvadeDamage as tsShouldPlayerEvadeDamage
@@ -589,6 +590,13 @@ export const getPlayerPhysicalAttackPower = (
   statEffects
     ? statEffects.getPlayerPhysicalAttackPower(player)
     : tsGetPlayerPhysicalAttackPower(player)
+
+export const getPlayerMagicAttackPower = (
+  player: Pick<PlayerProfile, 'stats'>
+): number =>
+  statEffects
+    ? statEffects.getPlayerMagicAttackPower(player)
+    : tsGetPlayerMagicAttackPower(player)
 
 export const getPlayerMovementSpeedTilesPerSecond = (
   player: Pick<PlayerProfile, 'stats'>

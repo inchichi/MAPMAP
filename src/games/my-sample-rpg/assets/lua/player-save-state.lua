@@ -259,7 +259,8 @@ local function normalize_equipment_slot(value)
   }
 end
 
-local function normalize_equipment(value)
+-- slot_spec: TS가 넘기는 현재 슬롯 구성 [{ id, label }, ...] (상수 소유는 TS).
+local function normalize_equipment(value, slot_spec)
   if
     not is_record(value)
     or not is_string(value.setName)
@@ -270,13 +271,26 @@ local function normalize_equipment(value)
   end
 
   -- 장비 슬롯은 고정 구성이라 하나라도 손상되면 폐기한다.
-  local slots = json_array({})
+  local stored_item_by_id = {}
   for i = 1, #value.slots do
     local slot = normalize_equipment_slot(value.slots[i])
     if slot == nil then
       return nil
     end
-    slots[i] = slot
+    stored_item_by_id[slot.id] = slot.item
+  end
+
+  -- 슬롯 구성이 늘어난 뒤(예: '보조 장비' 추가) 저장된 구버전 세이브를 현재 구성으로 보강한다:
+  -- 없는 슬롯은 빈 칸으로 채우고, 순서·라벨은 현재 정의를 따른다.
+  local slots = json_array({})
+  for i = 1, #slot_spec do
+    local spec = slot_spec[i]
+    local stored_item = stored_item_by_id[spec.id]
+    slots[i] = {
+      id = spec.id,
+      label = spec.label,
+      item = stored_item == nil and json_null or stored_item
+    }
   end
 
   return { setName = value.setName, level = value.level, slots = slots }
@@ -352,13 +366,13 @@ function save_state_serialize(input)
 end
 
 -- normalizeStoredPlayerSaveState: 신뢰할 수 없는 값 → 검증된 저장 상태 또는 json_null(undefined).
-function save_state_normalize(value)
+function save_state_normalize(value, slot_spec)
   if not is_record(value) or value.version ~= SAVE_STATE_VERSION then
     return json_null
   end
 
   local profile = normalize_profile(value.profile)
-  local equipment = normalize_equipment(value.equipment)
+  local equipment = normalize_equipment(value.equipment, slot_spec)
   local inventory = normalize_inventory(value.inventory)
   local quickslots = normalize_quickslots(value.quickslots)
   local skill_slots = normalize_skill_slots(value.skillSlots)
@@ -385,7 +399,7 @@ end
 
 -- parseStoredPlayerSaveState: 직렬화 문자열 → 검증된 상태. 파싱 실패/빈 입력 시 json_null(undefined).
 -- TS의 `if (!raw)`는 ''(빈 문자열)·null·undefined를 모두 falsy로 본다.
-function save_state_parse(raw)
+function save_state_parse(raw, slot_spec)
   if is_nullish(raw) or raw == '' or raw == false then
     return json_null
   end
@@ -399,5 +413,5 @@ function save_state_parse(raw)
     return json_null
   end
 
-  return save_state_normalize(decoded)
+  return save_state_normalize(decoded, slot_spec)
 end

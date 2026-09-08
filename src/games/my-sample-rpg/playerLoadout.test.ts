@@ -9,9 +9,55 @@ import {
   setPlayerInventorySlot
 } from './playerInventory'
 import {
+  ensurePlayerLoadoutPickaxe,
   equipPlayerInventorySlot,
   unequipPlayerEquipmentSlot
 } from './playerLoadout'
+
+describe('ensurePlayerLoadoutPickaxe', () => {
+  it('adds a pickaxe to the first empty slot when the loadout has none', () => {
+    const equipment = createInitialPlayerEquipment()
+    const inventory = createInitialPlayerInventory({ slotCount: 3 })
+
+    const nextState = ensurePlayerLoadoutPickaxe({ equipment, inventory })
+
+    expect(nextState.inventory.slots[0]).toEqual({
+      id: 'pickaxe',
+      label: '곡괭이',
+      quantity: 1
+    })
+  })
+
+  it('keeps the loadout unchanged when the pickaxe is already in the inventory', () => {
+    const equipment = createInitialPlayerEquipment()
+    // 기본 시작 아이템에 곡괭이가 포함된 인벤토리.
+    const inventory = createInitialPlayerInventory()
+
+    expect(ensurePlayerLoadoutPickaxe({ equipment, inventory })).toEqual({
+      equipment,
+      inventory
+    })
+  })
+
+  it('keeps the loadout unchanged when the pickaxe is equipped in the tool slot', () => {
+    const equipment = setPlayerEquipmentSlot({
+      equipment: createInitialPlayerEquipment(),
+      slotId: 'tool',
+      item: {
+        id: 'pickaxe',
+        label: '곡괭이',
+        level: 1,
+        description: '광맥에서 광석을 캐는 채굴 도구'
+      }
+    })
+    const inventory = createInitialPlayerInventory({ slotCount: 3 })
+
+    expect(ensurePlayerLoadoutPickaxe({ equipment, inventory })).toEqual({
+      equipment,
+      inventory
+    })
+  })
+})
 
 describe('unequipPlayerEquipmentSlot', () => {
   it('moves the equipped item into the first empty inventory slot', () => {
@@ -36,7 +82,8 @@ describe('unequipPlayerEquipmentSlot', () => {
           equipment.slots[1],
           equipment.slots[2],
           equipment.slots[3],
-          equipment.slots[4]
+          equipment.slots[4],
+          equipment.slots[5]
         ]
       },
       inventory: {
@@ -100,7 +147,8 @@ describe('equipPlayerInventorySlot', () => {
           equipment.slots[1],
           equipment.slots[2],
           equipment.slots[3],
-          equipment.slots[4]
+          equipment.slots[4],
+          equipment.slots[5]
         ]
       },
       inventory: {

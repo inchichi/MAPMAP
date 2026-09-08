@@ -24,6 +24,7 @@ import {
 import { createLuaPlayerStatEffects } from '../playerStatEffectsLua'
 import {
   getPlayerEvadeChance,
+  getPlayerMagicAttackPower,
   getPlayerMovementSpeedTilesPerSecond,
   getPlayerPhysicalAttackPower
 } from '../playerStatEffects'
@@ -617,20 +618,28 @@ end
         runtime.loadDataModule(source)
       )
       const base = createInitialPlayerProfile()
-      const withStats = (strength: number, agility: number, luck: number) => ({
+      const withStats = (
+        strength: number,
+        agility: number,
+        luck: number,
+        intelligence: number
+      ) => ({
         ...base,
-        stats: { ...base.stats, strength, agility, luck }
+        stats: { ...base.stats, strength, agility, luck, intelligence }
       })
 
-      for (const [strength, agility, luck] of [
-        [1, 4, 0],
-        [5, 10, 3],
-        [20, 2, 30],
-        [8, 20, 15]
+      for (const [strength, agility, luck, intelligence] of [
+        [1, 4, 0, 1],
+        [5, 10, 3, 3],
+        [20, 2, 30, 25],
+        [8, 20, 15, 12]
       ]) {
-        const profile = withStats(strength, agility, luck)
+        const profile = withStats(strength, agility, luck, intelligence)
         expect(luaStats.getPlayerPhysicalAttackPower(profile)).toBe(
           getPlayerPhysicalAttackPower(profile)
+        )
+        expect(luaStats.getPlayerMagicAttackPower(profile)).toBe(
+          getPlayerMagicAttackPower(profile)
         )
         expect(luaStats.getPlayerMovementSpeedTilesPerSecond(profile)).toBe(
           getPlayerMovementSpeedTilesPerSecond(profile)

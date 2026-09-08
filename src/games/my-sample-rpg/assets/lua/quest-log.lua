@@ -319,11 +319,13 @@ function quest_log_get_visible_trackers(quest_log)
     if quest.trackerVisible then
       if quest.status == 'active' then
         local objective = def.objectives[1]
+        -- TS와 동일하게 활성 목표(objective)도 함께 담는다 — 트래커 UI가 이 값을 읽는다.
         result[#result + 1] = {
-          questId = def.id,
-          text    = def.trackerLabel .. ' '
-                      .. tostring(quest.objectives[objective.id] or 0)
-                      .. '/' .. tostring(objective.required)
+          questId   = def.id,
+          text      = def.trackerLabel .. ' '
+                        .. tostring(quest.objectives[objective.id] or 0)
+                        .. '/' .. tostring(objective.required),
+          objective = objective
         }
       elseif quest.status == 'ready-to-turn-in' then
         local text

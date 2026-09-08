@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { createInitialPlayerProfile, type PlayerProfile } from '../playerProfile'
 import {
+  getPlayerMagicAttackPower,
   getPlayerPhysicalAttackPower,
   getPlayerMovementSpeedTilesPerSecond,
   getPlayerEvadeChance,
@@ -67,6 +68,9 @@ describe('playerStatEffectsLua (real wasm)', () => {
     for (const profile of STAT_CASES) {
       expect(lua.getPlayerPhysicalAttackPower(profile)).toBe(
         getPlayerPhysicalAttackPower(profile)
+      )
+      expect(lua.getPlayerMagicAttackPower(profile)).toBe(
+        getPlayerMagicAttackPower(profile)
       )
       expect(lua.getPlayerMovementSpeedTilesPerSecond(profile)).toBe(
         getPlayerMovementSpeedTilesPerSecond(profile)

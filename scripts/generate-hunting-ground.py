@@ -497,18 +497,36 @@ n_dirt = autotile(DIRT, DIRT_EDGE_BASE)
 n_cob = autotile(COBBLE, COBBLE_EDGE_BASE)
 print(f'오토타일: 흙 경계 {n_dirt}칸, 자갈 경계 {n_cob}칸')
 
+# ---------------------------------------------------------------- 고립 칸 메우기
+# 나무·바위를 흩뿌리다 보면 사방이 막힌 빈 칸이 남는다. 바닥은 멀쩡히 보이는데
+# 영영 들어갈 수 없어 "안 가지는 구멍"으로 읽히므로, 눈에 보이는 바위로 덮어
+# 막힌 이유를 드러낸다(반대로 뚫으면 나무 군집 한가운데가 열려 부자연스럽다).
+
+
+def flood_from(start_cell):
+    walls_now = {(i % W, i // W) for i, g in enumerate(m.L['object']) if g}
+    reached = {start_cell}
+    queue = deque([start_cell])
+    while queue:
+        x, y = queue.popleft()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            n = (x + dx, y + dy)
+            if 0 <= n[0] < W and 0 <= n[1] < H and n not in reached and n not in walls_now:
+                reached.add(n)
+                queue.append(n)
+    return walls_now, reached
+
+
+walls, seen = flood_from((2, 10))
+orphans = [(x, y) for y in range(H) for x in range(W)
+           if (x, y) not in walls and (x, y) not in seen]
+for x, y in orphans:
+    m.set('object', x, y, ROCKS[(x + y) % 2])
+if orphans:
+    print(f'고립 칸 {len(orphans)}개를 바위로 메움: {orphans[:12]}')
+    walls, seen = flood_from((2, 10))
+
 # ---------------------------------------------------------------- 검증
-walls = {(i % W, i // W) for i, g in enumerate(m.L['object']) if g}
-start = (2, 10)
-seen = {start}
-q = deque([start])
-while q:
-    x, y = q.popleft()
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        n = (x + dx, y + dy)
-        if 0 <= n[0] < W and 0 <= n[1] < H and n not in seen and n not in walls:
-            seen.add(n)
-            q.append(n)
 
 CHECK = [('꿀꿀이-1', (7, 5)), ('말캉이-1', (13, 7)), ('꿀꿀이-2', (26, 5)),
          ('말캉이-2', (16, 16)), ('표지판', (45, 12)),

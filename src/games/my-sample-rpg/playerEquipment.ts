@@ -4,6 +4,7 @@ export type PlayerEquipmentSlotId =
   | 'hat'
   | 'boots'
   | 'accessory'
+  | 'tool'
 
 export type PlayerEquipmentIconKey =
   | 'tiny-dungeon-weapon'
@@ -16,6 +17,7 @@ export type PlayerEquipmentIconKey =
   | 'weapon-dagger'
   | 'weapon-mace'
   | 'weapon-staff'
+  | 'weapon-bow'
   | 'ui-circle-beige'
   | 'ui-check-beige'
 
@@ -31,6 +33,9 @@ export type PlayerEquipmentItem = {
   description: string
 }
 
+// 무기의 기본 공격 방식 — melee: 근접 스윙(기본), bow: 화살 발사, magic: 에너지볼 발사.
+export type PlayerWeaponAttackKind = 'melee' | 'bow' | 'magic'
+
 export type PlayerEquipmentItemDefinition = PlayerEquipmentItem & {
   slotId: PlayerEquipmentSlotId
   icon: PlayerEquipmentIcon
@@ -38,6 +43,8 @@ export type PlayerEquipmentItemDefinition = PlayerEquipmentItem & {
   // 전투 보정 — 무기는 공격력, 방어구/장신구는 피해 감소. 없으면 0으로 본다.
   attackBonus?: number
   defense?: number
+  // 무기 슬롯 아이템만 의미 있음. 없으면 melee.
+  attackKind?: PlayerWeaponAttackKind
 }
 
 export type PlayerEquipmentSlot = {
@@ -57,7 +64,8 @@ export const EQUIPMENT_SLOT_LABEL_BY_ID: Record<PlayerEquipmentSlotId, string> =
   armor: '옷',
   hat: '모자',
   boots: '신발',
-  accessory: '장신구'
+  accessory: '장신구',
+  tool: '보조 장비'
 }
 
 export const EQUIPMENT_SLOT_IDS: PlayerEquipmentSlotId[] = [
@@ -65,7 +73,8 @@ export const EQUIPMENT_SLOT_IDS: PlayerEquipmentSlotId[] = [
   'armor',
   'hat',
   'boots',
-  'accessory'
+  'accessory',
+  'tool'
 ]
 
 export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] = [
@@ -150,7 +159,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
   {
     id: 'pickaxe',
     attackBonus: 2,
-    slotId: 'weapon',
+    // 무기 자리를 차지하지 않는 보조 장비 — 검을 든 채로 채굴 도구를 함께 장착할 수 있다.
+    slotId: 'tool',
     label: '곡괭이',
     level: 1,
     description: '광맥에서 광석을 캐는 채굴 도구',
@@ -218,11 +228,26 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     slotId: 'weapon',
     label: '마법 지팡이',
     level: 3,
-    description: '마력을 머금은 지팡이',
+    description: '마력을 머금은 지팡이. 기본 공격이 지력으로 위력이 오르는 에너지볼이 된다',
     price: 360,
+    attackKind: 'magic',
     icon: {
       key: 'weapon-staff',
       scale: 0.08
+    }
+  },
+  {
+    id: 'hunting-bow',
+    attackBonus: 5,
+    slotId: 'weapon',
+    label: '사냥용 활',
+    level: 2,
+    description: '먼 거리의 사냥감을 노리는 활. 기본 공격이 화살 발사로 바뀐다',
+    price: 300,
+    attackKind: 'bow',
+    icon: {
+      key: 'weapon-bow',
+      scale: 0.4
     }
   },
   {
@@ -398,6 +423,18 @@ export const createPlayerEquipmentItemFromDefinition = (
   level: definition.level,
   description: definition.description
 })
+
+// 장착 중인 무기의 기본 공격 방식 — 렌더러가 근접 스윙/화살/에너지볼을 이걸로 분기한다.
+export const getEquippedPlayerWeaponAttackKind = (
+  equipment: Pick<PlayerEquipment, 'slots'>
+): PlayerWeaponAttackKind => {
+  const weaponSlot = equipment.slots.find((slot) => slot.id === 'weapon')
+  const definition = weaponSlot?.item
+    ? getPlayerEquipmentItemDefinitionById(weaponSlot.item.id)
+    : undefined
+
+  return definition?.attackKind ?? 'melee'
+}
 
 // 장착 중인 장비의 전투 보정 합계 — 렌더러의 공격/피격 계산에 더해진다.
 export const getEquippedPlayerAttackBonus = (

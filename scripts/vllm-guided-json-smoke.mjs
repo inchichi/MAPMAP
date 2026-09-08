@@ -17,7 +17,7 @@
 // 종료 코드: 0 = 통과 경로 있음, 1 = 문법 강제 전부 실패(폴백 설계 필요), 2 = 서버 도달 실패
 
 const BASE = (process.argv[2] || process.env.LLM_BASE_URL || 'http://100.115.43.82:8000').replace(/\/$/, '')
-const MODEL = process.env.LLM_MODEL || 'qwen36-27b-int4-best'
+const MODEL = process.env.LLM_MODEL || 'qwen38-27b-int8'
 const TIMEOUT_MS = Number(process.env.LLM_TIMEOUT_MS || 120000)
 
 const results = []

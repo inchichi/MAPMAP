@@ -186,21 +186,36 @@ export const createScenarioSceneSchema = (
     sceneId,
     sceneIds,
     flags,
-    cast
-  }: { sceneId: string; sceneIds: string[]; flags: string[]; cast: string[] }
-): JsonSchema => ({
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    id: { type: 'string', const: sceneId },
-    steps: {
-      type: 'array',
-      minItems: 1,
-      items: { anyOf: nodeSchemas(registry, { sceneIds, flags, cast }) }
+    cast,
+    goesTo
+  }: { sceneId: string; sceneIds: string[]; flags: string[]; cast: string[]; goesTo?: string[] }
+): JsonSchema => {
+  // 이동 노드(goto/choice/branch)의 대상은 이 장면의 goes_to 로만 좁힌다 — 골격 밖 엣지와
+  // 자기 자신 goto(무한 루프)가 구조적으로 불가능해진다. goes_to 가 빈 말단 장면이면
+  // 이동 노드 자체를 스키마에서 뺀다: end 로만 끝날 수 있다.
+  const targetIds = goesTo ?? sceneIds
+  const nodes = nodeSchemas(registry, { sceneIds: targetIds, flags, cast }).filter((node) => {
+    if (targetIds.length > 0) {
+      return true
     }
-  },
-  required: ['id', 'steps']
-})
+    const stepType = (node as { properties?: { type?: { const?: string } } }).properties?.type
+      ?.const
+    return stepType !== 'choice' && stepType !== 'branch' && stepType !== 'goto'
+  })
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      id: { type: 'string', const: sceneId },
+      steps: {
+        type: 'array',
+        minItems: 1,
+        items: { anyOf: nodes }
+      }
+    },
+    required: ['id', 'steps']
+  }
+}
 
 // 전체 시나리오 스키마. sceneIds/flags/cast 를 주면 Stage 2 용으로 좁혀진 스키마가 나온다.
 export const createScenarioSchema = (

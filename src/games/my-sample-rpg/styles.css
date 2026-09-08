@@ -3218,7 +3218,7 @@ body.game-root--map-focused > :not(.game-root) {
   grid-template-areas:
     'center center center'
     'weapon armor hat'
-    'boots accessory .';
+    'boots accessory tool';
   gap: 8px;
   align-items: stretch;
   width: 100%;
@@ -3331,6 +3331,10 @@ body.game-root--map-focused > :not(.game-root) {
 
 .player-inventory-overlay__equipment-slot--accessory {
   grid-area: accessory;
+}
+
+.player-inventory-overlay__equipment-slot--tool {
+  grid-area: tool;
 }
 
 .player-inventory-overlay__equipment-slot-label,

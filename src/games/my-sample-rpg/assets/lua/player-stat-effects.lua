@@ -16,6 +16,11 @@ function player_physical_attack_power(profile)
   return math.max(1, math.floor(profile.stats.strength))
 end
 
+-- 마법 공격력: 힘이 물리 공격력을 올리듯 지력이 마법 공격력을 올린다.
+function player_magic_attack_power(profile)
+  return math.max(1, math.floor(profile.stats.intelligence))
+end
+
 function player_movement_speed(profile, default_speed, agility_bonus_per_point, min_speed, max_speed)
   return clamp(
     default_speed + (profile.stats.agility - 4) * agility_bonus_per_point,

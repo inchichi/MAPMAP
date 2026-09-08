@@ -51,6 +51,7 @@ export const BLACKSMITH_INITIAL_STOCK_ITEM_IDS = [
   'quick-dagger',
   'spiked-mace',
   'magic-staff',
+  'hunting-bow',
   'iron-armor',
   'Leather_Armor',
   'Leather_Helmet',

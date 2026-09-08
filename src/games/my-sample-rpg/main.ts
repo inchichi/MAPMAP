@@ -42,6 +42,7 @@ import {
 import { createNpcCharactersFromEventLayers } from './tiled/createNpcCharactersFromEventLayers'
 import { parseTiledMap, parseTiledTileset } from './tiled/parseTiledMap'
 import { createInitialPlayerInventory } from './playerInventory'
+import { ensurePlayerLoadoutPickaxe } from './playerLoadout'
 import { createInitialPlayerProfile } from './playerProfile'
 import {
   PLAYER_SAVE_STATE_STORAGE_KEY,
@@ -268,6 +269,12 @@ let playerEquipment =
   storedPlayerSaveState?.equipment ?? createInitialPlayerEquipment()
 let playerInventory =
   storedPlayerSaveState?.inventory ?? createInitialPlayerInventory()
+// 곡괭이는 기본 지급 — 시작 아이템 도입 전의 세이브를 로드해도 채굴을 바로 테스트할 수 있게.
+;({ equipment: playerEquipment, inventory: playerInventory } =
+  ensurePlayerLoadoutPickaxe({
+    equipment: playerEquipment,
+    inventory: playerInventory
+  }))
 let playerQuickslots =
   storedPlayerSaveState?.quickslots ?? createInitialPlayerQuickslots()
 let playerSkillSlots =

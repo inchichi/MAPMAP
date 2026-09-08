@@ -14,6 +14,12 @@ export const getPlayerPhysicalAttackPower = (
   profile: Pick<PlayerProfile, 'stats'>
 ): number => Math.max(1, Math.floor(profile.stats.strength))
 
+// 마법 공격력 — 힘이 물리 공격력을 올리듯 지력이 마법 공격력을 올린다.
+// 마법 무기(마법 지팡이)의 기본 공격인 에너지볼 데미지가 이 값을 쓴다.
+export const getPlayerMagicAttackPower = (
+  profile: Pick<PlayerProfile, 'stats'>
+): number => Math.max(1, Math.floor(profile.stats.intelligence))
+
 export const getPlayerMovementSpeedTilesPerSecond = (
   profile: Pick<PlayerProfile, 'stats'>
 ): number =>

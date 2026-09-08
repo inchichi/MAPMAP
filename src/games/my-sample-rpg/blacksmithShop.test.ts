@@ -23,6 +23,7 @@ const BLACKSMITH_STOCK_ITEM_IDS = [
   'quick-dagger',
   'spiked-mace',
   'magic-staff',
+  'hunting-bow',
   'iron-armor',
   'Leather_Armor',
   'Leather_Helmet',
