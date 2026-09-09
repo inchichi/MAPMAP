@@ -1,22 +1,18 @@
-import { execFile } from 'node:child_process'
 import {
+  appendFileSync,
   createReadStream,
   existsSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   statSync
 } from 'node:fs'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
-import { basename, dirname, extname, join, normalize } from 'node:path'
+import { basename, extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { promisify } from 'node:util'
 import { defineConfig, type Plugin } from 'vitest/config'
 import tailwindcss from '@tailwindcss/vite'
 
 const PUBLIC_DIR = fileURLToPath(new URL('./public', import.meta.url))
-const PROJECT_ROOT = fileURLToPath(new URL('.', import.meta.url))
-const execFileAsync = promisify(execFile)
 
 // love.js 빌드를 에디터 패널(iframe)에 임베드할 때, 게임 캔버스가 네이티브 해상도(예: 1920×1080)
 // 그대로 떠서 좁은 패널 밖으로 잘린다. 빌드 파일은 그대로 두고, 서빙 시점에 이 스타일을 index.html에
@@ -113,6 +109,16 @@ const LOVE_EMBED_BRIDGE_SCRIPT = `
     } else if (
       data.type === 'editor:apply' &&
       data.payload &&
+      data.payload.kind === 'quest' &&
+      typeof data.payload.lua === 'string'
+    ) {
+      // 퀘스트 '적용' — 에디터가 직렬화한 Lua 테이블을 게임 quest-runtime이 등록·추적하도록 넘긴다.
+      console.log('[editor-bridge] quest 큐:', data.payload.quest && data.payload.quest.quest_id);
+      queue.push('quest:' + data.payload.lua);
+      flush();
+    } else if (
+      data.type === 'editor:apply' &&
+      data.payload &&
       Array.isArray(data.payload.lines)
     ) {
       // 생성된 대사를 화면 오버레이로 라이브 반영. 대상이 있으면 이름을 앞에 붙인다.
@@ -152,6 +158,83 @@ const MIME_TYPES: Record<string, string> = {
 // public/ 하위에서 love.js 빌드 폴더(index.html + love.js가 있는 곳)를 찾아, 그 경로 요청을
 // Vite의 HTML 처리보다 먼저 가로채 정적 파일 그대로 내보낸다(.wasm MIME 포함). dev 전용이며
 // 프로덕션(빌드 산출물 정적 서빙)에는 영향이 없다.
+// 로컬 LLM 호출의 전체 계보(프롬프트·출력·상태·지연)를 JSONL 로 축적한다.
+// 파인튜닝 착수 조건(수용 예제 300~500개) 판단과 실패 유형 분석의 유일한 데이터 원천이다.
+// notes/ 는 gitignore 라 로그가 저장소를 더럽히지 않는다. dev 전용.
+const LLM_PROXY_TARGET = 'http://100.115.43.82:8000'
+const LLM_LOG_PATH = fileURLToPath(new URL('./notes/llm-proxy-log.jsonl', import.meta.url))
+
+const logLlmCalls = (): Plugin => ({
+  name: 'log-llm-calls',
+  apply: 'serve',
+  configureServer(server) {
+    // 직접 등록 → Vite 내부 proxy 보다 먼저 실행된다(serveLoveJsBuilds 와 같은 기법).
+    server.middlewares.use((req, res, next) => {
+      const rawUrl = (req.url ?? '').split('?')[0]
+      if (req.method !== 'POST' || !rawUrl.startsWith('/api/llm/')) {
+        next()
+        return
+      }
+
+      const chunks: Buffer[] = []
+      req.on('data', (chunk) => chunks.push(chunk))
+      req.on('end', async () => {
+        const requestBody = Buffer.concat(chunks).toString('utf8')
+        const targetUrl = LLM_PROXY_TARGET + rawUrl.replace(/^\/api\/llm/, '')
+        const startedAt = Date.now()
+
+        const writeLog = (entry: Record<string, unknown>) => {
+          try {
+            mkdirSync(fileURLToPath(new URL('./notes', import.meta.url)), { recursive: true })
+            appendFileSync(
+              LLM_LOG_PATH,
+              JSON.stringify({ ts: new Date().toISOString(), url: rawUrl, ...entry }) + '\n'
+            )
+          } catch {
+            // 로깅 실패가 생성 자체를 막으면 안 된다.
+          }
+        }
+
+        try {
+          const upstream = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: requestBody
+          })
+          const responseBody = await upstream.text()
+          writeLog({
+            status: upstream.status,
+            ms: Date.now() - startedAt,
+            request: safeJsonParse(requestBody),
+            response: safeJsonParse(responseBody)
+          })
+          res.statusCode = upstream.status
+          res.setHeader('content-type', upstream.headers.get('content-type') ?? 'application/json')
+          res.end(responseBody)
+        } catch (error) {
+          writeLog({
+            status: 0,
+            ms: Date.now() - startedAt,
+            request: safeJsonParse(requestBody),
+            error: String(error)
+          })
+          res.statusCode = 502
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify({ error: { message: `LLM 서버 연결 실패: ${String(error)}` } }))
+        }
+      })
+    })
+  }
+})
+
+const safeJsonParse = (text: string): unknown => {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text.slice(0, 4000)
+  }
+}
+
 const serveLoveJsBuilds = (): Plugin => ({
   name: 'serve-lovejs-builds',
   apply: 'serve',
@@ -226,173 +309,14 @@ const serveLoveJsBuilds = (): Plugin => ({
   }
 })
 
-// FLUX 스타일 서비스가 원격 GPU 서버에서 실행되는 구성에서는 스타일 적용이 서버 쪽
-// 저장소의 PNG만 덮어써서, 로컬 dev 게임 화면에는 결과가 보이지 않는다. 이 플러그인은
-// POST /__sync-styled-assets 요청을 받아 스타일 서비스의 /styled-assets 목록을 조회한 뒤
-// 해당 파일들을 scp로 받아 로컬 저장소에 미러링한다(dev 전용). 되돌리기 후 목록에서 빠진
-// 파일도 서버의 복원본으로 다시 받아온다. 내용이 같으면 쓰지 않아 reload 루프가 없다.
-const syncStyledAssets = (): Plugin => {
-  const remote = process.env.STYLE_SYNC_REMOTE ?? 'user6@100.115.43.81'
-  const port = process.env.STYLE_SYNC_PORT ?? '2206'
-  const remoteRoot = process.env.STYLE_SYNC_REMOTE_ROOT ?? 'congtigigi'
-  const keyPath = process.env.STYLE_SYNC_KEY ?? join(homedir(), '.ssh', 'id_ed25519')
-  const styleServiceUrl = process.env.STYLE_SYNC_SERVICE ?? 'http://127.0.0.1:8765'
-  const manifestPath = join(PROJECT_ROOT, 'node_modules', '.style-sync-manifest.json')
-
-  const isSafeAssetPath = (value: string): boolean =>
-    value.startsWith('src/games/') &&
-    value.endsWith('.png') &&
-    !value.includes('..') &&
-    !value.includes('\\')
-
-  type SyncResult = {
-    updated: string[]
-    unchanged: string[]
-    reverted: string[]
-    failed: Array<{ path: string; error: string }>
-  }
-
-  let inFlight: Promise<SyncResult> | undefined
-  // 긴 배치 적용 중에는 서버 에셋이 계속 바뀌어, 부팅 동기화 → 파일 쓰기 → Vite 리로드 →
-  // 재부팅 동기화가 맞물리면 새로고침이 반복된다. 부팅 경로는 쿨다운으로 묶고,
-  // 명시적 시점(최종 적용·되돌리기)만 ?force=1로 즉시 동기화한다.
-  let lastSyncAt = 0
-  let lastResult: SyncResult | undefined
-
-  const runSync = async (): Promise<SyncResult> => {
-    const response = await fetch(`${styleServiceUrl}/styled-assets`)
-    if (!response.ok) {
-      throw new Error(`styled-assets 조회 실패 (HTTP ${response.status})`)
-    }
-    const data = (await response.json()) as { assets?: Array<{ path?: unknown }> }
-    const styled = (data.assets ?? []).flatMap((asset) =>
-      typeof asset.path === 'string' && isSafeAssetPath(asset.path) ? [asset.path] : []
-    )
-
-    let previous: string[] = []
-    try {
-      const parsed = JSON.parse(await readFile(manifestPath, 'utf8')) as unknown
-      previous = Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === 'string') : []
-    } catch {
-      previous = []
-    }
-    const reverted = previous.filter((p) => !styled.includes(p) && isSafeAssetPath(p))
-
-    const result: SyncResult = { updated: [], unchanged: [], reverted, failed: [] }
-    for (const relPath of [...new Set([...styled, ...reverted])]) {
-      // 로컬 경로에 한글이 섞여 있어 scp가 직접 쓰기 애매하므로 임시 ASCII 경로로 받는다.
-      const tempPath = join(tmpdir(), `style-sync-${Date.now()}-${Math.floor(Math.random() * 1e6)}.png`)
-      try {
-        await execFileAsync('scp', [
-          '-i', keyPath,
-          '-P', port,
-          '-o', 'StrictHostKeyChecking=accept-new',
-          `${remote}:${remoteRoot}/${relPath}`,
-          tempPath
-        ])
-        const nextBytes = await readFile(tempPath)
-        const localPath = join(PROJECT_ROOT, relPath)
-        let currentBytes: Buffer | undefined
-        try {
-          currentBytes = await readFile(localPath)
-        } catch {
-          currentBytes = undefined
-        }
-        if (currentBytes && currentBytes.equals(nextBytes)) {
-          result.unchanged.push(relPath)
-        } else {
-          await mkdir(dirname(localPath), { recursive: true })
-          await writeFile(localPath, nextBytes)
-          result.updated.push(relPath)
-        }
-      } catch (error) {
-        result.failed.push({ path: relPath, error: error instanceof Error ? error.message : String(error) })
-      } finally {
-        await rm(tempPath, { force: true })
-      }
-    }
-    await writeFile(manifestPath, JSON.stringify(styled))
-    return result
-  }
-
-  return {
-    name: 'sync-styled-assets',
-    apply: 'serve',
-    configureServer(server) {
-      // 에디터가 생성한 신규 아이템 아이콘 PNG를 로컬 저장소에 쓴다(dev 전용).
-      // 경로는 게임 에셋 하위로만 제한한다.
-      server.middlewares.use('/__save-generated-asset', (req, res) => {
-        if (req.method !== 'POST') {
-          res.statusCode = 405
-          res.end()
-          return
-        }
-        let body = ''
-        req.on('data', (chunk) => { body += chunk })
-        req.on('end', () => {
-          void (async () => {
-            const parsed = JSON.parse(body) as { path?: unknown; dataBase64?: unknown }
-            const relPath = typeof parsed.path === 'string' ? parsed.path : ''
-            const dataBase64 = typeof parsed.dataBase64 === 'string' ? parsed.dataBase64 : ''
-            if (!isSafeAssetPath(relPath) || dataBase64.length === 0) {
-              res.statusCode = 422
-              res.end(JSON.stringify({ error: 'invalid path or data' }))
-              return
-            }
-            const localPath = join(PROJECT_ROOT, relPath)
-            await mkdir(dirname(localPath), { recursive: true })
-            await writeFile(localPath, Buffer.from(dataBase64, 'base64'))
-            res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ ok: true, path: relPath }))
-          })().catch((error) => {
-            res.statusCode = 500
-            res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
-          })
-        })
-      })
-
-      server.middlewares.use('/__sync-styled-assets', (req, res) => {
-        if (req.method !== 'POST' && req.method !== 'GET') {
-          res.statusCode = 405
-          res.end()
-          return
-        }
-        const force = (req.url ?? '').includes('force')
-        if (!force && lastResult && Date.now() - lastSyncAt < 60_000) {
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ ...lastResult, cached: true }))
-          return
-        }
-        const task = inFlight ?? (inFlight = runSync().finally(() => { inFlight = undefined }))
-        task
-          .then((result) => {
-            lastSyncAt = Date.now()
-            lastResult = result
-            if (result.updated.length > 0 || result.failed.length > 0) {
-              server.config.logger.info(
-                `  ➜  스타일 에셋 동기화: 갱신 ${result.updated.length} · 동일 ${result.unchanged.length} · 실패 ${result.failed.length}`
-              )
-            }
-            res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify(result))
-          })
-          .catch((error) => {
-            res.statusCode = 500
-            res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
-          })
-      })
-    }
-  }
-}
-
 export default defineConfig({
-  plugins: [tailwindcss(), serveLoveJsBuilds(), syncStyledAssets()],
+  plugins: [tailwindcss(), serveLoveJsBuilds(), logLlmCalls()],
   build: {
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
-        editor: fileURLToPath(new URL('./editor.html', import.meta.url))
+        editor: fileURLToPath(new URL('./editor.html', import.meta.url)),
+        cryptCrawler: fileURLToPath(new URL('./crypt-crawler.html', import.meta.url))
       }
     }
   },
@@ -404,21 +328,19 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/openai/, '')
       },
-      // 에디터의 Claude 호출을 서버사이드로 포워딩 → 브라우저 CORS 회피.
+      // 기존 게임/프레젠테이션용 Claude 호출을 서버사이드로 포워딩한다.
       '/api/anthropic': {
         target: 'https://api.anthropic.com',
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/anthropic/, '')
       },
-      // 로컬 Qwen OpenAI 호환 서버. 기본값은 vLLM/llama.cpp의 8000 포트이며 QWEN_BASE_URL로 바꿀 수 있다.
-      '/api/qwen': {
-        target: process.env.QWEN_BASE_URL ?? 'http://127.0.0.1:8000',
+      '/api/llm': {
+        target: LLM_PROXY_TARGET,
         changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api\/qwen/, '')
+        rewrite: (path) => path.replace(/^\/api\/llm/, '')
       },
-      // FLUX 스타일 트랜스퍼 로컬 Python 서비스 — style-service/server.py (포트는 그쪽 config.json).
+      // SDXL img2img 스타일 변환 로컬 Python 서비스 — style-service/server.py (포트는 그쪽 config.json).
       '/api/style': {
         target: 'http://127.0.0.1:8765',
         changeOrigin: true,

@@ -9,6 +9,17 @@ import type {
   PlayerSaveState,
   PlayerSaveStateInput
 } from '../playerSaveState'
+import {
+  EQUIPMENT_SLOT_IDS,
+  EQUIPMENT_SLOT_LABEL_BY_ID
+} from '../playerEquipment'
+
+// 현재 장비 슬롯 구성(상수 소유는 TS, 정규화 공식만 Lua). 구버전 세이브의 빠진 슬롯을
+// 이 순서·라벨로 채우기 위해 Lua 정규화에 인자로 넘긴다.
+const EQUIPMENT_SLOT_SPEC = EQUIPMENT_SLOT_IDS.map((id) => ({
+  id,
+  label: EQUIPMENT_SLOT_LABEL_BY_ID[id]
+}))
 
 import {
   createLuaLogicHost,
@@ -110,7 +121,8 @@ export const createPlayerSaveStateLua = async (
     ): PlayerSaveState | undefined => {
       const result = host.callJson<RawSaveState | null>(
         'save_state_normalize',
-        value
+        value,
+        EQUIPMENT_SLOT_SPEC
       )
 
       return result === null ? undefined : normalizeRawSaveState(result)
@@ -121,7 +133,8 @@ export const createPlayerSaveStateLua = async (
     ): PlayerSaveState | undefined => {
       const result = host.callJson<RawSaveState | null>(
         'save_state_parse',
-        raw ?? null
+        raw ?? null,
+        EQUIPMENT_SLOT_SPEC
       )
 
       return result === null ? undefined : normalizeRawSaveState(result)

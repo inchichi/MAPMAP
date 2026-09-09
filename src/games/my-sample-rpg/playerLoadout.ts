@@ -36,6 +36,36 @@ const createPlayerInventoryItemFromEquipmentItem = (
   quantity: 1
 })
 
+// 채굴 테스트 편의: 곡괭이를 기본 보유 상태로 보장한다. 인벤토리에도, 장비(보조 장비 슬롯)에도
+// 없으면 첫 빈 인벤토리 칸에 1개를 지급한다 — 구버전 세이브(시작 아이템 미포함)를 로드해도
+// 곡괭이가 항상 존재하게 된다. 빈 칸이 없으면 그대로 둔다.
+export const ensurePlayerLoadoutPickaxe = ({
+  equipment,
+  inventory
+}: PlayerLoadoutState): PlayerLoadoutState => {
+  const hasInInventory = inventory.slots.some((slot) => slot?.id === 'pickaxe')
+  const hasEquipped = equipment.slots.some((slot) => slot.item?.id === 'pickaxe')
+
+  if (hasInInventory || hasEquipped) {
+    return { equipment, inventory }
+  }
+
+  const emptySlotIndex = findFirstEmptyPlayerInventorySlotIndex(inventory)
+
+  if (emptySlotIndex === undefined) {
+    return { equipment, inventory }
+  }
+
+  return {
+    equipment,
+    inventory: setPlayerInventorySlot({
+      inventory,
+      slotIndex: emptySlotIndex,
+      item: { id: 'pickaxe', label: '곡괭이', quantity: 1 }
+    })
+  }
+}
+
 export const unequipPlayerEquipmentSlot = ({
   equipment,
   inventory,

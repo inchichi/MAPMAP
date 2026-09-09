@@ -4,7 +4,8 @@ export type MonsterEquipmentDropDefinition = {
   label: string
 }
 
-export const MONSTER_EQUIPMENT_DROP_CHANCE = 0.9
+// 0.9는 장비가 골드보다 흔한 '파이어호스'였다 — 장비 드롭을 귀하게, 골드를 기본으로.
+export const MONSTER_EQUIPMENT_DROP_CHANCE = 0.2
 
 export const MONSTER_EQUIPMENT_DROP_DEFINITIONS: MonsterEquipmentDropDefinition[] = [
   {

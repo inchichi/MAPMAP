@@ -41,11 +41,25 @@ import {
   type GameEvent
 } from '../events/createGameEventQueue'
 import type { EventReward, HolidayDialogueEventSpec } from '../eventGeneration'
+import { createCoinPileTileKey, getCoinPileGoldAmount } from '../coinPiles'
 import { processInteractionEvents } from '../interaction/processInteractionEvents'
 import {
+  getEquippedPlayerAttackBonus,
+  getEquippedPlayerDefense,
+  getEquippedPlayerWeaponAttackKind,
+  PLAYER_EQUIPMENT_ITEM_DEFINITIONS,
   type PlayerEquipment,
   type PlayerEquipmentSlotId
 } from '../playerEquipment'
+import {
+  createPlayerProjectile,
+  getPlayerProjectileDirectionFromFacing,
+  getPlayerProjectileHitRect,
+  getPlayerProjectileRotation,
+  stepPlayerProjectile,
+  type PlayerProjectileKind,
+  type PlayerProjectileState
+} from '../playerProjectile'
 import {
   type PlayerInventory,
   type PlayerInventoryItem
@@ -53,7 +67,12 @@ import {
 import type { PlayerProfile } from '../playerProfile'
 import { type PlayerQuickslots } from '../playerQuickslots'
 import { type PlayerSkillSlots } from '../playerSkillSlots'
-import { PLAYER_PROTECT_SKILL_ID } from '../playerSkills'
+import {
+  PLAYER_DASH_SKILL_ID,
+  PLAYER_FOCUS_SKILL_ID,
+  PLAYER_PROTECT_SKILL_ID,
+  getPlayerFocusSkillManaRestoreByLevel
+} from '../playerSkills'
 import {
   PLAYER_SMASH_SKILL_COOLDOWN_MILLISECONDS,
   PLAYER_SMASH_SKILL_EFFECT_ANIMATION_SPEED,
@@ -78,11 +97,11 @@ import {
   formatQuestTextLines,
   getNextQuestInteractionForNpc,
   getQuestNpcBadgeKindForNpc,
-  getActiveItemAcquireItemIds,
   recordItemAcquireQuestProgress,
   recordItemUseQuestProgress,
   recordMonsterDefeatQuestProgress,
   recordQuestObjectiveProgress,
+  getQuestProgress,
   recordShopOpenQuestProgress,
   recordTalkQuestProgress,
   startQuest,
@@ -93,7 +112,7 @@ import {
 // 팀원(develop-chich) Lua 방식: 모듈별 Lua 래퍼 인스턴스 + 비변환 함수는 TS에서.
 import { createLuaPlayerStatEffects } from '../playerStatEffectsLua'
 import { grantPlayerExperience } from '../playerExperience'
-import { findMonsterEquipmentDropByItemId, rollMonsterEquipmentDrop } from '../monsterEquipmentDrops'
+import { rollMonsterEquipmentDrop } from '../monsterEquipmentDrops'
 import { grantPlayerSkillPoints } from '../playerProgression'
 import {
   createMonsterPatrolState,
@@ -148,6 +167,12 @@ import {
   createWallTileLookup,
   isWallTileAt
 } from '../tiled/createWallTileLookup'
+import {
+  doCollisionRectsIntersect,
+  isCharacterPositionBlocked,
+  resolveCornerAssistNudge,
+  type CollisionRect
+} from './characterCollision'
 import type {
   ParsedTiledMap,
   ParsedTiledTile,
@@ -179,6 +204,7 @@ import santaPortraitUrl from '../assets/portraits/santa.png'
 import type { MonsterAnimationTextures } from './monsterAnimationTextures'
 import { loadMonsterPigAnimationTextures } from './loadMonsterPigAnimationTextures'
 import { loadMonsterSlimeAnimationTextures } from './loadMonsterSlimeAnimationTextures'
+import { loadMonsterStripAnimationTextures } from './loadMonsterStripAnimationTextures'
 import { createGameSoundEffects, isGameSoundEffectId } from './createGameSoundEffects'
 import {
   createPauseMenuOverlay,
@@ -186,6 +212,17 @@ import {
 } from './createPauseMenuOverlay'
 import { createQuestLogOverlay } from './createQuestLogOverlay'
 import { createQuestTrackerOverlay } from './createQuestTrackerOverlay'
+import {
+  startScenarioRun,
+  type ScenarioRewardGrant,
+  type ScenarioRun
+} from '../scenario/scenarioRuntime'
+import {
+  createScenarioFlagAccess,
+  getScenarioForNpc,
+  isPriorityScenarioForNpc
+} from '../scenario/scenarioStore'
+import { POTION_ITEM_DEFINITIONS } from '../potionShop'
 
 type CreatePixiTiledMapViewInput = {
   mountElement: HTMLElement
@@ -217,6 +254,9 @@ type CreatePixiTiledMapViewInput = {
     nextControlBindings: PlayerControlBindings
   ) => void
   onQuestLogChange: (nextQuestLog: QuestLogState) => void
+  // 이 씬에서 이미 획득한 바닥 코인 타일 키(`x,y`) — 렌더에서 제외된다.
+  collectedCoinTileKeys: readonly string[]
+  onCoinPileCollected: (tileKey: string) => void
   onMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   onPotionMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   audioSettings: AudioSettings
@@ -254,13 +294,6 @@ type ProtectVfxRenderResources = {
 type ResolvedCharacterAppearanceTexture = {
   texture: Texture
   renderScale: number
-}
-
-type CollisionRect = {
-  x: number
-  y: number
-  width: number
-  height: number
 }
 
 type ActiveCharacterMessage = {
@@ -516,9 +549,18 @@ const NPC_PORTRAITS: Record<string, string> = {
   santa: santaPortraitUrl
 }
 
+// 시나리오 reward 노드는 item_id 만 담는다. 인벤토리 표시는 라벨이 필요하므로
+// 기존 정의(포션·장비)에서 해석하고, 모르는 id 는 id 그대로 노출한다.
+const SCENARIO_REWARD_ITEM_LABEL_BY_ID: Record<string, string> = Object.fromEntries([
+  ...POTION_ITEM_DEFINITIONS.map((item) => [item.id, item.label] as const),
+  ...PLAYER_EQUIPMENT_ITEM_DEFINITIONS.map((item) => [item.id, item.label] as const)
+])
+
 const SIGN_POST_APPEARANCE_TYPE = 'sign_inn'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
 const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
+const MONSTER_ROCK_APPEARANCE_TYPE = 'monster_rock'
+const MONSTER_MUSHROOM_APPEARANCE_TYPE = 'monster_mushroom'
 const GROUND_LAYER_NAME = 'ground'
 const GRASS_TILE_TYPES = new Set(['garden_round_mid_01'])
 const GAME_VIEWPORT_WIDTH = 960
@@ -529,6 +571,33 @@ const CAMERA_MAX_ZOOM = 2
 const CAMERA_ZOOM_WHEEL_SPEED = 0.0015
 const MONSTER_PIG_WORLD_SCALE = 0.315
 const MONSTER_SLIME_WORLD_SCALE = 0.287
+// PA2 스트립 몬스터(바위/버섯)는 프레임이 32-38px라 확대 배율이 1을 넘는다.
+const MONSTER_ROCK_WORLD_SCALE = 1.2
+const MONSTER_MUSHROOM_WORLD_SCALE = 1.15
+const MONSTER_ROCK_IDLE_URL = new URL(
+  '../assets/monsters/pa2/rock-idle.png',
+  import.meta.url
+).href
+const MONSTER_ROCK_RUN_URL = new URL(
+  '../assets/monsters/pa2/rock-run.png',
+  import.meta.url
+).href
+const MONSTER_ROCK_HIT_URL = new URL(
+  '../assets/monsters/pa2/rock-hit.png',
+  import.meta.url
+).href
+const MONSTER_MUSHROOM_IDLE_URL = new URL(
+  '../assets/monsters/pa2/mushroom-idle.png',
+  import.meta.url
+).href
+const MONSTER_MUSHROOM_RUN_URL = new URL(
+  '../assets/monsters/pa2/mushroom-run.png',
+  import.meta.url
+).href
+const MONSTER_MUSHROOM_HIT_URL = new URL(
+  '../assets/monsters/pa2/mushroom-hit.png',
+  import.meta.url
+).href
 const MONSTER_PIG_CHASE_SPEED_TILES_PER_SECOND = 4.4
 const MONSTER_PIG_IDLE_ANIMATION_SPEED = 0.08
 const MONSTER_PIG_RUN_ANIMATION_SPEED = 0.22
@@ -553,7 +622,7 @@ const PLAYER_RESPAWN_DELAY_MILLISECONDS = 3000
 const PLAYER_HIT_REACTION_DURATION_MILLISECONDS = 180
 const PLAYER_DAMAGE_INVULNERABILITY_MILLISECONDS = 600
 const PLAYER_HIT_REACTION_MAX_OFFSET_PIXELS = 6
-const PLAYER_PROTECT_SKILL_COOLDOWN_MILLISECONDS = 3200
+const PLAYER_PROTECT_SKILL_COOLDOWN_MILLISECONDS = 4600
 const MONSTER_GOLD_DROP_ICON_RADIUS = 7
 const MONSTER_GOLD_DROP_ICON_SHINE_RADIUS = 2
 const MONSTER_GOLD_DROP_AMOUNT_TEXT_STYLE = new TextStyle({
@@ -569,6 +638,8 @@ const MONSTER_GOLD_DROP_AMOUNT_TEXT_STYLE = new TextStyle({
 })
 const MONSTER_GOLD_DROP_PICKUP_WIDTH = 14
 const MONSTER_GOLD_DROP_PICKUP_HEIGHT = 14
+const COIN_PILE_PICKUP_WIDTH = 20
+const COIN_PILE_PICKUP_HEIGHT = 20
 const MONSTER_EQUIPMENT_DROP_RENDER_SIZE = 24
 const MONSTER_EQUIPMENT_DROP_PICKUP_WIDTH = 20
 const MONSTER_EQUIPMENT_DROP_PICKUP_HEIGHT = 20
@@ -742,6 +813,13 @@ const PLAYER_WEAPON_APPEARANCE_CONFIG_BY_ITEM_ID: Record<
     worldScale: 0.085,
     idleOffsetX: -2,
     idleOffsetY: 3
+  },
+  'hunting-bow': {
+    // 임시 인핸드 활 — Legend of Lua 에셋(6x13px). 본편 스타일 활 스프라이트가 생기면 교체.
+    imageUrl: '/legend-sprites/items/bow1.png',
+    worldScale: 1.6,
+    idleOffsetX: -2,
+    idleOffsetY: 2
   }
 }
 const PLAYER_ARMOR_EQUIPMENT_CONFIG = {
@@ -814,6 +892,8 @@ const QUEST_BADGE_Y_OFFSET = 10
 type MonsterAppearanceType =
   | typeof MONSTER_PIG_APPEARANCE_TYPE
   | typeof MONSTER_SLIME_APPEARANCE_TYPE
+  | typeof MONSTER_ROCK_APPEARANCE_TYPE
+  | typeof MONSTER_MUSHROOM_APPEARANCE_TYPE
 
 const MONSTER_BEHAVIOR_CONFIG_BY_APPEARANCE_TYPE: Record<
   MonsterAppearanceType,
@@ -851,6 +931,44 @@ const MONSTER_BEHAVIOR_CONFIG_BY_APPEARANCE_TYPE: Record<
     runAnimationSpeed: 0.16,
     hitAnimationSpeed: 0.16,
     attackAnimationSpeed: 0.12,
+    usesRunAnimation: true,
+    runMotionBobPixels: 0,
+    runMotionSwayPixels: 0
+  },
+  [MONSTER_ROCK_APPEARANCE_TYPE]: {
+    // 바위돌이 — 느리고 단단한 광산 골렘. 어그로가 짧고 추격이 굼뜨다.
+    renderScale: MONSTER_ROCK_WORLD_SCALE,
+    aggroRangeTiles: 3.6,
+    deAggroRangeTiles: 6.4,
+    chaseSpeedTilesPerSecond: 1.7,
+    patrolSpeedTilesPerSecond: 0.9,
+    attackRangeTiles: 1.0,
+    attackIntervalMilliseconds: 4200,
+    attackDurationMilliseconds: 700,
+    hitReactionDurationMilliseconds: 320,
+    idleAnimationSpeed: 0.1,
+    runAnimationSpeed: 0.22,
+    hitAnimationSpeed: 0.2,
+    attackAnimationSpeed: 0.26,
+    usesRunAnimation: true,
+    runMotionBobPixels: 0,
+    runMotionSwayPixels: 0
+  },
+  [MONSTER_MUSHROOM_APPEARANCE_TYPE]: {
+    // 버섯돌이 — 재빠르고 성가신 못가 버섯. 넓은 어그로, 빠른 발.
+    renderScale: MONSTER_MUSHROOM_WORLD_SCALE,
+    aggroRangeTiles: 5.2,
+    deAggroRangeTiles: 7.6,
+    chaseSpeedTilesPerSecond: 3.4,
+    patrolSpeedTilesPerSecond: 2.2,
+    attackRangeTiles: 1.0,
+    attackIntervalMilliseconds: 4600,
+    attackDurationMilliseconds: 600,
+    hitReactionDurationMilliseconds: 220,
+    idleAnimationSpeed: 0.14,
+    runAnimationSpeed: 0.3,
+    hitAnimationSpeed: 0.22,
+    attackAnimationSpeed: 0.3,
     usesRunAnimation: true,
     runMotionBobPixels: 0,
     runMotionSwayPixels: 0
@@ -944,6 +1062,8 @@ export const createPixiTiledMapView = async ({
   onPlayerSkillSlotsChange,
   onPlayerControlBindingsChange,
   onQuestLogChange,
+  collectedCoinTileKeys,
+  onCoinPileCollected,
   onMerchantInventoryChange,
   onPotionMerchantInventoryChange,
   audioSettings,
@@ -966,6 +1086,12 @@ export const createPixiTiledMapView = async ({
   ) => void
   refreshPlacements: () => void
   refreshNpcs: () => void
+  // 에디터가 자연어로 생성한 NPC를 실행 중인 게임의 플레이어 옆에 라이브 스폰한다.
+  spawnNpcNearPlayer: (template: {
+    appearanceType: string
+    name?: string
+    dialogueLines?: string[]
+  }) => boolean
 }> => {
   const app = new Application()
   let cameraZoom = CAMERA_DEFAULT_ZOOM
@@ -977,14 +1103,30 @@ export const createPixiTiledMapView = async ({
     slashVfxTextures,
     protectVfxTextures,
     monsterPigAnimationTextures,
-    monsterSlimeAnimationTextures
+    monsterSlimeAnimationTextures,
+    monsterRockAnimationTextures,
+    monsterMushroomAnimationTextures
   ] = await Promise.all([
     loadTextureSafe(PORTAL_INSIDE_IMAGE_URL),
     loadTextureSafe(TINY_DUNGEON_TILESET_IMAGE_URL),
     loadSlashVfxTextures(),
     loadProtectVfxTextures(),
     loadMonsterPigAnimationTextures(),
-    loadMonsterSlimeAnimationTextures()
+    loadMonsterSlimeAnimationTextures(),
+    loadMonsterStripAnimationTextures({
+      idleUrl: MONSTER_ROCK_IDLE_URL,
+      runUrl: MONSTER_ROCK_RUN_URL,
+      hitUrl: MONSTER_ROCK_HIT_URL,
+      frameWidth: 38,
+      frameHeight: 34
+    }),
+    loadMonsterStripAnimationTextures({
+      idleUrl: MONSTER_MUSHROOM_IDLE_URL,
+      runUrl: MONSTER_MUSHROOM_RUN_URL,
+      hitUrl: MONSTER_MUSHROOM_HIT_URL,
+      frameWidth: 32,
+      frameHeight: 32
+    })
   ])
   const playerWeaponAppearanceTexturesByItemId = new Map(
     await Promise.all(
@@ -1023,7 +1165,9 @@ export const createPixiTiledMapView = async ({
     MonsterAnimationTextures
   > = {
     [MONSTER_PIG_APPEARANCE_TYPE]: monsterPigAnimationTextures,
-    [MONSTER_SLIME_APPEARANCE_TYPE]: monsterSlimeAnimationTextures
+    [MONSTER_SLIME_APPEARANCE_TYPE]: monsterSlimeAnimationTextures,
+    [MONSTER_ROCK_APPEARANCE_TYPE]: monsterRockAnimationTextures,
+    [MONSTER_MUSHROOM_APPEARANCE_TYPE]: monsterMushroomAnimationTextures
   }
 
   tinyDungeonWeaponImageTexture.source.scaleMode = 'nearest'
@@ -1125,6 +1269,20 @@ export const createPixiTiledMapView = async ({
   >()
   const monsterGoldDrops = new Map<string, MonsterGoldDrop>()
   const monsterEquipmentDrops = new Map<string, MonsterEquipmentDrop>()
+  // 무기별 기본 공격 발사체(화살·에너지볼). 이동/수명은 playerProjectile.ts 순수 로직,
+  // 여기는 스프라이트·벽/몬스터 판정·데미지 배선만 담당한다.
+  const activePlayerProjectiles = new Map<
+    string,
+    { state: PlayerProjectileState; sprite: Container }
+  >()
+  let playerProjectileCounter = 0
+  // 맵에 배치된 바닥 코인 더미(shadow_lower 레이어의 cave_prop_gold_* 타일).
+  // CompositeTilemap 은 타일 단위 제거가 불가능해 개별 스프라이트로 분리해 둔다.
+  const coinPileSprites = new Map<
+    string,
+    { sprite: Sprite; goldAmount: number; tileX: number; tileY: number }
+  >()
+  const collectedCoinTileKeySet = new Set(collectedCoinTileKeys)
   const renderedCharacters = new Map<string, RenderedCharacterNode>()
   const renderedPortals = new Map<string, RenderedPortalNode>()
   const characterPixelWidth =
@@ -1165,6 +1323,7 @@ export const createPixiTiledMapView = async ({
   let playerProtectSkillSprite: AnimatedSprite | undefined
   let playerProtectSkillActiveUntilMilliseconds = 0
   let playerProtectSkillReadyAtMilliseconds = 0
+  let playerFocusSkillReadyAtMilliseconds = 0
   let playerDamageInvulnerableUntilMilliseconds = 0
   let playerSmashSkillStartedAtMilliseconds: number | undefined
   let playerSmashSkillFacing: CharacterMoveDirection | undefined
@@ -1434,7 +1593,150 @@ export const createPixiTiledMapView = async ({
     const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
     playerAttackReadyAtMilliseconds =
       now + PLAYER_ATTACK_COOLDOWN_MILLISECONDS
-    startPlayerWeaponAttackMotion(playerCharacter, now)
+
+    // 장착 무기의 공격 방식 분기: 근접은 기존 스윙+슬래시, 활/마법은 발사체.
+    const attackKind = getEquippedPlayerWeaponAttackKind(currentPlayerEquipment)
+
+    if (attackKind === 'melee') {
+      startPlayerWeaponAttackMotion(playerCharacter, now)
+      return
+    }
+
+    // 원거리: 무기 스윙 모션은 재사용하되 슬래시 VFX·근접 판정은 만들지 않는다
+    // (suppressDamage 로 resolvePlayerAttackDamage 의 폴백 프로브 경로까지 봉인).
+    playerAttackStartedAtMilliseconds = now
+    playerAttackResolvedStartedAtMilliseconds = now
+    playerAttackFacing = playerCharacter.facing
+    spawnPlayerProjectile(
+      playerCharacter,
+      attackKind === 'bow' ? 'arrow' : 'energy-ball'
+    )
+    gameSoundEffects.play(attackKind === 'bow' ? 'playerRollWhoosh' : 'playerSkill')
+  }
+
+  // 발사체 비주얼은 전용 아트가 아직 없어 Graphics 로 그린다(골드 드랍 동전과 같은 방식).
+  const createArrowProjectileSprite = (rotation: number): Container => {
+    const container = new Container()
+    const arrow = new Graphics()
+    // 오른쪽(+x)을 향해 그린 뒤 진행 방향으로 회전: 몸통 → 촉 → 깃 순서.
+    arrow.rect(-7, -1, 11, 2)
+    arrow.fill({ color: 0x8b5a2b })
+    arrow.poly([7, -3, 12, 0, 7, 3])
+    arrow.fill({ color: 0xd8dde4 })
+    arrow.poly([-7, -3, -3, 0, -7, 3])
+    arrow.fill({ color: 0xf2f2e9 })
+    container.addChild(arrow)
+    container.rotation = rotation
+    return container
+  }
+
+  const createEnergyBallProjectileSprite = (): Container => {
+    const container = new Container()
+    const glow = new Graphics()
+    glow.circle(0, 0, 8)
+    glow.fill({ color: 0x7fd4ff, alpha: 0.35 })
+    const core = new Graphics()
+    core.circle(0, 0, 4.5)
+    core.fill({ color: 0xe8f7ff })
+    core.stroke({ color: 0x9fe0ff, width: 1.5 })
+    container.addChild(glow, core)
+    return container
+  }
+
+  const spawnPlayerProjectile = (
+    character: CharacterState,
+    kind: PlayerProjectileKind
+  ) => {
+    const direction = getPlayerProjectileDirectionFromFacing(character.facing)
+    const state = createPlayerProjectile({
+      kind,
+      originX: character.position.x * map.tileWidth + characterPixelWidth / 2,
+      originY: character.position.y * map.tileHeight + characterPixelHeight / 2,
+      direction
+    })
+    const sprite =
+      kind === 'arrow'
+        ? createArrowProjectileSprite(getPlayerProjectileRotation(direction))
+        : createEnergyBallProjectileSprite()
+
+    playerProjectileCounter += 1
+    const projectileId = `player-projectile-${playerProjectileCounter}`
+    sprite.label = projectileId
+    sprite.position.set(state.x, state.y)
+    sprite.zIndex = Math.round(state.y + map.tileHeight)
+    depthSortedLayer?.addChild(sprite)
+    activePlayerProjectiles.set(projectileId, { state, sprite })
+  }
+
+  // 기본 공격 데미지 = 스탯 공격력 + 장비 보너스. 스탯 항은 공격 종류로 갈린다:
+  // 마법(에너지볼)은 지력 기반 마법 공격력, 근접·활은 힘 기반 물리 공격력.
+  const getPlayerBasicAttackDamage = (isMagic: boolean): number =>
+    (isMagic
+      ? playerStatEffects.getPlayerMagicAttackPower(playerProfile)
+      : playerStatEffects.getPlayerPhysicalAttackPower(playerProfile)) +
+    getEquippedPlayerAttackBonus(currentPlayerEquipment)
+
+  // 매 프레임: 발사체 이동 → 벽/사거리/몬스터 판정 → 스프라이트 동기화.
+  const updatePlayerProjectiles = (now: number, deltaMilliseconds: number) => {
+    for (const [projectileId, projectile] of activePlayerProjectiles) {
+      const { next, expired } = stepPlayerProjectile(
+        projectile.state,
+        deltaMilliseconds
+      )
+      projectile.state = next
+
+      let finished = expired
+
+      if (
+        !finished &&
+        isWallTileAt(
+          wallTiles,
+          Math.floor(next.x / map.tileWidth),
+          Math.floor(next.y / map.tileHeight)
+        )
+      ) {
+        finished = true
+      }
+
+      if (!finished) {
+        const targetMonster = resolveClosestMonsterInCollisionRect(
+          getPlayerProjectileHitRect(next)
+        )
+
+        if (targetMonster) {
+          applyDamageToMonster(
+            targetMonster.id,
+            getPlayerBasicAttackDamage(next.kind === 'energy-ball'),
+            now
+          )
+          finished = true
+        }
+      }
+
+      if (finished) {
+        projectile.sprite.removeFromParent()
+        projectile.sprite.destroy({ children: true })
+        activePlayerProjectiles.delete(projectileId)
+        continue
+      }
+
+      projectile.sprite.position.set(next.x, next.y)
+      projectile.sprite.zIndex = Math.round(next.y + map.tileHeight)
+
+      if (next.kind === 'energy-ball') {
+        // 에너지볼만 은은한 맥동 — 진행 거리 기반이라 일시정지 중에는 멈춘다.
+        const pulse = 1 + 0.12 * Math.sin(next.traveledPixels / 9)
+        projectile.sprite.scale.set(pulse)
+      }
+    }
+  }
+
+  const clearPlayerProjectiles = () => {
+    for (const projectile of activePlayerProjectiles.values()) {
+      projectile.sprite.removeFromParent()
+      projectile.sprite.destroy({ children: true })
+    }
+    activePlayerProjectiles.clear()
   }
   const triggerPlayerRoll = (
     vector: PlayerRollVector,
@@ -1628,10 +1930,22 @@ export const createPixiTiledMapView = async ({
     const manaCost = getPlayerSkillManaCostById(playerProfile, skillId)
 
     if (!isPlayerSkillUnlockedInProfile(playerProfile, skillId)) {
+      showCharacterDamageText(
+        PLAYER_CHARACTER_ID,
+        '아직 배우지 못한 스킬이다',
+        EVADE_TEXT_DURATION_MILLISECONDS,
+        EVADE_TEXT_STYLE
+      )
       return false
     }
 
     if (manaCost > 0 && playerProfile.mp.current < manaCost) {
+      showCharacterDamageText(
+        PLAYER_CHARACTER_ID,
+        'MP가 부족하다',
+        EVADE_TEXT_DURATION_MILLISECONDS,
+        EVADE_TEXT_STYLE
+      )
       return false
     }
 
@@ -1644,11 +1958,62 @@ export const createPixiTiledMapView = async ({
       case PLAYER_SMASH_SKILL_ID:
         didTrigger = triggerPlayerSmashSkill(now)
         break
+      case PLAYER_DASH_SKILL_ID: {
+        // 돌진: 이동 입력 방향(없으면 바라보는 방향)으로 구르고, 도착 즉시 벤다.
+        const facing = getCharacterStateById(PLAYER_CHARACTER_ID).facing
+        const facingVector =
+          facing === 'left'
+            ? { x: -1, y: 0 }
+            : facing === 'right'
+              ? { x: 1, y: 0 }
+              : facing === 'up'
+                ? { x: 0, y: -1 }
+                : { x: 0, y: 1 }
+        const dashVector =
+          getRollVectorFromPressedDirections() ?? facingVector
+        didTrigger = triggerPlayerRoll(dashVector, now)
+        if (didTrigger) {
+          playerAttackQueuedAfterRoll = true
+        }
+        break
+      }
+      case PLAYER_FOCUS_SKILL_ID: {
+        if (
+          now < playerFocusSkillReadyAtMilliseconds ||
+          playerProfile.mp.current >= playerProfile.mp.max
+        ) {
+          didTrigger = false
+          break
+        }
+        const focusLevel =
+          getPlayerSkillLevelById(playerProfile, PLAYER_FOCUS_SKILL_ID) ?? 1
+        const restoreAmount = getPlayerFocusSkillManaRestoreByLevel(focusLevel)
+        playerProfile.mp.current = Math.min(
+          playerProfile.mp.max,
+          playerProfile.mp.current + restoreAmount
+        )
+        playerFocusSkillReadyAtMilliseconds = now + 5000
+        showCharacterDamageText(
+          PLAYER_CHARACTER_ID,
+          `+${restoreAmount} MP`,
+          EVADE_TEXT_DURATION_MILLISECONDS,
+          EVADE_TEXT_STYLE
+        )
+        syncPlayerUiOverlays()
+        didTrigger = true
+        break
+      }
       default:
         return false
     }
 
     if (!didTrigger) {
+      showCharacterDamageText(
+        PLAYER_CHARACTER_ID,
+        '아직 준비되지 않았다',
+        EVADE_TEXT_DURATION_MILLISECONDS,
+        EVADE_TEXT_STYLE
+      )
       return false
     }
 
@@ -2255,6 +2620,122 @@ export const createPixiTiledMapView = async ({
     requestSceneTransition(touchedPortal)
     return true
   }
+  // 시나리오 v2: talk 트리거. 퀘스트보다 먼저 가로챈다 — 생성(동적) 콘텐츠가 정적보다 앞서는
+  // 기존 규칙(questLog.getQuestDefinitionsForNpc 의 동적 우선)과 같은 방향이다.
+  let activeScenarioRun: ScenarioRun | undefined
+
+  const grantScenarioRewards = (reward: ScenarioRewardGrant) => {
+    if (reward.gold > 0) {
+      currentPlayerInventory = {
+        ...currentPlayerInventory,
+        gold: currentPlayerInventory.gold + reward.gold
+      }
+      onPlayerInventoryChange(currentPlayerInventory)
+    }
+    if (reward.items.length > 0) {
+      currentPlayerInventory = addQuestItemRewardsToInventory(
+        currentPlayerInventory,
+        reward.items.map((item) => ({
+          id: item.item_id,
+          label: SCENARIO_REWARD_ITEM_LABEL_BY_ID[item.item_id] ?? item.item_id,
+          quantity: item.quantity
+        }))
+      )
+      onPlayerInventoryChange(currentPlayerInventory)
+    }
+    grantPlayerExperienceReward(reward.experience)
+    syncPlayerUiOverlays()
+  }
+
+  const startScenarioForNpc = (npcCharacter: CharacterState) => {
+    const scenario = getScenarioForNpc(npcCharacter.id)
+    if (!scenario) {
+      return
+    }
+
+    const flagAccess = createScenarioFlagAccess(scenario.scenario_id)
+    activeScenarioRun = startScenarioRun(
+      scenario,
+      {
+        presentDialogue: (request, respond) => {
+          hideCharacterMessage(request.speaker)
+          const speakerCharacter = characterStates.find(
+            (character) => character.id === request.speaker
+          )
+          npcDialogueOverlay.show({
+            portraitUrl: NPC_PORTRAITS[request.speaker] ?? '',
+            name: speakerCharacter?.displayText ?? request.speaker,
+            lines: request.lines,
+            choices: request.choices,
+            onChoice: (choiceIndex) => respond(choiceIndex),
+            onComplete: () => respond(undefined)
+          })
+        },
+        grantReward: grantScenarioRewards,
+        getQuestStatus: (questId) => getQuestProgress(currentQuestLog, questId).status,
+        getFlag: flagAccess.get,
+        setFlag: flagAccess.set
+      },
+      () => {
+        activeScenarioRun = undefined
+      }
+    )
+  }
+
+  const handleScenarioInteractionEvents = (
+    events: GameEvent[],
+    now: number
+  ): GameEvent[] => {
+    const unhandledEvents: GameEvent[] = []
+
+    for (const event of events) {
+      if (event.kind !== 'interaction-requested') {
+        unhandledEvents.push(event)
+        continue
+      }
+
+      // 시나리오 실행 중에는 새 상호작용을 전부 삼킨다 — 대화 위에 퀘스트/Lua 대사가
+      // 겹쳐 뜨는 것을 막는다(이동 잠금은 MVP 범위 밖, 기존 VN 대화와 동일한 스텁).
+      if (activeScenarioRun?.isRunning()) {
+        continue
+      }
+
+      const sourceCharacter = characterStates.find(
+        (character) => character.id === event.sourceCharacterId
+      )
+      if (!sourceCharacter) {
+        unhandledEvents.push(event)
+        continue
+      }
+
+      const targetCharacter = resolveCharacterInteractionTarget({
+        sourceCharacter,
+        targetCharacters: characterStates,
+        canReceiveInteraction: (character) =>
+          getScenarioForNpc(character.id) !== undefined &&
+          // 에디터에서 명시적으로 적용한 시나리오는 데모/저작 결과를 확인할 수 있도록
+          // 기본 퀘스트보다 우선한다. 내장 골드 예제는 기존 퀘스트 흐름을 막지 않는다.
+          (isPriorityScenarioForNpc(character.id) ||
+            getNextQuestInteractionForNpc(currentQuestLog, character.id) === undefined)
+      })
+      if (!targetCharacter) {
+        unhandledEvents.push(event)
+        continue
+      }
+
+      const lockKey = `${sourceCharacter.id}:${targetCharacter.id}:scenario`
+      const lockedUntil = interactionLockUntilByCharacterPair.get(lockKey) ?? 0
+      if (lockedUntil > now) {
+        continue
+      }
+
+      startScenarioForNpc(targetCharacter)
+      interactionLockUntilByCharacterPair.set(lockKey, now + 1000)
+    }
+
+    return unhandledEvents
+  }
+
   const handleQuestInteractionEvents = (
     events: GameEvent[],
     now: number
@@ -2685,6 +3166,7 @@ export const createPixiTiledMapView = async ({
 
     const tilemap = new CompositeTilemap()
     const transformedTileLayer = new Container()
+    const coinPileLayer = new Container()
 
     tilemap.label = `layer:${layer.name}`
     tilemap.alpha = layer.opacity
@@ -2692,6 +3174,7 @@ export const createPixiTiledMapView = async ({
     transformedTileLayer.label = `layer:${layer.name}:transforms`
     transformedTileLayer.alpha = layer.opacity
     transformedTileLayer.visible = layer.visible
+    coinPileLayer.label = `layer:${layer.name}:coin-piles`
 
     for (const tile of layer.tiles) {
       const tileset = resolveTilesetForTile(tile, map.tilesets)
@@ -2699,6 +3182,43 @@ export const createPixiTiledMapView = async ({
 
       if (!renderResources) {
         throw new Error(`Missing render resources for tileset ${tileset.source}`)
+      }
+
+      // 획득 가능한 코인 타일은 CompositeTilemap 에 굽지 않고 개별 스프라이트로
+      // 분리해, 획득 시 그 타일만 제거할 수 있게 한다.
+      const coinGoldAmount = getCoinPileGoldAmount(tileset.tileTypes[tile.localId])
+
+      if (coinGoldAmount !== undefined) {
+        const tileKey = createCoinPileTileKey(tile.x, tile.y)
+
+        if (collectedCoinTileKeySet.has(tileKey)) {
+          continue
+        }
+
+        // 뒤집힌 타일은 기존 transform 스프라이트 경로로 방향을 보존한다
+        // (anchor 가 달라지므로 픽업 판정은 스프라이트가 아닌 타일 좌표로 계산).
+        const coinSprite = hasTileTransform(tile)
+          ? createTransformedTileSprite(
+              renderResources.tileTextures[tile.localId],
+              tile,
+              map.tileWidth,
+              map.tileHeight
+            )
+          : new Sprite(renderResources.tileTextures[tile.localId])
+
+        if (!hasTileTransform(tile)) {
+          coinSprite.position.set(tile.x * map.tileWidth, tile.y * map.tileHeight)
+        }
+        coinSprite.alpha = layer.opacity
+        coinSprite.visible = layer.visible
+        coinPileLayer.addChild(coinSprite)
+        coinPileSprites.set(tileKey, {
+          sprite: coinSprite,
+          goldAmount: coinGoldAmount,
+          tileX: tile.x,
+          tileY: tile.y
+        })
+        continue
       }
 
       if (hasTileTransform(tile)) {
@@ -2722,6 +3242,7 @@ export const createPixiTiledMapView = async ({
 
     world.addChild(tilemap)
     world.addChild(transformedTileLayer)
+    world.addChild(coinPileLayer)
   }
 
   if (!depthSortedLayer) {
@@ -4229,10 +4750,66 @@ export const createPixiTiledMapView = async ({
         gold: currentPlayerInventory.gold + drop.amount
       }
       onPlayerInventoryChange(currentPlayerInventory)
+      showCharacterDamageText(
+        PLAYER_CHARACTER_ID,
+        `+${drop.amount} 골드`,
+        EVADE_TEXT_DURATION_MILLISECONDS,
+        EVADE_TEXT_STYLE
+      )
       syncPlayerUiOverlays()
       drop.container.removeFromParent()
       drop.container.destroy({ children: true })
       monsterGoldDrops.delete(dropId)
+    }
+  }
+
+  // 맵 바닥 코인 더미 위를 밟으면 골드를 획득하고 타일 스프라이트를 제거한다.
+  const resolveCoinPilePickups = () => {
+    if (coinPileSprites.size === 0) {
+      return
+    }
+
+    const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
+    const playerRect = {
+      x: playerCharacter.position.x * map.tileWidth,
+      y: playerCharacter.position.y * map.tileHeight,
+      width: playerCharacter.collisionSize.width * map.tileWidth,
+      height: playerCharacter.collisionSize.height * map.tileHeight
+    }
+
+    for (const [tileKey, coinPile] of coinPileSprites) {
+      const coinRect = {
+        x:
+          (coinPile.tileX + 0.5) * map.tileWidth -
+          COIN_PILE_PICKUP_WIDTH / 2,
+        y:
+          (coinPile.tileY + 0.5) * map.tileHeight -
+          COIN_PILE_PICKUP_HEIGHT / 2,
+        width: COIN_PILE_PICKUP_WIDTH,
+        height: COIN_PILE_PICKUP_HEIGHT
+      }
+
+      if (!doCollisionRectsIntersect(playerRect, coinRect)) {
+        continue
+      }
+
+      currentPlayerInventory = {
+        ...currentPlayerInventory,
+        gold: currentPlayerInventory.gold + coinPile.goldAmount
+      }
+      onPlayerInventoryChange(currentPlayerInventory)
+      showCharacterDamageText(
+        PLAYER_CHARACTER_ID,
+        `+${coinPile.goldAmount} 골드`,
+        EVADE_TEXT_DURATION_MILLISECONDS,
+        EVADE_TEXT_STYLE
+      )
+      syncPlayerUiOverlays()
+      coinPile.sprite.removeFromParent()
+      coinPile.sprite.destroy()
+      coinPileSprites.delete(tileKey)
+      collectedCoinTileKeySet.add(tileKey)
+      onCoinPileCollected(tileKey)
     }
   }
 
@@ -4298,6 +4875,7 @@ export const createPixiTiledMapView = async ({
     clearPlayerSlashEffectSprite()
     clearPlayerProtectSkillEffectSprite()
     clearPlayerSmashSkillEffectSprites()
+    clearPlayerProjectiles()
     playerProtectSkillActiveUntilMilliseconds = 0
     playerProtectSkillReadyAtMilliseconds = now + PLAYER_RESPAWN_DELAY_MILLISECONDS
     playerDamageInvulnerableUntilMilliseconds = 0
@@ -4325,6 +4903,20 @@ export const createPixiTiledMapView = async ({
     }
     playerCharacter.facing = playerRespawnState.facing
     playerProfile.hp.current = playerProfile.hp.max
+    // 사망 페널티 — 소지 골드의 10%를 잃는다(죽음에 무게를 준다).
+    const respawnGoldPenalty = Math.floor(currentPlayerInventory.gold * 0.1)
+    if (respawnGoldPenalty > 0) {
+      currentPlayerInventory = {
+        ...currentPlayerInventory,
+        gold: currentPlayerInventory.gold - respawnGoldPenalty
+      }
+      onPlayerInventoryChange(currentPlayerInventory)
+      showCharacterDamageText(
+        PLAYER_CHARACTER_ID,
+        `-${respawnGoldPenalty} 골드`,
+        DAMAGE_TEXT_DURATION_MILLISECONDS
+      )
+    }
     playerRespawnAtMilliseconds = undefined
     playerHitReactionState = undefined
     clearPressedInputState()
@@ -4334,6 +4926,7 @@ export const createPixiTiledMapView = async ({
     clearPlayerSlashEffectSprite()
     clearPlayerProtectSkillEffectSprite()
     clearPlayerSmashSkillEffectSprites()
+    clearPlayerProjectiles()
     playerProtectSkillActiveUntilMilliseconds = 0
     playerProtectSkillReadyAtMilliseconds = now
     playerDamageInvulnerableUntilMilliseconds = 0
@@ -4401,9 +4994,13 @@ export const createPixiTiledMapView = async ({
       return false
     }
 
-    const nextHp = Math.max(0, playerProfile.hp.current - nextDamage)
+    // 장비 방어력 — 몬스터가 준 피해만 줄인다(최소 1은 들어온다).
+    const mitigatedDamage = sourceCharacter
+      ? Math.max(1, nextDamage - getEquippedPlayerDefense(currentPlayerEquipment))
+      : nextDamage
+    const nextHp = Math.max(0, playerProfile.hp.current - mitigatedDamage)
     const damageMessage =
-      nextHp === 0 ? `-${nextDamage}\n쓰러졌다!` : `-${nextDamage}`
+      nextHp === 0 ? `-${mitigatedDamage}\n쓰러졌다!` : `-${mitigatedDamage}`
 
     playerProfile.hp.current = nextHp
     if (nextHp > 0) {
@@ -4463,8 +5060,14 @@ export const createPixiTiledMapView = async ({
     )
 
     if (isMonsterDefeated(nextCombatState)) {
-      if (character.appearanceType === MONSTER_SLIME_APPEARANCE_TYPE) {
+      if (
+        character.appearanceType === MONSTER_SLIME_APPEARANCE_TYPE ||
+        character.appearanceType === MONSTER_MUSHROOM_APPEARANCE_TYPE
+      ) {
         gameSoundEffects.play('slimeDeath')
+      } else {
+        // 돼지/바위 등 — 묵직한 타격음으로 사망을 알린다(전용 음원이 생기면 교체).
+        gameSoundEffects.play('playerSwordHit')
       }
       setQuestLogWithObjectiveFeedback(
         recordMonsterDefeatQuestProgress(currentQuestLog, {
@@ -4498,19 +5101,15 @@ export const createPixiTiledMapView = async ({
       )
       syncPlayerUiOverlays()
 
-      let equipmentDrop = rollMonsterEquipmentDrop(Math.random)
-
-      // 진행 중인 "아이템 획득" 목표가 있으면 그 아이템을 우선 드롭한다. 드롭 발생 확률은
-      // 기존 규칙 그대로 두고 품목만 바꿔, 퀘스트가 랜덤 11종 사이에서 운에 막히지 않게 한다.
-      if (equipmentDrop) {
-        const neededItemId = getActiveItemAcquireItemIds(currentQuestLog)[0]
-        const neededDrop = neededItemId
-          ? findMonsterEquipmentDropByItemId(neededItemId)
+      // 몬스터 레벨보다 높은 등급 장비는 떨어지지 않는다 — 저레벨 몹이 최상급
+      // 장비를 뿌리던 것을 막고, 상위 지역일수록 좋은 드롭이 나오게 한다.
+      const equipmentDropRoll = rollMonsterEquipmentDrop(Math.random)
+      const equipmentDrop =
+        equipmentDropRoll &&
+        (getPlayerEquipmentItemDefinitionById(equipmentDropRoll.itemId)?.level ??
+          1) <= (character.level ?? 1)
+          ? equipmentDropRoll
           : undefined
-        if (neededDrop) {
-          equipmentDrop = neededDrop
-        }
-      }
 
       if (equipmentDrop) {
         spawnMonsterEquipmentDrop(characterId, equipmentDrop, dropPosition, now)
@@ -4575,11 +5174,8 @@ export const createPixiTiledMapView = async ({
         })
 
     if (targetCharacter) {
-      applyDamageToMonster(
-        targetCharacter.id,
-        playerStatEffects.getPlayerPhysicalAttackPower(playerProfile),
-        now
-      )
+      // 근접 기본 공격 — 마법 무기는 발사체 경로로 가므로 여기는 항상 물리다.
+      applyDamageToMonster(targetCharacter.id, getPlayerBasicAttackDamage(false), now)
       playerAttackResolvedStartedAtMilliseconds =
         playerAttackStartedAtMilliseconds
     }
@@ -5023,11 +5619,33 @@ export const createPixiTiledMapView = async ({
     if (itemId.length === 0 || quantity <= 0) {
       return
     }
+    // 재료류(광석 등)는 같은 슬롯에 쌓는다 — 채굴처럼 반복 지급되는 아이템이
+    // 슬롯을 하나씩 먹어치우지 않게. 스택 대상 목록은 퀘스트 보상과 공유한다.
+    if (STACKABLE_QUEST_REWARD_ITEM_IDS.has(itemId)) {
+      const stackSlotIndex = currentPlayerInventory.slots.findIndex(
+        (slot) => slot?.id === itemId
+      )
+      if (stackSlotIndex >= 0) {
+        const stack = currentPlayerInventory.slots[stackSlotIndex]
+        if (stack) {
+          currentPlayerInventory = setPlayerInventorySlot({
+            inventory: currentPlayerInventory,
+            slotIndex: stackSlotIndex,
+            item: { ...stack, quantity: stack.quantity + quantity }
+          })
+          onPlayerInventoryChange(currentPlayerInventory)
+          return
+        }
+      }
+    }
     const slotIndex = findFirstEmptyPlayerInventorySlotIndex(currentPlayerInventory)
     if (slotIndex === undefined) {
       return
     }
-    const label = getPlayerEquipmentItemDefinitionById(itemId)?.label ?? itemId
+    const label =
+      getPlayerEquipmentItemDefinitionById(itemId)?.label ??
+      MATERIAL_ITEM_LABEL_BY_ID[itemId] ??
+      itemId
     currentPlayerInventory = setPlayerInventorySlot({
       inventory: currentPlayerInventory,
       slotIndex,
@@ -5361,6 +5979,39 @@ export const createPixiTiledMapView = async ({
       )
       .map((character) => createCollisionRectFromCharacter(character))
 
+  // 막힌 축과 직각으로 살짝 정렬시켜 한 칸 통로에 걸리지 않게 한다.
+  const applyCornerAssist = (
+    character: CharacterState,
+    deltaX: number,
+    deltaY: number,
+    blockingRects: CollisionRect[]
+  ): CharacterState => {
+    const nudge = resolveCornerAssistNudge({
+      wallTiles,
+      blockingRects,
+      x: character.position.x,
+      y: character.position.y,
+      width: character.collisionSize.width,
+      height: character.collisionSize.height,
+      deltaX,
+      deltaY
+    })
+
+    if (!nudge) {
+      return character
+    }
+
+    return moveCharacterState({
+      character,
+      delta: {
+        x: nudge.axis === 'x' ? nudge.amount : 0,
+        y: nudge.axis === 'y' ? nudge.amount : 0
+      },
+      mapWidth: map.width,
+      mapHeight: map.height
+    })
+  }
+
   const tryMoveCharacter = (
     characterId: string,
     deltaX: number,
@@ -5368,6 +6019,8 @@ export const createPixiTiledMapView = async ({
     options: {
       preserveFacing?: boolean
       ignoreMonsterBlocking?: boolean
+      // 한 칸 통로에 들어갈 때 격자에 자동 정렬시킨다(플레이어 조작 이동에만).
+      cornerAssist?: boolean
     } = {}
   ): boolean => {
     const currentCharacter = getCharacterStateById(characterId)
@@ -5416,6 +6069,8 @@ export const createPixiTiledMapView = async ({
         )
       ) {
         nextCharacter = nextXCharacter
+      } else if (options.cornerAssist) {
+        nextCharacter = applyCornerAssist(nextCharacter, deltaX, deltaY, blockingRects)
       }
     }
 
@@ -5441,6 +6096,8 @@ export const createPixiTiledMapView = async ({
         )
       ) {
         nextCharacter = nextYCharacter
+      } else if (options.cornerAssist) {
+        nextCharacter = applyCornerAssist(nextCharacter, deltaX, deltaY, blockingRects)
       }
     }
 
@@ -5530,10 +6187,13 @@ export const createPixiTiledMapView = async ({
 
         if (intent) {
           if (intent.movement) {
+            // 코너 어시스트는 플레이어 조작 이동에만 — 몬스터가 한 칸 길목을
+            // 통과하게 되면 난이도가 바뀌고, 구르기·넉백은 각자 고유 규칙이 있다.
             const didMove = tryMoveCharacter(
               character.id,
               intent.movement.x,
-              intent.movement.y
+              intent.movement.y,
+              character.id === PLAYER_CHARACTER_ID ? { cornerAssist: true } : {}
             )
 
             if (character.id === PLAYER_CHARACTER_ID && didMove) {
@@ -5658,7 +6318,9 @@ export const createPixiTiledMapView = async ({
                 )
                 if (
                   monsterCharacter.appearanceType ===
-                  MONSTER_SLIME_APPEARANCE_TYPE
+                    MONSTER_SLIME_APPEARANCE_TYPE ||
+                  monsterCharacter.appearanceType ===
+                    MONSTER_MUSHROOM_APPEARANCE_TYPE
                 ) {
                   gameSoundEffects.play('slimeAttack')
                 }
@@ -5732,9 +6394,11 @@ export const createPixiTiledMapView = async ({
 
       resolvePlayerAttackDamage(now)
       resolvePlayerSmashSkillDamage(now)
+      updatePlayerProjectiles(now, app.ticker.deltaMS)
       resolveMonsterContactDamage(now)
       resolveMonsterGoldDropPickups()
       resolveMonsterEquipmentDropPickups()
+      resolveCoinPilePickups()
       syncActiveMonsterGoldDrops(now)
       syncActiveMonsterEquipmentDrops(now)
 
@@ -5742,6 +6406,7 @@ export const createPixiTiledMapView = async ({
       const runtimeSnapshot = buildLuaRuntimeSnapshot({
         questLog: currentQuestLog,
         inventory: currentPlayerInventory,
+        equipment: currentPlayerEquipment,
         profile: playerProfile,
         sceneId
       })
@@ -5752,7 +6417,7 @@ export const createPixiTiledMapView = async ({
       }
 
       const interactionEvents = handleQuestInteractionEvents(
-        gameEventQueue.drain(),
+        handleScenarioInteractionEvents(gameEventQueue.drain(), now),
         now
       )
 
@@ -6286,6 +6951,67 @@ export const createPixiTiledMapView = async ({
   // 타일/오브젝트 배치 템플릿 또는 NPC 와이어 템플릿(kind로 구분).
   let placementTemplate: PlacementTemplate | NpcWireTemplate | null = null
   let placementSprites: Sprite[] = []
+  const decorationLayer = new Container()
+  decorationLayer.label = 'layer:generated-decorations'
+  world.addChild(decorationLayer)
+  const nightShade = new Graphics()
+    .rect(0, 0, map.pixelWidth, map.pixelHeight)
+    .fill({ color: 0x07132e, alpha: 0.58 })
+  nightShade.label = 'decoration:night-shade'
+  nightShade.visible = false
+  decorationLayer.addChild(nightShade)
+  const bulbLights = new Container()
+  bulbLights.label = 'decoration:twinkling-bulbs'
+  bulbLights.eventMode = 'none'
+  decorationLayer.addChild(bulbLights)
+  let decorationRevision = 0
+  let lightTime = 0
+  const animateDecorationLights = (): void => {
+    lightTime += app.ticker.deltaMS / 1000
+    bulbLights.children.forEach((light, index) => {
+      light.alpha = 0.65 + 0.25 * Math.sin(lightTime * 2.2 + index * 1.7)
+    })
+  }
+  app.ticker.add(animateDecorationLights)
+
+  const addBulbLights = async (item: PlacedItem, sprite: Sprite, revision: number): Promise<void> => {
+    if (!item.imageUrl) return
+    const image = new Image()
+    image.src = item.imageUrl
+    try { await image.decode() } catch { return }
+    if (revision !== decorationRevision) return
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const context = canvas.getContext('2d')
+    if (!context) return
+    context.drawImage(image, 0, 0)
+    const pixels = context.getImageData(0, 0, image.width, image.height).data
+    // Merge nearby warm pixels into one glow per small bulb region.
+    const cells = new Map<string, { x: number; y: number; count: number }>()
+    for (let y = 0; y < image.height; y++) {
+      for (let x = 0; x < image.width; x++) {
+        const i = (y * image.width + x) * 4
+        if (pixels[i + 3] < 180 || pixels[i] < 210 || pixels[i + 1] < 150 || pixels[i + 2] > 105) continue
+        const key = `${Math.floor(x / 8)},${Math.floor(y / 8)}`
+        const cell = cells.get(key) ?? { x: 0, y: 0, count: 0 }
+        cell.x += x; cell.y += y; cell.count++
+        cells.set(key, cell)
+      }
+    }
+    for (const cell of cells.values()) {
+      if (cell.count < 2) continue
+      const light = new Graphics()
+        .circle(0, 0, 9).fill({ color: 0xffbe55, alpha: 0.07 })
+        .circle(0, 0, 5).fill({ color: 0xffc65a, alpha: 0.16 })
+        .circle(0, 0, 1.5).fill({ color: 0xfff0b0, alpha: 0.7 })
+      light.position.set(
+        sprite.x + (cell.x / cell.count - sprite.anchor.x * image.width) * sprite.scale.x,
+        sprite.y + (cell.y / cell.count - sprite.anchor.y * image.height) * sprite.scale.y
+      )
+      bulbLights.addChild(light)
+    }
+  }
   // 수기 배치 NPC는 정적 스프라이트가 아니라 게임의 CharacterState로 스폰된다(이동 차단 + 대사).
   // 스폰한 NPC의 id 집합 — 저장소와 비교(reconcile)해 추가/삭제를 반영한다.
   const placedNpcIds = new Set<string>()
@@ -6308,6 +7034,10 @@ export const createPixiTiledMapView = async ({
   }
 
   const renderPlacements = async (items: PlacedItem[]): Promise<void> => {
+    const revision = ++decorationRevision
+    for (const light of bulbLights.removeChildren()) light.destroy()
+    nightShade.visible = sceneId === 'town' && items.some(item => item.renderLayer === 'decoration' && item.visible !== false)
+    bulbLights.visible = nightShade.visible
     for (const sprite of placementSprites) {
       sprite.parent?.removeChild(sprite)
       sprite.destroy()
@@ -6317,20 +7047,48 @@ export const createPixiTiledMapView = async ({
       return
     }
     for (const item of items) {
+      if (item.visible === false) {
+        continue
+      }
       const texture = await textureForPlacement(item)
+      if (revision !== decorationRevision) return
       if (!texture) {
         continue
       }
       const sprite = new Sprite(texture)
-      sprite.position.set(item.col * map.tileWidth, item.row * map.tileHeight)
+      const displayScale =
+        typeof item.displayScale === 'number' && item.displayScale > 0
+          ? item.displayScale
+          : 1
+      sprite.scale.set(displayScale)
+      if (item.anchor === 'bottom-center') {
+        sprite.anchor.set(0.5, 1)
+        sprite.position.set(
+          (item.col + 0.5) * map.tileWidth,
+          (item.row + 1) * map.tileHeight
+        )
+      } else {
+        sprite.position.set(item.col * map.tileWidth, item.row * map.tileHeight)
+      }
       // 지우기 히트테스트에서 어느 배치인지 역추적하기 위해 배치 id를 표식으로 단다.
       sprite.label = item.id
       // 자기 아래 가장자리 기준 깊이정렬 — 캐릭터/지붕과 같은 규칙으로 자연스럽게 겹친다.
-      sprite.zIndex = item.row * map.tileHeight + (texture.height || map.tileHeight) + 0.6
-      depthSortedLayer.addChild(sprite)
+      sprite.zIndex =
+        item.anchor === 'bottom-center'
+          ? sprite.y + 0.6
+          : item.row * map.tileHeight +
+            (texture.height || map.tileHeight) * displayScale +
+            0.6
+      if (item.renderLayer === 'decoration') {
+        decorationLayer.addChild(sprite)
+        if (nightShade.visible) void addBulbLights(item, sprite, revision)
+      } else {
+        depthSortedLayer.addChild(sprite)
+      }
       placementSprites.push(sprite)
     }
     depthSortedLayer.sortChildren()
+    decorationLayer.setChildIndex(bulbLights, decorationLayer.children.length - 1)
   }
 
   const refreshPlacements = (): void => {
@@ -6443,6 +7201,75 @@ export const createPixiTiledMapView = async ({
       // 컨트롤러 부착(대사 NPC 상호작용 활성)·충돌 반영을 즉시 갱신.
       controllerRuntime.syncCharacters(characterStates)
     }
+  }
+
+  // 한 칸이 NPC를 놓기에 적합한지: 맵 안 + 벽 아님 + 다른 캐릭터(플레이어/NPC/몬스터)와 안 겹침.
+  const isNpcSpawnableTile = (x: number, y: number): boolean => {
+    if (x < 0 || y < 0 || x >= map.width || y >= map.height) {
+      return false
+    }
+    if (isWallTileAt(wallTiles, x, y)) {
+      return false
+    }
+    const rect: CollisionRect = { x, y, width: 1, height: 1 }
+    return !getBlockingCollisionRects('').some((blocker) =>
+      doCollisionRectsIntersect(rect, blocker)
+    )
+  }
+
+  // 플레이어를 중심으로 바깥쪽 링부터 훑어 가장 가까운 빈 칸을 찾는다(자기 칸은 제외).
+  const findSpawnTileNearPlayer = (player: {
+    x: number
+    y: number
+  }): { x: number; y: number } | undefined => {
+    const px = Math.round(player.x)
+    const py = Math.round(player.y)
+    for (let radius = 1; radius <= 8; radius += 1) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          // 현재 반지름의 테두리 칸만(안쪽은 이전 반지름에서 이미 검사됨).
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) {
+            continue
+          }
+          const x = px + dx
+          const y = py + dy
+          if (isNpcSpawnableTile(x, y)) {
+            return { x, y }
+          }
+        }
+      }
+    }
+    return undefined
+  }
+
+  // 에디터 생성 NPC를 플레이어 옆 빈 칸에 스폰한다(npcStore에 저장 후 refreshNpcs가 CharacterState로
+  // 만든다 — 수기 배치 NPC와 같은 경로). 외형이 시트에 없으면 refreshNpcs의 try/catch가 스킵한다.
+  const spawnNpcNearPlayer = (template: {
+    appearanceType: string
+    name?: string
+    dialogueLines?: string[]
+  }): boolean => {
+    const player = getCharacterStateById(PLAYER_CHARACTER_ID)
+    if (!player) {
+      return false
+    }
+    const spot = findSpawnTileNearPlayer(player.position)
+    if (!spot) {
+      console.warn('[npc] 플레이어 주변에 빈 칸이 없어 NPC를 스폰하지 못했습니다.')
+      return false
+    }
+    addNpc(
+      sceneId,
+      {
+        appearanceType: template.appearanceType,
+        name: template.name,
+        dialogueLines: template.dialogueLines
+      },
+      spot.x,
+      spot.y
+    )
+    refreshNpcs()
+    return true
   }
 
   // 배치 NPC를 클릭 지점(스프라이트 픽셀 영역)으로 맞혀 지운다. 맞으면 true(이후 배치 지우기 생략).
@@ -6569,6 +7396,8 @@ export const createPixiTiledMapView = async ({
     app.stage.off('pointerdown', handleStagePointerDown)
     app.canvas.removeEventListener('contextmenu', handleCanvasContextMenu)
     app.ticker.remove(updateCharacters)
+    app.ticker.remove(animateDecorationLights)
+    decorationRevision++
     app.ticker.remove(mapOverlay.syncFrame)
     app.ticker.remove(playerHudOverlay.syncFrame)
     app.ticker.remove(playerInventoryOverlay.syncFrame)
@@ -6586,6 +7415,7 @@ export const createPixiTiledMapView = async ({
     monsterContactDamageLockedUntilById.clear()
     monsterRespawnAtById.clear()
     clearPlayerSmashSkillEffectSprites()
+    clearPlayerProjectiles()
     for (const monsterGoldDrop of monsterGoldDrops.values()) {
       monsterGoldDrop.container.destroy({ children: true })
     }
@@ -6594,6 +7424,10 @@ export const createPixiTiledMapView = async ({
       monsterEquipmentDrop.container.destroy({ children: true })
     }
     monsterEquipmentDrops.clear()
+    for (const coinPile of coinPileSprites.values()) {
+      coinPile.sprite.destroy()
+    }
+    coinPileSprites.clear()
     monsterPigAnimatedSprites.clear()
     monsterPigAnimationModes.clear()
     monsterPigBehaviorStates.clear()
@@ -6644,7 +7478,8 @@ export const createPixiTiledMapView = async ({
       placementTemplate = template
     },
     refreshPlacements,
-    refreshNpcs
+    refreshNpcs,
+    spawnNpcNearPlayer
   }
 }
 
@@ -6816,40 +7651,6 @@ const clampScrollOffset = (value: number, max: number): number =>
 const clampCameraZoom = (value: number): number =>
   Math.max(CAMERA_MIN_ZOOM, Math.min(value, CAMERA_MAX_ZOOM))
 
-const isCharacterPositionBlocked = (
-  wallTiles: Set<string>,
-  blockingRects: CollisionRect[],
-  x: number,
-  y: number,
-  width: number,
-  height: number
-): boolean => {
-  const epsilon = 1e-6
-  const minTileX = Math.floor(x + epsilon)
-  const maxTileX = Math.floor(x + width - epsilon)
-  const minTileY = Math.floor(y + epsilon)
-  const maxTileY = Math.floor(y + height - epsilon)
-
-  for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
-    for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
-      if (isWallTileAt(wallTiles, tileX, tileY)) {
-        return true
-      }
-    }
-  }
-
-  return blockingRects.some((blockingRect) =>
-    doCollisionRectsIntersect(
-      blockingRect,
-      {
-        x,
-        y,
-        width,
-        height
-      }
-    )
-  )
-}
 
 const createGrassTileLookup = (map: ParsedTiledMap): Set<string> => {
   const groundLayer = map.layers.find(
@@ -6914,15 +7715,6 @@ const getCharacterDepthSortValue = (
   characterPixelHeight: number,
   tileHeight: number
 ): number => characterY * tileHeight + characterPixelHeight
-
-const doCollisionRectsIntersect = (
-  left: CollisionRect,
-  right: CollisionRect
-): boolean =>
-  left.x < right.x + right.width &&
-  left.x + left.width > right.x &&
-  left.y < right.y + right.height &&
-  left.y + left.height > right.y
 
 const isPlayerRollModifierCode = (code: string): boolean =>
   code === 'ShiftLeft' || code === 'ShiftRight'
@@ -7022,8 +7814,14 @@ const resolveTilesetLocalIdByType = (
 
 const STACKABLE_QUEST_REWARD_ITEM_IDS = new Set([
   'health-potion',
-  'mana-potion'
+  'mana-potion',
+  'crystal-ore'
 ])
+
+// 장비/포션 카탈로그에 없는 재료 아이템의 표시 이름.
+const MATERIAL_ITEM_LABEL_BY_ID: Record<string, string> = {
+  'crystal-ore': '수정 광석'
+}
 
 const addQuestItemRewardsToInventory = (
   inventory: PlayerInventory,

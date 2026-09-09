@@ -1,8 +1,10 @@
-import type {
-  PlayerEquipment,
-  PlayerEquipmentItem,
-  PlayerEquipmentSlot,
-  PlayerEquipmentSlotId
+import {
+  EQUIPMENT_SLOT_IDS,
+  EQUIPMENT_SLOT_LABEL_BY_ID,
+  type PlayerEquipment,
+  type PlayerEquipmentItem,
+  type PlayerEquipmentSlot,
+  type PlayerEquipmentSlotId
 } from './playerEquipment'
 import type {
   PlayerInventory,
@@ -251,7 +253,7 @@ const normalizeEquipment = (value: unknown): PlayerEquipment | undefined => {
     return undefined
   }
 
-  // 장비 슬롯은 고정 구성(무기/옷/모자/신발/장신구)이라 하나라도 손상되면 폐기한다.
+  // 장비 슬롯은 고정 구성이라 하나라도 손상되면 폐기한다.
   const slots: PlayerEquipmentSlot[] = []
 
   for (const rawSlot of value.slots) {
@@ -264,7 +266,19 @@ const normalizeEquipment = (value: unknown): PlayerEquipment | undefined => {
     slots.push(slot)
   }
 
-  return { setName: value.setName, level: value.level, slots }
+  // 슬롯 구성이 늘어난 뒤(예: '보조 장비' 추가) 저장된 구버전 세이브를 현재 구성으로 보강한다:
+  // 없는 슬롯은 빈 칸으로 채우고, 순서·라벨은 현재 정의를 따른다.
+  const slotById = new Map(slots.map((slot) => [slot.id, slot]))
+  const normalizedSlots: PlayerEquipmentSlot[] = EQUIPMENT_SLOT_IDS.map((slotId) => {
+    const stored = slotById.get(slotId)
+    return {
+      id: slotId,
+      label: EQUIPMENT_SLOT_LABEL_BY_ID[slotId],
+      item: stored?.item
+    }
+  })
+
+  return { setName: value.setName, level: value.level, slots: normalizedSlots }
 }
 
 const normalizeQuickslotAssignment = (

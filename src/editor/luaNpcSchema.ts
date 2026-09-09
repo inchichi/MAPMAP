@@ -31,6 +31,9 @@ export const LUA_NPC_BEHAVIOR_TYPES: LuaNpcBehaviorType[] = ['wander', 'stationa
 export type GeneratedLuaNpcJson = {
   npc_id: string // 영문 snake_case, 기존 엔티티와 겹치지 않는 새 id
   name: string
+  // NPC의 직업/역할을 나타내는 짧은 한국어 라벨(예: 마법사, 대장장이, 상인). 게임은 생성 NPC의
+  // 자동 대사를 숨기고 이 라벨을 NPC 아래에 띄운다. (optional: 옛 데이터 호환 — 없으면 name으로 폴백)
+  role?: string
   map_id: string // 이 게임에 실재하는 맵(tmx 파일명)
   appearance: string // LUA_NPC_APPEARANCES 중 하나
   position: { x: number; y: number } // 타일 좌표

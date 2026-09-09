@@ -17,6 +17,7 @@ export const QUEST_OBJECTIVE_TYPES: QuestObjectiveType[] = [
 
 // Items that can exist in the project inventory or shops.
 export const ACQUIRABLE_ITEMS: { itemId: string; label: string }[] = [
+  { itemId: 'crystal-ore', label: '수정 광석' },
   { itemId: 'iron-sword', label: '강철 검' },
   { itemId: 'bronze-sword', label: '청동 검' },
   { itemId: 'battle-axe', label: '전투 도끼' },
@@ -55,13 +56,15 @@ export const QUEST_MONSTER_DROP_ITEMS: { itemId: string; label: string }[] = [
 
 export const QUEST_MONSTERS: { appearanceType: string; label: string }[] = [
   { appearanceType: 'monster_slime', label: '슬라임' },
-  { appearanceType: 'monster_pig', label: '돼지' }
+  { appearanceType: 'monster_pig', label: '돼지' },
+  { appearanceType: 'monster_rock', label: '바위돌이' },
+  { appearanceType: 'monster_mushroom', label: '버섯돌이' }
 ]
 
-export const QUEST_MONSTER_SCENES = ['hunting-ground', 'cave']
+export const QUEST_MONSTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine']
 
 // town is the start scene and would complete immediately, so it is excluded.
-export const QUEST_SCENE_ENTER_SCENES = ['hunting-ground', 'cave']
+export const QUEST_SCENE_ENTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine', 'harvest-village']
 
 export const QUEST_SHOPS: { shopId: string; label: string }[] = [
   { shopId: 'blacksmith', label: '대장간 상점' },

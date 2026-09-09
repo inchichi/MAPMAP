@@ -4,12 +4,15 @@
 
 local PLAYER_SMASH_SKILL_ID    = 'smash'
 local PLAYER_PROTECT_SKILL_ID  = 'protect'
+local PLAYER_DASH_SKILL_ID     = 'dash'
 local PLAYER_SKILL_UNLOCK_LEVEL = 1
 
 -- skillId → profile.skills 배열 인덱스 (0-based, Lua 내부에선 +1 해서 접근)
 local PROFILE_INDEX_BY_ID = {
   smash   = 0,
   protect = 1,
+  dash    = 2,
+  focus   = 3,
 }
 
 local SMASH_MANA_COST_BY_LEVEL = {
@@ -96,6 +99,9 @@ function player_skills_mana_cost(profile, skill_id)
   end
   if skill_id == PLAYER_PROTECT_SKILL_ID then
     return 2
+  end
+  if skill_id == PLAYER_DASH_SKILL_ID then
+    return 3
   end
   return 0
 end

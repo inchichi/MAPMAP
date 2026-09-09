@@ -1,5 +1,6 @@
 import {
   getPlayerPhysicalAttackPower as getPlayerPhysicalAttackPowerTs,
+  getPlayerMagicAttackPower as getPlayerMagicAttackPowerTs,
   getPlayerMovementSpeedTilesPerSecond as getPlayerMovementSpeedTilesPerSecondTs,
   getPlayerEvadeChance as getPlayerEvadeChanceTs
 } from './playerStatEffects'
@@ -17,6 +18,10 @@ function player_attack_power(strength)
   return math.max(1, math.floor(strength))
 end
 
+function player_magic_attack_power(intelligence)
+  return math.max(1, math.floor(intelligence))
+end
+
 function player_move_speed(agility)
   return clamp(8 + (agility - 4) * 0.35, 4, 12)
 end
@@ -30,6 +35,7 @@ type StatProfile = Pick<PlayerProfile, 'stats'>
 
 export type PlayerStatEffectRules = {
   getPlayerPhysicalAttackPower: (profile: StatProfile) => number
+  getPlayerMagicAttackPower: (profile: StatProfile) => number
   getPlayerMovementSpeedTilesPerSecond: (profile: StatProfile) => number
   getPlayerEvadeChance: (profile: StatProfile) => number
   shouldPlayerEvadeDamage: (profile: StatProfile, randomValue?: number) => boolean
@@ -53,6 +59,13 @@ export const createLuaPlayerStatEffects = (
         PLAYER_STAT_EFFECTS_LUA,
         `player_attack_power(${profile.stats.strength})`,
         getPlayerPhysicalAttackPowerTs(profile)
+      ),
+    getPlayerMagicAttackPower: (profile) =>
+      evaluateLuaNumber(
+        loadDataModule,
+        PLAYER_STAT_EFFECTS_LUA,
+        `player_magic_attack_power(${profile.stats.intelligence})`,
+        getPlayerMagicAttackPowerTs(profile)
       ),
     getPlayerMovementSpeedTilesPerSecond: (profile) =>
       evaluateLuaNumber(

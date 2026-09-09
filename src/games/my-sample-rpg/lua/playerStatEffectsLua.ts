@@ -24,6 +24,7 @@ type StatsProfile = Pick<PlayerProfile, 'stats'>
 
 export type PlayerStatEffectsLua = {
   getPlayerPhysicalAttackPower: (profile: StatsProfile) => number
+  getPlayerMagicAttackPower: (profile: StatsProfile) => number
   getPlayerMovementSpeedTilesPerSecond: (profile: StatsProfile) => number
   getPlayerEvadeChance: (profile: StatsProfile) => number
   shouldPlayerEvadeDamage: (profile: StatsProfile, randomValue: number) => boolean
@@ -48,6 +49,8 @@ export const createPlayerStatEffectsLua = async (
   return {
     getPlayerPhysicalAttackPower: (profile: StatsProfile): number =>
       host.callJson<number>('player_physical_attack_power', profile),
+    getPlayerMagicAttackPower: (profile: StatsProfile): number =>
+      host.callJson<number>('player_magic_attack_power', profile),
     getPlayerMovementSpeedTilesPerSecond: (profile: StatsProfile): number =>
       host.callJson<number>(
         'player_movement_speed',

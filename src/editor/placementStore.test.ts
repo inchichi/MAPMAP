@@ -6,6 +6,7 @@ import {
   loadPlacementsForMap,
   removePlacement
 } from './placementStore'
+import { installDecorationDemo, setDecorationLayerVisible } from './placementStore'
 
 // placementStore는 window.localStorage(safeStorage 경유)를 쓴다. 테스트는 node 환경이라
 // 인메모리 localStorage를 window에 stub한다(테스트마다 새 저장소).
@@ -35,6 +36,22 @@ afterEach(() => {
 })
 
 describe('placementStore', () => {
+  it('toggles only decorations and keeps ordinary placements unchanged', () => {
+    const original = addPlacement('town', { kind: 'tile', tileId: 1 }, 0, 0)
+    addPlacement('town', { kind: 'object', renderLayer: 'decoration', imageUrl: '/snow.png' }, 1, 1)
+    setDecorationLayerVisible('town', false)
+    expect(loadPlacementsForMap('town')[0]).toEqual(original)
+    expect(loadPlacementsForMap('town')[1].visible).toBe(false)
+    setDecorationLayerVisible('town', true)
+    expect(loadPlacementsForMap('town')[1].visible).toBe(true)
+  })
+  it('installs the demo idempotently without removing user placements', () => {
+    const original = addPlacement('town', { kind: 'tile', tileId: 1 }, 0, 0)
+    const demo = { id: 'demo', kind: 'object' as const, col: 1, row: 1, sourceGroup: 'flux-decorations-20260909', renderLayer: 'decoration' as const }
+    installDecorationDemo([demo])
+    installDecorationDemo([demo])
+    expect(loadPlacementsForMap('town')).toEqual([original, demo])
+  })
   it('adds a placement and reads it back for the same map', () => {
     const item = addPlacement(
       'town',

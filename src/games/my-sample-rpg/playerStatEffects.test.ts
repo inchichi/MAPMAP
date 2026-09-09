@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createInitialPlayerProfile } from './playerProfile'
 import {
   getPlayerEvadeChance,
+  getPlayerMagicAttackPower,
   getPlayerMovementSpeedTilesPerSecond,
   getPlayerPhysicalAttackPower,
   shouldPlayerEvadeDamage
@@ -11,6 +12,31 @@ import {
 describe('getPlayerPhysicalAttackPower', () => {
   it('uses strength as the physical damage base', () => {
     expect(getPlayerPhysicalAttackPower(createInitialPlayerProfile())).toBe(5)
+  })
+})
+
+describe('getPlayerMagicAttackPower', () => {
+  it('uses intelligence as the magic damage base', () => {
+    expect(getPlayerMagicAttackPower(createInitialPlayerProfile())).toBe(3)
+  })
+
+  it('goes up as intelligence goes up, independent of strength', () => {
+    const profile = createInitialPlayerProfile()
+    const smarterProfile = {
+      ...profile,
+      stats: { ...profile.stats, intelligence: profile.stats.intelligence + 4 }
+    }
+    const strongerProfile = {
+      ...profile,
+      stats: { ...profile.stats, strength: profile.stats.strength + 4 }
+    }
+
+    expect(getPlayerMagicAttackPower(smarterProfile)).toBe(
+      getPlayerMagicAttackPower(profile) + 4
+    )
+    expect(getPlayerMagicAttackPower(strongerProfile)).toBe(
+      getPlayerMagicAttackPower(profile)
+    )
   })
 })
 

@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
-import adain_service
+import style_service_config
 
 _BACKUP_DIR = Path(__file__).resolve().parent / "backups"
 # 에셋별 "최초 원본" 보관소 — 첫 적용 때 한 번만 시드되고 이후 적용은 건드리지 않으므로,
@@ -42,13 +42,13 @@ def _original_path(relative: str) -> Path:
 
 
 def assets_root() -> Path:
-    config = adain_service.get_config()
+    config = style_service_config.get_config()
     return (config["project_dir"] / config["assets_subdir"]).resolve()
 
 
 def resolve_asset_path(relative: str) -> Path:
     """프로젝트 상대 경로('src/games/my-sample-rpg/assets/...')를 검증해 절대 경로로 푼다. 탈출 시 ValueError."""
-    config = adain_service.get_config()
+    config = style_service_config.get_config()
     target = (config["project_dir"] / relative).resolve()
     root = assets_root()
     if root != target and root not in target.parents:
@@ -60,7 +60,7 @@ def resolve_asset_path(relative: str) -> Path:
 
 def list_assets() -> list[dict]:
     """에셋 폴더의 PNG 목록(프로젝트 상대 경로, 크기). 에디터의 '게임 에셋' 선택 드롭다운용."""
-    config = adain_service.get_config()
+    config = style_service_config.get_config()
     root = assets_root()
     if not root.is_dir():
         return []

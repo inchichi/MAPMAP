@@ -18,6 +18,16 @@ export const CURRENT_GAME_PROJECT_PROFILE: GameStructureProfile = {
       id: 'cave',
       name: 'Cave',
       file: 'src/games/my-sample-rpg/assets/maps/cave.tmx'
+    },
+    {
+      id: 'crystal-mine',
+      name: 'Crystal Mine',
+      file: 'src/games/my-sample-rpg/assets/maps/crystal-mine.tmx'
+    },
+    {
+      id: 'harvest-village',
+      name: 'Harvest Village',
+      file: 'src/games/my-sample-rpg/assets/maps/harvest-village.tmx'
     }
   ],
   npcs: [

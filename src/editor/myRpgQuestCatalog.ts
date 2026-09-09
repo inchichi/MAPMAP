@@ -23,6 +23,7 @@ export const QUEST_OBJECTIVE_TYPES: QuestObjectiveType[] = [
 // 드롭·상점 구매로 "획득"이 추적되는 아이템(playerEquipment 장비 + 포션). item-acquire 목표의
 // target.itemId는 이 목록에서 골라야 게임에서 진행된다.
 export const ACQUIRABLE_ITEMS: { itemId: string; label: string }[] = [
+  { itemId: 'crystal-ore', label: '수정 광석' },
   { itemId: 'iron-sword', label: '강철 검' },
   { itemId: 'bronze-sword', label: '청동 검' },
   { itemId: 'battle-axe', label: '전투 도끼' },
@@ -46,14 +47,16 @@ export const ACQUIRABLE_ITEMS: { itemId: string; label: string }[] = [
 // 처치 추적이 되는 몬스터 외형 타입(런타임 appearanceType). 현재 슬라임/돼지 2종뿐.
 export const QUEST_MONSTERS: { appearanceType: string; label: string }[] = [
   { appearanceType: 'monster_slime', label: '슬라임(말캉이)' },
-  { appearanceType: 'monster_pig', label: '돼지' }
+  { appearanceType: 'monster_pig', label: '돼지' },
+  { appearanceType: 'monster_rock', label: '바위돌이' },
+  { appearanceType: 'monster_mushroom', label: '버섯돌이' }
 ]
 
 // 몬스터가 등장하는 씬(monster-defeat의 sceneId로 써야 진행됨).
-export const QUEST_MONSTER_SCENES = ['hunting-ground', 'cave']
+export const QUEST_MONSTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine']
 
 // scene-enter 목표로 쓸 수 있는 씬. town은 시작 지점이라 즉시 완료돼 버리므로 제외한다.
-export const QUEST_SCENE_ENTER_SCENES = ['hunting-ground', 'cave']
+export const QUEST_SCENE_ENTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine', 'harvest-village']
 
 // 상점 열기 목표의 shopId(런타임이 실제로 발생시키는 값: blacksmith, potion).
 export const QUEST_SHOPS: { shopId: string; label: string }[] = [

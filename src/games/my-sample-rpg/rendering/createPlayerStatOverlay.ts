@@ -39,7 +39,7 @@ const STAT_ROWS: StatRowConfig[] = [
   {
     id: 'intelligence',
     label: '지력',
-    description: '최대 마나가 올라갑니다'
+    description: '마법 공격력과 최대 마나가 올라갑니다'
   },
   {
     id: 'luck',

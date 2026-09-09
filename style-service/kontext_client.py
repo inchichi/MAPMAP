@@ -1,13 +1,18 @@
+"""FLUX.1-Kontext image editing client."""
+
 from __future__ import annotations
 
 import os
-import random
 import threading
-from dataclasses import dataclass
+from collections import OrderedDict
+from dataclasses import dataclass, replace
+from hashlib import sha256
+from pathlib import Path
 
 import torch
-from PIL import Image
+from huggingface_hub import get_token
 from huggingface_hub.errors import GatedRepoError, HfHubHTTPError
+from PIL import Image, ImageFilter
 
 try:
     from diffusers import FluxKontextPipeline
@@ -19,9 +24,24 @@ else:
 
 
 MODEL_ID = os.environ.get("FLUX_KONTEXT_MODEL_ID", "black-forest-labs/FLUX.1-Kontext-dev")
+DEFAULT_LORA_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "Flux-training"
+    / "outputs"
+    / "gdt_kontext_lora"
+    / "gdt_kontext_lora.safetensors"
+)
 
 _PIPELINE: FluxKontextPipeline | None = None
 _PIPELINE_LOCK = threading.Lock()
+_INFERENCE_LOCK = threading.Lock()
+_RESULT_CACHE: OrderedDict[str, Image.Image] = OrderedDict()
+_RESULT_CACHE_LOCK = threading.Lock()
+_RESULT_CACHE_LIMIT = 8
+DEFAULT_SEED = 42
+# Keep the combined prompt below the 77-token CLIP limit while preserving the
+# training trigger and the style tail when concept text is too long.
+_MAX_PROMPT_CHARS = 300
 
 
 @dataclass(frozen=True)
@@ -29,10 +49,14 @@ class KontextConfig:
     model_id: str
     steps: int
     guidance_scale: float
-    max_side: int
     device: str
     dtype: str
     use_cpu_offload: bool
+    quantize: bool
+    lora_path: str
+    lora_scale: float
+    seed: int
+    max_sequence_length: int
 
 
 def _parse_bool(value: str | None, default: bool) -> bool:
@@ -61,29 +85,61 @@ def _resolve_dtype(name: str) -> torch.dtype:
         raise ValueError(f"Unsupported FLUX_KONTEXT_DTYPE: {name}") from exc
 
 
+def _validate_strength(value: float) -> float:
+    if not 0.0 < value <= 1.0:
+        raise ValueError(f"edit intensity must be between 0.0 and 1.0, got {value}")
+    return float(value)
+
+
+def _validate_lora_scale(value: float) -> float:
+    if not 0.0 <= value <= 1.0:
+        raise ValueError(f"LoRA scale must be between 0.0 and 1.0, got {value}")
+    return float(value)
+
+
 def get_kontext_config() -> KontextConfig:
     cuda_available = torch.cuda.is_available()
     device = os.environ.get("FLUX_KONTEXT_DEVICE", "cuda" if cuda_available else "cpu")
     if device not in {"cuda", "cpu"}:
         raise ValueError(f"Unsupported FLUX_KONTEXT_DEVICE: {device}")
 
-    dtype = _resolve_dtype(os.environ.get("FLUX_KONTEXT_DTYPE", "float16"))
+    dtype = _resolve_dtype(os.environ.get("FLUX_KONTEXT_DTYPE", "bfloat16"))
     if device == "cpu":
         dtype = torch.float32
-    steps = int(os.environ.get("FLUX_KONTEXT_STEPS", "4"))
+    steps = int(os.environ.get("FLUX_KONTEXT_STEPS", "24"))
     guidance_scale = float(os.environ.get("FLUX_KONTEXT_GUIDANCE", "2.5"))
-    max_side = int(os.environ.get("FLUX_KONTEXT_MAX_SIDE", "768"))
-    use_cpu_offload = _parse_bool(os.environ.get("FLUX_KONTEXT_CPU_OFFLOAD"), default=False)
+    lora_scale = _validate_lora_scale(float(os.environ.get("FLUX_KONTEXT_LORA_SCALE", "1.0")))
+    seed = int(os.environ.get("FLUX_KONTEXT_SEED", str(DEFAULT_SEED)))
+    max_sequence_length = int(os.environ.get("FLUX_KONTEXT_MAX_SEQUENCE_LENGTH", "512"))
+    use_cpu_offload = _parse_bool(
+        os.environ.get("FLUX_KONTEXT_CPU_OFFLOAD"), default=device == "cuda"
+    )
+    quantize = _parse_bool(
+        os.environ.get("FLUX_KONTEXT_QUANTIZE"), default=device == "cuda"
+    )
     if device != "cuda":
         use_cpu_offload = False
+        quantize = False
+    if steps <= 0:
+        raise ValueError(f"FLUX_KONTEXT_STEPS must be positive, got {steps}")
+    if guidance_scale < 0.0:
+        raise ValueError(f"FLUX_KONTEXT_GUIDANCE must not be negative, got {guidance_scale}")
+    if max_sequence_length <= 0:
+        raise ValueError(
+            f"FLUX_KONTEXT_MAX_SEQUENCE_LENGTH must be positive, got {max_sequence_length}"
+        )
     return KontextConfig(
         model_id=MODEL_ID,
         steps=steps,
         guidance_scale=guidance_scale,
-        max_side=max_side,
         device=device,
         dtype={torch.bfloat16: "bfloat16", torch.float16: "float16", torch.float32: "float32"}[dtype],
         use_cpu_offload=use_cpu_offload,
+        quantize=quantize,
+        lora_path=os.environ.get("FLUX_KONTEXT_LORA_PATH", str(DEFAULT_LORA_PATH)),
+        lora_scale=lora_scale,
+        seed=seed,
+        max_sequence_length=max_sequence_length,
     )
 
 
@@ -100,126 +156,216 @@ def _ensure_pipeline(config: KontextConfig) -> FluxKontextPipeline:
         if _PIPELINE is not None:
             return _PIPELINE
 
+        lora_path = Path(config.lora_path).expanduser()
+        if not lora_path.is_file():
+            raise FileNotFoundError(f"Kontext LoRA file does not exist: {lora_path}")
+        if get_token() is None:
+            raise RuntimeError(
+                "Hugging Face authentication is required for FLUX.1-Kontext-dev. "
+                "Run `huggingface-cli login` or set HF_TOKEN, then restart the service."
+            )
+
         dtype = _resolve_dtype(config.dtype)
         try:
-            # FLUX.1-Kontext-dev의 체크포인트는 크기가 커서, 로딩 중 state dict를
-            # 메모리에 두 벌 유지하면 Qwen과 함께 실행하는 3090 서버에서 피크가 난다.
-            # accelerate의 저메모리 로딩과 GPU/CPU 분산으로 피크 사용량을 낮춘다.
-            load_kwargs: dict[str, object] = {
-                "torch_dtype": dtype,
-                "low_cpu_mem_usage": True,
-                "offload_state_dict": False,
-            }
-            if config.use_cpu_offload:
-                load_kwargs["device_map"] = "balanced"
-                load_kwargs["max_memory"] = {0: "20GiB", "cpu": "48GiB"}
-            pipeline = FluxKontextPipeline.from_pretrained(config.model_id, **load_kwargs)
+            if config.quantize:
+                from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig
+                from diffusers import FluxTransformer2DModel
+                from transformers import BitsAndBytesConfig as TransformersBitsAndBytesConfig
+                from transformers import T5EncoderModel
+
+                nf4 = {
+                    "load_in_4bit": True,
+                    "bnb_4bit_quant_type": "nf4",
+                    "bnb_4bit_compute_dtype": dtype,
+                }
+                transformer = FluxTransformer2DModel.from_pretrained(
+                    config.model_id,
+                    subfolder="transformer",
+                    quantization_config=DiffusersBitsAndBytesConfig(**nf4),
+                    torch_dtype=dtype,
+                )
+                text_encoder_2 = T5EncoderModel.from_pretrained(
+                    config.model_id,
+                    subfolder="text_encoder_2",
+                    quantization_config=TransformersBitsAndBytesConfig(**nf4),
+                    torch_dtype=dtype,
+                )
+                pipeline = FluxKontextPipeline.from_pretrained(
+                    config.model_id,
+                    transformer=transformer,
+                    text_encoder_2=text_encoder_2,
+                    torch_dtype=dtype,
+                )
+            else:
+                pipeline = FluxKontextPipeline.from_pretrained(config.model_id, torch_dtype=dtype)
         except (GatedRepoError, HfHubHTTPError) as exc:
             raise RuntimeError(
-                "FLUX.1-Kontext-dev is gated on Hugging Face. "
-                "Accept the model terms and sign in with `huggingface-cli login` "
-                "or set `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN`."
+                "FLUX.1-Kontext-dev is gated on Hugging Face. Accept the model terms and "
+                "sign in before starting the style service."
             ) from exc
         except ImportError as exc:
             raise RuntimeError(
-                "A required runtime dependency is missing while loading FLUX.1-Kontext-dev. "
-                "Please reinstall style-service requirements (protobuf, sentencepiece, transformers, diffusers)."
+                "A required Kontext runtime dependency is missing. Reinstall style-service requirements."
             ) from exc
+
+        pipeline.load_lora_weights(str(lora_path), adapter_name="default")
         pipeline.set_progress_bar_config(disable=True)
         if config.use_cpu_offload:
-            # device_map이 적용된 경우 accelerate dispatch hook이 이미 배치와 이동을
-            # 담당하므로 enable_model_cpu_offload()를 중복 호출하지 않는다.
-            if not getattr(pipeline, "hf_device_map", None):
-                pipeline.enable_model_cpu_offload()
+            pipeline.enable_model_cpu_offload()
         else:
             pipeline = pipeline.to(config.device)
         _PIPELINE = pipeline
         return pipeline
 
 
-def _build_prompt(prompt: str, strength: float) -> str:
-    text = prompt.strip()
+def _build_prompt(prompt: str, strength: float, pixel_art: bool = True) -> str:
+    text = " ".join(prompt.split())
     if not text:
         raise ValueError("Prompt must not be empty.")
-
+    if text.casefold().startswith("gdtpix"):
+        text = text[6:].lstrip(" ,")
+    strength = _validate_strength(strength)
     if strength <= 0.33:
-        prefix = "Make a subtle edit. Keep the original structure and layout mostly intact. "
+        intensity = "Subtle edit; preserve structure and layout."
     elif strength <= 0.66:
-        prefix = "Make a balanced edit. Preserve the main structure while clearly applying the requested style. "
+        intensity = "Balanced edit; preserve the main structure."
     else:
-        prefix = "Make a strong edit. Transform the image noticeably while keeping it coherent. "
+        intensity = "Strong edit; preserve the main structure."
+
+    prefix = f"gdtpix, {intensity} "
+    if pixel_art:
+        prefix += "Crisp pixel art, hard grid edges, flat limited palette, no blur or anti-aliasing. "
+    available = _MAX_PROMPT_CHARS - len(prefix)
+    if len(text) > available:
+        # Preserve the style tail when a prompt is too long. The training trigger and edit
+        # instruction stay at the front, while concept text is removed first.
+        text = "…" + text[-max(1, available - 1):].lstrip()
     return prefix + text
 
 
-def _resize_to_max_side(image: Image.Image, max_side: int) -> tuple[Image.Image, tuple[int, int]]:
-    width, height = image.size
-    longest = max(width, height)
-    if longest <= max_side:
-        return image, image.size
-
-    scale = max_side / float(longest)
-    new_size = (max(1, round(width * scale)), max(1, round(height * scale)))
-    return image.resize(new_size, Image.LANCZOS), image.size
-
-
-def _restore_alpha(original: Image.Image, edited: Image.Image) -> Image.Image:
-    has_alpha = original.mode in ("RGBA", "LA", "PA") or (
-        original.mode == "P" and "transparency" in original.info
+def _has_alpha(image: Image.Image) -> bool:
+    return image.mode in ("RGBA", "LA", "PA") or (
+        image.mode == "P" and "transparency" in image.info
     )
-    if not has_alpha:
+
+
+def erode_alpha(alpha_channel: Image.Image, pixels: int) -> Image.Image:
+    if pixels <= 0:
+        return alpha_channel
+    return alpha_channel.filter(ImageFilter.MinFilter(pixels * 2 + 1))
+
+
+def _restore_alpha(original: Image.Image, edited: Image.Image, alpha_erode: int = 0) -> Image.Image:
+    if not _has_alpha(original):
         return edited
 
-    original_rgba = original.convert("RGBA")
-    original_alpha = original_rgba.getchannel("A")
+    original_alpha = original.convert("RGBA").getchannel("A")
     restored = edited.convert("RGBA")
     if restored.size != original_alpha.size:
-        original_alpha = original_alpha.resize(restored.size, Image.LANCZOS)
-    restored.putalpha(original_alpha)
+        original_alpha = original_alpha.resize(restored.size, Image.Resampling.NEAREST)
+    restored.putalpha(erode_alpha(original_alpha, alpha_erode))
     return restored
+
+
+def _cache_key(
+    content: Image.Image,
+    prompt: str,
+    strength: float,
+    guidance_scale: float,
+    seed: int,
+    lora_scale: float,
+    alpha_erode: int,
+    config: KontextConfig,
+) -> str:
+    digest = sha256()
+    digest.update(content.convert("RGBA").tobytes())
+    digest.update(str(content.size).encode())
+    digest.update(prompt.encode())
+    digest.update(
+        f"{strength}:{guidance_scale}:{seed}:{lora_scale}:{alpha_erode}:{config}".encode()
+    )
+    return digest.hexdigest()
+
+
+def _cached_result(key: str) -> Image.Image | None:
+    with _RESULT_CACHE_LOCK:
+        image = _RESULT_CACHE.get(key)
+        if image is None:
+            return None
+        _RESULT_CACHE.move_to_end(key)
+        return image.copy()
+
+
+def _store_cached_result(key: str, image: Image.Image) -> None:
+    with _RESULT_CACHE_LOCK:
+        _RESULT_CACHE[key] = image.copy()
+        _RESULT_CACHE.move_to_end(key)
+        while len(_RESULT_CACHE) > _RESULT_CACHE_LIMIT:
+            _RESULT_CACHE.popitem(last=False)
 
 
 def edit_image(
     content: Image.Image,
     prompt: str,
     *,
-    strength: float = 1.0,
+    strength: float = 0.5,
     config: KontextConfig | None = None,
+    alpha_erode: int = 0,
+    guidance_scale: float | None = None,
+    seed: int | None = None,
+    lora_scale: float | None = None,
 ) -> Image.Image:
     config = config or get_kontext_config()
+    strength = _validate_strength(float(strength))
+    guidance = config.guidance_scale if guidance_scale is None else float(guidance_scale)
+    if guidance < 0.0:
+        raise ValueError(f"guidance_scale must not be negative, got {guidance}")
+    if not 0 <= alpha_erode <= 3:
+        raise ValueError(f"alpha_erode must be between 0 and 3, got {alpha_erode}")
+    effective_seed = config.seed if seed is None else int(seed)
+    effective_lora_scale = config.lora_scale if lora_scale is None else _validate_lora_scale(float(lora_scale))
+    if effective_lora_scale != config.lora_scale:
+        config = replace(config, lora_scale=effective_lora_scale)
+    key = _cache_key(
+        content,
+        prompt,
+        strength,
+        guidance,
+        effective_seed,
+        effective_lora_scale,
+        alpha_erode,
+        config,
+    )
+    cached = _cached_result(key)
+    if cached is not None:
+        return cached
+
     pipeline = _ensure_pipeline(config)
-
-    # 투명 배경을 convert("RGB")로 뭉개면 투명 픽셀이 전부 검정이 되어, 투명이 대부분인
-    # 희소 컷아웃(나무·가로등 등)에서 FLUX가 검은 캔버스를 그대로 돌려준다. 그 결과가
-    # 타일셋에 합성되면 맵이 검게 오염되므로, 밝은 중립 배경 위에 평탄화해 전달한다.
-    if content.mode in ("RGBA", "LA", "PA") or (
-        content.mode == "P" and "transparency" in content.info
-    ):
-        flattened_rgba = content.convert("RGBA")
-        neutral_background = Image.new("RGB", flattened_rgba.size, (203, 203, 203))
-        neutral_background.paste(flattened_rgba, mask=flattened_rgba.getchannel("A"))
-        source = neutral_background
-    else:
-        source = content.convert("RGB")
-    source, original_size = _resize_to_max_side(source, config.max_side)
+    source = content.convert("RGB")
     built_prompt = _build_prompt(prompt, strength)
-
     call_kwargs = {
         "image": source,
         "prompt": built_prompt,
-        "width": source.size[0],
-        "height": source.size[1],
+        "width": source.width,
+        "height": source.height,
+        "max_area": source.width * source.height,
+        "_auto_resize": False,
         "num_inference_steps": config.steps,
-        "guidance_scale": config.guidance_scale,
-        "generator": torch.Generator().manual_seed(random.randint(0, 2**31 - 1)),
+        "guidance_scale": guidance,
+        "max_sequence_length": config.max_sequence_length,
+        "generator": torch.Generator("cpu").manual_seed(effective_seed),
     }
 
-    with torch.inference_mode():
-        result = pipeline(**call_kwargs)
+    with _INFERENCE_LOCK:
+        with torch.inference_mode():
+            result = pipeline(
+                **call_kwargs,
+                joint_attention_kwargs={"scale": effective_lora_scale},
+            )
 
-    image = result.images[0]
-    if image.size != original_size:
-        image = image.resize(original_size, Image.LANCZOS)
-    return _restore_alpha(content, image)
+    image = _restore_alpha(content, result.images[0], alpha_erode)
+    _store_cached_result(key, image)
+    return image
 
 
 def get_runtime_status() -> dict[str, object]:
@@ -232,9 +378,15 @@ def get_runtime_status() -> dict[str, object]:
         "dtype": config.dtype,
         "steps": config.steps,
         "guidance_scale": config.guidance_scale,
-        "max_side": config.max_side,
+        "lora_path": config.lora_path,
+        "lora_scale": config.lora_scale,
+        "seed": config.seed,
+        "max_sequence_length": config.max_sequence_length,
         "use_cpu_offload": config.use_cpu_offload,
+        "quantize": config.quantize,
         "cuda_available": cuda_available,
         "cuda_name": cuda_name,
         "loaded": _PIPELINE is not None,
+        "lora_file_present": Path(config.lora_path).expanduser().is_file(),
+        "hf_token_present": get_token() is not None,
     }

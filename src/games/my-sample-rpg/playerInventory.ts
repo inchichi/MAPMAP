@@ -23,6 +23,12 @@ export const DEFAULT_PLAYER_INVENTORY_STARTER_ITEMS: PlayerInventoryItem[] = [
     id: 'mana-potion',
     label: '마나 회복 포션',
     quantity: 30
+  },
+  {
+    // 광산 채굴(mine-ore)을 바로 써 볼 수 있게 기본 지급 — 광맥은 보유 수량으로 검사한다.
+    id: 'pickaxe',
+    label: '곡괭이',
+    quantity: 1
   }
 ]
 

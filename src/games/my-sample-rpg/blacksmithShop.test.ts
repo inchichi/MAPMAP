@@ -23,6 +23,7 @@ const BLACKSMITH_STOCK_ITEM_IDS = [
   'quick-dagger',
   'spiked-mace',
   'magic-staff',
+  'hunting-bow',
   'iron-armor',
   'Leather_Armor',
   'Leather_Helmet',
@@ -31,7 +32,8 @@ const BLACKSMITH_STOCK_ITEM_IDS = [
   'Iron_Armor',
   'Iron_Helmet',
   'leather-boots',
-  'smith-charm'
+  'smith-charm',
+  'pickaxe'
 ] as const
 
 const createExpectedStockSlots = (itemIds: readonly string[]) =>

@@ -23,7 +23,12 @@ describe('createInitialPlayerInventory', () => {
           label: '마나 회복 포션',
           quantity: 30
         },
-        ...Array.from({ length: 28 }, () => undefined)
+        {
+          id: 'pickaxe',
+          label: '곡괭이',
+          quantity: 1
+        },
+        ...Array.from({ length: 27 }, () => undefined)
       ]
     })
   })
@@ -49,7 +54,12 @@ describe('createInitialPlayerInventory', () => {
           label: '마나 회복 포션',
           quantity: 30
         },
-        ...Array.from({ length: 28 }, () => undefined)
+        {
+          id: 'pickaxe',
+          label: '곡괭이',
+          quantity: 1
+        },
+        ...Array.from({ length: 27 }, () => undefined)
       ]
     })
   })

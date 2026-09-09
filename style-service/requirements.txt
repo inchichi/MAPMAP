@@ -1,13 +1,14 @@
-# FLUX.1 Kontext local inference
-# Install a CUDA build of torch separately if needed:
-#   pip install --upgrade torch torchvision --index-url https://download.pytorch.org/whl/cu128
+# 스타일 트랜스퍼 서비스 전용 의존성.
+# torch / torchvision / Pillow / numpy는 PyTorch/FLUX 환경에서 필요하며,
+# 이미 설치된 버전(torch>=2.5)이면 그대로 동작한다 — 별도 다운그레이드 불필요.
 fastapi>=0.110,<1
 uvicorn>=0.30,<1
 python-multipart>=0.0.9
-Pillow>=10.2,<13
-diffusers>=0.35.0
-transformers>=4.48
-accelerate>=1.0
+diffusers>=0.35,<1
+transformers>=4.48,<5
+accelerate>=1.0,<2
 safetensors>=0.5
 huggingface_hub>=0.32
 protobuf>=4.25
+# Stage 5 QA 게이트의 경계 패치 LPIPS(지각 거리) — 없으면 그래디언트 근사로 폴백한다.
+lpips>=0.1.4

@@ -41,6 +41,11 @@ describe('createInitialPlayerEquipment', () => {
           id: 'accessory',
           label: '장신구',
           item: undefined
+        },
+        {
+          id: 'tool',
+          label: '보조 장비',
+          item: undefined
         }
       ]
     })

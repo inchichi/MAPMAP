@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import mineOreControllerLua from '../assets/lua/mine-ore.lua?raw'
+
 import {
   createInitialPlayerCharacter,
   createLuaCharacterController,
@@ -22,6 +24,7 @@ import {
 import { createLuaPlayerStatEffects } from '../playerStatEffectsLua'
 import {
   getPlayerEvadeChance,
+  getPlayerMagicAttackPower,
   getPlayerMovementSpeedTilesPerSecond,
   getPlayerPhysicalAttackPower
 } from '../playerStatEffects'
@@ -415,7 +418,7 @@ end
         {
           kind: 'show-character-message',
           characterId: character.id,
-          message: 'not_started/false/0/[]',
+          message: 'not-started/false/0/[]',
           durationMilliseconds: 1000
         }
       ])
@@ -502,6 +505,51 @@ end
     }
   })
 
+  it('mines ore through the real mine-ore controller script', async () => {
+    const runtime = await createBridgeRuntime({ source: mineOreControllerLua })
+    const character = createBridgeCharacter()
+    const player = createInitialPlayerCharacter({ mapWidth: 20, mapHeight: 20 })
+
+    try {
+      runtime.attachCharacter(character, character.controller)
+
+      // 곡괭이가 없으면 안내 메시지만 — 광석 지급 없음
+      runtime.pushSnapshot({ strings: {}, numbers: {}, booleans: {} })
+      runtime.handleInteraction(character, character.controller, player)
+      const withoutPickaxe = runtime.drainEvents()
+      expect(withoutPickaxe).toHaveLength(1)
+      expect(withoutPickaxe[0]).toMatchObject({ kind: 'show-character-message' })
+
+      // 곡괭이를 가지면 광석 1개 + 채굴음 + 안내
+      runtime.pushSnapshot({
+        strings: {},
+        numbers: { 'inv:pickaxe': 1 },
+        booleans: {}
+      })
+      runtime.handleInteraction(character, character.controller, player)
+      const mined = runtime.drainEvents()
+      expect(mined).toEqual([
+        { kind: 'request-inventory-add', itemId: 'crystal-ore', quantity: 1 },
+        { kind: 'play-sound', soundId: 'playerSwordHit' },
+        expect.objectContaining({ kind: 'show-character-message' })
+      ])
+
+      // 기본 4회를 다 캐면 광맥이 바닥난다 — 이후엔 지급 없이 안내만
+      for (let swing = 0; swing < 3; swing += 1) {
+        runtime.handleInteraction(character, character.controller, player)
+        runtime.drainEvents()
+      }
+      runtime.handleInteraction(character, character.controller, player)
+      const depleted = runtime.drainEvents()
+      expect(
+        depleted.some((event) => event.kind === 'request-inventory-add')
+      ).toBe(false)
+      expect(depleted).toHaveLength(1)
+    } finally {
+      runtime.destroy()
+    }
+  })
+
   it('round-trips the quest catalog through Lua data (Phase 5 golden equality)', async () => {
     const runtime = await createBridgeRuntime({
       source: createControllerModuleSource(`
@@ -570,20 +618,28 @@ end
         runtime.loadDataModule(source)
       )
       const base = createInitialPlayerProfile()
-      const withStats = (strength: number, agility: number, luck: number) => ({
+      const withStats = (
+        strength: number,
+        agility: number,
+        luck: number,
+        intelligence: number
+      ) => ({
         ...base,
-        stats: { ...base.stats, strength, agility, luck }
+        stats: { ...base.stats, strength, agility, luck, intelligence }
       })
 
-      for (const [strength, agility, luck] of [
-        [1, 4, 0],
-        [5, 10, 3],
-        [20, 2, 30],
-        [8, 20, 15]
+      for (const [strength, agility, luck, intelligence] of [
+        [1, 4, 0, 1],
+        [5, 10, 3, 3],
+        [20, 2, 30, 25],
+        [8, 20, 15, 12]
       ]) {
-        const profile = withStats(strength, agility, luck)
+        const profile = withStats(strength, agility, luck, intelligence)
         expect(luaStats.getPlayerPhysicalAttackPower(profile)).toBe(
           getPlayerPhysicalAttackPower(profile)
+        )
+        expect(luaStats.getPlayerMagicAttackPower(profile)).toBe(
+          getPlayerMagicAttackPower(profile)
         )
         expect(luaStats.getPlayerMovementSpeedTilesPerSecond(profile)).toBe(
           getPlayerMovementSpeedTilesPerSecond(profile)

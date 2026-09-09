@@ -20,6 +20,11 @@ export type PlacedItem = {
   tileId?: number
   // kind === 'object'
   imageUrl?: string
+  anchor?: 'top-left' | 'bottom-center'
+  displayScale?: number
+  renderLayer?: 'decoration'
+  sourceGroup?: string
+  visible?: boolean
 }
 
 // 배치 모드에서 게임으로 보내는 "지금 놓을 항목" 템플릿(좌표는 클릭 시 채운다).
@@ -79,5 +84,17 @@ export const removePlacement = (mapId: string, id: string): PlacedItem[] => {
 export const clearPlacementsForMap = (mapId: string): void => {
   const all = loadAll()
   delete all[mapId]
+  persist(all)
+}
+
+export const setDecorationLayerVisible = (mapId: string, visible: boolean): void => {
+  const all = loadAll()
+  all[mapId] = (all[mapId] ?? []).map(item => item.renderLayer === 'decoration' ? { ...item, visible } : item)
+  persist(all)
+}
+
+export const installDecorationDemo = (items: PlacedItem[]): void => {
+  const all = loadAll()
+  all.town = [...(all.town ?? []).filter(item => item.sourceGroup !== 'flux-decorations-20260909'), ...items]
   persist(all)
 }

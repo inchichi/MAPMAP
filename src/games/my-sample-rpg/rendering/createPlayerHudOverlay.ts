@@ -3,6 +3,10 @@ import {
   type PlayerProfile
 } from '../playerProfile'
 import {
+  TOWN_TILESET_IMAGE_HEIGHT,
+  TOWN_TILESET_IMAGE_WIDTH
+} from './townTilesetImageSize'
+import {
   getPlayerExperienceToNextLevel,
   getPlayerJobDisplayName,
   getPlayerEquipmentItemDefinitionById
@@ -49,6 +53,10 @@ const TINY_DUNGEON_TILESET_IMAGE_URL = new URL(
   '../assets/tilesets/tiny-dungeon-16.png',
   import.meta.url
 ).href
+const TOWN_TILESET_IMAGE_URL = new URL(
+  '../assets/tilesets/town-32.png',
+  import.meta.url
+).href
 const BUTTON_SQUARE_FRAME = {
   x: 293,
   y: 294,
@@ -87,6 +95,18 @@ const TINY_DUNGEON_CONSUMABLE_ICON_FRAMES = {
     }
   }
 } as const
+// 수정 광석 아이콘 — town-32 기본 타일(gid 494). 기본 600타일 영역이라 좌표 불변.
+const CRYSTAL_ORE_ICON_FRAME = {
+  imageUrl: TOWN_TILESET_IMAGE_URL,
+  imageWidth: TOWN_TILESET_IMAGE_WIDTH,
+  imageHeight: TOWN_TILESET_IMAGE_HEIGHT,
+  frame: {
+    x: 160,
+    y: 1952,
+    width: 32,
+    height: 32
+  }
+}
 const HUD_MARGIN = 16
 const HUD_PANEL_MIN_WIDTH = 780
 const HUD_PANEL_MAX_WIDTH = 920
@@ -371,6 +391,8 @@ export const createPlayerHudOverlay = ({
         return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['health-potion']
       case 'mana-potion':
         return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['mana-potion']
+      case 'crystal-ore':
+        return CRYSTAL_ORE_ICON_FRAME
       default:
         return undefined
     }

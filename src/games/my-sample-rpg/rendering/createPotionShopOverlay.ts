@@ -13,6 +13,10 @@ import {
   getPlayerEquipmentSlotLabelById
 } from '../lua/luaGameLogic'
 import type { PlayerInventory } from '../playerInventory'
+import {
+  TOWN_TILESET_IMAGE_HEIGHT,
+  TOWN_TILESET_IMAGE_WIDTH
+} from './townTilesetImageSize'
 
 type CreatePotionShopOverlayInput = {
   mountElement: HTMLElement
@@ -86,6 +90,10 @@ const WEAPON_STAFF_IMAGE_URL = new URL(
   '../assets/weapons/weapon-staff.png',
   import.meta.url
 ).href
+// 임시 활 아이콘 — Legend of Lua 에셋(public/legend-sprites). 본편 스타일 활 PNG가 생기면 교체.
+const WEAPON_BOW_IMAGE_URL = '/legend-sprites/items/bowIcon.png'
+const WEAPON_BOW_IMAGE_WIDTH = 59
+const WEAPON_BOW_IMAGE_HEIGHT = 78
 const TINY_DUNGEON_TILESET_WIDTH = 192
 const TINY_DUNGEON_TILESET_HEIGHT = 176
 const UI_SPRITESHEET_WIDTH = 512
@@ -195,8 +203,8 @@ const EQUIPMENT_ICON_FRAME_BY_KEY: Record<
   },
   'town-crate-sword-right': {
     imageUrl: new URL('../assets/tilesets/town-32.png', import.meta.url).href,
-    imageWidth: 256,
-    imageHeight: 2240,
+    imageWidth: TOWN_TILESET_IMAGE_WIDTH,
+    imageHeight: TOWN_TILESET_IMAGE_HEIGHT,
     frame: {
       x: 64,
       y: 1504,
@@ -268,6 +276,17 @@ const EQUIPMENT_ICON_FRAME_BY_KEY: Record<
       y: 0,
       width: WEAPON_STAFF_IMAGE_WIDTH,
       height: WEAPON_STAFF_IMAGE_HEIGHT
+    }
+  },
+  'weapon-bow': {
+    imageUrl: WEAPON_BOW_IMAGE_URL,
+    imageWidth: WEAPON_BOW_IMAGE_WIDTH,
+    imageHeight: WEAPON_BOW_IMAGE_HEIGHT,
+    frame: {
+      x: 0,
+      y: 0,
+      width: WEAPON_BOW_IMAGE_WIDTH,
+      height: WEAPON_BOW_IMAGE_HEIGHT
     }
   },
   'ui-circle-beige': {

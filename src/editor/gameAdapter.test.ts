@@ -77,10 +77,10 @@ describe('rpgAdapter', () => {
     // 트리에 다 보여줘야 사용자가 무엇을 바꿀지 안다 — 외형/타입으로 종류만 가른다. displayText가
     // 있으면 표시 이름으로, 없으면 object name으로 떨어진다. (대화 생성 대상 한정은 loadGame에서.)
     expect(entities).toEqual([
-      { id: 'blacksmith', name: '대장장이', kind: 'npc', mapId: 'town' },
-      { id: 'east_gate', name: 'east_gate', kind: 'portal', mapId: 'town' },
-      { id: 'hunting_path_sign', name: '사냥터로 가는 길', kind: 'sign', mapId: 'town' },
-      { id: '꿀꿀이', name: '꿀꿀이', kind: 'monster', mapId: 'town' }
+      { id: 'blacksmith', name: '대장장이', kind: 'npc', mapId: 'town', tileX: 0, tileY: 0 },
+      { id: 'east_gate', name: 'east_gate', kind: 'portal', mapId: 'town', tileX: 0, tileY: 0 },
+      { id: 'hunting_path_sign', name: '사냥터로 가는 길', kind: 'sign', mapId: 'town', tileX: 0, tileY: 0 },
+      { id: '꿀꿀이', name: '꿀꿀이', kind: 'monster', mapId: 'town', tileX: 0, tileY: 0 }
     ])
   })
 })
@@ -90,7 +90,7 @@ describe('legendOfLuaAdapter', () => {
     const entities = legendOfLuaAdapter.extractEntities('test', extractTmxObjects(legendTmx))
 
     expect(entities).toEqual([
-      { id: 'Enemies-105', name: 'slime', kind: 'enemy', mapId: 'test' }
+      { id: 'Enemies-105', name: 'slime', kind: 'enemy', mapId: 'test', spriteKey: 'slime' }
     ])
   })
 })

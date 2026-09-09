@@ -12,6 +12,7 @@
 - `docs/testing-strategy.md`: Read this when you plan validation work or add or change tests.
 - `docs/git-rules.md`: Read this for branch, commit, merge, and release work.
 - `docs/lua-controller-api.md`: Read this when you write or change Lua character controllers or the Lua controller bridge. Treat it and `src/game/lua/luaControllerApi.ts` as the Lua-facing contract.
+- `docs/scenario-interpreter-decision.md`: Read this before adding scenario/cutscene execution. It fixes where the scenario interpreter lives (TS host, not Lua) and why.
 
 # AI Agent Rules
 

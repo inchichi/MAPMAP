@@ -10,6 +10,8 @@ import {
 } from '../playerSkillSlots'
 import {
   PLAYER_PROTECT_SKILL_ID,
+  PLAYER_DASH_SKILL_ID,
+  PLAYER_FOCUS_SKILL_ID,
   getPlayerSkillDisplayInfoById
 } from '../playerSkills'
 import { isPlayerSkillUnlockedInProfile } from '../lua/luaGameLogic'
@@ -75,6 +77,14 @@ export const createPlayerSkillOverlay = ({
     {
       profileSkillIndex: 1,
       skillId: PLAYER_PROTECT_SKILL_ID
+    },
+    {
+      profileSkillIndex: 2,
+      skillId: PLAYER_DASH_SKILL_ID
+    },
+    {
+      profileSkillIndex: 3,
+      skillId: PLAYER_FOCUS_SKILL_ID
     }
   ] as const
   let panelPosition = { left: 0, top: 0 }

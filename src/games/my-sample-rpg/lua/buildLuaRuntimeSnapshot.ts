@@ -1,9 +1,10 @@
 import {
-  QUEST_DEFINITIONS,
+  getAllQuestDefinitions,
   getQuestProgress,
   isQuestUnlocked,
   type QuestLogState
 } from '../questLog'
+import type { PlayerEquipment } from '../playerEquipment'
 import type { PlayerInventory } from '../playerInventory'
 import type { PlayerProfile } from '../playerProfile'
 import type { LuaRuntimeSnapshot } from './createLuaCharacterControllerRuntime'
@@ -14,11 +15,15 @@ import type { LuaRuntimeSnapshot } from './createLuaCharacterControllerRuntime'
 export const buildLuaRuntimeSnapshot = ({
   questLog,
   inventory,
+  equipment,
   profile,
   sceneId
 }: {
   questLog: QuestLogState
   inventory: PlayerInventory
+  // 장착 중인 장비도 '보유'로 센다 — 곡괭이를 보조 장비 슬롯에 장착한 채로도
+  // 광맥의 get_item_count('pickaxe') 검사가 통과해야 한다. 미전달이면 인벤토리만 센다.
+  equipment?: PlayerEquipment
   profile: PlayerProfile
   sceneId: string
 }): LuaRuntimeSnapshot => {
@@ -34,7 +39,9 @@ export const buildLuaRuntimeSnapshot = ({
   }
   const booleans: Record<string, boolean> = {}
 
-  for (const definition of QUEST_DEFINITIONS) {
+  // 정적 + 에디터 생성(동적) 퀘스트를 모두 넣는다. 정적만 돌면 생성 퀘스트의 q:status 키가
+  // 아예 없어서 Lua가 폴백값만 받고, 생성 콘텐츠의 상태 분기가 조용히 죽는다.
+  for (const definition of getAllQuestDefinitions()) {
     const progress = getQuestProgress(questLog, definition.id)
     strings[`q:status:${definition.id}`] = progress.status
     booleans[`q:unlocked:${definition.id}`] = isQuestUnlocked(questLog, definition.id)
@@ -48,6 +55,13 @@ export const buildLuaRuntimeSnapshot = ({
     if (slot) {
       const key = `inv:${slot.id}`
       numbers[key] = (numbers[key] ?? 0) + slot.quantity
+    }
+  }
+
+  for (const slot of equipment?.slots ?? []) {
+    if (slot.item) {
+      const key = `inv:${slot.item.id}`
+      numbers[key] = (numbers[key] ?? 0) + 1
     }
   }
 

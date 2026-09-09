@@ -17,6 +17,10 @@ import {
   unequipPlayerEquipmentSlot
 } from '../lua/luaGameLogic'
 import { getResponsiveUiScale } from './getResponsiveUiScale'
+import {
+  TOWN_TILESET_IMAGE_HEIGHT,
+  TOWN_TILESET_IMAGE_WIDTH
+} from './townTilesetImageSize'
 
 type CreatePlayerEquipmentOverlayInput = {
   mountElement: HTMLElement
@@ -70,12 +74,16 @@ const WEAPON_STAFF_IMAGE_URL = new URL(
   '../assets/weapons/weapon-staff.png',
   import.meta.url
 ).href
+// 임시 활 아이콘 — Legend of Lua 에셋(public/legend-sprites). 본편 스타일 활 PNG가 생기면 교체.
+const WEAPON_BOW_IMAGE_URL = '/legend-sprites/items/bowIcon.png'
+const WEAPON_BOW_IMAGE_WIDTH = 59
+const WEAPON_BOW_IMAGE_HEIGHT = 78
 const UI_SPRITESHEET_WIDTH = 512
 const UI_SPRITESHEET_HEIGHT = 512
 const TINY_DUNGEON_TILESET_WIDTH = 192
 const TINY_DUNGEON_TILESET_HEIGHT = 176
-const TOWN_TILESET_WIDTH = 256
-const TOWN_TILESET_HEIGHT = 2240
+const TOWN_TILESET_WIDTH = TOWN_TILESET_IMAGE_WIDTH
+const TOWN_TILESET_HEIGHT = TOWN_TILESET_IMAGE_HEIGHT
 const WEAPON_SWORD_IMAGE_WIDTH = 337
 const WEAPON_SWORD_IMAGE_HEIGHT = 344
 const WEAPON_AXE_IMAGE_WIDTH = 355
@@ -260,6 +268,17 @@ const EQUIPMENT_ICON_FRAME_BY_KEY: Record<
       height: WEAPON_STAFF_IMAGE_HEIGHT
     }
   },
+  'weapon-bow': {
+    imageUrl: WEAPON_BOW_IMAGE_URL,
+    imageWidth: WEAPON_BOW_IMAGE_WIDTH,
+    imageHeight: WEAPON_BOW_IMAGE_HEIGHT,
+    frame: {
+      x: 0,
+      y: 0,
+      width: WEAPON_BOW_IMAGE_WIDTH,
+      height: WEAPON_BOW_IMAGE_HEIGHT
+    }
+  },
   'ui-circle-beige': {
     imageUrl: UI_SPRITESHEET_IMAGE_URL,
     imageWidth: UI_SPRITESHEET_WIDTH,
@@ -283,7 +302,8 @@ const EQUIPMENT_SLOT_AREA_CLASS_BY_ID: Record<PlayerEquipmentSlotId, string> = {
   armor: 'player-inventory-overlay__equipment-slot--armor',
   hat: 'player-inventory-overlay__equipment-slot--hat',
   boots: 'player-inventory-overlay__equipment-slot--boots',
-  accessory: 'player-inventory-overlay__equipment-slot--accessory'
+  accessory: 'player-inventory-overlay__equipment-slot--accessory',
+  tool: 'player-inventory-overlay__equipment-slot--tool'
 }
 
 export const createPlayerEquipmentOverlay = ({

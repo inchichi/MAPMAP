@@ -8,6 +8,8 @@ export const CAVE_ENTRANCE_INVESTIGATION_QUEST_ID =
 export const SLIME_BOSS_SHADOW_QUEST_ID = 'q006-slime-boss-shadow'
 export const FINAL_SUPPLIES_QUEST_ID = 'q007-final-supplies'
 export const PIG_BOSS_THREAT_QUEST_ID = 'q008-pig-boss-threat'
+export const MINE_ORE_RUSH_QUEST_ID = 'q009-mine-ore-rush'
+export const HARVEST_VILLAGE_VISIT_QUEST_ID = 'q010-harvest-village-visit'
 
 export const FIRST_SLIME_HUNT_OBJECTIVE_ID = 'defeat-slimes'
 export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 3
@@ -28,6 +30,10 @@ export type QuestStatus =
   | 'active'
   | 'ready-to-turn-in'
   | 'completed'
+
+// Lua 런타임의 get_status 폴백이 이 값을 그대로 쓴다. 타입에 묶여 있어 QuestStatus를 바꾸면
+// 여기서 컴파일이 깨지고, Lua 쪽 표기도 자동으로 따라온다(밑줄/하이픈 드리프트 구조적 차단).
+export const QUEST_STATUS_NOT_STARTED: QuestStatus = 'not-started'
 
 export type QuestObjectiveType =
   | 'monster-defeat'
@@ -128,6 +134,8 @@ export type QuestTextFormatContext = {
 const REGION_TIR_CHONAIL = '티르코네일 마을'
 const SCENE_HUNTING_GROUND = 'hunting-ground'
 const SCENE_CAVE = 'cave'
+const SCENE_CRYSTAL_MINE = 'crystal-mine'
+const SCENE_HARVEST_VILLAGE = 'harvest-village'
 const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
 const HEALTH_POTION_REWARD: QuestItemReward = {
@@ -518,6 +526,121 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       gold: 300,
       experience: 720,
       items: []
+    }
+  },
+  {
+    id: MINE_ORE_RUSH_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: BLACKSMITH_NPC_ID,
+    giverName: '대장장이',
+    title: '잊힌 수정 광산',
+    trackerLabel: '수정 광석 채굴',
+    prerequisiteQuestIds: [SLIME_BOSS_SHADOW_QUEST_ID],
+    requestText:
+      '동굴 수정 골방의 옆굴이 옛 광산으로 이어진다는 소문이 있다. 수정 광석을 캐다 달라.',
+    guideText:
+      '대장간에서 곡괭이를 산 뒤, 동굴 수정 골방 옆 계단으로 잊힌 수정 광산에 내려가 광맥을 캐자.',
+    startDialogueLines: [
+      '동굴 안쪽 수정 골방 벽에 옛 광부들이 파 둔 계단이 있다더군.',
+      '그 아래가 잊힌 수정 광산이야. 수정 광석이 아직 잔뜩 박혀 있다지.',
+      '곡괭이는 내가 팔고 있으니 하나 챙겨 가라.',
+      '광석 세 덩이만 캐 와 주면 값은 섭섭잖게 쳐주마.'
+    ],
+    activeDialogueLines: [
+      '곡괭이 없이는 광맥이 꿈쩍도 안 할 거다.',
+      '광산의 파란 수정 광맥 앞에서 캐 보아라. 세 덩이면 된다.'
+    ],
+    completionDialogueLines: [
+      '오, 진짜 수정 광석이군! 백 년 묵은 광맥 물건이다.',
+      '앞으로도 캐 오면 개당 값을 쳐주마. 광부 일도 제법 어울리는걸.'
+    ],
+    objectives: [
+      {
+        id: 'enter-crystal-mine',
+        label: '잊힌 수정 광산 진입',
+        required: 1,
+        type: 'scene-enter',
+        target: {
+          sceneId: SCENE_CRYSTAL_MINE
+        }
+      },
+      {
+        id: 'gather-crystal-ore',
+        label: '수정 광석 채굴',
+        required: 3,
+        type: 'item-acquire',
+        target: {
+          itemId: 'crystal-ore'
+        }
+      }
+    ],
+    rewards: {
+      gold: 260,
+      experience: 300,
+      items: [
+        {
+          id: 'health-potion',
+          label: '체력 회복 포션',
+          quantity: 2
+        }
+      ]
+    }
+  },
+  {
+    id: HARVEST_VILLAGE_VISIT_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: POTION_MERCHANT_NPC_ID,
+    giverName: '물약상인',
+    title: '수로 끝의 마을',
+    trackerLabel: '딴따라마을 방문',
+    prerequisiteQuestIds: [POTION_SURVIVAL_BASICS_QUEST_ID],
+    requestText:
+      '남쪽 수교 아래 계단이 딴따라마을로 이어진다. 촌장님께 안부를 전해 달라.',
+    guideText:
+      '마을 남쪽 수교의 중앙 아치 계단으로 내려가 딴따라마을의 마리네 촌장을 만나자.',
+    startDialogueLines: [
+      '우리 물약 약초의 절반은 딴따라마을 들녘에서 온단다.',
+      '남쪽 수교 아치 밑 계단으로 내려가면 바로 그 마을이야.',
+      '우물가에 계신 마리네 촌장님께 내 안부 좀 전해 주겠니?'
+    ],
+    activeDialogueLines: [
+      '남쪽 수교 중앙 아치의 계단을 찾아보렴.',
+      '촌장님은 늘 우물가에 계셔.'
+    ],
+    completionDialogueLines: [
+      '촌장님이 잘 계시다니 다행이야.',
+      '그 마을 들녘 밀이 올해도 풍년이라지? 물약값은 내리지 못하지만 말이야.'
+    ],
+    objectives: [
+      {
+        id: 'enter-harvest-village',
+        label: '딴따라마을 진입',
+        required: 1,
+        type: 'scene-enter',
+        target: {
+          sceneId: SCENE_HARVEST_VILLAGE
+        }
+      },
+      {
+        id: 'meet-elder',
+        label: '마리네 촌장과 대화',
+        required: 1,
+        type: 'talk',
+        target: {
+          npcId: 'elder'
+        }
+      }
+    ],
+    rewards: {
+      gold: 150,
+      experience: 220,
+      items: [
+        {
+          id: 'mana-potion',
+          label: '마나 회복 포션',
+          quantity: 1
+        }
+      ]
     }
   }
 ]
@@ -950,7 +1073,15 @@ export const getQuestNpcBadgeKindForNpc = (
     return 'new'
   }
 
-  if (getQuestDefinitionsWithPendingTalkObjectiveForNpc(questLog, npcId).length > 0) {
+  // 액티브 퀘스트의 talk 목표가 이 NPC를 가리키면 "여기로 와서 대화" 안내로 "?"를 띄운다.
+  // 단, 그 퀘스트의 기버 NPC 본인은 제외한다 — 기버는 수락 직후 "?"가 사라져야 하고(방금 수락함),
+  // 완료(ready-to-turn-in) 시 'finish'로 다시 표시된다. 목표가 동시 진행이라, 기버를 제외하지 않으면
+  // "기버에게 전달" 류 talk 목표 때문에 수락 직후에도 기버 위 "?"가 계속 남는다.
+  if (
+    getQuestDefinitionsWithPendingTalkObjectiveForNpc(questLog, npcId).some(
+      (definition) => definition.giverNpcId !== npcId
+    )
+  ) {
     return 'new'
   }
 
