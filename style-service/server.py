@@ -28,15 +28,16 @@ import anchor_service
 import asset_store
 import external_assets
 import inventory
+import kontext_client
 import pipeline_run
-import sdxl_service
+import style_backend
 import monster_stylize
 import object_extract
 import style_service_config
 import style_spec
 import tile_stylize
 
-app = FastAPI(title="SDXL img2img style-transfer service")
+app = FastAPI(title="FLUX.1 Kontext style-edit service")
 
 # 드라이브-바이 방어: multipart POST는 CORS preflight 없이 어느 웹사이트에서든 127.0.0.1로
 # 직접 보낼 수 있다(응답은 못 읽어도 쓰기는 성공). Origin 헤더가 있는 변조 요청은 로컬 출처
@@ -57,12 +58,19 @@ async def reject_foreign_origins(request, call_next):
 
 @app.get("/health")
 def health() -> dict:
-    config = style_service_config.get_config()
-    missing = [] if config["sdxl_model"] else ["SDXL model"]
+    status = kontext_client.get_runtime_status()
+    missing = []
+    if not status["cuda_available"]:
+        missing.append("CUDA")
+    if not status["hf_token_present"]:
+        missing.append("HF_TOKEN")
+    if not status["lora_file_present"]:
+        missing.append("Kontext LoRA")
     return {
         "status": "ok" if not missing else "degraded",
         "missing": missing,
-        "sdxl_model": str(config["sdxl_model"]),
+        "service": "FLUX.1-Kontext-dev",
+        **status,
     }
 
 @app.post("/style-transfer")
@@ -95,7 +103,7 @@ def style_transfer(
         return JSONResponse(status_code=422, content={"error": "?대?吏 ?뚯씪???댁꽍?????놁뒿?덈떎."})
 
     try:
-        result = sdxl_service.style_transfer_image(
+        result = style_backend.style_transfer_image(
             content_image,
             style_prompt,
             alpha=alpha,
@@ -116,10 +124,14 @@ def list_assets() -> dict:
     return {"assets": asset_store.list_assets()}
 
 
-def _png_b64(image: Image.Image) -> str:
+def _png_bytes(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
-    return base64.b64encode(buffer.getvalue()).decode("ascii")
+    return buffer.getvalue()
+
+
+def _png_b64(image: Image.Image) -> str:
+    return base64.b64encode(_png_bytes(image)).decode("ascii")
 
 
 @app.post("/stylize-object")
@@ -271,7 +283,7 @@ def batch_apply(
                 path = target["path"]
                 source = Image.open(asset_store.resolve_asset_path(path))
                 source.load()
-                pending[path] = sdxl_service.style_transfer_image(
+                pending[path] = style_backend.style_transfer_image(
                     source,
                     style_prompt,
                     alpha=alpha,
@@ -284,7 +296,7 @@ def batch_apply(
                 meta = object_extract.read_meta(key)
                 cutout = Image.open(io.BytesIO(object_extract.read_png(key)))
                 cutout.load()
-                styled = sdxl_service.style_transfer_image(
+                styled = style_backend.style_transfer_image(
                     cutout,
                     style_prompt,
                     alpha=alpha,
@@ -553,7 +565,7 @@ def ext_apply(payload: dict = Body(...)):
         return JSONResponse(status_code=422, content={"error": "source image is too large"})
 
     try:
-        result = sdxl_service.style_transfer_image(
+        result = style_backend.style_transfer_image(
             source, style_prompt, alpha=float(alpha), alpha_erode=alpha_erode, preserve_size=True
         )
     except FileNotFoundError as error:
@@ -599,7 +611,7 @@ def ext_batch_apply(
             source.load()
             if not _ext_area_ok(source):
                 raise ValueError("source image is too large")
-            result = sdxl_service.style_transfer_image(
+            result = style_backend.style_transfer_image(
                 source, style_prompt, alpha=alpha, alpha_erode=alpha_erode, preserve_size=True
             )
             buffer = io.BytesIO()
@@ -702,6 +714,43 @@ def pipeline_approve_anchors(style_id: str, payload: dict = Body(...)):
         return JSONResponse(status_code=404, content={"error": str(error)})
 
 
+@app.get("/pipeline/original")
+def pipeline_original(path: str):
+    """변환 전 원본 PNG. 이미 적용된 에셋이라도 originals/에 시드된 최초 원본을 돌려주므로
+    QA 리포트의 '전/후' 비교가 적용 여부와 무관하게 항상 올바른 쪽을 보여준다."""
+    try:
+        data = asset_store.read_original_or_current(path)
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    except FileNotFoundError as error:
+        return JSONResponse(status_code=404, content={"error": str(error)})
+    return Response(content=data, media_type="image/png")
+
+
+@app.get("/pipeline/object-original")
+def pipeline_object_original(key: str):
+    """묶인 오브젝트의 '변환 전' 캔버스.
+
+    extracted-objects/<key>.png는 추출 시점의 '현재' 타일셋에서 뜬 것이라, 한 번
+    스타일을 적용한 뒤 다시 추출되면 그게 원본처럼 보인다. 파이프라인은 항상
+    originals/의 최초 타일셋에서 조립하므로, 전/후 비교도 같은 원본에서 떠야 맞다.
+    """
+    try:
+        meta = object_extract.read_meta(key)
+        tileset_image = Image.open(
+            io.BytesIO(asset_store.read_original_or_current(meta["tilesetPath"]))
+        )
+        tileset_image.load()
+        canvas, _, _ = tile_stylize.compose_object_canvas(
+            tileset_image, meta["cells"], meta["columns"], meta["tileWidth"], meta["tileHeight"]
+        )
+    except ValueError as error:
+        return JSONResponse(status_code=422, content={"error": str(error)})
+    except (FileNotFoundError, KeyError) as error:
+        return JSONResponse(status_code=404, content={"error": str(error)})
+    return Response(content=_png_bytes(canvas), media_type="image/png")
+
+
 @app.get("/pipeline/inventory")
 def pipeline_inventory(rebuild: int = 0) -> dict:
     if rebuild:
@@ -715,16 +764,29 @@ def pipeline_execute(payload: dict = Body(...)):
     targets = payload.get("targets")
     apply = bool(payload.get("apply"))
     alpha_erode = payload.get("alpha_erode", 0)
+    strength_override = payload.get("strength_override")
     if not isinstance(style_id, str) or not style_id:
         return JSONResponse(status_code=422, content={"error": "style_id가 필요합니다."})
     if not isinstance(targets, list) or not 0 < len(targets) <= 256:
         return JSONResponse(status_code=422, content={"error": "targets는 1~256개 목록이어야 합니다."})
     if not isinstance(alpha_erode, int) or not 0 <= alpha_erode <= 3:
         return JSONResponse(status_code=422, content={"error": "alpha_erode는 0~3이어야 합니다."})
+    if strength_override is not None and (
+        isinstance(strength_override, bool)
+        or not isinstance(strength_override, (int, float))
+        or not 0.1 <= float(strength_override) <= 0.9
+    ):
+        return JSONResponse(status_code=422, content={"error": "strength_override는 0.1~0.9이어야 합니다."})
 
     try:
         report = pipeline_run.run_pipeline(
-            style_id, targets, apply=apply, alpha_erode=alpha_erode
+            style_id,
+            targets,
+            apply=apply,
+            alpha_erode=alpha_erode,
+            strength_override=(
+                float(strength_override) if strength_override is not None else None
+            ),
         )
     except PermissionError as error:
         return JSONResponse(status_code=409, content={"error": str(error)})
@@ -735,7 +797,9 @@ def pipeline_execute(payload: dict = Body(...)):
 
     previews = report.pop("_previews", {})
     for entry in report["results"]:
-        data = previews.get(entry.get("path"))
+        # 미리보기는 결과 id로 찾는다 — 묶인 오브젝트(분기 B)는 여러 오브젝트가 같은
+        # tilesetPath를 공유해서 path로 키를 잡으면 서로 덮어쓴다.
+        data = previews.get(entry.get("id"))
         if data is not None:
             entry["preview_png"] = base64.b64encode(data).decode("ascii")
     return report

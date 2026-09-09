@@ -49,9 +49,34 @@
 
 | 분기 | strength 배율 | 추가 처리 |
 |---|---|---|
-| terrain_tile | ×0.7 (구조 우선) | **circular padding 몽키패치**(UNet/VAE Conv2d) — 이음새 1단계 |
-| object | ×1.0 | — |
-| character_sprite | ×0.85 | 실루엣 하드 제약(Stage 4 알파 재적용). pig/slime 시트는 기존 배경 보존 경로(`monster_stylize`) 재사용 |
+| terrain_tile (A) | ×0.7 (구조 우선) | **circular padding 몽키패치**(UNet/VAE Conv2d) — 이음새 1단계 |
+| object — 단일 파일 | ×1.0 | — |
+| **object — 묶인 오브젝트 (B)** | ×1.0 | **셀 조립 → 한 장으로 변환 → 타일셋 역패치** (아래 참조) |
+| character_sprite (C) | ×0.85 | 실루엣 하드 제약(Stage 4 알파 재적용). pig/slime 시트는 기존 배경 보존 경로(`monster_stylize`) 재사용 |
+
+#### 분기 B — 묶인 오브젝트 (타일 군집)
+
+나무·건물처럼 **타일셋 안 여러 타일로 그려진 오브젝트**를 위한 경로다. 타일셋 PNG를 통째로
+변환하면 오브젝트 하나가 수백 타일 중 일부로 섞여 형태가 무너진다(7/29 "타일이 단체로
+합쳐져 있으면 안 바뀜"). 대신 변환 단위를 **파일이 아니라 오브젝트**로 바꾼다.
+
+1. 사이드카 메타(`extracted-objects/<key>.json`)의 셀 목록으로 오브젝트를 **맵 배치 그대로 한 장에 조립**
+   (`tile_stylize.compose_object_canvas`). 타일 원본이 알파를 가져 결과가 곧 누끼 RGBA다.
+2. 정수배 NEAREST 업스케일 → 변환 → BOX 다운스케일 (`stylize_tiles`, 픽셀아트 타일은 원본이
+   너무 작아 그대로는 스타일 통계가 빈약하다)
+3. Stage 4 규격 스냅 → Stage 5 QA. **타일 격자를 알고 있으므로 이음새 축까지 평가**된다.
+4. QA 통과 시 `object_extract.apply_styled_object`가 결과를 타일별로 잘라 **원래 타일 좌표에 역패치**.
+   백업·원본 시드는 기존 `asset_store` 경로를 그대로 탄다.
+
+조립 원본은 항상 `originals/`의 최초 타일셋에서 뜬다 — 여러 번 돌려도 색이 누적되지 않는다.
+같은 타일을 공유하는 다른 오브젝트가 있으면 함께 바뀌므로, 목록에 `공유 타일 N` 배지로 표시한다.
+
+실행 요청의 타깃은 두 형태를 받는다:
+
+```json
+{"path": "src/games/my-sample-rpg/assets/tilesets/town-32.png"}   // 단일 파일 (A/C)
+{"kind": "extracted-object", "key": "tree_1"}                      // 묶인 오브젝트 (B)
+```
 
 "타일은 낮게, 컨셉은 높게"(denoising strength 카테고리 분리)가 여기 구현되어 있다.
 
@@ -83,7 +108,8 @@ AI 출력을 그대로 쓰지 않는다:
 | GET | `/pipeline/anchors/{id}` · `/{id}/{name}` | 앵커 목록/PNG |
 | POST | `/pipeline/anchors/{id}/approve` | 승인 게이트 (`{"approved":bool}`) |
 | GET | `/pipeline/inventory` | 인벤토리(`?rebuild=1` 재빌드) |
-| POST | `/pipeline/run` | 실행: `{style_id, targets:[{path}], apply, alpha_erode}` → 결과+QA 리포트+미리보기 |
+| GET | `/pipeline/original?path=` | 변환 전 원본 PNG(적용 후에도 최초 원본) — 결과 확대 비교용 |
+| POST | `/pipeline/run` | 실행: `{style_id, targets:[{path}], apply, alpha_erode, strength_override?}` → 결과+QA 리포트+미리보기 |
 
 ## 에디터 사용법
 
@@ -94,6 +120,23 @@ AI 출력을 그대로 쓰지 않는다:
 3. **앵커 생성** → 4장 확인 → **승인** (반려하면 재생성)
 4. 카테고리별 대상 체크 → **파이프라인 실행** → QA 리포트 확인
 5. "QA 통과분 즉시 적용" 체크 시 게임 에셋에 반영(기존 백업/되돌리기 체계 그대로)
+
+리포트의 결과 카드를 **클릭하면 변환 전/후를 나란히 확대 비교**한다. 체커보드 배경으로
+알파(투명) 영역을 확인할 수 있고, 'PNG 저장'으로 결과만 따로 내려받을 수 있다.
+
+`Strength 스윕`을 켜고 `0.2, 0.3, 0.4`처럼 값을 입력하면 선택한 대상마다 지정한
+strength를 순차 실행하고 결과를 카드 그리드로 표시한다. 스윕 결과는 게임에 적용되지
+않으며, 각 카드에서 strength와 QA 점수를 비교할 수 있다.
+
+배율은 **맞춤(기본) / 1× / 2× / 4× / 8×**. 타일셋은 1402×1122처럼 크면서 95%가 투명한
+경우가 많아, 정수배로 열면 빈 여백만 보인다. 그래서 기본값이 전체를 프레임에 넣는 맞춤이고,
+정수배로 바꾸면 원본의 **불투명 영역 좌상단으로 자동 스크롤**한다(도구줄에 `내용 시작 x,y`로
+표시). 두 패널은 같은 배율을 쓰고 **스크롤이 묶여** 있어 같은 부분을 비교할 수 있다.
+정수배에서는 NEAREST로 픽셀 그리드를 유지하고, 맞춤(축소)에서만 보간을 쓴다.
+
+> 참고: 브라우저 캔버스로 결과 색을 세면 팔레트 색 수보다 많이 나온다. 부분 투명
+> (안티앨리어싱) 픽셀이 캔버스의 premultiply 왕복에서 값이 미세하게 바뀌기 때문이며,
+> 실제 PNG는 스펙 팔레트를 정확히 지킨다(완전 불투명 픽셀만 세면 N색으로 일치).
 
 ## 테스트
 

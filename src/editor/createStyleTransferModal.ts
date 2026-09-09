@@ -343,7 +343,7 @@ export const createStyleTransferModal = (
   const strengthWrap = el('div', CARD)
   const strengthHead = el('div', 'flex items-center justify-between')
   const strengthValue = el('span', 'text-xs text-zinc-300', '0.50')
-  strengthHead.append(el('div', LABEL, 'strength 강도'), strengthValue)
+  strengthHead.append(el('div', LABEL, 'edit intensity'), strengthValue)
   const strengthSlider = el('input', 'w-full accent-indigo-500')
   strengthSlider.type = 'range'
   strengthSlider.min = '0'
