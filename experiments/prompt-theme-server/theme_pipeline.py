@@ -10,7 +10,7 @@ from PIL import Image
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from object_decorations import VERSION, object_kind, generate_attached, request_image
+from profile_decorations import VERSION, profiles, get_profile, generate_profile
 
 REPO = Path(os.environ.get('THEME_PROJECT', Path(__file__).resolve().parents[1]))
 ROOT = REPO / 'public/theme-runs'
@@ -150,7 +150,9 @@ def health(): return {'status':'ok','parser':'rules-v1','pipeline':VERSION,'back
 
 @app.post('/plan')
 def plan(req: Request):
-    try: return {'spec':parse_prompt(req.prompt), 'objects':catalog()}
+    try:
+        configured=profiles()
+        return {'spec':parse_prompt(req.prompt), 'objects':[dict(o,profile_label=configured[o['id']]['label']) for o in catalog() if o['id'] in configured], 'profile_version':VERSION}
     except ValueError as e: raise HTTPException(422,str(e))
 
 @app.get('/runs')
@@ -183,19 +185,7 @@ def run(folder, req):
                 save_status(folder,data)
                 target=folder/o['id'];target.mkdir()
                 crop=Image.open(folder/(o['id']+'-original.png')).convert('RGBA')
-                if object_kind(o) != 'stall':
-                    overlays[o['id']]=generate_attached(target,crop,o,spec,FLUX)
-                else:
-                    input_image=crop.copy();input_image.thumbnail((512,512),Image.Resampling.NEAREST)
-                    background=Image.new('RGB',(512,512),'#ff00ff')
-                    background.paste(input_image,((512-input_image.width)//2,(512-input_image.height)//2),input_image)
-                    n=len(spec['decorations'])
-                    prompt=f'Replace the stall with {n} separate horizontal pixel-art decoration strips, equally spaced from top to bottom: '+ '; '.join(LABELS[k] for k in spec['decorations'])+'. Solid pure magenta background. No stall, no cloth, no shadows, no text.'
-                    raw=request_image(target,background,prompt,FLUX,1.0)
-                    strips={name:key_strip(raw.crop((0,i*raw.height//n,raw.width,(i+1)*raw.height//n)),name) for i,name in enumerate(spec['decorations'])}
-                    for name,strip in strips.items():strip.save(target/(name+'-strip.png'))
-                    overlays[o['id']]=align(crop,strips)
-                    Image.alpha_composite(crop,overlays[o['id']]).save(target/'composite.png')
+                overlays[o['id']]=generate_profile(target,crop,o,spec,FLUX,key_strip)
                 overlays[o['id']].save(folder/(o['id']+'-decoration.png'))
             data['completed_objects']=len(selected)
         data['stage']=5;save_status(folder,data)
@@ -221,7 +211,13 @@ def run(folder, req):
 
 @app.post('/runs')
 def submit(req: Request):
-    try: parse_prompt(req.prompt)
+    try:
+        spec=parse_prompt(req.prompt)
+        for o in catalog():
+            if o['id'] not in req.targets:continue
+            p=get_profile(o)
+            unsupported=set(spec['decorations'])-set(p['supported'])
+            if unsupported:raise ValueError(o['id']+': 장식 설정 없음: '+', '.join(sorted(unsupported)))
     except ValueError as e: raise HTTPException(422,str(e))
     allowed={o['id'] for o in catalog()}
     if not req.targets or len(set(req.targets))!=len(req.targets) or not set(req.targets)<=allowed:

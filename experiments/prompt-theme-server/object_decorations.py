@@ -51,10 +51,10 @@ def surface_masks(original, kind):
     raise ValueError('No surface profile for '+kind)
 
 
-def request_image(folder, source, prompt, flux, alpha):
+def request_image(folder, source, prompt, flux, alpha, pipeline=None):
     source.save(folder/'flux-input.png')
     (folder/'generation.json').write_text(json.dumps({
-        'pipeline':VERSION, 'model':'FLUX.1-Kontext-dev', 'prompt':prompt,
+        'pipeline':pipeline or VERSION, 'model':'FLUX.1-Kontext-dev', 'prompt':prompt,
         'steps':28, 'alpha':alpha, 'geometry_lock':False,
         'seed':'service random; not exposed'
     }, indent=2))
