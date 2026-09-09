@@ -1,0 +1,21 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #16131b;
+  color: #f2e9e4;
+  font-family: monospace;
+}
+
+#app {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* 픽셀아트를 정수 배율로 띄우므로 브라우저 보간을 끈다. */
+#app canvas {
+  image-rendering: pixelated;
+}

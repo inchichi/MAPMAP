@@ -37,3 +37,6 @@ style-service/originals-ext/
 style-service/anchors/
 style-service/inventory.json
 style-service/specs/
+
+# Ninja Adventure 원본 팩 — scripts/import-ninja-adventure.py 로 재현 가능(43MB)
+third_party/ninja-adventure/

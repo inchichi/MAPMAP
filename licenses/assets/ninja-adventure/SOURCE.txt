@@ -1,0 +1,8 @@
+Ninja Adventure Asset Pack
+authors: Pixel-boy (https://pixel-boy.itch.io/) and AAA
+license: CC0 1.0 Universal (see LICENSE.txt) — attribution not required
+source: https://codeload.github.com/winex01/RPG2D/tar.gz/refs/heads/master
+bytes: 43304286
+sha256: 706cc799af8b9be5cbf529b69e9c8ed472f46b897f240197db64b6cf5adf759a
+imported: 2026-09-08
+reproduce: python3 scripts/import-ninja-adventure.py

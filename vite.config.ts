@@ -315,7 +315,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
-        editor: fileURLToPath(new URL('./editor.html', import.meta.url))
+        editor: fileURLToPath(new URL('./editor.html', import.meta.url)),
+        cryptCrawler: fileURLToPath(new URL('./crypt-crawler.html', import.meta.url))
       }
     }
   },
