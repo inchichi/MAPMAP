@@ -322,6 +322,14 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/api/prompt-theme': {
+        target: process.env.THEME_API_URL ?? 'http://127.0.0.1:8773',
+        rewrite: (path) => path.replace(/^\/api\/prompt-theme/, '')
+      },
+      '/theme-runs': {
+        target: process.env.THEME_API_URL ?? 'http://127.0.0.1:8773',
+        rewrite: (path) => path.replace(/^\/theme-runs/, '/artifacts')
+      },
       '/api/openai': {
         target: 'https://api.openai.com',
         changeOrigin: true,

@@ -12,11 +12,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from profile_decorations import VERSION, profiles, get_profile, generate_profile
 
-REPO = Path(os.environ.get('THEME_PROJECT', Path(__file__).resolve().parents[1]))
+REPO = Path(os.environ.get('THEME_PROJECT', Path(__file__).resolve().parents[2]))
 ROOT = REPO / 'public/theme-runs'
 ROOT.mkdir(parents=True, exist_ok=True)
 FLUX = os.environ.get('THEME_FLUX_URL', 'http://127.0.0.1:8765')
-STATE = os.environ.get('THEME_STATE_URL', 'http://127.0.0.1:5173/__map-workflow-state')
+STATE = os.environ.get('THEME_STATE_URL', '')
 @asynccontextmanager
 async def lifespan(_app):
     recover_runs()
@@ -157,14 +157,15 @@ def plan(req: Request):
 
 @app.get('/runs')
 def runs():
-    return [json.loads(p.read_text()) for p in sorted(ROOT.glob('*/status.json'), key=lambda p:p.stat().st_mtime,reverse=True)[:30]]
+    return [json.loads(p.read_text(encoding='utf8')) for p in sorted(ROOT.glob('*/status.json'), key=lambda p:p.stat().st_mtime,reverse=True)[:30]]
 
 def run(folder, req):
     data={'id':folder.name,'status':'running','stage':1,'prompt':req.prompt,'created':time.time(),'pipeline':VERSION}
     try:
         spec=parse_prompt(req.prompt);data['spec']=spec;save_status(folder,data)
-        before=requests.get(STATE,timeout=20);before.raise_for_status()
-        (folder/'state-before.json').write_text(json.dumps(before.json(),ensure_ascii=False))
+        if STATE:
+            before=requests.get(STATE,timeout=20);before.raise_for_status()
+            (folder/'state-before.json').write_text(json.dumps(before.json(),ensure_ascii=False),encoding='utf8')
         data['stage']=2;save_status(folder,data)
         original,tinted,objects,hashes=layers(spec['color'])
         selected=[o for o in catalog() if o['id'] in req.targets]
@@ -202,7 +203,7 @@ def run(folder, req):
         data['stage']=6;save_status(folder,data)
         if spec['night']: tinted=Image.alpha_composite(tinted,Image.new('RGBA',tinted.size,(7,19,46,148)))
         preview=Image.alpha_composite(tinted,decoration_map);preview.save(folder/'preview.png')
-        (folder/'manifest.json').write_text(json.dumps({'pipeline':VERSION,'spec':spec,'source_hashes':hashes,'objects':selected,'placements':placements,'geometry_preserved':True,'alpha_preserved':True},ensure_ascii=False,indent=2))
+        (folder/'manifest.json').write_text(json.dumps({'pipeline':VERSION,'spec':spec,'source_hashes':hashes,'objects':selected,'placements':placements,'geometry_preserved':True,'alpha_preserved':True},ensure_ascii=False,indent=2),encoding='utf8')
         data.update(status='ready',stage=7,preview='/theme-runs/'+folder.name+'/preview.png',original='/theme-runs/'+folder.name+'/original-map.png',warnings=spec['warnings']+['미리보기는 정적 이미지입니다. 캐릭터와 반짝임은 적용 후 게임에서 확인하세요.'])
     except Exception as e:
         data.update(status='failed',error=str(e))
@@ -233,19 +234,20 @@ def get_folder(run_id):
     return ROOT/run_id
 
 @app.get('/runs/{run_id}')
-def status(run_id:str): return json.loads((get_folder(run_id)/'status.json').read_text())
+def status(run_id:str): return json.loads((get_folder(run_id)/'status.json').read_text(encoding='utf8'))
 
 @app.post('/runs/{run_id}/apply')
 def apply(run_id:str):
-    folder=get_folder(run_id);s=json.loads((folder/'status.json').read_text())
+    folder=get_folder(run_id);s=json.loads((folder/'status.json').read_text(encoding='utf8'))
     if s['status']!='ready': raise HTTPException(409,'완료된 미리보기만 적용할 수 있습니다.')
-    manifest=json.loads((folder/'manifest.json').read_text())
+    manifest=json.loads((folder/'manifest.json').read_text(encoding='utf8'))
     if sources()[3]!=manifest['source_hashes']: raise HTTPException(409,'원본 맵이 변경됐습니다. 다시 생성해주세요.')
+    if not STATE: raise HTTPException(409,'이 에디터는 /approve 후 브라우저에 저장합니다.')
     response=requests.get(STATE,timeout=20);response.raise_for_status();state=response.json()
     if state.get('backgrounds',{}).get('town'): raise HTTPException(409,'전체 스타일 배경이 활성화되어 있습니다. 먼저 원본 배경으로 복원해주세요.')
     snapshot=json.dumps(state,ensure_ascii=False,indent=2)
     if not (folder/'state-before-apply.json').exists():
-        (folder/'state-before-apply.json').write_text(snapshot)
+        (folder/'state-before-apply.json').write_text(snapshot,encoding='utf8')
     (folder/f'state-before-apply-{time.time_ns()}.json').write_text(snapshot)
     items=[i for i in state.get('placements',{}).get('town',[]) if i.get('renderLayer')!='decoration']+manifest['placements']
     response=requests.post(STATE,json={'action':'placements','mapId':'town','placements':items},timeout=20);response.raise_for_status()
@@ -254,10 +256,27 @@ def apply(run_id:str):
     s['applied_at']=time.time();save_status(folder,s)
     return {'placements':items,'id':run_id}
 
+@app.post('/runs/{run_id}/approve')
+def approve(run_id:str):
+    """Validate the result for browser-local application; never mutate live server state."""
+    folder=get_folder(run_id)
+    status=json.loads((folder/'status.json').read_text(encoding='utf8'))
+    if status['status']!='ready': raise HTTPException(409,'완료된 미리보기만 승인할 수 있습니다.')
+    manifest=json.loads((folder/'manifest.json').read_text(encoding='utf8'))
+    if sources()[3]!=manifest['source_hashes']: raise HTTPException(409,'원본 맵이 변경됐습니다. 다시 생성해주세요.')
+    for item in manifest['placements']:
+        url=item.get('imageUrl','')
+        prefix='/theme-runs/'+run_id+'/'
+        if not url.startswith(prefix): raise HTTPException(409,'결과 경로가 일치하지 않습니다.')
+        path=(folder/url[len(prefix):]).resolve()
+        if not path.is_relative_to(folder.resolve()) or not path.is_file():
+            raise HTTPException(409,'결과 이미지가 없습니다.')
+    return {'id':run_id,'mapId':'town','targets':[o['id'] for o in manifest['objects']], 'placements':manifest['placements']}
+
 # Recover only when the service starts, not when tests import the module.
 def recover_runs():
     for p in ROOT.glob('*/status.json'):
-        data=json.loads(p.read_text())
+        data=json.loads(p.read_text(encoding='utf8'))
         if data.get('status') in ['queued','running']:
             data.update(status='failed',error='서비스가 재시작되어 중단됐습니다. 다시 생성해주세요.')
             save_status(p.parent,data)

@@ -6,7 +6,7 @@ import {
   loadPlacementsForMap,
   removePlacement
 } from './placementStore'
-import { installDecorationDemo, setDecorationLayerVisible } from './placementStore'
+import { installDecorationDemo, installPromptTheme, setDecorationLayerVisible, type PromptThemeApproval } from './placementStore'
 
 // placementStore는 window.localStorage(safeStorage 경유)를 쓴다. 테스트는 node 환경이라
 // 인메모리 localStorage를 window에 stub한다(테스트마다 새 저장소).
@@ -36,6 +36,36 @@ afterEach(() => {
 })
 
 describe('placementStore', () => {
+  const runId = 'a'.repeat(32)
+  const approval: PromptThemeApproval = {
+    id: runId, mapId: 'town', targets: ['tree_1'], placements: [{
+      id: `${runId}-tree_1`, kind: 'object', col: 14, row: 12,
+      imageUrl: `/theme-runs/${runId}/tree_1-decoration.png`,
+      renderLayer: 'decoration', sourceGroup: 'prompt-theme', visible: true
+    }]
+  }
+  it('applies one generated object without deleting other decorations or maps', () => {
+    const ordinary = addPlacement('town', { kind: 'tile', tileId: 1 }, 0, 0)
+    addPlacement('cave', { kind: 'tile', tileId: 2 }, 1, 1)
+    const tree = { id: 'demo-tree_1', kind: 'object' as const, col: 13, row: 11.5, sourceGroup: 'flux-decorations-20260909', renderLayer: 'decoration' as const }
+    const building = { ...tree, id: 'demo-town_hall' }
+    installDecorationDemo([tree, building])
+    installPromptTheme(approval)
+    installPromptTheme(approval)
+    expect(loadPlacementsForMap('town')).toEqual([ordinary, building, ...approval.placements])
+    expect(loadPlacementsForMap('cave')).toHaveLength(1)
+    setDecorationLayerVisible('town', false)
+    expect(loadPlacementsForMap('town').filter(i => i.renderLayer === 'decoration').every(i => i.visible === false)).toBe(true)
+  })
+  it('rejects invalid generated artifact paths before changing storage', () => {
+    expect(() => installPromptTheme({ ...approval, placements: [{ ...approval.placements[0], imageUrl: 'https://example.com/x.png' }] })).toThrow()
+    expect(loadPlacementsForMap('town')).toEqual([])
+  })
+  it('does not apply if the previous state cannot be backed up', () => {
+    vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => { throw new Error('quota') })
+    expect(() => installPromptTheme(approval)).toThrow('백업')
+    expect(loadPlacementsForMap('town')).toEqual([])
+  })
   it('toggles only decorations and keeps ordinary placements unchanged', () => {
     const original = addPlacement('town', { kind: 'tile', tileId: 1 }, 0, 0)
     addPlacement('town', { kind: 'object', renderLayer: 'decoration', imageUrl: '/snow.png' }, 1, 1)

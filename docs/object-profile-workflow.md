@@ -1,6 +1,6 @@
 # Object-specific decoration workflow
 
-The live style page uses `style-service/decoration_profiles.json` as the versioned source of object-specific settings. This repository stores that snapshot at `experiments/prompt-theme-server/decoration_profiles.json`; it is not automatically wired into the branch editor. This supersedes category-wide shared generation/alignment. Registered IDs: `town_hall`, `tree_1`, `fountain_1`, `blacksmith_stall`.
+The branch style page uses `experiments/prompt-theme-server/decoration_profiles.json` through the local API started by `npm run theme:dev`. The older remote installation uses the same profile under `style-service/`. See [editor integration](prompt-theme-integration.md). This supersedes category-wide shared generation/alignment. Registered IDs: `town_hall`, `tree_1`, `fountain_1`, `blacksmith_stall`.
 
 Generation uses FLUX only. The extraction code constructs alpha masks from the generated RGB image; Qwen-Image-Layered is not used. Earlier Qwen comparisons remain historical experiments, not the active path.
 

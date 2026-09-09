@@ -25,6 +25,7 @@ notes/*
 !notes/.gitkeep
 
 __pycache__/
+public/theme-runs/
 style-service/.venv/
 style-service/sample_output.png
 style-service/compare.png

@@ -25,6 +25,13 @@ export type PlacedItem = {
   renderLayer?: 'decoration'
   sourceGroup?: string
   visible?: boolean
+  sourceAssetId?: string
+  themeSettings?: {
+    runId: string
+    night: number
+    twinkle: boolean
+    color: { gain: number[]; bias: number[] }
+  }
 }
 
 // 배치 모드에서 게임으로 보내는 "지금 놓을 항목" 템플릿(좌표는 클릭 시 채운다).
@@ -95,6 +102,34 @@ export const setDecorationLayerVisible = (mapId: string, visible: boolean): void
 
 export const installDecorationDemo = (items: PlacedItem[]): void => {
   const all = loadAll()
-  all.town = [...(all.town ?? []).filter(item => item.sourceGroup !== 'flux-decorations-20260909'), ...items]
+  all.town = [...(all.town ?? []).filter(item => !['flux-decorations-20260909', 'prompt-theme'].includes(item.sourceGroup ?? '')), ...items]
+  persist(all)
+}
+
+export type PromptThemeApproval = {
+  id: string
+  mapId: 'town'
+  targets: string[]
+  placements: PlacedItem[]
+}
+
+export const installPromptTheme = (approval: PromptThemeApproval): void => {
+  if (approval.mapId !== 'town' || !/^[a-f0-9]{32}$/.test(approval.id) ||
+    !Array.isArray(approval.targets) || !Array.isArray(approval.placements) ||
+    approval.placements.some(item => item.kind !== 'object' || item.renderLayer !== 'decoration' ||
+      item.sourceGroup !== 'prompt-theme' || !Number.isFinite(item.col) || !Number.isFinite(item.row) ||
+      !item.imageUrl?.startsWith(`/theme-runs/${approval.id}/`))) {
+    throw new Error('올바른 스타일 승인 결과가 아닙니다.')
+  }
+  const all = loadAll()
+  // Keep unrelated objects/maps and save the previous state before modifying it.
+  if (!writeLocalStorage('my-sample-rpg:placements-before-theme', JSON.stringify(all))) {
+    throw new Error('이전 배치 백업에 실패했습니다. 적용하지 않았습니다.')
+  }
+  all.town = [...(all.town ?? []).filter(item => {
+    if (item.sourceGroup === 'prompt-theme' && item.themeSettings) return false
+    if (!['prompt-theme', 'flux-decorations-20260909'].includes(item.sourceGroup ?? '')) return true
+    return !approval.targets.some(id => item.sourceAssetId === id || item.id.endsWith(`-${id}`))
+  }), ...approval.placements]
   persist(all)
 }

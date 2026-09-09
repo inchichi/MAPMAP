@@ -3,6 +3,7 @@ import {
   Application,
   AnimatedSprite,
   Container,
+  ColorMatrixFilter,
   type FederatedPointerEvent,
   Graphics,
   NineSliceSprite,
@@ -3131,6 +3132,7 @@ export const createPixiTiledMapView = async ({
     throw new Error(`Could not resolve portal texture ${appearanceType}`)
   }
 
+  const themeColorTargets: Container[] = []
   for (const layer of map.layers) {
     if (layer.name.toLowerCase() === DEPTH_SORTED_LAYER_NAME) {
       const nextDepthSortedLayer = new Container()
@@ -3159,6 +3161,7 @@ export const createPixiTiledMapView = async ({
         nextDepthSortedLayer.addChild(sprite)
       }
 
+      themeColorTargets.push(...nextDepthSortedLayer.children)
       depthSortedLayer = nextDepthSortedLayer
       world.addChild(nextDepthSortedLayer)
       continue
@@ -3243,6 +3246,9 @@ export const createPixiTiledMapView = async ({
     world.addChild(tilemap)
     world.addChild(transformedTileLayer)
     world.addChild(coinPileLayer)
+    if (!['ground', 'shadow_lower', 'shadow_upper'].includes(layer.name)) {
+      themeColorTargets.push(tilemap, transformedTileLayer)
+    }
   }
 
   if (!depthSortedLayer) {
@@ -6966,10 +6972,12 @@ export const createPixiTiledMapView = async ({
   decorationLayer.addChild(bulbLights)
   let decorationRevision = 0
   let lightTime = 0
+  let twinkleEnabled = true
+  const themeColorFilter = new ColorMatrixFilter()
   const animateDecorationLights = (): void => {
     lightTime += app.ticker.deltaMS / 1000
     bulbLights.children.forEach((light, index) => {
-      light.alpha = 0.65 + 0.25 * Math.sin(lightTime * 2.2 + index * 1.7)
+      light.alpha = twinkleEnabled ? 0.65 + 0.25 * Math.sin(lightTime * 2.2 + index * 1.7) : 0.85
     })
   }
   app.ticker.add(animateDecorationLights)
@@ -7036,8 +7044,16 @@ export const createPixiTiledMapView = async ({
   const renderPlacements = async (items: PlacedItem[]): Promise<void> => {
     const revision = ++decorationRevision
     for (const light of bulbLights.removeChildren()) light.destroy()
-    nightShade.visible = sceneId === 'town' && items.some(item => item.renderLayer === 'decoration' && item.visible !== false)
-    bulbLights.visible = nightShade.visible
+    const enabled = sceneId === 'town' && items.some(item => item.renderLayer === 'decoration' && item.visible !== false)
+    const settings = enabled ? items.find(item => item.visible !== false && item.themeSettings)?.themeSettings : undefined
+    nightShade.visible = enabled && (settings ? settings.night > 0 : true)
+    nightShade.alpha = settings ? Math.max(0, Math.min(0.8, settings.night)) / 0.58 : 1
+    twinkleEnabled = settings?.twinkle ?? true
+    bulbLights.visible = enabled
+    const gain = settings?.color.gain ?? [1, 1, 1]
+    const bias = settings?.color.bias ?? [0, 0, 0]
+    themeColorFilter.matrix = [gain[0],0,0,0,bias[0], 0,gain[1],0,0,bias[1], 0,0,gain[2],0,bias[2], 0,0,0,1,0]
+    for (const target of themeColorTargets) target.filters = settings ? [themeColorFilter] : []
     for (const sprite of placementSprites) {
       sprite.parent?.removeChild(sprite)
       sprite.destroy()
@@ -7081,7 +7097,7 @@ export const createPixiTiledMapView = async ({
             0.6
       if (item.renderLayer === 'decoration') {
         decorationLayer.addChild(sprite)
-        if (nightShade.visible) void addBulbLights(item, sprite, revision)
+        if (enabled && !item.themeSettings) void addBulbLights(item, sprite, revision)
       } else {
         depthSortedLayer.addChild(sprite)
       }

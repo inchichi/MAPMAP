@@ -1,7 +1,14 @@
 import { openProjectDirectory } from './openProjectDirectory'
+import { createHoverPreview, buildTileSlicePreview, buildImagePreview, buildCellsCanvasPreview } from './createHoverPreview'
+import { extractTilesetTileIdByType, extractTmxTilesetImageInfo } from './tmxTileEntities'
+import type { StyleTransferMapObject } from './createStyleTransferModal'
 import { installDecorationDemo, loadPlacementsForMap, setDecorationLayerVisible, type PlacedItem } from './placementStore'
 import {
   buildTileClusterEntities,
+  findFileByRelativeSource,
+  findObjectKindCells,
+  findTileClusterDetail,
+  resolveRelativePath,
   isTileClusterEntity,
   loadGame,
   type GameFile,
@@ -160,26 +167,6 @@ const KIND_LABEL: Record<string, string> = {
 }
 
 // 에셋 카테고리(표시 전용) — 인물/건축물/장식물/환경 4층으로 묶어 정보 구조를 만든다.
-const CATEGORY_ORDER = ['인물', '건축물', '장식물', '환경'] as const
-const CATEGORY_OF: Record<string, string> = {
-  npc: '인물',
-  character: '인물',
-  monster: '인물',
-  enemy: '인물',
-  building: '건축물',
-  sign: '건축물',
-  portal: '건축물',
-  clocktower: '건축물',
-  tent: '건축물',
-  window: '건축물',
-  stairs: '건축물',
-  tree: '환경',
-  hedge: '환경',
-  wall: '환경',
-  rock: '환경'
-}
-const categoryOf = (kind: string): string => CATEGORY_OF[kind] ?? '장식물'
-
 // 표시용 이름 정리(표시 전용) — 내부 id 느낌의 이름('villager_a' 등)을 발표용 라벨로 바꾼다.
 // 우선순위: 짧은 원본 이름 그대로 → 흔한 영문 키워드 한글화 → 구분자/확장자 정리.
 const displayNameOf = (rawName: string): string => {
@@ -297,13 +284,6 @@ const GHOST_BUTTON =
   'rounded-lg h-[40px] px-3.5 bg-[#3a3b3e] text-[#d4d7dc] text-[13px] border border-[#9296a0]/55 transition duration-150 hover:bg-[#44464a] hover:text-[#f0f1f3] hover:border-[#9296a0] active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed'
 // 종류 카드 — 게임 에디터의 선택 카드: 아이콘(46px) + 이름 + '8개' 카운트. 한 화면에 10개 이상 보이게 낮춘다.
 // 에셋 종류 카드 — 기본/hover는 테두리 없이 면(배경)으로만 구분, 선택된 카드만 금색 테두리.
-const KIND_CARD =
-  'relative h-[60px] flex flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-center bg-[#1a1a1c] border-2 border-transparent transition duration-150'
-const KIND_CARD_CLICKABLE =
-  'cursor-pointer hover:bg-[#242427] hover:-translate-y-px'
-// 선택/펼침된 종류 카드 — 차분한 소프트 그레이 필 + 한 단계 밝은 테두리(글로우 없음, 퀵카드 선택과 통일).
-const KIND_CARD_ACTIVE =
-  'border-[#9296a0] bg-[#52555b] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
 // 구성원 pill(34px, 한 줄에 2개) — 짧은 한글 표시 이름은 잘리지 않고, 긴 이름은 툴팁으로 보완.
 const ENTITY_BASE =
   'h-[34px] min-w-0 flex items-center gap-1.5 rounded-lg px-2 text-left bg-[#1a1a1c] border border-[#3c3c3c] text-[12px] text-[#d4d4d4] transition hover:bg-[#242427] hover:border-[#5a5d63]'
@@ -374,7 +354,6 @@ export const createEditorApp = ({
   // 기본은 접힘: 요소를 쭉 나열하면 목록이 길어 보기 불편하다는 피드백에 따른 동작.
   const expandedGroups = new Set<string>()
   // 카테고리(인물/건축물/장식물/환경) 접힘 상태 — 표시 전용.
-  const collapsedCategories = new Set<string>()
   // 세션 내 생성 결과 누적(최신 우선, 최대 10개). 데모에서 여러 생성을 비교·재선택하려는 용도.
   const HISTORY_LIMIT = 10
   let history: Array<{ n: number; result: GenerationResult }> = []
@@ -500,7 +479,9 @@ export const createEditorApp = ({
       decorationDemo.disabled = false
     }
   })
-  headerRight.append(decorationDemo, decorationToggle)
+  const promptThemeLink = el('a', 'px-3 py-2 border border-[#c9a96b] rounded text-[#e2bd8c]', '스타일 변환')
+  promptThemeLink.href = '/editor.html?workspace=style'
+  headerRight.append(promptThemeLink, decorationDemo, decorationToggle)
   header.append(brand, headerRight)
 
   // LLM 챗 스타일 배치: 가운데가 라이브 게임(위 가득) + 프롬프트(아래), 오른쪽이 생성 결과.
@@ -555,56 +536,12 @@ export const createEditorApp = ({
   // 선택 대상은 보조 정보 — 카드가 아니라 '현재 맵' 줄과 같은 레벨의 한 줄 텍스트.
   // 선택 객체 패널 — 게임 오브젝트를 고르면 Type/Name/ID/Map/Position을 실시간으로 보여준다.
   // 좌표는 GameEntity.tileX/tileY(타일 단위). 선택이 없으면 흐린 빈 상태 안내.
-  const selectedObjectPanel = el('div', 'rounded-[10px] border border-[#3c3c3c] bg-[#0d0d0d] px-2.5 py-2 flex flex-col gap-1.5')
-  const selectedObjectHeader = el('div', 'flex items-center gap-1.5')
-  selectedObjectHeader.append(
-    editorIcon('target', 12),
-    el('span', 'text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9d9d9d]', 'Selected Object')
-  )
-  const selectedObjectBody = el('div', 'flex flex-col gap-1')
-  selectedObjectPanel.append(selectedObjectHeader, selectedObjectBody)
-  // 선택 객체 정보 행(라벨 좌·값 우). 값은 TMX에서 온 임의 문자열이라 textContent로만 넣는다.
-  const objectField = (label: string, value: string, mono = false): HTMLElement => {
-    const row = el('div', 'flex items-center justify-between gap-2 min-w-0')
-    row.append(
-      el('span', 'shrink-0 text-[10px] leading-none text-[#777777]', label),
-      el('span', `truncate text-right text-[11px] leading-none font-medium text-[#d4d7dc]${mono ? ' tabular-nums' : ''}`, value)
-    )
-    return row
-  }
-  // 선택 객체 표시 갱신(UI 표시 전용) — selectedEntity 변화 시 render()가 호출한다.
+  const summaryCard = el('div', 'h-[28px] px-1 flex items-center gap-1.5 opacity-80')
+  summaryCard.append(editorIcon('target', 13))
+  const targetValue = el('span', 'text-[11px] text-[#e2bd8c] truncate')
+  summaryCard.append(el('span', 'text-[11px] text-[#b59458]', '선택 대상 :'), targetValue)
   const updateSummary = (): void => {
-    if (!selectedEntity) {
-      selectedObjectBody.replaceChildren(
-        el('div', 'py-0.5 text-[11px] leading-none text-[#777777] opacity-70', '게임 오브젝트를 선택하세요')
-      )
-      return
-    }
-    const e = selectedEntity
-    const mapName = game.maps.find((map) => map.id === e.mapId)?.name ?? e.mapId
-    // 오브젝트는 tileX/tileY를 갖고, 타일 구조물(깃발·벽 등)은 좌표가 id 끝('tile:wall:5,3')에 들어 있다.
-    const tileCoordMatch = e.id.match(/:(\d+),\s*(\d+)$/)
-    const position =
-      e.tileX !== undefined && e.tileY !== undefined
-        ? `(${e.tileX}, ${e.tileY})`
-        : tileCoordMatch
-          ? `(${tileCoordMatch[1]}, ${tileCoordMatch[2]})`
-          : '—'
-    const fields = [
-      objectField('Type', KIND_LABEL[groupKindOf(e.kind)] ?? e.kind),
-      objectField('Category', categoryOf(groupKindOf(e.kind))),
-      objectField('Name', e.name),
-      objectField('ID', e.id, true),
-      objectField('Map', mapName),
-      objectField('Position', position, true)
-    ]
-    // 연결 객체(포털 등)는 Target(연결 대상 맵)과 Status(연결 확인 여부)를 덧붙인다 — 실제 targetSceneId 기준.
-    if (e.target) {
-      const targetMap = game.maps.find((map) => map.id === e.target)
-      fields.push(objectField('Target', targetMap?.name ?? e.target))
-      fields.push(objectField('Status', targetMap ? 'Connected' : 'Unlinked'))
-    }
-    selectedObjectBody.replaceChildren(...fields)
+    targetValue.textContent = selectedEntity?.name ?? '없음'
   }
   // 게임과의 동기화 상태(현재 맵 이름)를 보여주는 줄. 연결 전엔 대기 메시지.
   const treeSyncLine = el('div', 'text-[12px] font-medium text-[#b6bac1]', '게임과 연결 대기 중…')
@@ -620,8 +557,10 @@ export const createEditorApp = ({
     render()
   })
   // 순서: 제목 → 검색 → 현재 맵 → 선택 대상 — 정보는 두 줄만, 설명문은 없앤다.
-  treeHeader.append(treeHeaderTop, assetSearch, treeSyncLine, selectedObjectPanel)
+  treeHeader.append(treeHeaderTop, assetSearch, treeSyncLine, summaryCard)
   const treeList = el('div', 'flex-1 overflow-auto p-3 flex flex-col gap-3')
+  tree.classList.add('legacy-asset-tree')
+  tree.dataset.sidebar = 'legacy-list'
   tree.append(treeHeader, treeList)
 
   // ---------- center: 라이브 게임(위) + 프롬프트 컴포저(아래) ----------
@@ -741,13 +680,13 @@ export const createEditorApp = ({
   }
   const styleTransferButton = el('button', QUICK_CARD) as HTMLButtonElement
   styleTransferButton.type = 'button'
-  styleTransferButton.title = '스타일 변환 모달을 엽니다'
+  styleTransferButton.title = '오브젝트별 FLUX 스타일 변환 페이지를 엽니다'
   styleTransferButton.append(
     el('span', 'text-[14px] leading-none text-[#d4d4d4]', '스타일 변환'),
     el('span', 'text-[11px] leading-none text-[#777777] opacity-65', '스타일 변환')
   )
   styleTransferButton.addEventListener('click', () => {
-    styleTransferModal.openButton.click()
+    window.location.assign('/editor.html?workspace=style')
   })
   suggestionRow.append(styleTransferButton)
   const stylePipelineButton = el('button', QUICK_CARD) as HTMLButtonElement
@@ -1661,6 +1600,153 @@ export const createEditorApp = ({
       return entity
     })
 
+  const buildStyleObjectTarget = (
+    map: LoadedGameMap,
+    entity: GameEntity
+  ): StyleTransferMapObject | undefined => {
+    const mapFile = currentFiles.find((file) => file.path === map.file)
+    if (!mapFile) {
+      return undefined
+    }
+    let objects: TmxObject[] = []
+    try {
+      objects = extractTmxObjects(mapFile.text)
+    } catch {
+      return undefined
+    }
+    // 타일 군집(좌표 id)은 군집 재추출로, 영역 오브젝트(건물·분수·나무 장식 등)는
+    // 사각형 안의 같은 종류 타일 수집으로 셀 목록을 얻는다.
+    const detail = isTileClusterEntity(entity)
+      ? findTileClusterDetail(mapFile, currentFiles, objects, entity.id)
+      : findObjectKindCells(mapFile, currentFiles, objects, entity)
+    if (!detail || detail.cells.length === 0 || detail.tilesetSource === undefined) {
+      return undefined
+    }
+    const tsxFile = findFileByRelativeSource(currentFiles, mapFile.path, detail.tilesetSource)
+    const info = tsxFile ? extractTmxTilesetImageInfo(tsxFile.text) : undefined
+    if (!tsxFile || !info) {
+      return undefined
+    }
+    const imagePath = resolveRelativePath(tsxFile.path, info.imageSource)
+    if (!imagePath.startsWith('src/games/my-sample-rpg/assets/')) {
+      return undefined
+    }
+    const kind = groupKindOf(entity.kind)
+    return {
+      label: `${KIND_ICON[kind] ?? '•'} ${entity.name}`,
+      tilesetImagePath: imagePath,
+      tileWidth: info.tileWidth,
+      tileHeight: info.tileHeight,
+      columns: info.columns,
+      cells: detail.cells,
+      sharedOutsideCells: detail.sharedOutsideCells
+    }
+  }
+
+  // 몬스터 appearanceType → 전용 애니메이션 스프라이트 시트 파일(게임 로더가 하드코딩으로 import).
+  // 이 두 종류는 타일이 아니라 통짜 시트라, 시트 전체를 변환·적용한다.
+  const MONSTER_SHEET_BY_APPEARANCE: Record<string, string> = {
+    monster_pig: 'src/games/my-sample-rpg/assets/monsters/monster-pig-sheet.png',
+    monster_slime: 'src/games/my-sample-rpg/assets/monsters/몬스터-말캉이.png'
+  }
+  const NPC_TILESET_TSX = 'tiny-dungeon-16.tsx'
+
+  // 클릭한 캐릭터 엔티티의 외형(appearanceType)을 TMX에서 복구한다(GameEntity엔 없음).
+  // rpgAdapter의 id 규칙(object.name, 없으면 `${kind}-${object.id}`)을 역으로 매칭한다.
+  const getEntityAppearanceType = (
+    map: LoadedGameMap,
+    entity: GameEntity
+  ): string | undefined => {
+    const mapFile = currentFiles.find((file) => file.path === map.file)
+    if (!mapFile) {
+      return undefined
+    }
+    let objects: TmxObject[] = []
+    try {
+      objects = extractTmxObjects(mapFile.text)
+    } catch {
+      return undefined
+    }
+    const object =
+      objects.find((candidate) => candidate.name === entity.id) ??
+      objects.find((candidate) => `${entity.kind}-${candidate.id}` === entity.id)
+    const appearance = object?.properties.type ?? object?.properties.appearanceType
+    return appearance || undefined
+  }
+
+  // NPC(및 tiny-dungeon-16에 타일로 존재하는 캐릭터/몬스터)를 단일 타일 패치 대상으로 만든다.
+  // appearanceType → tiny-dungeon-16.tsx의 타일 id → (col,row) 단일 셀. 같은 외형의 다른
+  // 캐릭터도 같은 타일을 공유하므로 함께 바뀐다(배너로 안내).
+  const buildStyleCharacterTileTarget = (
+    appearanceType: string,
+    displayName: string
+  ): StyleTransferMapObject | undefined => {
+    const tsxFile = currentFiles.find((file) => file.name === NPC_TILESET_TSX)
+    if (!tsxFile) {
+      return undefined
+    }
+    const info = extractTmxTilesetImageInfo(tsxFile.text)
+    const tileId = extractTilesetTileIdByType(tsxFile.text, appearanceType)
+    if (!info || tileId === undefined) {
+      return undefined
+    }
+    const imagePath = resolveRelativePath(tsxFile.path, info.imageSource)
+    if (!imagePath.startsWith('src/games/my-sample-rpg/assets/')) {
+      return undefined
+    }
+    return {
+      label: displayName,
+      tilesetImagePath: imagePath,
+      tileWidth: info.tileWidth,
+      tileHeight: info.tileHeight,
+      columns: info.columns,
+      cells: [{ col: tileId % info.columns, row: Math.floor(tileId / info.columns), tileId }],
+      sharedOutsideCells: 0,
+      bannerText: `캐릭터: ${displayName} · ⚠ 같은 외형(${appearanceType})의 캐릭터가 모두 함께 바뀝니다`
+    }
+  }
+
+  const treeHoverPreview = createHoverPreview()
+  const buildEntityPreviewContent = (
+    map: LoadedGameMap,
+    entity: GameEntity
+  ): HTMLElement | undefined | Promise<HTMLElement | undefined> => {
+    const appearanceType = getEntityAppearanceType(map, entity)
+    if (appearanceType) {
+      const monsterSheet = MONSTER_SHEET_BY_APPEARANCE[appearanceType]
+      if (monsterSheet) {
+        return buildImagePreview(`/${monsterSheet}`, { maxSize: 192 })
+      }
+      const characterTarget = buildStyleCharacterTileTarget(appearanceType, entity.name)
+      const characterCell = characterTarget?.cells[0]
+      if (characterTarget && characterCell) {
+        return buildTileSlicePreview({
+          imageUrl: `/${characterTarget.tilesetImagePath}`,
+          columns: characterTarget.columns,
+          tileWidth: characterTarget.tileWidth,
+          tileHeight: characterTarget.tileHeight,
+          tileId: characterCell.tileId,
+          targetSize: 128
+        })
+      }
+    }
+    const objectTarget = buildStyleObjectTarget(map, entity)
+    if (objectTarget) {
+      return buildCellsCanvasPreview({
+        imageUrl: `/${objectTarget.tilesetImagePath}`,
+        columns: objectTarget.columns,
+        tileWidth: objectTarget.tileWidth,
+        tileHeight: objectTarget.tileHeight,
+        cells: objectTarget.cells,
+        targetSize: 176
+      })
+    }
+    return undefined
+  }
+  const bindEntityPreview = (target: HTMLElement, map: LoadedGameMap, entity: GameEntity): void => {
+    treeHoverPreview.bind(target, () => buildEntityPreviewContent(map, entity))
+  }
+
   const renderTree = (): void => {
     entityButtons = []
     const groups: HTMLElement[] = []
@@ -1739,137 +1825,44 @@ export const createEditorApp = ({
       const isSelectableEntity = (_entity: GameEntity): boolean => true
 
       const selectableCount = visibleEntities.filter(isSelectableEntity).length
-      // 종류별 "아이콘 카드" 2열 그리드 — 파일 탐색기식 세로 리스트 대신 게임 건설 메뉴처럼.
-      // 카드는 큰 아이콘(52px)이 먼저 보이고, 이름·개수는 아래 작은 캡션으로만 붙는다.
-      // 카테고리(인물/건축물/장식물)로 한 층 더 묶는다 — 정보 구조가 한눈에 읽히게.
-      const byCategory = new Map<string, Array<[string, GameEntity[]]>>()
-      for (const entry of kindEntries) {
-        const category = categoryOf(entry[0])
-        const list = byCategory.get(category)
-        if (list) {
-          list.push(entry)
-        } else {
-          byCategory.set(category, [entry])
-        }
-      }
-      for (const category of CATEGORY_ORDER) {
-        const entriesInCategory = byCategory.get(category)
-        if (!entriesInCategory || entriesInCategory.length === 0) {
-          continue
-        }
-        // 그룹 제목 — 작고 은은한 금색 라벨 + 얇은 구분선. 클릭하면 접기/펼치기(검색 중엔 항상 펼침).
-        const categoryCollapsed = query.length === 0 && collapsedCategories.has(category)
-        const categoryHeader = el('button', 'w-full flex items-center gap-1.5 mt-1 px-1 py-1 text-left text-[13px] leading-none tracking-[0.5px] text-[#b6bac1] border-y border-[#b6bac1]/20 transition hover:text-[#d4d7dc]') as HTMLButtonElement
-        categoryHeader.type = 'button'
-        categoryHeader.append(
-          el('span', 'text-[10px] leading-none text-[#b6bac1]', categoryCollapsed ? '▸' : '▾'),
-          el('span', '', category)
+      // Preserve the original compact, collapsible asset list.
+      for (const [kind, entities] of kindEntries) {
+        const groupKey = `${map.id}:${kind}`
+        const expanded = query.length > 0 || expandedGroups.has(groupKey) ||
+          entities.some(entity => entity === selectedEntity)
+        const headerButton = el('button', 'w-full flex items-center gap-1.5 px-1 py-2 text-left text-[13px] hover:bg-[#302a26] rounded') as HTMLButtonElement
+        headerButton.type = 'button'
+        headerButton.setAttribute('aria-expanded', String(expanded))
+        headerButton.append(
+          el('span', 'w-3 text-[10px] text-[#777777]', expanded ? '▾' : '▸'),
+          editorIcon(KIND_ICON[kind] ?? 'prop', 14),
+          el('span', 'truncate', `${kind} ${KIND_LABEL[kind] ?? kind}`),
+          el('span', 'ml-auto text-[11px] text-[#777777]', String(entities.length))
         )
-        categoryHeader.addEventListener('click', () => {
-          if (collapsedCategories.has(category)) {
-            collapsedCategories.delete(category)
-          } else {
-            collapsedCategories.add(category)
-          }
+        headerButton.onclick = () => {
+          if (expandedGroups.has(groupKey)) expandedGroups.delete(groupKey)
+          else expandedGroups.add(groupKey)
           renderTree()
-          render()
-        })
-        group.append(categoryHeader)
-        if (categoryCollapsed) {
-          continue
         }
-        const kindGrid = el('div', 'grid grid-cols-2 gap-2')
-        group.append(kindGrid)
-        for (const [kind, entities] of entriesInCategory) {
-          const groupKey = `${map.id}:${kind}`
-        const selectable = entities.filter(isSelectableEntity)
-        // 선택된 NPC가 속한 종류는 이번 렌더에서만 펼쳐 보인다(접혀 있으면 선택 표시가 가려진다).
-        // Set에는 쓰지 않는다 — 영구 펼침으로 만들면 사용자가 접어도 다음 렌더마다 되돌아간다.
-        const containsSelected =
-          selectedEntity !== undefined && entities.some((entity) => entity === selectedEntity)
-        // 검색 중에는 결과를 바로 보여줘야 하므로 자동으로 펼친다.
-        const expanded =
-          selectable.length > 0 &&
-          (query.length > 0 || expandedGroups.has(groupKey) || containsSelected)
-
-        const card = el(
-          selectable.length > 0 ? 'button' : 'div',
-          `${KIND_CARD}${
-            containsSelected || expanded
-              ? ` ${KIND_CARD_ACTIVE}`
-              : selectable.length > 0
-                ? ` ${KIND_CARD_CLICKABLE}`
-                : ''
-          }`
-        )
-        // 카드 구성: 아이콘 → 이름(+펼침 화살표) → '8명/5개' 카운트. 전부 중앙 정렬.
-        const cardLabel = el('div', 'flex items-center justify-center gap-1')
-        cardLabel.append(
-          el('span', 'whitespace-nowrap text-[12px] leading-none font-semibold tracking-wide text-[#d4d4d4]', KIND_LABEL[kind] ?? kind)
-        )
-        if (selectable.length > 0) {
-          cardLabel.append(el('span', 'text-[9px] leading-none text-[#777777]', expanded ? '▾' : '▸'))
-        }
-        const countUnit = kind === 'npc' || kind === 'character' || kind === 'monster' ? '명' : '개'
-        // NPC는 가장 중요한 에셋 — '8명 존재'처럼 조금 더 살아있는 표현.
-        const countText = kind === 'npc' ? `${entities.length}명 존재` : `${entities.length}${countUnit}`
-        card.append(
-          editorIcon(KIND_ICON[kind] ?? 'prop', 30),
-          cardLabel,
-          el('div', 'whitespace-nowrap text-[10px] leading-none text-[#777777]', countText)
-        )
-        kindGrid.append(card)
-
-        // 보기 전용 종류(나무·가로등 등)는 카드로 개수만 보여주고 끝 — 펼칠 목록이 없다.
-        if (selectable.length === 0) {
-          continue
-        }
-
-        const cardButton = card as HTMLButtonElement
-        cardButton.type = 'button'
-        cardButton.setAttribute('aria-expanded', String(expanded))
-        cardButton.addEventListener('click', () => {
-          if (expandedGroups.has(groupKey)) {
-            expandedGroups.delete(groupKey)
-          } else {
-            expandedGroups.add(groupKey)
+        group.append(headerButton)
+        if (!expanded) continue
+        for (const entity of entities) {
+          const node = el('button', ENTITY_BASE) as HTMLButtonElement
+          node.type = 'button'
+          node.title = entity.name
+          node.dataset.assetId = entity.id
+          bindEntityPreview(node, map, entity)
+          node.append(
+            editorIcon(kind === 'npc' ? npcIconFor(entity.name) : (KIND_ICON[kind] ?? 'prop'), 14),
+            el('span', 'truncate', displayNameOf(entity.name))
+          )
+          node.onclick = () => {
+            selectedEntity = selectedEntity === entity ? undefined : entity
+            currentResult = undefined
+            render()
           }
-          renderTree()
-          render()
-        })
-
-        // 펼친 종류의 구성원 선택 그리드 — 카드 바로 아래 한 줄 전체를 쓴다(인벤토리 상세 칸 느낌).
-        if (expanded) {
-          const memberGrid = el('div', 'col-span-2 grid grid-cols-2 gap-1.5 rounded-lg border border-[#b6bac1]/25 bg-[#141416] p-1.5')
-          for (const entity of selectable) {
-            const node = el('button', entity === selectedEntity ? ENTITY_ACTIVE : ENTITY_BASE) as HTMLButtonElement
-            node.type = 'button'
-            // 이름이 길어도 hover로 전체 이름·타입을 볼 수 있다(CSS 툴팁).
-            node.setAttribute('data-tip', `${entity.name} · ${KIND_LABEL[kind] ?? kind}`)
-            // NPC는 역할(마법사/대장장이/상인/경비) 아이콘으로 먼저 구분되게 한다.
-            const memberIcon = kind === 'npc' ? npcIconFor(entity.name) : (KIND_ICON[kind] ?? 'prop')
-            node.append(
-              editorIcon(memberIcon, 16),
-              el('span', 'truncate', displayNameOf(entity.name))
-            )
-            node.addEventListener('click', () => {
-              if (selectedEntity === entity) {
-                selectedEntity = undefined
-                currentResult = undefined
-                render()
-                return
-              }
-              logActivity(`${displayNameOf(entity.name)} 선택`)
-              selectedEntity = entity
-              // 대상을 바꾸면 이전 생성 결과는 무효 — 새로 생성하게 한다.
-              currentResult = undefined
-              render()
-            })
-            entityButtons.push({ entity, node })
-            memberGrid.append(node)
-          }
-          kindGrid.append(memberGrid)
-        }
+          entityButtons.push({ entity, node })
+          group.append(node)
         }
       }
 

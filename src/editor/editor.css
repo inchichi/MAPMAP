@@ -12,6 +12,16 @@
   box-sizing: border-box;
 }
 
+/* Original compact asset sidebar; do not restyle the other editor panels. */
+.legacy-asset-tree {
+  --bgb: #252526;
+  background: #252526;
+  border: 1px solid #74603b;
+  font-family: system-ui, 'Malgun Gothic', sans-serif;
+}
+.legacy-asset-tree > div:first-child { border-color: #74603b; }
+.legacy-asset-tree input { background: #1a1a1a; border-color: #74603b; }
+
 /* 에디터 표준 폰트 클래스 — 전문 툴 UI 폰트(본문 상속과 동일). 게임 픽셀 폰트는 쓰지 않는다. */
 .settings-game-font {
   font-family: 'Pretendard', 'SUIT', system-ui, 'Apple SD Gothic Neo',
