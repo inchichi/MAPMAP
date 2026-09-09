@@ -484,7 +484,7 @@ export const createEditorApp = ({
     setDecorationLayerVisible(mapId, !visible)
     decorationToggle.textContent = visible ? '장식 꺼짐' : '장식 켜짐'
   })
-  const decorationDemo = el('button', 'px-2 py-1 border rounded', '크리스마스 데모 적용') as HTMLButtonElement
+  const decorationDemo = el('button', 'px-2 py-1 border rounded', '첫 결과 복원 · 크리스마스') as HTMLButtonElement
   decorationDemo.type = 'button'
   decorationDemo.addEventListener('click', async () => {
     decorationDemo.disabled = true
@@ -493,7 +493,7 @@ export const createEditorApp = ({
       if (!response.ok) throw new Error('Decoration fixture failed to load')
       installDecorationDemo(await response.json() as PlacedItem[])
       decorationToggle.textContent = '장식 켜짐'
-      decorationDemo.textContent = '크리스마스 데모 적용됨'
+      decorationDemo.textContent = '첫 결과 복원됨'
     } catch {
       decorationDemo.textContent = '적용 실패 · 다시 시도'
     } finally {

@@ -1,0 +1,136 @@
+{
+  "pipeline": "approved-reference-v1",
+  "generation_mode": "reuse-reviewed-flux-assets",
+  "references": [
+    {
+      "object": "town_hall",
+      "source": "public/experiments/flux-decorations-20260909/town-hall-decorations.png",
+      "sha256": "b3c8cb1dbe5fc6e270824537a93a6ca9864f4d5f3b310b02810fa211024bbcfc"
+    },
+    {
+      "object": "tree_1",
+      "source": "public/experiments/flux-decorations-20260909/tree_1-decorations.png",
+      "sha256": "f4b825f7b33553010c604751dcbc51adfa9c13ffbde9923217967da3835bd09b"
+    },
+    {
+      "object": "fountain_1",
+      "source": "public/experiments/flux-decorations-20260909/fountain_1-decorations.png",
+      "sha256": "94419190e5dcddddec21c493698d0ec1c2a2eb10a59639f8c7d95dca7695b0e3"
+    },
+    {
+      "object": "blacksmith_stall",
+      "source": "public/experiments/flux-decorations-20260909/blacksmith-stall-decorations-v3.png",
+      "sha256": "96db863a70bafe4e13d3e0c01913eb28955737d9b38b4d2101671358eec8ba24"
+    }
+  ],
+  "spec": {
+    "parser": "rules-v1",
+    "theme": "christmas",
+    "decorations": [
+      "snow",
+      "lights"
+    ],
+    "night": true,
+    "twinkle": true,
+    "color": {
+      "gain": [
+        1,
+        1,
+        1
+      ],
+      "bias": [
+        0,
+        0,
+        0
+      ]
+    },
+    "warnings": [
+      "규칙 기반 해석입니다. 아래 설정을 확인하세요. 세부 색상명·광원 방향은 아직 자동 해석하지 않습니다.",
+      "장식은 자동 마스크/정렬 결과이며 원본과 겹치는 부분은 미리보기에서 확인해야 합니다."
+    ]
+  },
+  "source_hashes": {
+    "src/games/my-sample-rpg/assets/maps/town.tmx": "80c5623c610d0b49f7e15e1a29701a8c6e9164fb2cf5ae05158cd6efc8178e50",
+    "src/games/my-sample-rpg/assets/tilesets/town-32.tsx": "e96dc91d9b20d97fbd7822c10ab46a6b9d2c0046407966e233336137a68c47b2",
+    "src/games/my-sample-rpg/assets/tilesets/town-32.png": "1ee659861aa2290fdf23d3ae544fe4d5add9baa762a9ef78a0deaddc0dcb201f"
+  },
+  "placements": [
+    {
+      "id": "321f30155d134d03ba3914c1e962d9da-settings",
+      "kind": "object",
+      "col": 0,
+      "row": 0,
+      "imageUrl": "/theme-runs/321f30155d134d03ba3914c1e962d9da/settings.png",
+      "renderLayer": "decoration",
+      "sourceGroup": "prompt-theme",
+      "visible": true,
+      "themeSettings": {
+        "runId": "321f30155d134d03ba3914c1e962d9da",
+        "night": 0.58,
+        "twinkle": true,
+        "color": {
+          "gain": [
+            1,
+            1,
+            1
+          ],
+          "bias": [
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    {
+      "id": "321f30155d134d03ba3914c1e962d9da-town_hall",
+      "kind": "object",
+      "col": 17,
+      "row": 1,
+      "anchor": "top-left",
+      "displayScale": 1,
+      "imageUrl": "/theme-runs/321f30155d134d03ba3914c1e962d9da/town_hall-decoration.png",
+      "renderLayer": "decoration",
+      "sourceGroup": "prompt-theme",
+      "visible": true
+    },
+    {
+      "id": "321f30155d134d03ba3914c1e962d9da-tree_1",
+      "kind": "object",
+      "col": 13,
+      "row": 11.5,
+      "anchor": "top-left",
+      "displayScale": 1,
+      "imageUrl": "/theme-runs/321f30155d134d03ba3914c1e962d9da/tree_1-decoration.png",
+      "renderLayer": "decoration",
+      "sourceGroup": "prompt-theme",
+      "visible": true
+    },
+    {
+      "id": "321f30155d134d03ba3914c1e962d9da-fountain_1",
+      "kind": "object",
+      "col": 17,
+      "row": 12,
+      "anchor": "top-left",
+      "displayScale": 1,
+      "imageUrl": "/theme-runs/321f30155d134d03ba3914c1e962d9da/fountain_1-decoration.png",
+      "renderLayer": "decoration",
+      "sourceGroup": "prompt-theme",
+      "visible": true
+    },
+    {
+      "id": "321f30155d134d03ba3914c1e962d9da-blacksmith_stall",
+      "kind": "object",
+      "col": 10,
+      "row": 12,
+      "anchor": "top-left",
+      "displayScale": 1,
+      "imageUrl": "/theme-runs/321f30155d134d03ba3914c1e962d9da/blacksmith_stall-decoration.png",
+      "renderLayer": "decoration",
+      "sourceGroup": "prompt-theme",
+      "visible": true
+    }
+  ],
+  "geometry_preserved": true,
+  "original_files_unchanged": true
+}
