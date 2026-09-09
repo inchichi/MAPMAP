@@ -217,7 +217,11 @@ import {
   type ScenarioRewardGrant,
   type ScenarioRun
 } from '../scenario/scenarioRuntime'
-import { createScenarioFlagAccess, getScenarioForNpc } from '../scenario/scenarioStore'
+import {
+  createScenarioFlagAccess,
+  getScenarioForNpc,
+  isPriorityScenarioForNpc
+} from '../scenario/scenarioStore'
 import { POTION_ITEM_DEFINITIONS } from '../potionShop'
 
 type CreatePixiTiledMapViewInput = {
@@ -2709,10 +2713,10 @@ export const createPixiTiledMapView = async ({
         targetCharacters: characterStates,
         canReceiveInteraction: (character) =>
           getScenarioForNpc(character.id) !== undefined &&
-          // 퀘스트 대사가 대기 중인 NPC는 시나리오가 가로채지 않는다 —
-          // 마법사의 야바위가 메인 퀘스트를 막던 문제의 수정.
-          getNextQuestInteractionForNpc(currentQuestLog, character.id) ===
-            undefined
+          // 에디터에서 명시적으로 적용한 시나리오는 데모/저작 결과를 확인할 수 있도록
+          // 기본 퀘스트보다 우선한다. 내장 골드 예제는 기존 퀘스트 흐름을 막지 않는다.
+          (isPriorityScenarioForNpc(character.id) ||
+            getNextQuestInteractionForNpc(currentQuestLog, character.id) === undefined)
       })
       if (!targetCharacter) {
         unhandledEvents.push(event)

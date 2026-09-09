@@ -8,9 +8,23 @@
 import type { GeneratedScenarioJson } from './scenarioTypes'
 
 const scenarioByNpcId = new Map<string, GeneratedScenarioJson>()
+const priorityScenarioNpcIds = new Set<string>()
+
+export type ScenarioRegistrationOptions = {
+  // Scenarios explicitly applied from the editor may temporarily take priority over NPC quests.
+  priorityNpcIds?: string[]
+}
 
 // 같은 NPC 에 다시 등록하면 마지막 것이 이긴다(에디터에서 갱신 적용을 단순하게).
-export const registerScenarios = (scenarios: GeneratedScenarioJson[]): void => {
+export const registerScenarios = (
+  scenarios: GeneratedScenarioJson[],
+  options: ScenarioRegistrationOptions = {}
+): void => {
+  priorityScenarioNpcIds.clear()
+  for (const npcId of options.priorityNpcIds ?? []) {
+    priorityScenarioNpcIds.add(npcId)
+  }
+
   for (const scenario of scenarios) {
     scenarioByNpcId.set(scenario.trigger.npc_id, scenario)
   }
@@ -19,9 +33,13 @@ export const registerScenarios = (scenarios: GeneratedScenarioJson[]): void => {
 export const getScenarioForNpc = (npcId: string): GeneratedScenarioJson | undefined =>
   scenarioByNpcId.get(npcId)
 
+export const isPriorityScenarioForNpc = (npcId: string): boolean =>
+  priorityScenarioNpcIds.has(npcId)
+
 // 테스트 격리용.
 export const clearScenarios = (): void => {
   scenarioByNpcId.clear()
+  priorityScenarioNpcIds.clear()
 }
 
 // ---------------------------------------------------------------------------
