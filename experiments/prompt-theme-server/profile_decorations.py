@@ -5,13 +5,14 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 from object_decorations import request_image
+from town_profiles import extend_town_profiles
 
 PROFILE_PATH=Path(__file__).with_name('decoration_profiles.json')
 VERSION='object-profiles-v1'
 
 
 def profiles():
-    return json.loads(PROFILE_PATH.read_text(encoding='utf8'))['objects']
+    return extend_town_profiles(json.loads(PROFILE_PATH.read_text(encoding='utf8'))['objects'])
 
 
 def get_profile(obj):
@@ -32,7 +33,17 @@ def profile_masks(original,p):
     a=np.array(original).astype(float);r,g,b,alpha=a.transpose(2,0,1)
     opaque=alpha>200;size=original.size;w,h=size
     protected=rectangles(size,p['protected_rects'])
-    if p['kind']=='building':
+    if p.get('surface_profile'):
+        if p['kind']=='building':
+            from object_decorations import surface_masks
+            snow,lights=surface_masks(original,'building')
+        else:
+            # Only decorate existing upper surfaces, never supports or empty space.
+            snow=opaque.copy();snow[int(h*.72):]=False
+            if p['kind']=='lamp':snow[int(h*.45):]=False
+            lights=snow.copy()
+        ornaments=lights
+    elif p['kind']=='building':
         area=Image.new('L',size);draw=ImageDraw.Draw(area)
         for polygon in p['snow_polygons']:draw.polygon([tuple(v) for v in polygon],fill=255)
         snow=(np.array(area)>0)&opaque&(b>r*1.15)&(b>g*1.02)
@@ -93,6 +104,24 @@ def extract_profile(original,generated,p,names):
     return Image.fromarray(np.dstack((rgb.astype('uint8'),a))),regions,protected,counts
 
 
+def find_strip(raw,name,key_strip):
+    keyed=key_strip(raw);a=np.array(keyed);rgb=a[:,:,:3].astype(float);r,g,b=rgb.transpose(2,0,1)
+    if name=='snow':seed=(rgb.min(2)>185)&(rgb.max(2)-rgb.min(2)<45)&(a[:,:,3]>0)
+    elif name=='lights':seed=(r>165)&(g>85)&(b<165)&(r>g*1.08)&(a[:,:,3]>0)
+    else:return keyed
+    rows=np.flatnonzero(seed.any(axis=1))
+    if not len(rows):raise ValueError(name+': 장식 색상 검출 실패')
+    groups=np.split(rows,np.flatnonzero(np.diff(rows)>max(4,keyed.height//50))+1)
+    group=groups[-1] if name=='lights' else max(groups,key=lambda ys:int(seed[ys].sum()))
+    top=max(0,int(group[0])-(max(8,keyed.height//12) if name=='lights' else 3))
+    bottom=min(keyed.height,int(group[-1])+5)
+    if name=='lights':
+        # Snow may be generated above/below the wire in any order.
+        a[(rgb.min(2)>170)&(rgb.max(2)-rgb.min(2)<50),3]=0
+    out=Image.fromarray(a).crop((0,top,keyed.width,bottom))
+    return out.crop(out.getbbox())
+
+
 def generate_profile(folder,original,obj,spec,flux,key_strip):
     p=get_profile(obj)
     unsupported=set(spec['decorations'])-set(p['supported'])
@@ -119,7 +148,7 @@ def generate_profile(folder,original,obj,spec,flux,key_strip):
     else:
         overlay=Image.new('RGBA',original.size);regions,protected=profile_masks(original,p);counts={}
         for i,name in enumerate(names):
-            strip=key_strip(raw.crop((0,i*raw.height//len(names),raw.width,(i+1)*raw.height//len(names))),name)
+            strip=find_strip(raw,name,key_strip)
             strip.save(folder/(name+'-strip.png'))
             x0,y0,x1,y1=p['snow_rect'] if name=='snow' else p['wire_rect']
             # Preserve the material's aspect ratio; repeat rather than stretch wires.

@@ -1,5 +1,5 @@
 import './promptTheme.css'
-import { installPromptTheme, type PromptThemeApproval } from './placementStore'
+import { applyPromptThemeRun } from './applyPromptThemeRun'
 
 type Spec = { theme: string; decorations: string[]; night: boolean; twinkle: boolean; color: { gain: number[]; bias: number[] }; warnings: string[] }
 type Run = { id: string; status: string; stage: number; prompt: string; preview?: string; original?: string; error?: string; warnings?: string[]; spec?: Spec; pipeline?: string; current_object?: string; completed_objects?: number; total_objects?: number }
@@ -22,7 +22,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   back.textContent = '← 게임 에디터로 돌아가기'
   back.className = 'lab-back'
   const note = document.createElement('p')
-  note.textContent = '오브젝트별 맞춤 설정: 장식 영역·보호 영역·배치 좌표 고정 → 각각 FLUX 생성 → 결과별 추출·검수. 현재 등록된 4개 대상만 지원하며, 승인 전 게임은 변경하지 않습니다.'
+  note.textContent = '오브젝트별 맞춤 설정: 장식 영역·보호 영역·배치 좌표 고정 → 각각 FLUX 생성 → 결과별 추출·검수. 중복 조각은 부모 오브젝트에 포함하며, 승인 전 게임은 변경하지 않습니다.'
   const prompt = document.createElement('textarea')
   prompt.setAttribute('aria-label', '테마 프롬프트')
   prompt.value = '크리스마스 밤 마을. 눈과 전구를 추가하고 은은하게 반짝이게 해줘.'
@@ -159,11 +159,12 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     if (!runId) return
     applying=true;apply.disabled=true
     try {
-      const approval = await api('/runs/'+runId+'/approve',{}) as PromptThemeApproval
-      installPromptTheme(approval)
+      const warning = await applyPromptThemeRun(runId)
+      if (warning) { status.textContent = warning; return }
       setProgress(3, '적용 완료 · 게임 에디터로 돌아가 확인하세요.')
       for (const frame of document.querySelectorAll('iframe')) frame.contentWindow?.postMessage({type:'editor:placement-refresh'},location.origin)
       status.textContent='적용·이 브라우저에 저장 완료. 상단의 게임 에디터로 돌아가 결과를 확인하세요. 장식 버튼으로 색 보정/밤/장식을 함께 끌 수 있습니다. 이전 배치는 브라우저에 백업했습니다. 선택한 오브젝트의 장식만 교체했습니다.'
+      location.assign('/editor.html')
     } catch(e) {error(e)} finally {applying=false;apply.disabled=false}
   }
   history.onclick=async () => {

@@ -61,6 +61,14 @@ describe('placementStore', () => {
     expect(() => installPromptTheme({ ...approval, placements: [{ ...approval.placements[0], imageUrl: 'https://example.com/x.png' }] })).toThrow()
     expect(loadPlacementsForMap('town')).toEqual([])
   })
+  it('preserves night settings when a partial restore has no new settings', () => {
+    const settings = addPlacement('town', {
+      kind: 'object', sourceGroup: 'prompt-theme', renderLayer: 'decoration',
+      themeSettings: { runId: 'old', night: 0.58, twinkle: true, color: { gain: [1, 1, 1], bias: [0, 0, 0] } }
+    }, 0, 0)
+    installPromptTheme(approval)
+    expect(loadPlacementsForMap('town')).toContainEqual(settings)
+  })
   it('does not apply if the previous state cannot be backed up', () => {
     vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => { throw new Error('quota') })
     expect(() => installPromptTheme(approval)).toThrow('백업')

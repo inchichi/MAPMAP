@@ -6,6 +6,29 @@ from theme_pipeline import catalog,layers
 
 
 class ProfileTests(unittest.TestCase):
+    def test_strip_selection_does_not_assume_equal_vertical_sections(self):
+        from PIL import ImageDraw
+        from profile_decorations import find_strip
+        from theme_pipeline import key_strip
+        raw=Image.new('RGB',(160,160),'magenta');draw=ImageDraw.Draw(raw)
+        draw.rectangle((10,10,145,32),fill='white')
+        draw.line((10,74,145,74),fill='black',width=2)
+        for x in range(20,145,20):draw.rectangle((x,72,x+3,80),fill=(255,180,35))
+        draw.rectangle((10,115,145,140),fill='white')
+        strip=np.array(find_strip(raw,'lights',key_strip))
+        visible=strip[:,:,3]>0
+        self.assertTrue(visible.any())
+        self.assertFalse(((strip[:,:,:3].min(2)>200)&visible).any())
+
+    def test_all_static_town_records_have_an_owner(self):
+        from town_profiles import PARTS
+        objects={o['id']:o for o in catalog()}
+        self.assertEqual(set(objects),set(profiles())|set(PARTS))
+        self.assertFalse(set(profiles())&set(PARTS))
+        for child,parent in PARTS.items():
+            x,y,w,h=objects[child]['box'];px,py,pw,ph=objects[parent]['box']
+            self.assertTrue(px<=x and py<=y and x+w<=px+pw and y+h<=py+ph)
+
     @classmethod
     def setUpClass(cls):
         _,_,cls.objects,_=layers({'gain':[1,1,1],'bias':[0,0,0]})

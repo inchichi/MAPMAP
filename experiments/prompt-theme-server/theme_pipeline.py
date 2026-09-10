@@ -9,6 +9,8 @@ import requests
 from PIL import Image
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from run_records import record_event, review_html
 from pydantic import BaseModel, Field
 from profile_decorations import VERSION, profiles, get_profile, generate_profile
 
@@ -23,7 +25,6 @@ async def lifespan(_app):
     yield
 
 app = FastAPI(lifespan=lifespan)
-app.mount('/artifacts', StaticFiles(directory=ROOT), name='artifacts')
 pool = ThreadPoolExecutor(max_workers=1)
 busy = threading.Lock()
 PRESETS = {
@@ -58,7 +59,7 @@ def sources():
 
 def catalog():
     m,_,_,_ = sources()
-    return [{'id':o.get('name'), 'category':o.get('type'), 'box':[int(float(o.get(k,0))) for k in ['x','y','width','height']]} for o in m.findall('.//object') if o.get('type') in ['building','tree','fountain'] and float(o.get('width','0'))>0]
+    return [{'id':o.get('name'), 'category':o.get('type'), 'box':[int(float(o.get(k,0))) for k in ['x','y','width','height']]} for o in m.findall('.//object') if o.get('type') in ['building','tree','fountain','lamp','flower','prop'] and float(o.get('width','0'))>0]
 
 def recolor(image, color):
     a = np.array(image.convert('RGBA'))
@@ -137,16 +138,23 @@ def align(original, strips):
     return Image.fromarray(a)
 
 def save_status(folder, data):
+    record_event(folder, 'status', snapshot=data)
     tmp=folder/'status.tmp'
     tmp.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf8')
-    tmp.replace(folder/'status.json')
+    for attempt in range(10):
+        try:
+            tmp.replace(folder/'status.json')
+            break
+        except PermissionError:
+            if attempt==9:raise
+            time.sleep(.1)
 
 class Request(BaseModel):
     prompt: str = Field(min_length=2,max_length=1200)
-    targets: list[str] = Field(default_factory=list, max_length=20)
+    targets: list[str] = Field(default_factory=list, max_length=64)
 
 @app.get('/health')
-def health(): return {'status':'ok','parser':'rules-v1','pipeline':VERSION,'backend':'FLUX','busy':busy.locked()}
+def health(): return {'status':'ok','parser':'rules-v1','pipeline':VERSION,'backend':'FLUX','busy':busy.locked() or (ROOT/'.batch.lock').exists()}
 
 @app.post('/plan')
 def plan(req: Request):
@@ -157,7 +165,7 @@ def plan(req: Request):
 
 @app.get('/runs')
 def runs():
-    return [json.loads(p.read_text(encoding='utf8')) for p in sorted(ROOT.glob('*/status.json'), key=lambda p:p.stat().st_mtime,reverse=True)[:30]]
+    return [json.loads(p.read_text(encoding='utf8')) for p in sorted(ROOT.glob('*/status.json'), key=lambda p:p.stat().st_mtime,reverse=True)]
 
 def run(folder, req):
     data={'id':folder.name,'status':'running','stage':1,'prompt':req.prompt,'created':time.time(),'pipeline':VERSION}
@@ -212,6 +220,7 @@ def run(folder, req):
 
 @app.post('/runs')
 def submit(req: Request):
+    if (ROOT/'.batch.lock').exists():raise HTTPException(409,'마을 전체 생성 중입니다. 완료 후 새 생성을 시작해주세요.')
     try:
         spec=parse_prompt(req.prompt)
         for o in catalog():
@@ -271,7 +280,31 @@ def approve(run_id:str):
         path=(folder/url[len(prefix):]).resolve()
         if not path.is_relative_to(folder.resolve()) or not path.is_file():
             raise HTTPException(409,'결과 이미지가 없습니다.')
+    record_event(folder, 'approval_validated', placement_count=len(manifest['placements']))
     return {'id':run_id,'mapId':'town','targets':[o['id'] for o in manifest['objects']], 'placements':manifest['placements']}
+
+
+class AppliedReceipt(BaseModel):
+    placement_ids: list[str] = Field(max_length=1000)
+
+
+@app.post('/runs/{run_id}/applied')
+def applied(run_id:str, receipt:AppliedReceipt):
+    folder=get_folder(run_id)
+    manifest=json.loads((folder/'manifest.json').read_text(encoding='utf8'))
+    expected=[item['id'] for item in manifest['placements']]
+    if sorted(receipt.placement_ids)!=sorted(expected):raise HTTPException(409,'적용 항목이 현재 결과와 다릅니다.')
+    record_event(folder, 'browser_applied', placement_ids=receipt.placement_ids,
+                 manifest_sha256=hashlib.sha256((folder/'manifest.json').read_bytes()).hexdigest())
+    return {'saved':True}
+
+
+@app.get('/artifacts/{run_id}/review.html', response_class=HTMLResponse)
+def result_page(run_id:str):
+    return review_html(get_folder(run_id))
+
+
+app.mount('/artifacts', StaticFiles(directory=ROOT), name='artifacts')
 
 # Recover only when the service starts, not when tests import the module.
 def recover_runs():

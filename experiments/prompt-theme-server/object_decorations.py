@@ -1,5 +1,5 @@
 """Per-object FLUX references, surface masks and decoration-only extraction."""
-import json
+import json,time
 import numpy as np
 import requests
 from PIL import Image
@@ -58,12 +58,16 @@ def request_image(folder, source, prompt, flux, alpha, pipeline=None):
         'steps':28, 'alpha':alpha, 'geometry_lock':False,
         'seed':'service random; not exposed'
     }, indent=2))
-    with open(folder/'flux-input.png', 'rb') as f:
-        response = requests.post(flux+'/style-transfer', files={'content':('input.png',f,'image/png')},
-            data={'prompt':prompt,'steps':28,'alpha':alpha,'geometry_lock':'false'}, timeout=1800)
-    response.raise_for_status()
-    (folder/'flux-raw.png').write_bytes(response.content)
-    return Image.open(folder/'flux-raw.png').convert('RGB')
+    started=time.time();timer=time.perf_counter()
+    try:
+        with open(folder/'flux-input.png', 'rb') as f:
+            response = requests.post(flux+'/style-transfer', files={'content':('input.png',f,'image/png')},
+                data={'prompt':prompt,'steps':28,'alpha':alpha,'geometry_lock':'false'}, timeout=1800)
+        response.raise_for_status()
+        (folder/'flux-raw.png').write_bytes(response.content)
+        return Image.open(folder/'flux-raw.png').convert('RGB')
+    finally:
+        (folder/'request-timing.json').write_text(json.dumps({'started_at':started,'finished_at':time.time(),'generation_seconds':time.perf_counter()-timer,'includes':'HTTP request, server processing, transfer and decode'}),encoding='utf8')
 
 
 def extract_attached(original, generated, kind, decorations):
