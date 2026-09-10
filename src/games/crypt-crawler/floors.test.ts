@@ -51,7 +51,9 @@ describe('floorBelow / floorAbove', () => {
   })
 
   it('맨 위와 맨 아래에서는 갈 곳이 없다', () => {
-    expect(floorAbove(FLOORS[0])).toBeUndefined()
+    expect(floorAbove(FLOORS[0])?.stem).toBe('floor-0-town')
+    expect(floorAbove(floorByStem('floor-0-town'))).toBeUndefined()
+    expect(floorBelow(floorByStem('floor-0-town'))).toBe(FLOORS[0])
     expect(floorBelow(FLOORS[4])).toBeUndefined()
   })
 })

@@ -18,14 +18,17 @@ editor.textContent = '에디터 열기'
 bar.append(apply, message, logs, editor)
 document.body.prepend(bar)
 let applying = false
+let isCrypt = false
 const check = async (): Promise<void> => {
   try {
     const response = await fetch(`/api/prompt-theme/runs/${runId}`, { cache: 'no-store' })
     if (!response.ok) throw new Error(await response.text())
     const run = await response.json()
+    isCrypt = run.mapId === 'floor-0-town'
+    if (isCrypt) editor.href = '/editor.html?game=crypt&map=floor-0-town'
     apply.disabled = run.status !== 'ready' || applying
     if (!applying) message.textContent = run.status === 'ready' ? '원본 맵 유지 · 결과를 저장하고 에디터로 이동합니다.' : `아직 적용할 수 없습니다: ${run.status}`
-    if (['running', 'queued'].includes(run.status)) window.setTimeout(() => { void check() }, 3000)
+    if (['running', 'queued', 'awaiting_review'].includes(run.status)) window.setTimeout(() => { void check() }, 3000)
   } catch (error) {
     message.textContent = `상태 확인 실패: ${String(error)}`
     window.setTimeout(() => { void check() }, 5000)
@@ -36,6 +39,13 @@ apply.onclick = async () => {
   apply.disabled = true
   message.textContent = '이미지 확인 · 적용 · 저장 중…'
   try {
+    if (isCrypt) {
+      const response = await fetch(`/api/prompt-theme/runs/${runId}/crypt-apply`, { method: 'POST' })
+      if (!response.ok) throw new Error(await response.text())
+      localStorage.setItem('crypt-crawler:style-visible', 'true')
+      location.assign('/editor.html?game=crypt&map=floor-0-town')
+      return
+    }
     const warning = await applyPromptThemeRun(runId)
     if (warning) {
       message.textContent = warning

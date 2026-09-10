@@ -42,3 +42,7 @@ style-service/specs/
 
 # Ninja Adventure 원본 팩 — scripts/import-ninja-adventure.py 로 재현 가능(43MB)
 third_party/ninja-adventure/
+
+# Local Crypt style selection references logged, untracked generated artifacts.
+public/crypt-style/active.json
+public/crypt-style/active.tmp

@@ -303,6 +303,12 @@ def applied(run_id:str, receipt:AppliedReceipt):
 def result_page(run_id:str):
     return review_html(get_folder(run_id))
 
+@app.post('/runs/{run_id}/crypt-apply')
+def crypt_apply(run_id:str):
+    from crypt_apply import publish
+    try: return publish(REPO,get_folder(run_id))
+    except (ValueError,KeyError,FileNotFoundError) as error: raise HTTPException(409,str(error))
+
 
 app.mount('/artifacts', StaticFiles(directory=ROOT), name='artifacts')
 

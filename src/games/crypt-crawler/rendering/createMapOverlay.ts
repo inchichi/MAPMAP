@@ -1,5 +1,6 @@
 import { Container, Graphics, Rectangle, Sprite, Text, Texture } from 'pixi.js'
 
+import { createHudPanel, layoutHudPanel, HUD_FONT, type HudArt } from './createCryptHud'
 import { isDiscovered, type ExplorationState } from '../exploration'
 import { isBlocked, type DungeonModel } from '../dungeonModel'
 
@@ -8,8 +9,12 @@ import { isBlocked, type DungeonModel } from '../dungeonModel'
 // 드러난 내용이 두 모드에 저절로 같이 반영된다.
 const MINIMAP_WINDOW_TILES = 72
 const MINIMAP_SIZE = 168
-const MINIMAP_MARGIN = 14
-const EXPANDED_MAX_SIZE = 460
+const MINIMAP_MARGIN = 24
+const EXPANDED_MAX_SIZE = 400
+/** 팩 받침의 테두리 두께(화면 px). 지도는 그 안쪽에 딱 맞게 앉는다. */
+const FRAME = 10
+const FONT_SIZE = 16
+const TITLE_HEIGHT = FRAME * 2 + 20
 
 // 층 색. 층마다 존이 하나이므로 존 색이 곧 층 색이다. zoneId 는 1..5 라 -1 해서 쓴다
 // (0-based 로 그대로 색인하면 다섯 층 전부 이웃 층 색을 쓰고 5층은 범위를 벗어난다).
@@ -23,6 +28,13 @@ const FLOOR_COLOURS = [
 ]
 const WALL_COLOUR = [58, 50, 66]
 const UNKNOWN_COLOUR = [26, 22, 32]
+
+// 표식 색은 팩 팔레트에서 뽑았다. 계단은 위/아래가 삼각형 방향으로 갈리고 밝기로 한 번 더 갈린다.
+const OUTLINE = 0x141b1b
+const PLAYER_COLOUR = 0xf2eaf1
+const BOSS_COLOUR = 0xe0394c
+const STAIRS_DOWN_COLOUR = 0xffad5d
+const STAIRS_UP_COLOUR = 0xd3865f
 
 export type MapOverlay = {
   /** 새로 드러난 칸이 있을 때만 호출한다 — 매 프레임 전체를 다시 칠하지 않는다. */
@@ -47,8 +59,31 @@ const buildZoneIndex = (model: DungeonModel): Int8Array => {
   return index
 }
 
+/** 표식도 픽셀로 그린다 — 원을 그리면 지도만 벡터가 되어 겉돈다. */
+const createMarker = (size: number, colour: number): Graphics =>
+  new Graphics()
+    .rect(-size / 2 - 1, -size / 2 - 1, size + 2, size + 2)
+    .fill(OUTLINE)
+    .rect(-size / 2, -size / 2, size, size)
+    .fill(colour)
+
+const drawTriangle = (
+  target: Graphics,
+  x: number,
+  y: number,
+  pointsDown: boolean,
+  colour: number
+) => {
+  for (let step = 0; step < 3; step += 1) {
+    const width = 6 - step * 2
+    const rowY = pointsDown ? y - 3 + step * 2 : y + 1 - step * 2
+    target.rect(x - width / 2, rowY, width, 2).fill(colour)
+  }
+}
+
 export const createMapOverlay = (
   stage: Container,
+  art: HudArt,
   model: DungeonModel,
   exploration: ExplorationState,
   viewWidth: number,
@@ -78,12 +113,14 @@ export const createMapOverlay = (
   minimap.height = MINIMAP_SIZE
   minimap.position.set(viewWidth - MINIMAP_SIZE - MINIMAP_MARGIN, MINIMAP_MARGIN)
 
-  const minimapBorder = new Graphics()
-    .rect(minimap.x - 2, minimap.y - 2, MINIMAP_SIZE + 4, MINIMAP_SIZE + 4)
-    .fill({ color: 0x1a1620, alpha: 0.9 })
-  const minimapMarker = new Graphics().circle(0, 0, 2.5).fill({ color: 0xffe066 })
+  const minimapPanel = createHudPanel(art.panel)
+  layoutHudPanel(
+    minimapPanel, minimap.x - FRAME, minimap.y - FRAME,
+    MINIMAP_SIZE + FRAME * 2, MINIMAP_SIZE + FRAME * 2
+  )
+  const minimapMarker = createMarker(6, PLAYER_COLOUR)
 
-  root.addChild(minimapBorder, minimap, minimapMarker)
+  root.addChild(minimapPanel, minimap, minimapMarker)
 
   // ---- 펼친 전체 지도.
   const expanded = new Container()
@@ -92,32 +129,43 @@ export const createMapOverlay = (
   const expandedWidth = model.width * expandedScale
   const expandedHeight = model.height * expandedScale
   const expandedX = Math.round((viewWidth - expandedWidth) / 2)
+  // 제목 받침이 위에 한 줄 들어가므로 지도를 그만큼 내린다. 아래로는 하단 정보 줄을 덮지 않는다.
   const expandedY = Math.round((viewHeight - expandedHeight) / 2) + 8
 
   const dim = new Graphics()
     .rect(0, 0, viewWidth, viewHeight)
-    .fill({ color: 0x0d0b10, alpha: 0.82 })
+    .fill({ color: OUTLINE, alpha: 0.82 })
   const expandedMap = new Sprite(texture)
   expandedMap.width = expandedWidth
   expandedMap.height = expandedHeight
   expandedMap.position.set(expandedX, expandedY)
-  const expandedBorder = new Graphics()
-    .rect(expandedX - 2, expandedY - 2, expandedWidth + 4, expandedHeight + 4)
-    .stroke({ color: 0x6b5f76, width: 2 })
-  const expandedMarker = new Graphics().circle(0, 0, 3.5).fill({ color: 0xffe066 })
+  const expandedPanel = createHudPanel(art.panel)
+  layoutHudPanel(
+    expandedPanel, expandedX - FRAME, expandedY - FRAME,
+    expandedWidth + FRAME * 2, expandedHeight + FRAME * 2
+  )
+  const expandedMarker = createMarker(8, PLAYER_COLOUR)
 
   const title = new Text({
     text: '지도  —  M 키로 닫기',
-    style: { fontFamily: 'monospace', fontSize: 13, fill: 0xf2e9e4 }
+    style: { fontFamily: HUD_FONT, fontSize: FONT_SIZE, fill: OUTLINE }
   })
-  title.anchor.set(0.5, 1)
-  title.position.set(viewWidth / 2, expandedY - 10)
+  title.anchor.set(0.5, 0)
+  const titleWidth = Math.round(title.width) + FRAME * 4
+  const titleY = expandedY - FRAME - 12 - TITLE_HEIGHT
+  title.position.set(Math.round(viewWidth / 2), titleY + FRAME + 2)
+  const titlePanel = createHudPanel(art.panel)
+  layoutHudPanel(
+    titlePanel, Math.round((viewWidth - titleWidth) / 2), titleY, titleWidth, TITLE_HEIGHT
+  )
 
   // 보스와 계단은 그 칸을 이미 밟아 본 뒤에만 표시한다 — 안 그러면 지도가 목적지를 미리 알려준다.
   // 다만 계단은 384x384 에서 찾는 것 자체가 일이라, 한 번 본 뒤에는 확실히 눈에 띄어야 한다.
   const bossMarkers = new Graphics()
 
-  expanded.addChild(dim, expandedBorder, expandedMap, bossMarkers, expandedMarker, title)
+  expanded.addChild(
+    dim, expandedPanel, expandedMap, bossMarkers, expandedMarker, titlePanel, title
+  )
   root.addChild(expanded)
 
   const paintPixel = (x: number, y: number) => {
@@ -155,40 +203,35 @@ export const createMapOverlay = (
 
     const scale = MINIMAP_SIZE / MINIMAP_WINDOW_TILES
     minimapMarker.position.set(
-      minimap.x + (playerTileX - minimapFrame.x) * scale,
-      minimap.y + (playerTileY - minimapFrame.y) * scale
+      Math.round(minimap.x + (playerTileX - minimapFrame.x) * scale),
+      Math.round(minimap.y + (playerTileY - minimapFrame.y) * scale)
     )
 
     if (!expanded.visible) {
       return
     }
     expandedMarker.position.set(
-      expandedX + playerTileX * expandedScale,
-      expandedY + playerTileY * expandedScale
+      Math.round(expandedX + playerTileX * expandedScale),
+      Math.round(expandedY + playerTileY * expandedScale)
     )
     bossMarkers.clear()
     for (const boss of model.bosses) {
       if (!isDiscovered(exploration, boss.tileX, boss.tileY)) {
         continue
       }
-      bossMarkers
-        .circle(expandedX + boss.tileX * expandedScale, expandedY + boss.tileY * expandedScale, 3)
-        .fill({ color: 0xd7263d })
+      const x = Math.round(expandedX + boss.tileX * expandedScale)
+      const y = Math.round(expandedY + boss.tileY * expandedScale)
+      bossMarkers.rect(x - 4, y - 4, 8, 8).fill(OUTLINE).rect(x - 3, y - 3, 6, 6).fill(BOSS_COLOUR)
     }
     for (const stairs of model.stairs) {
       if (!isDiscovered(exploration, stairs.tileX, stairs.tileY)) {
         continue
       }
-      const x = expandedX + stairs.tileX * expandedScale
-      const y = expandedY + stairs.tileY * expandedScale
-      const colour = stairs.direction === 'down' ? 0xffd166 : 0x8ecae6
-      // 아래층은 아래를 가리키는 삼각형, 위층은 위를 가리키는 삼각형.
-      const tip = stairs.direction === 'down' ? y + 4 : y - 4
-      bossMarkers
-        .moveTo(x - 4, stairs.direction === 'down' ? y - 3 : y + 3)
-        .lineTo(x + 4, stairs.direction === 'down' ? y - 3 : y + 3)
-        .lineTo(x, tip)
-        .fill({ color: colour })
+      const x = Math.round(expandedX + stairs.tileX * expandedScale)
+      const y = Math.round(expandedY + stairs.tileY * expandedScale)
+      const down = stairs.direction === 'down'
+      bossMarkers.rect(x - 4, y - 4, 8, 8).fill(OUTLINE)
+      drawTriangle(bossMarkers, x, y, down, down ? STAIRS_DOWN_COLOUR : STAIRS_UP_COLOUR)
     }
   }
 
@@ -199,7 +242,7 @@ export const createMapOverlay = (
       expanded.visible = !expanded.visible
       // 같은 정보를 두 번 띄울 이유가 없다.
       minimap.visible = !expanded.visible
-      minimapBorder.visible = !expanded.visible
+      minimapPanel.visible = !expanded.visible
       minimapMarker.visible = !expanded.visible
     },
     destroy: () => {

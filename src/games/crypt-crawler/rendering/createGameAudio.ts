@@ -98,6 +98,11 @@ export const createGameAudio = (): GameAudio => {
   const lastPlayedAtMs = new Map<SfxKey, number>()
 
   let settings = loadSettings()
+  // Start editor previews silently; the existing mute key can enable audio again.
+  if (window.parent && window.parent !== window) {
+    settings = { ...settings, muted: true }
+    saveSettings(settings)
+  }
   let unlocked = false
   // 울려야 할 곡. 잠금이 풀리기 전에도 층을 따라 갱신된다.
   let wantedTrack: MusicTrack = 'ruins'

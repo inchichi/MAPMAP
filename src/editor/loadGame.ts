@@ -1,4 +1,5 @@
 import { CURRENT_GAME_PROJECT_PROFILE } from './currentGameProjectSnapshot'
+import { CRYPT_MAP_NAMES } from './cryptGameFiles'
 import { detectAdapter, type GameAdapter, type GameEntity } from './gameAdapter'
 import { extractTmxLayerNames, extractTmxObjects, type TmxObject } from './tmxObjects'
 import {
@@ -62,7 +63,7 @@ export const loadGame = (files: GameFile[]): LoadedGame => {
         parseErrors.push(file.path)
       }
       // 레이어 이름은 표시용 부가 정보라 파싱 실패해도 throw하지 않고 []를 돌려준다(엔티티와 별개).
-      return { id, name: id, file: file.path, entities, layers: extractTmxLayerNames(file.text) }
+      return { id, name: adapter.id === 'crypt-crawler' ? CRYPT_MAP_NAMES[id] ?? id : id, file: file.path, entities, layers: extractTmxLayerNames(file.text) }
     })
 
   const profile: GameStructureProfile | undefined =

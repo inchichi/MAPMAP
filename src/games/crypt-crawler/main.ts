@@ -49,6 +49,7 @@ const bossSheetUrl = (kind: string): string | undefined => {
 // 종류별 시트는 층을 오갈 때마다 다시 디코드할 이유가 없다. 한 번 읽으면 여기 남는다.
 const monsterFrames = new Map<string, DirectionalFrames>()
 const bossFrames = new Map<string, Texture[]>()
+let cryptView: Awaited<ReturnType<typeof createCryptView>> | undefined
 
 const ensureMonsterFrames = async (kinds: Set<string>) => {
   await Promise.all(
@@ -132,8 +133,21 @@ const boot = async () => {
     attack: playerAttackUrl
   })
 
-  await createCryptView(host, { atlas, player, monsterFrames, bossFrames }, loadFloor)
+  cryptView = await createCryptView(host, { atlas, player, monsterFrames, bossFrames }, loadFloor)
 }
+
+window.addEventListener('message', (event) => {
+  if (event.origin !== location.origin || event.source !== window.parent) return
+  const data = event.data as { type?: unknown; mapId?: unknown } | null
+  if (data?.type !== 'editor:goto-map' || typeof data.mapId !== 'string') {
+    return
+  }
+
+  void cryptView?.goToFloor(data.mapId).catch((error: unknown) => {
+    console.error('[crypt-crawler] 에디터 층 전환 실패', error)
+    window.parent.postMessage({ type: 'game:map-error', message: String(error) }, location.origin)
+  })
+})
 
 // 부팅 실패가 조용히 묻히면 빈 화면만 남는다. 화면에도 띄운다.
 boot().catch((error: unknown) => {

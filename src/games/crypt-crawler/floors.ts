@@ -23,12 +23,13 @@ export const FLOORS: readonly Floor[] = [
 ]
 
 export const FIRST_FLOOR: Floor = FLOORS[0]
+export const TOWN_FLOOR: Floor = { index: -1, stem: 'floor-0-town', name: '마을', bossName: '' }
 
 /** HUD 한 줄. "3층  물웅덩이". */
 export const floorLabel = (floor: Floor): string => `${floor.index + 1}층  ${floor.name}`
 
 export const floorByStem = (stem: string): Floor => {
-  const found = FLOORS.find((floor) => floor.stem === stem)
+  const found = [TOWN_FLOOR, ...FLOORS].find((floor) => floor.stem === stem)
 
   if (!found) {
     throw new Error(`알 수 없는 층입니다: ${stem}`)
@@ -41,7 +42,7 @@ export const floorBelow = (floor: Floor): Floor | undefined =>
   FLOORS.find((candidate) => candidate.index === floor.index + 1)
 
 export const floorAbove = (floor: Floor): Floor | undefined =>
-  FLOORS.find((candidate) => candidate.index === floor.index - 1)
+  [TOWN_FLOOR, ...FLOORS].find((candidate) => candidate.index === floor.index - 1)
 
 /**
  * 계단을 타면 가는 층. `target` 속성이 정본이고, 방향과 층 순서가 그 값과 맞는지 본다 —

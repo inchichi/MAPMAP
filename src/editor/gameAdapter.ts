@@ -399,7 +399,21 @@ export const genericAdapter: GameAdapter = {
   generate: (request) => generateEntityLines('이 게임', request)
 }
 
+export const cryptAdapter: GameAdapter = {
+  id: 'crypt-crawler', name: 'Crypt Crawler', projectTitle: 'Crypt Crawler',
+  detect: names => names.includes('floor-1-ruins.tmx'),
+  applyMode: 'none',
+  extractEntities: (mapId, objects) => objects.filter(o => !['zones', 'collision'].includes(o.group)).map(o => ({
+    id: `${o.group}-${o.id}`, name: o.name || o.type || o.id,
+    kind: o.group === 'monsters' ? 'monster' : o.group === 'bosses' ? 'boss' : o.group === 'stairs' ? 'portal' : o.type || o.group,
+    mapId, tileX: o.x / 16, tileY: o.y / 16, target: o.properties.target,
+    spriteKey: o.properties.kind || o.type
+  })),
+  generate: request => generateEntityLines('Crypt Crawler (미리보기 전용, 게임 적용 미지원)', request)
+}
+
 export const GAME_ADAPTERS: GameAdapter[] = [
+  cryptAdapter,
   legendOfLuaAdapter,
   rpgAdapter,
   genericAdapter

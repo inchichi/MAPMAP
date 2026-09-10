@@ -458,6 +458,12 @@ export const createEditorApp = ({
   const decorationToggle = el('button', 'px-2 py-1 border rounded', '장식 켜기/끄기') as HTMLButtonElement
   decorationToggle.type = 'button'
   decorationToggle.addEventListener('click', () => {
+    if (game.adapter.id === 'crypt-crawler') {
+      const visible = localStorage.getItem('crypt-crawler:style-visible') !== 'false'
+      localStorage.setItem('crypt-crawler:style-visible', String(!visible))
+      decorationToggle.textContent = visible ? '장식 꺼짐' : '장식 켜짐'
+      return
+    }
     const mapId = currentMapId ?? 'town'
     const visible = loadPlacementsForMap(mapId).some(item => item.renderLayer === 'decoration' && item.visible !== false)
     setDecorationLayerVisible(mapId, !visible)
@@ -481,7 +487,8 @@ export const createEditorApp = ({
   })
   const promptThemeLink = el('a', 'px-3 py-2 border border-[#c9a96b] rounded text-[#e2bd8c]', '스타일 변환')
   promptThemeLink.href = '/editor.html?workspace=style'
-  headerRight.append(promptThemeLink, decorationDemo, decorationToggle)
+  if (game.adapter.id !== 'crypt-crawler') headerRight.append(promptThemeLink, decorationDemo, decorationToggle)
+  else headerRight.append(decorationToggle)
   header.append(brand, headerRight)
 
   // LLM 챗 스타일 배치: 가운데가 라이브 게임(위 가득) + 프롬프트(아래), 오른쪽이 생성 결과.
@@ -1294,7 +1301,7 @@ export const createEditorApp = ({
           )
           return
         }
-        currentMapId = entry.id
+        if (game.adapter.id !== 'crypt-crawler') currentMapId = entry.id
         // legend 등 씬 되보고가 없는 게임은 탭으로 게임 맵만 바꾸고 트리는 전체 보기를 유지한다 —
         // 인게임에서 다른 맵으로 이동해도 생성 NPC가 트리에서 사라지지 않게(현재 맵은 '· 현재 맵'으로 표시).
         iframe.contentWindow?.postMessage(
@@ -1403,6 +1410,9 @@ export const createEditorApp = ({
   const recentResultLine = el('div', 'text-[10px] leading-[1.4] text-[#777777]')
   composer.append(composerTop, supportNote, quickStart, promptField, recommendBoard, actions, status, recentResultLine)
   center.append(preview, composer)
+  if (game.adapter.id === 'crypt-crawler') {
+    composer.replaceChildren(el('p', '', 'Crypt: WASD 이동 · F 상호작용 · M 지도. 스타일 결과 페이지에서 적용하고, 위의 장식 버튼으로 원본과 비교할 수 있습니다.'))
+  }
 
   // ---------- right: 생성 결과 사이드바 ----------
   // 결과 사이드는 보조 정보 — 패널 자체를 본문보다 살짝 더 어둡게 가라앉힌다.
@@ -3286,6 +3296,7 @@ export const createEditorApp = ({
       return
     }
     currentMapId = data.sceneId
+    updateSceneTabs()
     // 게임이 새 맵으로 가면 자동으로 그 맵에 다시 집중한다(전체 보기 해제).
     showAllMaps = false
     renderTree()
@@ -3293,7 +3304,7 @@ export const createEditorApp = ({
     // 이 맵의 묶인 오브젝트를 누끼로 추출해 둔다(맵당 1회, 실패해도 무시).
     // 스타일 모달 '추출' 탭·배치 팔레트·파이프라인 분기 B가 이 결과를 대상으로 쓴다.
     const changedMap = game.maps.find((candidate) => candidate.id === data.sceneId)
-    if (changedMap) {
+    if (changedMap && game.adapter.id !== 'crypt-crawler') {
       void requestMapObjectExtraction(changedMap, currentFiles)
     }
   })

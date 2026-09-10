@@ -14,6 +14,7 @@ import {
   spendPlayerStatPoints
 } from '../balance'
 import { isWithinSwingArc } from '../swingArc'
+import { createCryptStyleLayer } from './createCryptStyleLayer'
 import { createMonsterAi, stepMonsterAi, type MonsterAiState } from '../monsterAi'
 import {
   isBlocked,
@@ -24,6 +25,7 @@ import {
 } from '../dungeonModel'
 import {
   FIRST_FLOOR,
+  floorByStem,
   floorLabel,
   floorMemory,
   isStairsOpen,
@@ -82,7 +84,7 @@ import type {
   DirectionalFrames
 } from './loadActorTextures'
 import type { Texture as PixiTexture } from 'pixi.js'
-import { createCryptHud } from './createCryptHud'
+import { createCryptHud, HUD_FONT, loadHudArt } from './createCryptHud'
 import { createGameAudio } from './createGameAudio'
 import { createMapOverlay, type MapOverlay } from './createMapOverlay'
 import { discoveredRatio, revealAround } from '../exploration'
@@ -146,7 +148,10 @@ const SLAM_SHAKE_PIXELS = 4
 const HURT_SHAKE_PIXELS = 2.5
 const SHAKE_MS = 150
 
-const RENDERED_LAYERS = ['ground', 'ground_deco', 'shadow', 'wall', 'wall_deco', 'prop'] as const
+// depth 는 깊은 물에만 깔리는 짙은 층이다(TMX opacity 0.38). 그늘(0.18)과 뜻이 달라
+// 레이어를 나눴다 — 팩의 수면이 한 장뿐이라 깊이는 겹쳐 얹는 수밖에 없다.
+const RENDERED_LAYERS =
+  ['ground', 'ground_deco', 'depth', 'shadow', 'wall', 'wall_deco', 'prop'] as const
 
 // 계약의 맵 배경색. 벽 덩어리 내부는 타일을 그리지 않으므로 이 색이 곧 암반으로 읽힌다.
 const BACKGROUND = '#2a2431'
@@ -191,6 +196,7 @@ type FloorScene = {
   /** 이 층에 들어선 자리. 죽으면 여기로 되살아난다. */
   entry: TilePosition
   root: Container
+  style: Awaited<ReturnType<typeof createCryptStyleLayer>>
   actors: Container
   tilemap: ChunkedTilemap
   fx: CombatFx
@@ -281,7 +287,9 @@ export const createCryptView = async (
   world.scale.set(ZOOM)
   app.stage.addChild(world)
 
-  const hud = createCryptHud(app.stage, VIEW_WIDTH, VIEW_HEIGHT)
+  // HUD 아트(팩 UI + 픽셀 폰트)는 한 번만 읽어 HUD 와 지도 오버레이가 나눠 쓴다.
+  const hudArt = await loadHudArt()
+  const hud = createCryptHud(app.stage, hudArt, VIEW_WIDTH, VIEW_HEIGHT)
   const audio = createGameAudio()
 
   // 384² TMX 한 장을 파싱하고 청크를 굽는 데 수백 ms 가 걸린다. 그동안 화면이 배경색만
@@ -291,7 +299,7 @@ export const createCryptView = async (
     .fill({ color: 0x141118, alpha: 0.92 })
   const loadingText = new Text({
     text: '',
-    style: { fontFamily: 'monospace', fontSize: 16, fill: 0xf2e9e4, align: 'center' }
+    style: { fontFamily: HUD_FONT, fontSize: 16, fill: 0xf2eaf1, align: 'center' }
   })
   loadingText.anchor.set(0.5)
   loadingText.position.set(VIEW_WIDTH / 2, VIEW_HEIGHT / 2)
@@ -402,6 +410,8 @@ export const createCryptView = async (
     const root = new Container()
     const tilemap = createChunkedTilemap(map, assets.atlas, RENDERED_LAYERS)
     root.addChild(tilemap.container)
+    const style = await createCryptStyleLayer(floor.stem, model.width * 16, model.height * 16)
+    root.addChild(style.container)
 
     const actors = new Container()
     actors.sortableChildren = true
@@ -505,7 +515,7 @@ export const createCryptView = async (
     actors.addChild(playerSprite)
 
     const mapOverlay = createMapOverlay(
-      app.stage, model, memory.exploration, VIEW_WIDTH, VIEW_HEIGHT
+      app.stage, hudArt, model, memory.exploration, VIEW_WIDTH, VIEW_HEIGHT
     )
     // 다시 찾은 층. 지도 캔버스는 새로 만들어 비어 있는데 갱신은 "이번에 새로 드러난 칸이
     // 있을 때"만 돌므로, 지나온 길이 영영 안 나온다. 들어설 때 한 번 통째로 칠한다.
@@ -522,6 +532,7 @@ export const createCryptView = async (
       memory,
       entry: arrival ?? model.playerSpawn,
       root,
+      style,
       actors,
       tilemap,
       fx,
@@ -539,6 +550,7 @@ export const createCryptView = async (
       return
     }
     scene.mapOverlay.destroy()
+    scene.style.destroy()
     // 플레이어만 층을 따라 이동한다. 나머지는 층과 함께 버린다.
     scene.actors.removeChild(playerSprite)
     world.removeChild(scene.root)
@@ -561,6 +573,7 @@ export const createCryptView = async (
     playerY = built.entry.tileY + 0.5
     scene = built
     loading.visible = false
+    window.parent.postMessage({ type: 'game:scene-changed', sceneId: floor.stem }, location.origin)
   }
 
   // 계단은 게임 루프 안에서 밟는다. 실패해도 루프를 죽이지 않고 화면에 이유를 남긴다.
@@ -679,6 +692,7 @@ export const createCryptView = async (
       return
     }
     const { model, map } = current
+    current.style.update(ticker.lastTime)
     const realDeltaMs = ticker.deltaMS
     // 히트스톱: 실제 시간은 그대로 흐르되 게임 시간만 늦춘다. 쿨다운·무적 시간은 nowMs
     // 기준이라 영향받지 않고, 이동과 애니메이션만 잠깐 끈적해진다.
@@ -1042,7 +1056,8 @@ export const createCryptView = async (
     })
   }
 
-  await enterFloor(FIRST_FLOOR, undefined)
+  const requestedFloor = new URLSearchParams(location.search).get('floor')
+  await enterFloor(requestedFloor ? floorByStem(requestedFloor) : FIRST_FLOOR, undefined)
 
   // 카메라 위치와 청크 컬링은 update 안에 있다. 한 번 돌려두지 않으면 첫 프레임이
   // 배경색만 있는 빈 화면으로 나온다.
@@ -1057,6 +1072,10 @@ export const createCryptView = async (
     render: () => {
       update(app.ticker)
       app.render()
+    },
+    goToFloor: async (stem: string) => {
+      if (loading.visible) return
+      await enterFloor(floorByStem(stem), undefined)
     },
     destroy: () => {
       window.removeEventListener('keydown', onKeyDown)

@@ -1,5 +1,15 @@
 # 마을 이야기 공방 · My Sample RPG
 
+## Crypt 마을 겨울 결과 (2026-09-10)
+
+Crypt 마을의 집·울타리·나무·소품 9종을 1,786곳에 재사용하고, 눈 바닥과 얼음 질감 꽃·풀 78곳을 추가했습니다. 원본 TMX·충돌은 유지하며 장식 버튼으로 전체 효과를 끌 수 있습니다.
+
+- [전체 맵 미리보기](public/experiments/crypt-winter-20260910/preview.png)
+- [이미지·프롬프트·생성 시간·검증 로그 ZIP](public/experiments/crypt-winter-20260910/results.zip) — Git LFS 파일입니다.
+- [구현·실행 설명](docs/crypt-map-import.md)
+
+저장된 결과 실행: `git lfs pull` → `python scripts/restore-crypt-winter.py --apply` → 별도 터미널에서 `npm run theme:dev`와 `npm run dev -- --port 15174` 실행 → `http://127.0.0.1:15174/editor.html?game=crypt&map=floor-0-town`. 저장 결과 재생에는 GPU가 필요하지 않으며, 새 생성에는 FLUX 서버가 필요합니다. 복원은 기존의 다른 실험 파일을 덮어쓰지 않습니다.
+
 장식 실험: [생성 과정·시행착오·데모 실행 방법](docs/decoration-generation-history.md). 에디터 상단의 **첫 결과 복원 · 크리스마스**로 원본 맵을 유지한 눈·전구·밤·반짝임 효과를 적용합니다. 현재 결과는 새 생성이 아니라 최초 검수한 FLUX 장식 재사용입니다. [복원 미리보기](public/experiments/restored-first-quality/preview.png) · [서버 실험 코드와 한계](experiments/prompt-theme-server/README.md).
 
 ## 원본 보존형 스타일 변환 논리
