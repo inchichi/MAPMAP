@@ -1,5 +1,13 @@
 # 마을 이야기 공방 · My Sample RPG
 
+## 1층 폐허마을 겨울 결과 (2026-09-10)
+
+6144×6144 맵의 오브젝트 45종 / 1,193곳과 바닥·벽·식물 타일 43종을 겨울 테마로 변환했습니다. 원본 구조·투명도·충돌·TMX 그림자 투명도를 유지하고, 현수막 전구와 반짝임을 추가했습니다. 작은 가지 4종은 눈 장식 미검출로 서리 색 보정만 적용했습니다. 0층과 1층의 적용 상태는 별도로 보존합니다.
+
+- [전체 맵 이미지](public/experiments/crypt-ruins-winter-20260910/preview.png)
+- [88종 결과·원본·FLUX 프롬프트·시간·시행착오 ZIP](public/experiments/crypt-ruins-winter-20260910/results.zip) — Git LFS, 약 60MB. PNG는 바로 열 수 있으며 review.html은 개발 서버가 필요합니다.
+- [생성·적용 구조](docs/crypt-map-import.md#floor-1-winter-pass)
+
 ## Crypt 마을 겨울 결과 (2026-09-10)
 
 Crypt 마을의 집·울타리·나무·소품 9종을 1,786곳에 재사용하고, 눈 바닥과 얼음 질감 꽃·풀 78곳을 추가했습니다. 원본 TMX·충돌은 유지하며 장식 버튼으로 전체 효과를 끌 수 있습니다.

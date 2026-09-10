@@ -24,10 +24,11 @@ export async function createCryptStyleLayer(mapId: string, width: number, height
   visibility()
   window.addEventListener('storage', visibility)
   const refresh = async () => {
-    if (disposed || checking || mapId !== 'floor-0-town') return
+    if (disposed || checking || !['floor-0-town', 'floor-1-ruins'].includes(mapId)) return
     checking = true
     try {
-      const response = await fetch('/crypt-style/active.json', { cache: 'no-store' })
+      const selection = mapId === 'floor-0-town' ? 'active' : `active-${mapId}`
+      const response = await fetch(`/crypt-style/${selection}.json`, { cache: 'no-store' })
       if (!response.ok) return
       const manifest: Manifest = await response.json()
       if (manifest.id === activeId) return

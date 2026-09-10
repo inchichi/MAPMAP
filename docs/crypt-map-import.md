@@ -26,6 +26,14 @@ FLUX decorates an enlarged original sprite, not an isolated ornament. Snow/bulb/
 
 All raw outputs, settings, request duration and events remain under `public/theme-runs/RUN_ID`; never overwrite earlier experiments. Timing measures HTTP/server/transfer, not pure GPU inference. The service does not expose the random seed, so exact regeneration is not promised. Tests: `python -m unittest discover -s experiments/prompt-theme-server -p test_crypt_style.py`, TypeScript checks and Crypt/editor regression tests.
 
+### Floor 1 winter pass
+
+`crypt_ruins_style.py` prepares `floor-1-ruins` (384 × 384 tiles, 6144 × 6144 pixels). Connected prop components are hashed and deduplicated; 45 forms cover 1,193 placements / 1,714 prop tiles. A second sheet holds 43 ground, vegetation, wall and fixture tiles. Two recorded FLUX requests edit the source sheets in place, not the full maze layout. Run `crypt_ruins_style.py RUN_ID`, inspect the raw sheets, then `crypt_ruins_style.py RUN_ID compose`. Generated snow/lights are masked onto source props; generated material detail and original shading are combined for surfaces. Original alpha, dimensions, TMX and collisions stay unchanged. Empty extracted decorations are explicitly reported for review, not silently counted as decorated.
+
+The 1st-floor selection uses `public/crypt-style/active-floor-1-ruins.json`; the 0th-floor selection remains `active.json`. The renderer and apply endpoint support both separately. The review button opens the corresponding map. The generated 6144-square layer requires a browser/GPU texture limit of at least 6144; render and map-switch checks are required before declaring it applied. Sheet generation time is shown as shared request time, never divided into fictional per-object timings.
+
+For stronger festive lighting, run `crypt_ruins_style.py RUN_ID fixture` before composition. It edits the original red banner individually; only extracted attached decorations are used at the original wall-fixture positions. Bare twig variants with no detected snow receive explicitly labeled frost recoloring, not invented generated ornaments. Raw FLUX sheets can contain unwanted backgrounds or extra empty-cell contents: they are never installed directly; only recorded source slots and original alpha are used.
+
 ### Snow ground and frozen plants
 
 Selection writes retry Windows file-replacement locks. If replacement remains blocked, the backed-up selection is written directly; the runtime keeps its previous valid layer during any incomplete read and retries on the next poll.

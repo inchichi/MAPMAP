@@ -24,8 +24,8 @@ const check = async (): Promise<void> => {
     const response = await fetch(`/api/prompt-theme/runs/${runId}`, { cache: 'no-store' })
     if (!response.ok) throw new Error(await response.text())
     const run = await response.json()
-    isCrypt = run.mapId === 'floor-0-town'
-    if (isCrypt) editor.href = '/editor.html?game=crypt&map=floor-0-town'
+    isCrypt = ['floor-0-town', 'floor-1-ruins'].includes(run.mapId)
+    if (isCrypt) editor.href = `/editor.html?game=crypt&map=${encodeURIComponent(run.mapId)}`
     apply.disabled = run.status !== 'ready' || applying
     if (!applying) message.textContent = run.status === 'ready' ? '원본 맵 유지 · 결과를 저장하고 에디터로 이동합니다.' : `아직 적용할 수 없습니다: ${run.status}`
     if (['running', 'queued', 'awaiting_review'].includes(run.status)) window.setTimeout(() => { void check() }, 3000)
@@ -43,7 +43,7 @@ apply.onclick = async () => {
       const response = await fetch(`/api/prompt-theme/runs/${runId}/crypt-apply`, { method: 'POST' })
       if (!response.ok) throw new Error(await response.text())
       localStorage.setItem('crypt-crawler:style-visible', 'true')
-      location.assign('/editor.html?game=crypt&map=floor-0-town')
+      location.assign(editor.href)
       return
     }
     const warning = await applyPromptThemeRun(runId)

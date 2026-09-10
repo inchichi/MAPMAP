@@ -46,3 +46,5 @@ third_party/ninja-adventure/
 # Local Crypt style selection references logged, untracked generated artifacts.
 public/crypt-style/active.json
 public/crypt-style/active.tmp
+public/crypt-style/active-floor-*.json
+public/crypt-style/active-floor-*.tmp

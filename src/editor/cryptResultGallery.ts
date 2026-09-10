@@ -23,6 +23,8 @@ const refresh = async () => {
     fetch('sources.json', {cache:'no-store'}).then(r => r.json()),
     fetch('status.json', {cache:'no-store'}).then(r => r.json())
   ])
+  title.textContent = status.mapId === 'floor-1-ruins' ? '1층 폐허 마을 · 겨울 변환' : 'Crypt 마을 · 크리스마스 밤'
+  document.title = title.textContent
   summary.textContent = `${status.status} · ${status.completed_objects ?? 0}/${status.total_objects}종 · ${status.instances}곳 배치 · 원본 형태/충돌 유지 · FLUX 장식만 별도 레이어`
   const revision = String(status.preview_revision ?? status.completed_objects ?? 0)
   if (status.game_preview && !game.childElementCount) {
@@ -46,8 +48,9 @@ const refresh = async () => {
       const output = new Image(); output.src = `${variant.id}/composite.png?v=${revision}`; output.alt = '원본 + FLUX 장식'; pair.append(output)
     }
     const time = document.createElement('p')
-    time.textContent = result.reused_from ? `첫 결과 재사용 · 원래 생성 ${Math.round(result.generation_seconds ?? 204)}초` : result.generation_seconds ? `FLUX 요청 ${Math.round(result.generation_seconds)}초` : result.status ?? '대기'
-    const link = document.createElement('a'); link.href = `${variant.id}/generation.json`; link.textContent = '생성 설정'
+    time.textContent = result.shared_request ? `공유 시트 FLUX 요청 ${Math.round(result.generation_seconds)}초 (개별 생성 시간이 아닙니다)` : result.reused_from ? `첫 결과 재사용 · 원래 생성 ${Math.round(result.generation_seconds ?? 204)}초` : result.generation_seconds ? `FLUX 요청 ${Math.round(result.generation_seconds)}초` : result.status ?? '대기'
+    if (result.frost_only) time.textContent += ' · 눈 장식 미검출: 서리 색 보정만 적용'
+    const link = document.createElement('a'); link.href = `${result.shared_request ?? variant.id}/generation.json`; link.textContent = '생성 설정'
     card.append(name, pair, time, link); cards.append(card)
   }
   if (['running','queued','awaiting_review'].includes(status.status)) setTimeout(() => { void refresh() }, 5000)
