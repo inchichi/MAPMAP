@@ -1,6 +1,7 @@
 """Change List rows for one run: plan.json when present, else derived from older run records."""
 import json
 from collections import Counter
+from contracts import Plan
 
 ACTIONS = ['decorate', 'recolor', 'add', 'cover', 'skip']
 
@@ -103,6 +104,8 @@ def plan_rows(folder, plan):
 def changes(folder):
     status = read_json(folder/'status.json') or {}
     plan = read_json(folder/'plan.json')
+    if plan is not None:
+        Plan.model_validate(plan)  # raises pydantic.ValidationError on a contract violation
     rows = plan_rows(folder, plan) if plan is not None else derived_rows(folder, status)
     counts = Counter(row['action'] for row in rows)
     return {'id': folder.name, 'mapId': status.get('mapId', 'town'), 'pipeline': status.get('pipeline'),

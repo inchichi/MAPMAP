@@ -1,0 +1,33 @@
+[
+  {
+    "asset": "roof_blue_large",
+    "kind": "roof",
+    "action": "decorate",
+    "prompt": "Add a thin soft snow cap along the roof ridge and a strand of small warm golden Christmas bulbs under the eaves. Keep the roof shape, tiles and colours unchanged.",
+    "decorations": [
+      "snow",
+      "lights"
+    ],
+    "instances": 1,
+    "candidates": 2
+  },
+  {
+    "asset": "fountain_large",
+    "kind": "fountain",
+    "action": "decorate",
+    "prompt": "Add a thin snow rim on the fountain edge. Keep the stone shape unchanged.",
+    "decorations": [
+      "snow"
+    ],
+    "instances": 2,
+    "candidates": 1
+  },
+  {
+    "asset": "planter_tree",
+    "kind": "tree",
+    "action": "recolor",
+    "prompt": "Frosted winter colours on the canopy; no new objects.",
+    "instances": 1,
+    "candidates": 1
+  }
+]

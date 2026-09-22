@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "plan.schema.json",
+  "$defs": {
+    "Instance": {
+      "description": "Top-left map pixel of one placement; w/h when the group spans several tiles.",
+      "properties": {
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        },
+        "w": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "W"
+        },
+        "h": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "H"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Instance",
+      "type": "object"
+    },
+    "PlanRow": {
+      "additionalProperties": true,
+      "properties": {
+        "asset": {
+          "description": "group_id from group-manifest.json",
+          "title": "Asset",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "decorate",
+            "recolor",
+            "add",
+            "cover",
+            "skip"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "prompt": {
+          "default": "",
+          "title": "Prompt",
+          "type": "string"
+        },
+        "decorations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Decorations",
+          "type": "array"
+        },
+        "instances": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "items": {
+                "$ref": "#/$defs/Instance"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instances"
+        },
+        "candidates": {
+          "default": 1,
+          "description": "best-of-N",
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Candidates",
+          "type": "integer"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "only a seed the backend really used",
+          "title": "Seed"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset",
+        "kind",
+        "action"
+      ],
+      "title": "PlanRow",
+      "type": "object"
+    }
+  },
+  "items": {
+    "$ref": "#/$defs/PlanRow"
+  },
+  "title": "Plan",
+  "type": "array"
+}

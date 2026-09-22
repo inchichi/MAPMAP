@@ -1,5 +1,6 @@
 import json, tempfile, unittest
 from pathlib import Path
+from pydantic import ValidationError
 from run_changes import changes
 
 
@@ -48,6 +49,14 @@ class RunChangesTests(unittest.TestCase):
             self.assertEqual(result['rows'][0]['instances'], 2)
             self.assertEqual(result['rows'][0]['seed'], 42)
             self.assertEqual(result['counts']['skip'], 1)
+
+    def test_invalid_plan_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)/('d'*32)
+            write(folder/'status.json', {'status': 'ready'})
+            write(folder/'plan.json', [{'asset': 'roof', 'kind': 'roof', 'action': 'MODIFY'}])
+            with self.assertRaises(ValidationError):
+                changes(folder)
 
 
 if __name__ == '__main__':

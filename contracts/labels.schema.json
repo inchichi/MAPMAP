@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "labels.schema.json",
+  "$defs": {
+    "Label": {
+      "properties": {
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "by": {
+          "description": "tsx, human:<name> or model:<name>",
+          "title": "By",
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO 8601 time",
+          "title": "At",
+          "type": "string"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        }
+      },
+      "required": [
+        "kind",
+        "by",
+        "at"
+      ],
+      "title": "Label",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Kind cache for cc groups, keyed by the crop hash.",
+  "patternProperties": {
+    "^[a-f0-9]{64}$": {
+      "$ref": "#/$defs/Label"
+    }
+  },
+  "title": "Labels",
+  "type": "object"
+}

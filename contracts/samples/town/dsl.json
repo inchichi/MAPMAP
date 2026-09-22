@@ -1,0 +1,39 @@
+{
+  "version": "dsl-v1",
+  "parser": "manual",
+  "source_text": "크리스마스 밤, 눈, 따뜻한 전구",
+  "theme": "christmas",
+  "season": "winter",
+  "lighting": "night",
+  "weather": "snow",
+  "mood": [
+    "warm",
+    "festive"
+  ],
+  "keywords": [
+    "눈",
+    "따뜻한 전구"
+  ],
+  "night": true,
+  "twinkle": true,
+  "decorations": [
+    "snow",
+    "lights"
+  ],
+  "color": {
+    "gain": [
+      1.03,
+      0.97,
+      0.98
+    ],
+    "bias": [
+      -0.015,
+      0.0,
+      0.045
+    ]
+  },
+  "target_maps": [
+    "town"
+  ],
+  "warnings": []
+}

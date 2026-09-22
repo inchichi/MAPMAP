@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "group-manifest.schema.json",
+  "$defs": {
+    "Group": {
+      "additionalProperties": true,
+      "properties": {
+        "group_id": {
+          "title": "Group Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "source": {
+          "description": "tsx: TSX type names; cc: connected components + hash; tile: one unnamed tile, kind from its layer",
+          "enum": [
+            "tsx",
+            "cc",
+            "tile"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "tile_ids": {
+          "default": [],
+          "description": "tsx groups: local tile ids in the tileset",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Tile Ids",
+          "type": "array"
+        },
+        "hash": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "cc groups: SHA-256 of the RGBA crop",
+          "title": "Hash"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "maxItems": 2,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size"
+        },
+        "instances": {
+          "items": {
+            "$ref": "#/$defs/Instance"
+          },
+          "minItems": 1,
+          "title": "Instances",
+          "type": "array"
+        }
+      },
+      "required": [
+        "group_id",
+        "kind",
+        "confidence",
+        "source",
+        "layer",
+        "instances"
+      ],
+      "title": "Group",
+      "type": "object"
+    },
+    "Instance": {
+      "description": "Top-left map pixel of one placement; w/h when the group spans several tiles.",
+      "properties": {
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        },
+        "w": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "W"
+        },
+        "h": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "H"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Instance",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "const": "group-manifest-v1",
+      "default": "group-manifest-v1",
+      "title": "Version",
+      "type": "string"
+    },
+    "mapId": {
+      "title": "Mapid",
+      "type": "string"
+    },
+    "tileset": {
+      "title": "Tileset",
+      "type": "string"
+    },
+    "tile_size": {
+      "items": {
+        "type": "integer"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Tile Size",
+      "type": "array"
+    },
+    "groups": {
+      "items": {
+        "$ref": "#/$defs/Group"
+      },
+      "title": "Groups",
+      "type": "array"
+    }
+  },
+  "required": [
+    "mapId",
+    "tileset",
+    "tile_size",
+    "groups"
+  ],
+  "title": "GroupManifest",
+  "type": "object"
+}

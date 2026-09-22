@@ -1,0 +1,27 @@
+{
+  "source_hashes_unchanged": true,
+  "all_variant_alpha_preserved": true,
+  "layer_opacity": {
+    "ground": 1.0,
+    "ground_deco": 1.0,
+    "depth": 0.38,
+    "shadow": 0.18,
+    "wall": 1.0,
+    "wall_deco": 1.0,
+    "prop": 1.0,
+    "collision": 1.0
+  },
+  "prop_tiles_covered": 1714,
+  "source_prop_tiles": 1714,
+  "changed_pixels": 37685314,
+  "no_decoration_variants": [
+    "prop-04",
+    "prop-05",
+    "prop-11",
+    "prop-19"
+  ],
+  "map_size": [
+    6144,
+    6144
+  ]
+}
