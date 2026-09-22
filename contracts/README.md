@@ -36,5 +36,5 @@ Samples
   `crypt-manifest.json` are the real files (bulbs cut to 5). Group hashes are real crop hashes; the prompts are the real
   generation prompts. `dsl.json`, `labels.json` (kinds) and `plan.json` were written by hand from that run, because the run
   predates these files.
-- `samples/town/`: hand-written inputs for the town MVP. Tile ids and instance positions come from `town-32.tsx` and `town.tmx`.
+- `samples/town/`: hand-written inputs for the town MVP. `group-manifest.json` is the `groups_tsx.py` output for three groups; `plan.json` is hand-written.
   No output files yet.

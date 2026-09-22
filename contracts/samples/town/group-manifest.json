@@ -8,6 +8,38 @@
   ],
   "groups": [
     {
+      "group_id": "fountain_large",
+      "kind": "fountain",
+      "confidence": 1.0,
+      "source": "tsx",
+      "layer": "object",
+      "tile_ids": [
+        24,
+        25,
+        26,
+        32,
+        33,
+        34,
+        85,
+        86,
+        87
+      ],
+      "instances": [
+        {
+          "x": 576,
+          "y": 480,
+          "w": 96,
+          "h": 32
+        },
+        {
+          "x": 928,
+          "y": 480,
+          "w": 96,
+          "h": 32
+        }
+      ]
+    },
+    {
       "group_id": "roof_blue_large",
       "kind": "roof",
       "confidence": 1.0,
@@ -55,53 +87,37 @@
       ]
     },
     {
-      "group_id": "fountain_large",
-      "kind": "fountain",
-      "confidence": 1.0,
-      "source": "tsx",
-      "layer": "object",
-      "tile_ids": [
-        24,
-        25,
-        26,
-        32,
-        33,
-        34,
-        85,
-        86,
-        87
-      ],
-      "instances": [
-        {
-          "x": 576,
-          "y": 480,
-          "w": 96,
-          "h": 32
-        },
-        {
-          "x": 928,
-          "y": 480,
-          "w": 96,
-          "h": 32
-        }
-      ]
-    },
-    {
-      "group_id": "planter_tree",
+      "group_id": "tree_large_canopy",
       "kind": "tree",
       "confidence": 1.0,
       "source": "tsx",
-      "layer": "object",
+      "layer": "object_upper",
       "tile_ids": [
-        0,
-        1
+        326,
+        327,
+        334,
+        335,
+        342,
+        343
       ],
       "instances": [
         {
-          "x": 1568,
-          "y": 1376,
-          "w": 32,
-          "h": 32
+          "x": 480,
+          "y": 384,
+          "w": 64,
+          "h": 96
+        },
+        {
+          "x": 512,
+          "y": 1120,
+          "w": 64,
+          "h": 96
+        },
+        {
+          "x": 32,
+          "y": 1280,
+          "w": 64,
+          "h": 96
         }
       ]
     }

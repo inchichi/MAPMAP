@@ -73,7 +73,8 @@ def generate(url, image_path, prompt, workflow_name, seed=None, timeout=1800):
     """Run one image edit. Returns (RGB image resized to the input size, record for generation.json)."""
     workflow, workflow_sha = load_workflow(workflow_name)
     seed = random.randrange(2**32) if seed is None else seed
-    source = Image.open(image_path)
+    with Image.open(image_path) as source:
+        size = source.size
     with open(image_path, 'rb') as f:
         upload = requests.post(url+'/upload/image', files={'image': (f'theme-{uuid.uuid4().hex}.png', f, 'image/png')},
                                data={'overwrite': 'true'}, timeout=60)
@@ -97,8 +98,8 @@ def generate(url, image_path, prompt, workflow_name, seed=None, timeout=1800):
     view = requests.get(url+'/view', params={key: images[0][key] for key in ('filename', 'subfolder', 'type')}, timeout=120)
     view.raise_for_status()
     result = Image.open(io.BytesIO(view.content)).convert('RGB')
-    if result.size != source.size:
-        result = result.resize(source.size, Image.Resampling.LANCZOS)
+    if result.size != size:
+        result = result.resize(size, Image.Resampling.LANCZOS)
     return result, {'backend': 'comfy', 'comfy_url': url, 'workflow': workflow_name, 'workflow_sha256': workflow_sha,
                     'model': main_model(graph), 'models': model_files(graph), 'steps': sampler_steps(graph),
                     'seed': seed, 'prompt_id': prompt_id}

@@ -23,7 +23,7 @@ const refresh = async () => {
     fetch('sources.json', {cache:'no-store'}).then(r => r.json()),
     fetch('status.json', {cache:'no-store'}).then(r => r.json())
   ])
-  title.textContent = status.mapId === 'floor-1-ruins' ? '1층 폐허 마을 · 겨울 변환' : 'Crypt 마을 · 크리스마스 밤'
+  title.textContent = status.mapId === 'town' ? `마을(town) · ${status.prompt || '스타일 변환'}` : status.mapId === 'floor-1-ruins' ? '1층 폐허 마을 · 겨울 변환' : 'Crypt 마을 · 크리스마스 밤'
   document.title = title.textContent
   summary.textContent = `${status.status} · ${status.completed_objects ?? 0}/${status.total_objects}종 · ${status.instances}곳 배치 · 원본 형태/충돌 유지 · FLUX 장식만 별도 레이어`
   const revision = String(status.preview_revision ?? status.completed_objects ?? 0)

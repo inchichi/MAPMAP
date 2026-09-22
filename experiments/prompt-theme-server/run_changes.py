@@ -90,13 +90,16 @@ def derived_rows(folder, status):
     return rows
 
 
-def plan_rows(folder, plan):
+def plan_rows(folder, plan, status):
     rows = []
     for item in plan:
         asset = item['asset']
         instances = item.get('instances')
-        rows.append(dict(item, instances=len(instances) if isinstance(instances, list) else instances,
-                         seed=item.get('seed') if isinstance(item.get('seed'), int) else None,
+        info = generation(folder, asset if (folder/asset/'generation.json').is_file() else None)
+        seed = item.get('seed') if isinstance(item.get('seed'), int) else info.get('seed')
+        rows.append(dict(item, instances=len(instances) if isinstance(instances, list) else instances, seed=seed,
+                         model=info.get('model'), steps=info.get('steps'), generation=info.get('generation'),
+                         generation_seconds=status.get('object_results', {}).get(asset, {}).get('generation_seconds'),
                          images=images(folder, asset)))
     return rows
 
@@ -106,7 +109,7 @@ def changes(folder):
     plan = read_json(folder/'plan.json')
     if plan is not None:
         Plan.model_validate(plan)  # raises pydantic.ValidationError on a contract violation
-    rows = plan_rows(folder, plan) if plan is not None else derived_rows(folder, status)
+    rows = plan_rows(folder, plan, status) if plan is not None else derived_rows(folder, status)
     counts = Counter(row['action'] for row in rows)
     return {'id': folder.name, 'mapId': status.get('mapId', 'town'), 'pipeline': status.get('pipeline'),
             'prompt': status.get('prompt', ''), 'status': status.get('status'),

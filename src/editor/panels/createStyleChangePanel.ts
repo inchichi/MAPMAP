@@ -128,7 +128,16 @@ const badge = (action: ChangeAction, withName = false): HTMLElement => {
 // Rows are separate grids, so every column needs a fixed or fractional width to stay aligned.
 const ROW_GRID = 'grid grid-cols-[36px_minmax(90px,1.1fr)_minmax(70px,0.9fr)_52px_52px_minmax(0,2fr)]'
 
-export const createStyleChangePanel = (): { changeList: HTMLElement; assetDetails: HTMLElement; showMap: (mapId: string) => void } => {
+export type StyleChangePanel = {
+  changeList: HTMLElement
+  assetDetails: HTMLElement
+  /** Crypt editor: follow the game map and open the run applied to it. */
+  showMap: (mapId: string) => void
+  /** Style workspace: open one run directly. */
+  showRun: (runId: string) => void
+}
+
+export const createStyleChangePanel = (): StyleChangePanel => {
   // ---------- Change List ----------
   const changeList = el('section', 'flex flex-col gap-1.5 min-h-0')
   const head = el('div', 'flex flex-wrap items-center gap-2')
@@ -329,6 +338,12 @@ export const createStyleChangePanel = (): { changeList: HTMLElement; assetDetail
     showMap: (nextMapId: string) => {
       mapId = nextMapId
       void loadMap()
+    },
+    showRun: (runId: string) => {
+      if (current?.id === runId) return
+      mapId = ''
+      runSelect.hidden = true
+      void showRun(runId)
     }
   }
 }

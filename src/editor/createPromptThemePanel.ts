@@ -1,5 +1,6 @@
 import './promptTheme.css'
 import { applyPromptThemeRun } from './applyPromptThemeRun'
+import { createStyleChangePanel } from './panels/createStyleChangePanel'
 
 type Spec = { theme: string; decorations: string[]; night: boolean; twinkle: boolean; color: { gain: number[]; bias: number[] }; warnings: string[] }
 type Run = { id: string; status: string; stage: number; prompt: string; preview?: string; original?: string; error?: string; warnings?: string[]; spec?: Spec; pipeline?: string; current_object?: string; completed_objects?: number; total_objects?: number }
@@ -109,6 +110,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     status.textContent = stages.map((s,i) => `${i+1}. ${s} ${i+1<run.stage?'✓':i+1===run.stage?'←':''}`).join('\n')+'\n상태: '+run.status+(run.error?'\n'+run.error:'')+'\n'+(run.warnings??[]).join('\n')
     status.textContent += '\n방식: '+(run.pipeline ?? '이전 공통 장식 방식')+(run.current_object ? `\n대상: ${run.current_object} · ${run.completed_objects ?? 0}/${run.total_objects ?? 0} 완료` : '')
     apply.disabled = run.status !== 'ready' || applying
+    if (run.status === 'ready') changes.showRun(run.id)
     if (run.status === 'ready' && run.preview) {
       previews.replaceChildren()
       for (const [label,url] of [['원본',run.original],['생성 미리보기',run.preview]] as [string, string | undefined][]) {
@@ -202,10 +204,14 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   debug.append(debugTitle, status)
   outputCard.append(previewHead, progress, previews, applyRow, debug)
   layout.append(inputCard, outputCard)
+  // Change List (Generate) + Asset Details (Review) for the opened run; read-only.
+  const changes = createStyleChangePanel()
+  const changeCard = document.createElement('section'); changeCard.className = 'lab-card lab-changes'
+  changeCard.append(changes.changeList, changes.assetDetails)
   const recordDetails = document.createElement('details'); recordDetails.className = 'lab-history'
   const recordTitle = document.createElement('summary'); recordTitle.textContent = '이전 실험 기록'
   recordDetails.append(recordTitle, history, records)
   note.className = 'lab-footnote'
-  dialog.append(header, stepBar, layout, recordDetails, note)
+  dialog.append(header, stepBar, layout, changeCard, recordDetails, note)
   mountElement.replaceChildren(dialog)
 }
