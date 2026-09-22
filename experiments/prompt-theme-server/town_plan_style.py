@@ -3,6 +3,7 @@ decoration extracted from the diff -> placed at every identical instance -> town
 Usage: python town_plan_style.py prepare <dsl.json> <plan.json>   -> prints run id
        python town_plan_style.py run <run-id>"""
 import json, sys, time, uuid
+from pathlib import Path
 import numpy as np
 from PIL import Image, ImageFilter
 from theme_pipeline import ROOT, REPO, FLUX, save_status, sources, layers, recolor
@@ -36,8 +37,8 @@ def default_prompt(row):
 
 
 def prepare(dsl_path, plan_path):
-    dsl = Dsl.model_validate_json(open(dsl_path, encoding='utf8').read()).model_dump(exclude_none=True)
-    plan = [row.model_dump(exclude_none=True) for row in Plan.model_validate_json(open(plan_path, encoding='utf8').read()).root]
+    dsl = Dsl.model_validate_json(Path(dsl_path).read_text(encoding='utf8')).model_dump(exclude_none=True)
+    plan = [row.model_dump(exclude_none=True) for row in Plan.model_validate_json(Path(plan_path).read_text(encoding='utf8')).root]
     manifest = groups_tsx.build(REPO, 'town', MAP)
     groups = {group['group_id']: group for group in manifest['groups']}
     unknown = [row['asset'] for row in plan if row['asset'] not in groups]
