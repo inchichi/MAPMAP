@@ -1,8 +1,15 @@
 """Per-object FLUX references, surface masks and decoration-only extraction."""
-import json,time
+import json,os,time
 import numpy as np
 import requests
 from PIL import Image
+import comfy_backend
+
+# STYLE_BACKEND=comfy sends edits to ComfyUI first; the FLUX service stays the fallback and baseline.
+BACKEND = os.environ.get('STYLE_BACKEND', 'flux')
+COMFY = os.environ.get('THEME_COMFY_URL', 'http://127.0.0.1:18188')
+COMFY_WORKFLOW = os.environ.get('THEME_COMFY_WORKFLOW', 'flux-kontext-edit')
+COMFY_FALLBACK = os.environ.get('THEME_COMFY_FALLBACK', '1') != '0'
 
 VERSION = 'object-surfaces-v2'
 
@@ -51,15 +58,28 @@ def surface_masks(original, kind):
     raise ValueError('No surface profile for '+kind)
 
 
-def request_image(folder, source, prompt, flux, alpha, pipeline=None):
+def request_image(folder, source, prompt, flux, alpha, pipeline=None, backend=None):
     source.save(folder/'flux-input.png')
-    (folder/'generation.json').write_text(json.dumps({
+    record = {
         'pipeline':pipeline or VERSION, 'model':'FLUX.1-Kontext-dev', 'prompt':prompt,
         'steps':28, 'alpha':alpha, 'geometry_lock':False,
         'seed':'service random; not exposed'
-    }, indent=2))
+    }
+    (folder/'generation.json').write_text(json.dumps(record, indent=2))
     started=time.time();timer=time.perf_counter()
     try:
+        if (backend or BACKEND) == 'comfy':
+            try:
+                raw, info = comfy_backend.generate(COMFY, folder/'flux-input.png', prompt, COMFY_WORKFLOW)
+                raw.save(folder/'flux-raw.png')
+                comfy_record = {k: v for k, v in record.items() if k not in ('alpha', 'geometry_lock')}
+                comfy_record.update(info)
+                (folder/'generation.json').write_text(json.dumps(comfy_record, indent=2))
+                return raw
+            except Exception as error:
+                if not COMFY_FALLBACK: raise
+                record['comfy_fallback'] = f'{type(error).__name__}: {error}'[:500]
+                (folder/'generation.json').write_text(json.dumps(record, indent=2))
         with open(folder/'flux-input.png', 'rb') as f:
             response = requests.post(flux+'/style-transfer', files={'content':('input.png',f,'image/png')},
                 data={'prompt':prompt,'steps':28,'alpha':alpha,'geometry_lock':'false'}, timeout=1800)

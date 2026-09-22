@@ -14,6 +14,7 @@ from run_records import record_event, review_html
 from run_changes import changes as run_changes
 from pydantic import BaseModel, Field, ValidationError
 from profile_decorations import VERSION, profiles, get_profile, generate_profile
+from object_decorations import BACKEND as STYLE_BACKEND
 
 REPO = Path(os.environ.get('THEME_PROJECT', Path(__file__).resolve().parents[2]))
 ROOT = REPO / 'public/theme-runs'
@@ -155,7 +156,7 @@ class Request(BaseModel):
     targets: list[str] = Field(default_factory=list, max_length=64)
 
 @app.get('/health')
-def health(): return {'status':'ok','parser':'rules-v1','pipeline':VERSION,'backend':'FLUX','busy':busy.locked() or (ROOT/'.batch.lock').exists()}
+def health(): return {'status':'ok','parser':'rules-v1','pipeline':VERSION,'backend':'ComfyUI' if STYLE_BACKEND=='comfy' else 'FLUX','busy':busy.locked() or (ROOT/'.batch.lock').exists()}
 
 @app.post('/plan')
 def plan(req: Request):
