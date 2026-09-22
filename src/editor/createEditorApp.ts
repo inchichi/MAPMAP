@@ -64,6 +64,7 @@ import { requestMapObjectExtraction } from './extractMapObjects'
 import type { GeneratedScenarioJson } from '../games/my-sample-rpg/scenario/scenarioTypes'
 // 게임이 localStorage에 저장한 수기/생성 NPC — 트리에 TMX 엔티티와 합쳐 보여주기 위해 읽는다.
 import { loadNpcsForMap, PENDING_NPCS_STORAGE_KEY, removeNpc } from './npcStore'
+import { createStyleChangePanel } from './panels/createStyleChangePanel'
 
 // 하드코딩 어댑터가 엔티티를 못 찾은 미지의 게임을, LLM 분석이 찾은 editable 그룹으로 채운다.
 const buildEntitiesFromAnalysis = (
@@ -1410,8 +1411,10 @@ export const createEditorApp = ({
   const recentResultLine = el('div', 'text-[10px] leading-[1.4] text-[#777777]')
   composer.append(composerTop, supportNote, quickStart, promptField, recommendBoard, actions, status, recentResultLine)
   center.append(preview, composer)
-  if (game.adapter.id === 'crypt-crawler') {
-    composer.replaceChildren(el('p', '', 'Crypt: WASD 이동 · F 상호작용 · M 지도. 스타일 결과 페이지에서 적용하고, 위의 장식 버튼으로 원본과 비교할 수 있습니다.'))
+  // Crypt: 컴포저 자리에 스타일 결과의 변경 목록(Generate), 결과 보드 위에 에셋 상세(Review)를 둔다(읽기 전용).
+  const styleChanges = game.adapter.id === 'crypt-crawler' ? createStyleChangePanel() : undefined
+  if (styleChanges) {
+    composer.replaceChildren(el('p', 'text-[11px] text-[#9d9d9d]', 'Crypt: WASD 이동 · F 상호작용 · M 지도. 스타일 결과 페이지에서 적용하고, 위의 장식 버튼으로 원본과 비교할 수 있습니다.'), styleChanges.changeList)
   }
 
   // ---------- right: 생성 결과 사이드바 ----------
@@ -1438,6 +1441,7 @@ export const createEditorApp = ({
   lastGeneratedLine.hidden = true
   side.append(
     sideTitle,
+    ...(styleChanges ? [styleChanges.assetDetails] : []),
     analysisPanel,
     boardHint,
     boardList,
@@ -3296,6 +3300,7 @@ export const createEditorApp = ({
       return
     }
     currentMapId = data.sceneId
+    styleChanges?.showMap(data.sceneId)
     updateSceneTabs()
     // 게임이 새 맵으로 가면 자동으로 그 맵에 다시 집중한다(전체 보기 해제).
     showAllMaps = false

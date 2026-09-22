@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from run_records import record_event, review_html
+from run_changes import changes as run_changes
 from pydantic import BaseModel, Field
 from profile_decorations import VERSION, profiles, get_profile, generate_profile
 
@@ -244,6 +245,9 @@ def get_folder(run_id):
 
 @app.get('/runs/{run_id}')
 def status(run_id:str): return json.loads((get_folder(run_id)/'status.json').read_text(encoding='utf8'))
+
+@app.get('/runs/{run_id}/changes')
+def change_list(run_id:str): return run_changes(get_folder(run_id))
 
 @app.post('/runs/{run_id}/apply')
 def apply(run_id:str):
