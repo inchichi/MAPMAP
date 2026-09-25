@@ -30,6 +30,8 @@
 
 PDF 가이드: [기능·원리·사용법](output/pdf/style-editor-guide.pdf). 재생성: `python scripts/build-style-guide.py` (ReportLab 필요). 상세 배치 검수: [placement-audit.md](docs/placement-audit.md).
 
+PDF는 실제 에디터·스타일 화면 캡처, 원본/장식/합성 에셋, 전체 적용 맵을 포함한 8쪽으로 보강했습니다. 캡처 원본은 `docs/screenshots/style-guide/`에 있습니다. 추가 캡처 시 로컬 웹/API가 응답하지 않아 조회 서비스를 다시 실행했습니다. 신규 배치 기록은 13/45에 남아 있으며 **현재 생성 재개·완료는 확인되지 않았습니다**. 위 생성 중 표시는 앞선 시점의 기록입니다.
+
 최신 진행: 3px 장식 여백을 `crypt_plan_style.py`의 일반 decorate 경로에 연결했습니다. 원본 알파 검증은 베이스 스프라이트에 적용하며 장식 알파는 독립적입니다. `composition_base_id` + `asset_revisions`로 기준 오버레이부터 재합성하므로 재생성 시 이전 여백이 누적되지 않습니다. `reprocess_ruins_plan.py`로 저장된 FLUX 원본을 재사용한 실행 `f3d2dfa8a0524ba1a5151458924c14a3`을 만들고 실제 에디터 적용·장식 토글·새로고침 유지와 0층 상태 불변을 확인했습니다. 이전 선택은 해당 실행의 `previous-active.json`에 백업됐습니다. 이번 검증은 모델 재호출 없이 추출/합성/적용 경로를 검증한 것입니다. 모든 126개 배치의 주변 가림을 사람이 전수 검수한 것은 아닙니다. 아래 이전 실험의 미적용 기록과 구분합니다.
 
 현재 통합 대상은 **Crypt 1층 폐허마을 (`floor-1-ruins`)**입니다. 아래의 과거 town 실험과 구분합니다. 기존 맵과 검수 결과를 유지하면서 스타일 편집 기능을 연결하는 중이며, 통합이 모두 완료된 상태는 아닙니다.
