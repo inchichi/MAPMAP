@@ -1,0 +1,93 @@
+/* Scoped editor chrome. The game iframe and sidebar interactions stay untouched. */
+.editor-workspace {
+  background: #10141d;
+  color: #edf2fa;
+  font-family: 'Pretendard', system-ui, sans-serif;
+  accent-color: #a8c5ff;
+  color-scheme: dark;
+}
+.editor-workspace .editor-workspace-header {
+  background: radial-gradient(ellipse at top left, #273b60, transparent 65%), #131a27;
+  border-color: #ffffff12;
+  padding: 14px 20px;
+  gap: 16px;
+}
+.editor-workspace .box-grad-border {
+  --bgb: #181f2c;
+  background: #181f2c;
+  border: 1px solid #ffffff12;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px #00000012;
+}
+.editor-workspace .box-grad-border--strong { border-color: #91b5ff80; }
+.editor-workspace .legacy-asset-tree {
+  background: #181f2c;
+  border: 1px solid #ffffff12;
+  border-radius: 14px;
+}
+.editor-workspace .legacy-asset-tree > div:first-child { border-color: #ffffff12; }
+.editor-workspace input:not([type=checkbox]):not([type=radio]),
+.editor-workspace textarea,
+.editor-workspace select {
+  background: #101722;
+  color: #e2ecff;
+  border-color: #344055;
+  border-radius: 9px;
+}
+.editor-workspace button,
+.editor-workspace a {
+  font-family: inherit;
+  transition: background-color .15s, border-color .15s;
+}
+.editor-workspace button:focus-visible,
+.editor-workspace a:focus-visible,
+.editor-workspace input:focus-visible,
+.editor-workspace textarea:focus-visible {
+  outline: 2px solid #91b5ff;
+  outline-offset: 2px;
+}
+.editor-workspace-header button {
+  border-color: #ffffff20;
+  border-radius: 9px;
+  background-color: #242f42;
+  color: #d8e3f6;
+}
+.editor-workspace-header button:hover:not(:disabled) { background-color: #33415a; }
+.editor-workspace .editor-style-action {
+  background: #a8c5ff;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #122442;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 9px 16px;
+}
+.editor-workspace .editor-style-action:hover { background: #c1d5ff; }
+.editor-workspace .editor-preview-toolbar {
+  background: #181f2c;
+  border-color: #ffffff12;
+  min-height: 46px;
+  height: auto;
+  padding: 8px 12px;
+}
+.editor-preview-toolbar button {
+  border-radius: 8px;
+  border-color: #ffffff18;
+}
+.editor-workspace [class~="bg-[#141416]"],
+.editor-workspace [class~="bg-[#1a1a1a]"],
+.editor-workspace [class~="bg-[#252526]"] { background-color: #181f2c; }
+.editor-workspace [class~="text-[#777777]"],
+.editor-workspace [class~="text-[#9d9d9d]"] { color: #9da9bc; }
+.editor-workspace [class~="text-[#e2bd8c]"],
+.editor-workspace [class~="text-[#c9a96b]"] { color: #b6d0ff; }
+.editor-workspace ::-webkit-scrollbar { width: 7px; height: 7px; }
+.editor-workspace ::-webkit-scrollbar-thumb { background: #3a485e; border-radius: 8px; }
+.editor-workspace ::-webkit-scrollbar-track { background: transparent; }
+@media (max-width: 900px) {
+  .editor-workspace .editor-workspace-header { flex-wrap: wrap; padding: 10px 12px; }
+  .editor-workspace .editor-preview-toolbar { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-workspace * { animation: none !important; transition: none !important; }
+}

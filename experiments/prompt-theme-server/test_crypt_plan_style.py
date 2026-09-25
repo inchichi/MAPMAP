@@ -20,6 +20,7 @@ class CryptPlanTests(unittest.TestCase):
             spec = {'mapId': 'floor-1-ruins', 'hashes': {}, 'tile_size': 16,
                     'variants': [{'id':'prop-00', 'kind':'prop', 'width':2, 'height':2}],
                     'instances': [{'asset':'prop-00', 'x':2, 'y':1}]}
+            (parent/'crypt-manifest.json').write_text(json.dumps(manifest))
             dsl = {'parser':'manual', 'theme':'christmas', 'night':True, 'decorations':[], 'target_maps':['floor-1-ruins']}
             plan = [{'asset':'prop-00', 'kind':'prop', 'action':'recolor'}]
             with patch.object(pipeline, 'baseline', return_value=(parent, manifest, spec)):

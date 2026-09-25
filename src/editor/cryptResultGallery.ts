@@ -37,10 +37,16 @@ const refresh = async () => {
     if (img.dataset.revision !== revision) { img.src = `${status.preview}?v=${revision}`; img.dataset.revision = revision }
   }
   cards.replaceChildren()
+  const planAssets: Set<string> | undefined = status.pipeline === 'crypt-ruins-plan-v1'
+    ? new Set((await fetch('plan.json').then(r => r.json())).map((row: {asset: string}) => row.asset))
+    : undefined
+  if (planAssets) summary.textContent += ' · 선택하지 않은 오브젝트는 이전 결과 유지'
   for (const variant of spec.variants) {
+    if (planAssets && !planAssets.has(variant.id)) continue
     const result = status.object_results[variant.id] ?? {}
     const card = document.createElement('article'); card.className = 'card'
     const name = document.createElement('h3'); name.textContent = variant.id
+    if (result.postprocess_profile) name.textContent += ' · 원본 유지 / 장식 여백 +3px'
     const pair = document.createElement('div'); pair.className = 'pair'
     const original = new Image(); original.src = `${variant.id}-original.png`; original.alt = '원본'
     pair.append(original)
@@ -48,11 +54,11 @@ const refresh = async () => {
       const output = new Image(); output.src = `${variant.id}/composite.png?v=${revision}`; output.alt = '원본 + FLUX 장식'; pair.append(output)
     }
     const time = document.createElement('p')
-    time.textContent = result.shared_request ? `공유 시트 FLUX 요청 ${Math.round(result.generation_seconds)}초 (개별 생성 시간이 아닙니다)` : result.reused_from ? `첫 결과 재사용 · 원래 생성 ${Math.round(result.generation_seconds ?? 204)}초` : result.generation_seconds ? `FLUX 요청 ${Math.round(result.generation_seconds)}초` : result.status ?? '대기'
+    time.textContent = result.shared_request ? `공유 시트 FLUX 요청 ${Math.round(result.generation_seconds)}초 (개별 생성 시간이 아닙니다)` : result.reused_from ? `생성 원본 재사용 · 원래 생성 ${Math.round(result.generation_seconds ?? 204)}초` : result.generation_seconds ? `FLUX 요청 ${Math.round(result.generation_seconds)}초` : result.status ?? '대기'
     if (result.frost_only) time.textContent += ' · 눈 장식 미검출: 서리 색 보정만 적용'
     const link = document.createElement('a'); link.href = `${result.shared_request ?? variant.id}/generation.json`; link.textContent = '생성 설정'
     card.append(name, pair, time, link); cards.append(card)
   }
-  if (['running','queued','awaiting_review'].includes(status.status)) setTimeout(() => { void refresh() }, 5000)
+  if (['running','queued'].includes(status.status)) setTimeout(() => { void refresh() }, 5000)
 }
 void refresh().catch(error => { summary.textContent = `결과 조회 실패: ${String(error)}` })

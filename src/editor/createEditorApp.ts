@@ -400,10 +400,12 @@ export const createEditorApp = ({
   // ---------- shell ----------
   // w-screen이 아니라 w-full — 100vw는 세로 스크롤바 폭을 포함해 가로 스크롤을 만든다.
   const root = el('div', 'h-screen w-full flex flex-col bg-[#0a0a0a] text-[#d4d4d4] overflow-hidden')
+  root.classList.add('editor-workspace')
 
   // 헤더는 얇고 어두운 도구 바 — 시선은 아래 게임 화면으로 가게 한다.
   // 게임 화면이 주인공이도록 헤더는 낮게 압축한다.
   const header = el('header', 'settings-game-font select-none shrink-0 flex items-center justify-between gap-3 px-4 py-1.5 border-b border-[#b6bac1]/28 bg-[#141416] text-[#d4d4d4]')
+  header.classList.add('editor-workspace-header')
   const brand = el('div', 'flex items-center gap-2.5 min-w-0')
   const brandText = el('div', 'flex flex-col gap-0.5 min-w-0')
   const brandTitleRow = el('div', 'flex items-center gap-2 min-w-0')
@@ -487,6 +489,7 @@ export const createEditorApp = ({
     }
   })
   const promptThemeLink = el('a', 'px-3 py-2 border border-[#c9a96b] rounded text-[#e2bd8c]', '스타일 변환')
+  promptThemeLink.classList.add('editor-style-action')
   const styleWorkspaceUrl = (): string => game.adapter.id === 'crypt-crawler'
     ? `/editor.html?workspace=style&game=crypt&map=${encodeURIComponent(currentMapId ?? new URLSearchParams(location.search).get('map') ?? 'floor-1-ruins')}`
     : '/editor.html?workspace=style&map=town'
@@ -1040,6 +1043,7 @@ export const createEditorApp = ({
   const preview = el('section', `flex-1 min-h-[200px] md:min-h-[300px] min-w-0 flex flex-col ${PANEL} overflow-hidden`)
   // 게임 화면 위에 붙은 작은 RPG 조작 패널 — 짧은 제목 + 나무 탭 + 아이콘 버튼.
   const previewBar = el('div', 'settings-game-font select-none h-9 shrink-0 flex items-center justify-between gap-2 px-3 border-b border-[#b6bac1]/22 bg-[#141416] min-w-0')
+  previewBar.classList.add('editor-preview-toolbar')
   // 시선이 요청 패널로 먼저 가도록 게임 화면 헤더는 한 톤 차분하게.
   const previewTitle = el('span', 'flex items-center gap-2 truncate min-w-0')
   previewTitle.append(

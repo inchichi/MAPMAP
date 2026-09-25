@@ -184,6 +184,28 @@ class IntegrationRequest(BaseModel):
     dsl: dict
     plan: list[dict] = Field(min_length=1, max_length=64)
     mapId: str = 'floor-1-ruins'
+    parent_run_id: str | None = None
+
+
+class AutomaticPlanRequest(BaseModel):
+    prompt: str = Field(min_length=2, max_length=1200)
+    mapId: str = 'floor-1-ruins'
+
+
+@app.post('/integration/plan')
+def automatic_plan(req: AutomaticPlanRequest):
+    from dsl import parse
+    from planner import build
+    from crypt_plan_style import baseline
+    try:
+        folder, manifest, sources = baseline()
+        dsl = parse(req.prompt, req.mapId, bool(manifest['night']))
+        rows = build(dsl, sources)
+        return {'dsl':dsl, 'plan':rows, 'parent_run_id':folder.name,
+                'spec':dict(dsl, warnings=dsl['warnings']),
+                'objects':[{'id':r['asset'],'category':r['kind'],'profile_label':f"{r['asset']} · 미분류 소품 · {r['action']} · {r['instances']}곳"} for r in rows]}
+    except (ValueError, KeyError, FileNotFoundError) as error:
+        raise HTTPException(422, str(error))
 
 
 @app.post('/integration/runs')
@@ -197,6 +219,10 @@ def integration_submit(req: IntegrationRequest):
     if (ROOT/'.batch.lock').exists() or not busy.acquire(blocking=False):
         raise HTTPException(409, '이미 생성 중입니다.')
     try:
+        if req.mapId == 'floor-1-ruins' and req.parent_run_id:
+            from crypt_plan_style import baseline
+            if baseline()[0].name != req.parent_run_id:
+                raise ValueError('해석 후 적용 상태가 바뀌었습니다. 프롬프트를 다시 해석해주세요.')
         run_id = prepare_data(req.dsl, req.plan)
     except (ValueError, KeyError) as error:
         busy.release()

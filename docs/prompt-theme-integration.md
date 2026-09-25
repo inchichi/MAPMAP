@@ -1,10 +1,16 @@
 # FLUX prompt-theme editor
 
+Game editor chrome uses the same charcoal/blue palette through scoped `editorWorkspace.css`. Header, asset sidebar, inputs and preview toolbar are restyled without changing the game iframe, source assets, sidebar hover behavior or generation worker.
+
+The style workspace now uses a charcoal/blue review layout, a bounded object selector with select-all/clear controls, a generation progress bar and collapsed advanced DSL controls. Opening the Crypt workspace resumes displaying an existing running batch before the applied result. This only polls status: it does not resume, cancel or restart the worker. The game editor sidebar remains unchanged.
+
 The editor's **스타일 변환** link opens `/editor.html?workspace=style`. The original compact asset sidebar is restored; generation lives on a separate page, not in the sidebar.
 
 The sidebar also retains the original hover previews: expand a kind and hover an asset row to see its enlarged sprite or TMX-composed object beside the list. Leaving the row hides the preview. This reuses `createHoverPreview` and the original tileset/cell lookup rather than a generated thumbnail.
 
 ## Start
+
+For a fresh checkout, run `git lfs pull` and `python scripts/restore-crypt-ruins.py --apply` to restore the bundled first-floor baseline before opening the integration workspace. Omit `--apply` for artifact-only restoration. The command validates sources and overlays, tolerates only XML line-ending differences, refuses conflicting experiment files, backs up the first-floor selection and leaves floor zero untouched. It does not run FLUX. Test with `python -m unittest discover -s scripts -p test_restore_crypt_ruins.py`.
 
 Install FastAPI, uvicorn, Pillow, NumPy and requests in your Python environment. Start the existing FLUX `/style-transfer` service separately; no Qwen or image-generation fallback is used.
 
@@ -17,6 +23,12 @@ npm run theme:dev
 In a second terminal, run `npm run dev -- --host 127.0.0.1 --port 15174 --strictPort`. The editor proxies `/api/prompt-theme` to the isolated local API on port 8773 and `/theme-runs` to its artifact endpoint. `THEME_API_URL` can override that API address. `PYTHON` and `THEME_PORT` can override the launcher defaults. Do not configure `THEME_STATE_URL` for browser-local operation.
 
 ## Flow and persistence
+
+### Automatic ruins planning
+
+`POST /integration/plan` now uses our own deterministic `dsl.py` and `planner.py`, not external team code or an LLM. It produces validated DSL, per-group plans and a parent run ID. The UI exposes group selection (two checked by default), and submits only selected rows to `/integration/runs`. A changed parent between analysis and generation is rejected. Rules currently support Christmas/winter snow, lights and explicitly requested fixed-palette recoloring; unsupported themes, decorations and time changes are rejected. Unknown Crypt classes remain generic props, never invented semantic labels. The existing source crop and placement counts are the evidence for each plan. Combined recolor/decorate uses `recolor_base`; source alpha stays unchanged. Color-only rows do not call FLUX. Production decoration extraction now permits a separate three-pixel alpha margin, while preserving base alpha. Composition rebuilds revisions from a stable baseline rather than stacking previous padded results.
+
+Browser verification: prompt `겨울 색과 명암 변경` produced run `ae60917036954007807994cd59421578`, two recolor rows, ready preview and 126 selected placements without a model request. The current game selection was not replaced. New parser/planner tests cover negation, unchanged color, source map matching and unsupported requests.
 
 ### Town integration MVP
 

@@ -43,9 +43,9 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     b.className = 'lab-button'; b.type = 'button'
     controls.append(b); return b
   }
-  const analyze = button('1. 프롬프트 해석')
-  const generate = button('2. 생성 시작')
-  const apply = button('3. 미리보기 승인 · 적용/저장')
+  const analyze = button('대상 확인')
+  const generate = button('스타일 생성하기')
+  const apply = button('게임에 적용하기 →')
   const history = button('실행 기록 / 결과 다시 열기')
   const records = document.createElement('div')
   records.className = 'lab-records'
@@ -61,6 +61,8 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   }
   const progress = document.createElement('div'); progress.className = 'lab-progress'
   progress.setAttribute('role', 'status')
+  const meter = document.createElement('progress'); meter.className = 'lab-meter'; meter.max = 100; meter.value = 0
+  meter.setAttribute('aria-label', '오브젝트 생성 진행률')
   const setProgress = (index: number, text: string): void => {
     Array.from(stepBar.children).forEach((step, i) => {
       step.className = i === index ? 'active' : i < index ? 'done' : ''
@@ -95,6 +97,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   generate.disabled = true; apply.disabled = true
   let runId: string | undefined
   let plannedPrompt = ''
+  let automaticContract: {dsl: unknown; plan: {asset: string}[]; parent_run_id: string} | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
   let applying = false
   const api = async (path: string, body?: unknown): Promise<unknown> => {
@@ -108,6 +111,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     if ((run.mapId ?? 'town') !== context.mapId) { apply.disabled = true; error(new Error('다른 맵의 결과입니다. 현재 맵은 '+context.mapId)); return }
     const labels: Record<string,string> = { ready: '생성 완료 · 원본과 비교한 뒤 승인해주세요.', running: 'FLUX 생성 중 · 수분이 걸릴 수 있습니다.', queued: '생성 대기 중', failed: '생성 실패 · 상세 기록을 확인해주세요.' }
     setProgress(run.status === 'ready' ? 3 : 2, (labels[run.status] ?? run.status) + (run.current_object ? ` · ${run.current_object} (${run.completed_objects ?? 0}/${run.total_objects ?? 0})` : ''))
+    meter.value = run.status === 'ready' ? 100 : (run.completed_objects ?? 0) / Math.max(1, run.total_objects ?? 1) * 100
     if (run.spec) showSpec(run.spec)
 
     status.textContent = stages.map((s,i) => `${i+1}. ${s} ${i+1<run.stage?'✓':i+1===run.stage?'←':''}`).join('\n')+'\n상태: '+run.status+(run.error?'\n'+run.error:'')+'\n'+(run.warnings??[]).join('\n')
@@ -135,33 +139,37 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
       if (run.id !== runId || !dialog.isConnected) return
       show(run)
       if (['queued','running'].includes(run.status)) timer=setTimeout(() => { void poll() },2500)
-      else { generate.disabled = context.crypt || plannedPrompt !== prompt.value; analyze.disabled=context.crypt; prompt.readOnly=context.crypt }
+      else { generate.disabled = !plannedPrompt || plannedPrompt !== prompt.value; analyze.disabled=false; prompt.readOnly=false }
     } catch(e) { error(e); analyze.disabled=false; generate.disabled=false }
   }
   analyze.onclick=async () => {
-    if (context.crypt) return
     try {
+      automaticContract=undefined; plannedPrompt=''; generate.disabled=true
       status.textContent='해석 중...'; setProgress(0, '프롬프트 해석 중…'); apply.disabled=true; emptyPreview()
-      const plan=await api('/plan',{prompt:prompt.value}) as {spec:Spec;objects:{id:string;category:string;box:number[];profile_label?:string}[]}
+      const plan=await api(context.crypt ? '/integration/plan' : '/plan',{prompt:prompt.value,mapId:context.mapId}) as {spec:Spec;objects:{id:string;category:string;box:number[];profile_label?:string}[]; dsl:unknown;plan:{asset:string}[];parent_run_id:string}
+      if (context.crypt) { automaticContract=plan; contractInput.value=JSON.stringify({dsl:plan.dsl,plan:plan.plan,parent_run_id:plan.parent_run_id},null,2) }
       plannedPrompt=prompt.value; objects.replaceChildren(); showSpec(plan.spec); setProgress(1, '해석 완료 · 변환할 오브젝트를 선택해주세요.')
       const preferred=['town_hall','tree_1','fountain_1','blacksmith_stall']
       for (const o of plan.objects) {
         const label=document.createElement('label'), input=document.createElement('input')
-        input.type='checkbox';input.value=o.id;input.checked=preferred.includes(o.id)
+        input.type='checkbox';input.value=o.id;input.checked=context.crypt ? plan.objects.indexOf(o)<2 : preferred.includes(o.id)
         label.append(input,document.createTextNode(o.profile_label ?? o.id+' ('+o.category+')'));objects.append(label)
       }
-      status.textContent='규칙 기반 해석 (지원: 크리스마스/겨울·할로윈·가을)\n'+JSON.stringify(plan.spec,null,2)+'\n위 설정을 확인한 다음 생성하세요. FLUX 생성은 수분 소요됩니다.'
+      status.textContent=(context.crypt ? '규칙 기반 DSL·Planner · 크리스마스/겨울 소품 수정\n' : '규칙 기반 해석\n')+JSON.stringify(plan.spec,null,2)+'\n위 설정과 고급 계약의 대상별 프롬프트를 확인한 다음 생성하세요. 기본 선택은 2종이며 변경할 수 있습니다.'
       generate.disabled=false
     } catch(e) { error(e);generate.disabled=true }
   }
   prompt.oninput=() => {generate.disabled=true;apply.disabled=true;plannedPrompt=''; setProgress(0, '프롬프트가 변경됐습니다. 다시 해석해주세요.')}
   generate.onclick=async () => {
-    if (context.crypt) return
     try {
       if (plannedPrompt!==prompt.value) throw new Error('프롬프트를 다시 해석해주세요.')
-      generate.disabled=true;analyze.disabled=true;apply.disabled=true;prompt.readOnly=true;emptyPreview(); setProgress(2, 'FLUX 생성 요청 중…')
+      generate.disabled=true;analyze.disabled=true;apply.disabled=true;prompt.readOnly=true;emptyPreview(); setProgress(2, '생성·색 보정 요청 중…')
       const targets=Array.from(objects.querySelectorAll<HTMLInputElement>('input:checked')).map(i=>i.value)
-      const run=await api('/runs',{prompt:prompt.value,targets}) as {id:string}
+      if (!targets.length) throw new Error('대상을 하나 이상 선택해주세요.')
+      if (context.crypt && !automaticContract) throw new Error('먼저 프롬프트를 해석해주세요.')
+      const run=await api(context.crypt ? '/integration/runs' : '/runs',context.crypt
+        ? {...automaticContract, mapId:context.mapId, plan:automaticContract!.plan.filter(row=>targets.includes(row.asset))}
+        : {prompt:prompt.value,targets}) as {id:string}
       runId=run.id;void poll()
     } catch(e) {error(e);generate.disabled=false;analyze.disabled=false;prompt.readOnly=false}
   }
@@ -207,7 +215,13 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   const layout = document.createElement('div'); layout.className = 'lab-layout'
   const inputCard = document.createElement('section'); inputCard.className = 'lab-card lab-input'
   const promptLabel = document.createElement('label'); promptLabel.textContent = '테마 프롬프트'; prompt.id='lab-prompt'; promptLabel.htmlFor=prompt.id
-  inputCard.append(sectionTitle('어떤 분위기로 바꿀까요?', '계절·색감·장식·시간대를 한 문장으로 설명해주세요.'), promptLabel, prompt, controls, sectionTitle('변환할 오브젝트', '원본 크기와 구조는 유지하고 장식만 따로 생성합니다.'), objects, specTags)
+  const selectionTools = document.createElement('div'); selectionTools.className = 'lab-selection-tools'
+  for (const [text, checked] of [['전체 선택', true], ['선택 해제', false]] as const) {
+    const select = document.createElement('button'); select.type = 'button'; select.className = 'lab-button'; select.textContent = text
+    select.onclick = () => objects.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.checked = checked })
+    selectionTools.append(select)
+  }
+  inputCard.append(sectionTitle('어떤 분위기를 만들까요?', '원본 구조는 그대로. 색감과 장식만 새롭게.'), promptLabel, prompt, specTags, controls, sectionTitle('변환 대상', '대상을 확인한 뒤 필요한 오브젝트만 선택하세요.'), selectionTools, objects)
   controls.replaceChildren(analyze, generate)
   const outputCard = document.createElement('section'); outputCard.className = 'lab-card lab-output'
   const previewHead = sectionTitle('미리보기 · 비교', '이미지를 누르면 원본 크기로 볼 수 있습니다. 승인 전에는 게임이 바뀌지 않습니다.')
@@ -218,16 +232,19 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   const debug = document.createElement('details'); debug.className = 'lab-details'
   const debugTitle = document.createElement('summary'); debugTitle.textContent = '상세 설정 · 진행 로그'
   debug.append(debugTitle, status)
-  outputCard.append(previewHead, progress, previews, applyRow, debug)
+  outputCard.append(previewHead, progress, meter, previews, applyRow, debug)
   layout.append(inputCard, outputCard)
   // Change List (Generate) + Asset Details (Review) for the opened run; read-only.
   const changes = createStyleChangePanel()
-  inputCard.append(changes.dslCard)
+  const advanced = document.createElement('details'); advanced.className = 'lab-details'
+  const advancedTitle = document.createElement('summary'); advancedTitle.textContent = '고급 설정 · Visual DSL'
+  advanced.append(advancedTitle, changes.dslCard)
+  inputCard.append(advanced)
   const contractBox = document.createElement('details'); contractBox.className = 'lab-details'
   const contractTitle = document.createElement('summary'); contractTitle.textContent = `통합 MVP · DSL + Plan 실행 (${context.mapId})`
   const contractNote = document.createElement('p')
   contractNote.textContent = '세리팀 DSL·Planner 연결 전 수동 계약 파일로 실행합니다. 적용하면 기존 town 테마를 백업 후 교체합니다. Crypt와 원본 에셋은 변경하지 않습니다.'
-  if (context.crypt) contractNote.textContent = '기존 폐허마을 결과를 기반으로 선택한 오브젝트만 새로 처리합니다. 현재는 수동 DSL·Plan이며, 적용 전까지 기존 맵은 유지됩니다.'
+  if (context.crypt) contractNote.textContent = '규칙 기반 DSL·Planner의 전체 계획입니다. 일반 생성은 위에서 체크한 대상만 처리합니다. 이 고급 실행 버튼은 JSON의 전체 계획을 실행합니다.'
   const contractInput = document.createElement('textarea')
   contractInput.setAttribute('aria-label', '통합 계약 JSON')
   contractInput.placeholder = '{"dsl": {...}, "plan": [...]}'
@@ -250,10 +267,9 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   contractBox.append(contractTitle, contractNote, sampleButton, contractInput, contractRun)
   inputCard.append(contractBox)
   if (context.crypt) {
-    contractBox.open = true
-    analyze.disabled = true; generate.disabled = true; prompt.readOnly = true
-    prompt.value = '기존 폐허마을 크리스마스 테마 유지'
-    objects.textContent = '폐허마을 TMX에서 추출한 오브젝트를 아래 DSL·Plan에서 선택합니다. town 샘플은 사용하지 않습니다.'
+    analyze.disabled = false; generate.disabled = true; prompt.readOnly = false
+    prompt.value = '크리스마스 밤. 원본 색은 그대로 두고 눈과 전구를 추가하고 반짝이게 해줘.'
+    objects.textContent = '프롬프트를 해석하면 폐허마을 소품 그룹별 계획을 확인할 수 있습니다.'
     note.textContent = '대상: '+context.mapId+' · 기존 결과 유지 · 새 실행은 별도 기록 · 적용은 Crypt 전용 경로'
   }
   const changeCard = document.createElement('section'); changeCard.className = 'lab-card lab-changes'
@@ -267,10 +283,14 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   const requestedRun = new URLSearchParams(location.search).get('run')
   if (requestedRun && /^[a-f0-9]{32}$/.test(requestedRun)) { runId = requestedRun; void poll() }
   else if (context.crypt) {
-    void fetch(context.activeUrl, { cache: 'no-store' }).then(async r => {
+    void (async () => {
+      const runs = await api('/runs') as Run[]
+      const running = runs.find(run => run.mapId === context.mapId && ['running', 'queued'].includes(run.status))
+      if (running) { runId = running.id; await poll(); return }
+      const r = await fetch(context.activeUrl, { cache: 'no-store' })
       if (!r.ok) throw new Error('현재 맵의 적용 기록을 찾지 못했습니다.')
       const active = await r.json() as { id: string }
       runId = active.id; await poll()
-    }).catch(error)
+    })().catch(error)
   }
 }

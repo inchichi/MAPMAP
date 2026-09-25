@@ -6,6 +6,8 @@ from contracts import Dsl, Plan, GroupManifest, check_folder
 from theme_pipeline import ROOT, REPO, save_status, recolor
 from town_plan_style import edit, read, write
 from run_records import record_event
+from ruins_decoration_margin import extract as extract_margin
+from ruins_composition import compose
 
 MAP = 'floor-1-ruins'
 PIPELINE = 'crypt-ruins-plan-v1'
@@ -83,8 +85,7 @@ def run(run_id):
     lock = ROOT/'.batch.lock'
     with lock.open('x') as handle: handle.write(run_id)
     try:
-        overlay = Image.open(ROOT/parent['id']/'decoration-map.png').convert('RGBA')
-        bulbs = parent['bulbs'].copy()
+        revisions = parent.get('asset_revisions', {}).copy()
         for row in rows:
             name = row['asset']
             status.update(status='running', stage=4, current_object=name)
@@ -94,38 +95,40 @@ def run(run_id):
             if row['action'] in ('decorate', 'recolor'):
                 (folder/name).mkdir(exist_ok=True)
                 if row['action'] == 'decorate':
-                    deco = edit(folder, row, source, pipeline=PIPELINE)
-                    deco.putalpha(Image.fromarray(np.minimum(np.array(deco.getchannel('A')), np.array(source.getchannel('A')))))
+                    edit(folder, row, source, pipeline=PIPELINE)
+                    padded, deco, offset = extract_margin(source, Image.open(folder/name/'flux-raw.png'))
                     deco.save(folder/name/'decoration.png')
-                    output = Image.alpha_composite(source, deco)
+                    base = recolor(source, dsl.get('color', {'gain':[1,1,1], 'bias':[0,0,0]})) if row.get('recolor_base') else source
+                    base.save(folder/name/'recolor.png')
+                    if not np.array_equal(np.array(base)[:,:,3],np.array(source)[:,:,3]): raise ValueError('Base alpha changed')
+                    padded.paste(base,(offset['margin'],offset['margin']))
+                    padded.save(folder/name/'base-padded.png')
+                    output = Image.alpha_composite(padded, deco)
+                    result['postprocess_profile']='padded-margin-3-v1'
                     result['generation_seconds'] = read(folder/name, 'request-timing.json')['generation_seconds']
                 else:
                     output = recolor(source, dsl.get('color', {'gain': [1,1,1], 'bias': [0,0,0]}))
+                    if not np.array_equal(np.array(output)[:,:,3],np.array(source)[:,:,3]): raise ValueError('Alpha changed')
+                    offset={'x':0,'y':0,'margin':0}
                 output.save(folder/name/'composite.png')
-                pixels = np.array(output)
-                if not np.array_equal(pixels[:,:,3], np.array(source)[:,:,3]): raise ValueError('Alpha changed: '+name)
-                pixels[:,:,:3] = (pixels[:,:,:3].astype(float)*.9).astype('uint8')
-                for p in spec['instances']:
-                    if p['asset'] != name: continue
-                    overlay.alpha_composite(Image.fromarray(pixels), (p['x'], p['y']))
-                    bulbs = [[x,y] for x,y in bulbs if not (p['x'] <= x < p['x']+source.width and p['y'] <= y < p['y']+source.height)]
-                    if row['action'] == 'decorate' and dsl.get('twinkle'):
-                        a = np.array(deco)
-                        ys, xs = np.where((a[:,:,0]>205)&(a[:,:,1]>135)&(a[:,:,2]<170)&(a[:,:,3]>90))
-                        bulbs += [[int(p['x']+x), int(p['y']+y)] for x,y in zip(xs[::3],ys[::3])]
+                write(folder/name,'placement.json',dict(offset,twinkle=row['action']=='decorate' and dsl.get('twinkle',False)))
+                revisions[name]=run_id
                 result['status'] = 'ready'
             status['object_results'][name] = result
             status['completed_objects'] += 1
             save_status(folder, status)
         for path, digest in spec['hashes'].items():
             if hashlib.sha256((REPO/path).read_bytes()).hexdigest() != digest: raise ValueError('Source changed')
+        overlay,bulbs,base_id=compose(ROOT,parent,spec,revisions)
         overlay.save(folder/'decoration-map.png')
         original = Image.open(folder/'original-map.png').convert('RGBA')
         preview = Image.alpha_composite(original, Image.new('RGBA', original.size, (12,23,58,round(parent['night']*255))))
         Image.alpha_composite(preview, overlay).save(folder/'preview.png')
         write(folder, 'crypt-manifest.json', dict(parent, id=run_id, parent_run_id=parent['id'], bulbs=bulbs,
+                                                 composition_base_id=base_id, asset_revisions=revisions,
                                                  overlay=f'/theme-runs/{run_id}/decoration-map.png'))
-        write(folder, 'validation.json', {'source_hashes_unchanged': True, 'all_variant_alpha_preserved': True})
+        write(folder, 'validation.json', {'source_hashes_unchanged': True, 'all_variant_alpha_preserved': True,
+                                         'alpha_scope':'base sprite; decoration independently padded by 3 pixels'})
         if any(check_folder(folder).values()): raise ValueError('Invalid contracts')
         status.update(status='ready', stage=7, current_object=None, preview=f'/theme-runs/{run_id}/preview.png')
         save_status(folder, status)

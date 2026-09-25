@@ -1,4 +1,5 @@
 import './editor.css'
+import './editorWorkspace.css'
 import { createEditorApp } from './createEditorApp'
 import { createThemeWorkflowPage } from './createThemeWorkflowPage'
 import { SAMPLE_GAME_FILES } from './sampleGameFiles'
