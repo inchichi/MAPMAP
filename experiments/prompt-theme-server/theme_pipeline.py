@@ -169,6 +169,47 @@ def plan(req: Request):
 def runs():
     return [json.loads(p.read_text(encoding='utf8')) for p in sorted(ROOT.glob('*/status.json'), key=lambda p:p.stat().st_mtime,reverse=True)]
 
+
+@app.get('/integration/sample')
+def integration_sample(mapId: str = 'floor-1-ruins'):
+    if mapId == 'floor-1-ruins':
+        from crypt_plan_style import sample
+        return sample()
+    if mapId != 'town': raise HTTPException(422, '지원하지 않는 통합 맵입니다.')
+    sample = REPO/'contracts/samples/town'
+    return {name: json.loads((sample/f'{name}.json').read_text(encoding='utf8')) for name in ('dsl', 'plan')}
+
+
+class IntegrationRequest(BaseModel):
+    dsl: dict
+    plan: list[dict] = Field(min_length=1, max_length=64)
+    mapId: str = 'floor-1-ruins'
+
+
+@app.post('/integration/runs')
+def integration_submit(req: IntegrationRequest):
+    if req.dsl.get('target_maps') != [req.mapId]: raise HTTPException(422, '화면의 맵과 DSL 대상 맵이 다릅니다.')
+    if req.mapId == 'floor-1-ruins':
+        from crypt_plan_style import prepare_data, run as execute_plan
+    elif req.mapId == 'town':
+        from town_plan_style import prepare_data, run as execute_plan
+    else: raise HTTPException(422, '지원하지 않는 통합 맵입니다.')
+    if (ROOT/'.batch.lock').exists() or not busy.acquire(blocking=False):
+        raise HTTPException(409, '이미 생성 중입니다.')
+    try:
+        run_id = prepare_data(req.dsl, req.plan)
+    except (ValueError, KeyError) as error:
+        busy.release()
+        raise HTTPException(422, str(error))
+    except Exception:
+        busy.release()
+        raise
+    def work():
+        try: execute_plan(run_id)
+        finally: busy.release()
+    pool.submit(work)
+    return {'id': run_id}
+
 def run(folder, req):
     data={'id':folder.name,'status':'running','stage':1,'prompt':req.prompt,'created':time.time(),'pipeline':VERSION}
     try:
@@ -278,6 +319,13 @@ def approve(run_id:str):
     folder=get_folder(run_id)
     status=json.loads((folder/'status.json').read_text(encoding='utf8'))
     if status['status']!='ready': raise HTTPException(409,'완료된 미리보기만 승인할 수 있습니다.')
+    if status.get('pipeline') == 'town-plan-v1':
+        from contracts import check_folder
+        checks = check_folder(folder)
+        required = {'dsl.json', 'group-manifest.json', 'labels.json', 'plan.json', 'validation.json', 'crypt-manifest.json'}
+        validation = json.loads((folder/'validation.json').read_text(encoding='utf8')) if (folder/'validation.json').exists() else {}
+        if not required <= checks.keys() or any(checks.values()) or validation.get('alpha_preserved') is not True:
+            raise HTTPException(409, '통합 계약/알파 검증을 통과하지 못했습니다.')
     manifest=json.loads((folder/'manifest.json').read_text(encoding='utf8'))
     if sources()[3]!=manifest['source_hashes']: raise HTTPException(409,'원본 맵이 변경됐습니다. 다시 생성해주세요.')
     for item in manifest['placements']:
@@ -288,7 +336,8 @@ def approve(run_id:str):
         if not path.is_relative_to(folder.resolve()) or not path.is_file():
             raise HTTPException(409,'결과 이미지가 없습니다.')
     record_event(folder, 'approval_validated', placement_count=len(manifest['placements']))
-    return {'id':run_id,'mapId':'town','targets':[o['id'] for o in manifest['objects']], 'placements':manifest['placements']}
+    return {'id':run_id,'mapId':'town','targets':[o['id'] for o in manifest['objects']], 'placements':manifest['placements'],
+            'replaceTheme': status.get('pipeline') == 'town-plan-v1'}
 
 
 class AppliedReceipt(BaseModel):

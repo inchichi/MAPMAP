@@ -18,6 +18,20 @@ In a second terminal, run `npm run dev -- --host 127.0.0.1 --port 15174 --strict
 
 ## Flow and persistence
 
+### Town integration MVP
+
+**Target correction:** the active integration target is the previously used Crypt `floor-1-ruins` editor, not the town demonstration below. `/editor.html?game=crypt&map=floor-1-ruins` keeps its existing selection. Style navigation carries game/map context in both directions, filters history by map and opens its applied result. An unqualified style workspace defaults to this ruins map; town now requires `map=town` explicitly.
+
+`crypt_plan_style.py` reads verified original crops and coordinates from the active ruins run, creates a new revision for selected prop groups and preserves the parent's unrelated overlay. It uses the existing FLUX per-object edit/extraction path, writes six contracts and publishes only via Crypt approval. The revision MVP keeps the existing Christmas lighting and supports extracted prop groups (not ground/wall retheming). Sample contracts are manual, not outputs of Seri's parser. Approval rejects a stale parent selection; the current floor stays unchanged until explicit application. API requests must include `mapId` matching `dsl.target_maps` and cannot silently fall back to town.
+
+The style workspace includes **통합 MVP · DSL + Plan 실행 (town)**. Load the hand-authored sample or paste a `{dsl, plan}` contract from the planner, then generate, inspect Change List / Asset Details / read-only Visual DSL, and approve. `GET /integration/sample` and `POST /integration/runs` use the same API prefix as other theme endpoints. This does not claim to implement Seri's unavailable DSL parser or Planner.
+
+The town slice writes all six contracts, source crops, FLUX inputs/raw outputs, timings and separate recolor/decoration maps. Only `recolor` rows change source colors; the global color filter stays identity. Night shading is applied consistently to the recolored runtime overlay. `add`, `cover` and `skip` are log-only; multiple candidates and explicit seeds are rejected in this MVP rather than silently ignored. FLUX does not expose its actual random seed.
+
+Approval requires complete valid contracts, unchanged source hashes and alpha validation. Applying a town-plan run backs up and replaces the previous generated **town theme as a whole**, preventing stacked full-map overlays; ordinary user placements and other maps remain untouched. Raw original assets are never rewritten. Existing profile runs retain their partial-update behavior. ComfyUI is optional; the verified existing FLUX service is the baseline when no ComfyUI workflow endpoint is available.
+
+After browser application, `/editor.html?styleRun=<id>` opens the original shell with Change List below the game and Visual DSL / Asset Details in the result panel. The original left asset sidebar is unchanged. The ordinary editor without `styleRun` retains its content composer. Structural validation is not visual acceptance: attached lights outside the allowed alpha margin can still be clipped and require a reviewed placement profile.
+
 `restore_first_overlaps.py PARENT_RUN_ID` creates a logged partial restore of the original four demo objects (hall, stall, left fountain, upper tree), preserving the recorded PNG bytes and padded placement coordinates. Its approval contains only those four targets and no theme settings, so unrelated objects and current global night/twinkle settings remain untouched. Approvals replace global settings only when they actually supply new settings.
 
 Every status transition is appended to the run's `events.jsonl`; browser approval and successful browser-save receipts are logged separately. PNGs, raw FLUX responses, prompts and timings remain in the unique run directory. Reuse/corrections create a new run with `parent_run_id`, never overwrite the original experiment. These files are local and git-ignored, not a cloud backup. Run history exposes all retained runs.

@@ -37,8 +37,16 @@ def default_prompt(row):
 
 
 def prepare(dsl_path, plan_path):
-    dsl = Dsl.model_validate_json(Path(dsl_path).read_text(encoding='utf8')).model_dump(exclude_none=True)
-    plan = [row.model_dump(exclude_none=True) for row in Plan.model_validate_json(Path(plan_path).read_text(encoding='utf8')).root]
+    return prepare_data(read(Path(dsl_path).parent, Path(dsl_path).name), read(Path(plan_path).parent, Path(plan_path).name))
+
+
+def prepare_data(dsl, plan):
+    dsl = Dsl.model_validate(dsl).model_dump(exclude_none=True)
+    plan = [row.model_dump(exclude_none=True) for row in Plan.model_validate(plan).root]
+    if dsl['target_maps'] != ['town']: raise ValueError('This integration slice supports town only')
+    if not plan or len({row['asset'] for row in plan}) != len(plan): raise ValueError('Plan needs unique assets')
+    if any(row['candidates'] != 1 or row.get('seed') is not None for row in plan):
+        raise ValueError('MVP supports one candidate and service-selected seeds only')
     manifest = groups_tsx.build(REPO, 'town', MAP)
     groups = {group['group_id']: group for group in manifest['groups']}
     unknown = [row['asset'] for row in plan if row['asset'] not in groups]
@@ -61,6 +69,7 @@ def prepare(dsl_path, plan_path):
         row['instances'] = sum(i['asset'] == row['asset'] for i in instances)
     write(folder, 'dsl.json', dsl)
     write(folder, 'group-manifest.json', manifest)
+    write(folder, 'labels.json', {})  # TSX labels are in the group manifest; no CC cache entries.
     write(folder, 'plan.json', plan)
     write(folder, 'sources.json', {'mapId': 'town', 'hashes': hashes, 'variants': variants, 'instances': instances, 'skipped_instances': skipped})
     (folder/'review.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><body><script type="module" src="/src/editor/cryptResultGallery.ts"></script></body></html>', encoding='utf8')
@@ -74,7 +83,7 @@ def prepare(dsl_path, plan_path):
     return folder.name
 
 
-def edit(folder, row, source):
+def edit(folder, row, source, pipeline=PIPELINE):
     target = folder/row['asset']
     target.mkdir(exist_ok=True)
     scale = max(1, min(6, 1024 // max(source.size)))
@@ -82,7 +91,7 @@ def edit(folder, row, source):
     canvas = Image.new('RGB', (scaled.width+64, scaled.height+64), '#808080')
     canvas.paste(scaled, (32, 32), scaled)
     if not (target/'flux-raw.png').exists():
-        request_image(target, canvas, row['prompt'] or default_prompt(row), FLUX, 1.0, pipeline=PIPELINE)
+        request_image(target, canvas, row['prompt'] or default_prompt(row), FLUX, 1.0, pipeline=pipeline)
     raw = Image.open(target/'flux-raw.png').convert('RGB').resize(canvas.size, Image.Resampling.LANCZOS)
     aligned = raw.crop((32, 32, 32+scaled.width, 32+scaled.height))
     aligned.save(target/'aligned-high.png')
@@ -145,17 +154,23 @@ def finalize(folder, status, plan, spec):
             recolor_map.alpha_composite(Image.open(folder/name/'composite.png').convert('RGBA'), (x, y))
     decoration_map.save(folder/'decoration-map.png')
     recolor_map.save(folder/'recolor-map.png')
-    _, tinted, _, _ = layers(status['spec']['color'])
-    preview = Image.alpha_composite(tinted, recolor_map)
+    preview = Image.alpha_composite(original, recolor_map)
     if status['spec']['night']: preview = Image.alpha_composite(preview, Image.new('RGBA', preview.size, (7, 19, 46, 148)))
     Image.alpha_composite(preview, decoration_map).save(folder/'preview.png')
     run_id = folder.name
-    settings = {'runId': run_id, 'night': NIGHT if status['spec']['night'] else 0, 'twinkle': status['spec']['twinkle'], 'color': status['spec']['color']}
+    settings = {'runId': run_id, 'night': NIGHT if status['spec']['night'] else 0, 'twinkle': status['spec']['twinkle'], 'color': {'gain': [1, 1, 1], 'bias': [0, 0, 0]}}
     Image.new('RGBA', (1, 1)).save(folder/'settings.png')
     placement = lambda pid, url: {'id': f'{run_id}-{pid}', 'kind': 'object', 'col': 0, 'row': 0, 'imageUrl': f'/theme-runs/{run_id}/{url}',
                                   'anchor': 'top-left', 'renderLayer': 'decoration', 'sourceGroup': 'prompt-theme', 'visible': True, 'sourceAssetId': pid}
     placements = [dict(placement('settings', 'settings.png'), themeSettings=settings)]
-    if recolor_map.getbbox(): placements.append(placement('recolor-map', 'recolor-map.png'))
+    if recolor_map.getbbox():
+        runtime_recolor = recolor_map.copy()
+        if status['spec']['night']:
+            shade = Image.new('RGBA', runtime_recolor.size, (7, 19, 46, 148))
+            runtime_recolor = Image.alpha_composite(runtime_recolor, shade)
+            runtime_recolor.putalpha(recolor_map.getchannel('A'))
+        runtime_recolor.save(folder/'recolor-runtime.png')
+        placements.append(placement('recolor-map', 'recolor-runtime.png'))
     placements.append(placement('decoration-map', 'decoration-map.png'))
     boxes = {}
     for instance in spec['instances']: boxes.setdefault(instance['asset'], instance)
@@ -168,10 +183,14 @@ def finalize(folder, status, plan, spec):
                                       'tiles_covered': len(spec['instances']), 'skipped_instances': len(spec['skipped_instances']),
                                       'changed_pixels': int((np.array(decoration_map)[:, :, 3] > 0).sum() + (np.array(recolor_map)[:, :, 3] > 0).sum()),
                                       'out_of_bounds_pixels': out_of_bounds})
+    write(folder, 'crypt-manifest.json', {'id': run_id, 'mapId': 'town', 'width': original.width, 'height': original.height,
+                                        'night': settings['night'], 'bulbs': [], 'source_hashes': spec['hashes'],
+                                        'layers': {'decoration': f'/theme-runs/{run_id}/decoration-map.png',
+                                                   'recolor': f'/theme-runs/{run_id}/recolor-map.png'}})
     if spec['skipped_instances']: warnings.append(f'원본 픽셀이 다른 인스턴스 {len(spec["skipped_instances"])}곳은 이번 결과에서 제외했습니다.')
     warnings += [f'{name}: 추출된 장식 없음' for name, r in status['object_results'].items() if r.get('empty')]
     problems = {name: error for name, error in check_folder(folder).items() if error}
-    if problems or not unchanged: raise ValueError(f'contract/source check failed: {problems or "source hashes changed"}')
+    if problems or not unchanged or out_of_bounds: raise ValueError(f'contract/source/alpha check failed: {problems}, unchanged={unchanged}, overflow={out_of_bounds}')
     status.update(status='ready', stage=7, preview=f'/theme-runs/{run_id}/preview.png', preview_revision=time.time(), warnings=warnings)
     save_status(folder, status)
     record_event(folder, 'finalized', instances=len(spec['instances']), out_of_bounds_pixels=out_of_bounds)

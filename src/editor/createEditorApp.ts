@@ -487,9 +487,13 @@ export const createEditorApp = ({
     }
   })
   const promptThemeLink = el('a', 'px-3 py-2 border border-[#c9a96b] rounded text-[#e2bd8c]', '스타일 변환')
-  promptThemeLink.href = '/editor.html?workspace=style'
+  const styleWorkspaceUrl = (): string => game.adapter.id === 'crypt-crawler'
+    ? `/editor.html?workspace=style&game=crypt&map=${encodeURIComponent(currentMapId ?? new URLSearchParams(location.search).get('map') ?? 'floor-1-ruins')}`
+    : '/editor.html?workspace=style&map=town'
+  promptThemeLink.href = styleWorkspaceUrl()
+  promptThemeLink.addEventListener('click', () => { promptThemeLink.href = styleWorkspaceUrl() })
   if (game.adapter.id !== 'crypt-crawler') headerRight.append(promptThemeLink, decorationDemo, decorationToggle)
-  else headerRight.append(decorationToggle)
+  else headerRight.append(promptThemeLink, decorationToggle)
   header.append(brand, headerRight)
 
   // LLM 챗 스타일 배치: 가운데가 라이브 게임(위 가득) + 프롬프트(아래), 오른쪽이 생성 결과.
@@ -694,7 +698,7 @@ export const createEditorApp = ({
     el('span', 'text-[11px] leading-none text-[#777777] opacity-65', '스타일 변환')
   )
   styleTransferButton.addEventListener('click', () => {
-    window.location.assign('/editor.html?workspace=style')
+    window.location.assign(styleWorkspaceUrl())
   })
   suggestionRow.append(styleTransferButton)
   const stylePipelineButton = el('button', QUICK_CARD) as HTMLButtonElement
@@ -1412,9 +1416,12 @@ export const createEditorApp = ({
   composer.append(composerTop, supportNote, quickStart, promptField, recommendBoard, actions, status, recentResultLine)
   center.append(preview, composer)
   // Crypt: 컴포저 자리에 스타일 결과의 변경 목록(Generate), 결과 보드 위에 에셋 상세(Review)를 둔다(읽기 전용).
-  const styleChanges = game.adapter.id === 'crypt-crawler' ? createStyleChangePanel() : undefined
+  const requestedStyleRun = new URLSearchParams(location.search).get('styleRun') ?? ''
+  const townStyleRun = game.adapter.id === 'my-sample-rpg' && /^[a-f0-9]{32}$/.test(requestedStyleRun) ? requestedStyleRun : ''
+  const styleChanges = game.adapter.id === 'crypt-crawler' || townStyleRun ? createStyleChangePanel() : undefined
   if (styleChanges) {
-    composer.replaceChildren(el('p', 'text-[11px] text-[#9d9d9d]', 'Crypt: WASD 이동 · F 상호작용 · M 지도. 스타일 결과 페이지에서 적용하고, 위의 장식 버튼으로 원본과 비교할 수 있습니다.'), styleChanges.changeList)
+    composer.replaceChildren(el('p', 'text-[11px] text-[#9d9d9d]', '스타일 검수: 변경 목록에서 오브젝트를 선택하고, 위의 장식 버튼으로 원본과 비교하세요.'), styleChanges.changeList)
+    if (townStyleRun) styleChanges.showRun(townStyleRun)
   }
 
   // ---------- right: 생성 결과 사이드바 ----------
@@ -1441,7 +1448,7 @@ export const createEditorApp = ({
   lastGeneratedLine.hidden = true
   side.append(
     sideTitle,
-    ...(styleChanges ? [styleChanges.assetDetails] : []),
+    ...(styleChanges ? [styleChanges.dslCard, styleChanges.assetDetails] : []),
     analysisPanel,
     boardHint,
     boardList,
@@ -3300,7 +3307,7 @@ export const createEditorApp = ({
       return
     }
     currentMapId = data.sceneId
-    styleChanges?.showMap(data.sceneId)
+    if (!townStyleRun) styleChanges?.showMap(data.sceneId)
     updateSceneTabs()
     // 게임이 새 맵으로 가면 자동으로 그 맵에 다시 집중한다(전체 보기 해제).
     showAllMaps = false

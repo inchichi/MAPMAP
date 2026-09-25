@@ -51,7 +51,7 @@ apply.onclick = async () => {
       message.textContent = warning
       return
     }
-    location.assign('/editor.html')
+    location.assign(`/editor.html?styleRun=${runId}`)
   } catch (error) {
     message.textContent = `적용 실패: ${String(error)}`
   } finally {

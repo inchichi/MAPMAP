@@ -116,6 +116,6 @@ def changes(folder):
             'parent_run_id': status.get('parent_run_id'),
             'source': 'plan.json' if plan is not None else 'derived',
             'counts': {action: counts.get(action, 0) for action in ACTIONS},
-            'rows': rows, 'validation': read_json(folder/'validation.json'),
+            'rows': rows, 'dsl': read_json(folder/'dsl.json'), 'validation': read_json(folder/'validation.json'),
             'preview': url(folder, 'preview.png'), 'original': url(folder, 'original-map.png'),
             'review': url(folder, 'review.html')}

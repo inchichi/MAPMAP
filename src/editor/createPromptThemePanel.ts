@@ -1,12 +1,14 @@
 import './promptTheme.css'
 import { applyPromptThemeRun } from './applyPromptThemeRun'
 import { createStyleChangePanel } from './panels/createStyleChangePanel'
+import { styleWorkspaceContext } from './styleWorkspaceContext'
 
 type Spec = { theme: string; decorations: string[]; night: boolean; twinkle: boolean; color: { gain: number[]; bias: number[] }; warnings: string[] }
-type Run = { id: string; status: string; stage: number; prompt: string; preview?: string; original?: string; error?: string; warnings?: string[]; spec?: Spec; pipeline?: string; current_object?: string; completed_objects?: number; total_objects?: number }
+type Run = { id: string; mapId?: string; status: string; stage: number; prompt: string; preview?: string; original?: string; error?: string; warnings?: string[]; spec?: Spec; pipeline?: string; current_object?: string; completed_objects?: number; total_objects?: number }
 const stages = ['프롬프트 해석', 'TMX 원본 추출', '색·명암 보정', 'FLUX 장식 생성', '원본 좌표 정렬', '밤·반짝임', '미리보기/적용']
 
 export const createPromptThemePage = (mountElement: HTMLElement): void => {
+  const context = styleWorkspaceContext(location.search)
   if (document.querySelector('[data-prompt-theme-panel]')) return
   const dialog = document.createElement('main')
   dialog.dataset.promptThemePanel = 'true'
@@ -17,9 +19,9 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   style.textContent = '[data-prompt-theme-panel] textarea{box-sizing:border-box}[data-prompt-theme-panel] img{image-rendering:pixelated}'
   dialog.append(style)
   const title = document.createElement('h2')
-  title.textContent = '스타일 변환'
+  title.textContent = `스타일 변환 · ${context.mapId === 'floor-1-ruins' ? '1층 폐허마을' : context.mapId}`
   const back = document.createElement('a')
-  back.href = '/editor.html'
+  back.href = context.editorUrl
   back.textContent = '← 게임 에디터로 돌아가기'
   back.className = 'lab-back'
   const note = document.createElement('p')
@@ -103,6 +105,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   }
   const error = (e: unknown): void => { status.textContent = '오류: '+(e instanceof Error ? e.message : String(e)); progress.textContent = status.textContent }
   const show = (run: Run): void => {
+    if ((run.mapId ?? 'town') !== context.mapId) { apply.disabled = true; error(new Error('다른 맵의 결과입니다. 현재 맵은 '+context.mapId)); return }
     const labels: Record<string,string> = { ready: '생성 완료 · 원본과 비교한 뒤 승인해주세요.', running: 'FLUX 생성 중 · 수분이 걸릴 수 있습니다.', queued: '생성 대기 중', failed: '생성 실패 · 상세 기록을 확인해주세요.' }
     setProgress(run.status === 'ready' ? 3 : 2, (labels[run.status] ?? run.status) + (run.current_object ? ` · ${run.current_object} (${run.completed_objects ?? 0}/${run.total_objects ?? 0})` : ''))
     if (run.spec) showSpec(run.spec)
@@ -110,7 +113,10 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     status.textContent = stages.map((s,i) => `${i+1}. ${s} ${i+1<run.stage?'✓':i+1===run.stage?'←':''}`).join('\n')+'\n상태: '+run.status+(run.error?'\n'+run.error:'')+'\n'+(run.warnings??[]).join('\n')
     status.textContent += '\n방식: '+(run.pipeline ?? '이전 공통 장식 방식')+(run.current_object ? `\n대상: ${run.current_object} · ${run.completed_objects ?? 0}/${run.total_objects ?? 0} 완료` : '')
     apply.disabled = run.status !== 'ready' || applying
-    if (run.status === 'ready') changes.showRun(run.id)
+    applyHint.textContent = run.pipeline === 'town-plan-v1'
+      ? '통합 결과: 이전 town 테마를 백업 후 전체 교체합니다. 다른 맵과 수동 배치는 유지합니다.'
+      : '결과를 확인했나요? 선택한 오브젝트의 장식만 교체합니다.'
+    if (run.status === 'ready' || run.pipeline?.endsWith('plan-v1')) changes.showRun(run.id)
     if (run.status === 'ready' && run.preview) {
       previews.replaceChildren()
       for (const [label,url] of [['원본',run.original],['생성 미리보기',run.preview]] as [string, string | undefined][]) {
@@ -129,10 +135,11 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
       if (run.id !== runId || !dialog.isConnected) return
       show(run)
       if (['queued','running'].includes(run.status)) timer=setTimeout(() => { void poll() },2500)
-      else { generate.disabled = plannedPrompt !== prompt.value; analyze.disabled=false; prompt.readOnly=false }
+      else { generate.disabled = context.crypt || plannedPrompt !== prompt.value; analyze.disabled=context.crypt; prompt.readOnly=context.crypt }
     } catch(e) { error(e); analyze.disabled=false; generate.disabled=false }
   }
   analyze.onclick=async () => {
+    if (context.crypt) return
     try {
       status.textContent='해석 중...'; setProgress(0, '프롬프트 해석 중…'); apply.disabled=true; emptyPreview()
       const plan=await api('/plan',{prompt:prompt.value}) as {spec:Spec;objects:{id:string;category:string;box:number[];profile_label?:string}[]}
@@ -149,6 +156,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   }
   prompt.oninput=() => {generate.disabled=true;apply.disabled=true;plannedPrompt=''; setProgress(0, '프롬프트가 변경됐습니다. 다시 해석해주세요.')}
   generate.onclick=async () => {
+    if (context.crypt) return
     try {
       if (plannedPrompt!==prompt.value) throw new Error('프롬프트를 다시 해석해주세요.')
       generate.disabled=true;analyze.disabled=true;apply.disabled=true;prompt.readOnly=true;emptyPreview(); setProgress(2, 'FLUX 생성 요청 중…')
@@ -161,12 +169,18 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     if (!runId) return
     applying=true;apply.disabled=true
     try {
+      if (context.crypt) {
+        await api(`/runs/${runId}/crypt-apply`, {})
+        localStorage.setItem('crypt-crawler:style-visible', 'true')
+        location.assign(context.editorUrl)
+        return
+      }
       const warning = await applyPromptThemeRun(runId)
       if (warning) { status.textContent = warning; return }
       setProgress(3, '적용 완료 · 게임 에디터로 돌아가 확인하세요.')
       for (const frame of document.querySelectorAll('iframe')) frame.contentWindow?.postMessage({type:'editor:placement-refresh'},location.origin)
       status.textContent='적용·이 브라우저에 저장 완료. 상단의 게임 에디터로 돌아가 결과를 확인하세요. 장식 버튼으로 색 보정/밤/장식을 함께 끌 수 있습니다. 이전 배치는 브라우저에 백업했습니다. 선택한 오브젝트의 장식만 교체했습니다.'
-      location.assign('/editor.html')
+      location.assign(`/editor.html?styleRun=${runId}`)
     } catch(e) {error(e)} finally {applying=false;apply.disabled=false}
   }
   history.onclick=async () => {
@@ -175,7 +189,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
       recordDetails.open = true
       const runs = await api('/runs') as Run[]
       if (!runs.length) records.textContent = '아직 실행 기록이 없습니다.'
-      for (const run of runs) {
+      for (const run of runs.filter(r => (r.mapId ?? 'town') === context.mapId)) {
         const b=document.createElement('button');b.className='lab-record'; b.type='button'
         b.textContent=(run.pipeline ?? '이전 방식')+' · '+run.status+' · '+run.prompt+' · '+run.id.slice(0,8)
         b.onclick=() => {if(timer)clearTimeout(timer);runId=run.id;previews.replaceChildren();show(run);if(['running','queued'].includes(run.status))void poll()}
@@ -198,7 +212,9 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   const outputCard = document.createElement('section'); outputCard.className = 'lab-card lab-output'
   const previewHead = sectionTitle('미리보기 · 비교', '이미지를 누르면 원본 크기로 볼 수 있습니다. 승인 전에는 게임이 바뀌지 않습니다.')
   const applyRow = document.createElement('div'); applyRow.className = 'lab-apply'
-  applyRow.append(document.createTextNode('결과를 확인했나요? 선택한 오브젝트의 장식만 교체합니다.'), apply)
+  const applyHint = document.createElement('span')
+  applyHint.textContent = '결과를 확인했나요? 선택한 오브젝트의 장식만 교체합니다.'
+  applyRow.append(applyHint, apply)
   const debug = document.createElement('details'); debug.className = 'lab-details'
   const debugTitle = document.createElement('summary'); debugTitle.textContent = '상세 설정 · 진행 로그'
   debug.append(debugTitle, status)
@@ -206,6 +222,40 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   layout.append(inputCard, outputCard)
   // Change List (Generate) + Asset Details (Review) for the opened run; read-only.
   const changes = createStyleChangePanel()
+  inputCard.append(changes.dslCard)
+  const contractBox = document.createElement('details'); contractBox.className = 'lab-details'
+  const contractTitle = document.createElement('summary'); contractTitle.textContent = `통합 MVP · DSL + Plan 실행 (${context.mapId})`
+  const contractNote = document.createElement('p')
+  contractNote.textContent = '세리팀 DSL·Planner 연결 전 수동 계약 파일로 실행합니다. 적용하면 기존 town 테마를 백업 후 교체합니다. Crypt와 원본 에셋은 변경하지 않습니다.'
+  if (context.crypt) contractNote.textContent = '기존 폐허마을 결과를 기반으로 선택한 오브젝트만 새로 처리합니다. 현재는 수동 DSL·Plan이며, 적용 전까지 기존 맵은 유지됩니다.'
+  const contractInput = document.createElement('textarea')
+  contractInput.setAttribute('aria-label', '통합 계약 JSON')
+  contractInput.placeholder = '{"dsl": {...}, "plan": [...]}'
+  const sampleButton = document.createElement('button'); sampleButton.type = 'button'; sampleButton.className = 'lab-button'
+  sampleButton.textContent = '수동 샘플 불러오기'
+  const contractRun = document.createElement('button'); contractRun.type = 'button'; contractRun.className = 'lab-button'
+  contractRun.textContent = '계약 검증 · 생성'
+  sampleButton.onclick = async () => {
+    try { contractInput.value = JSON.stringify(await api(`/integration/sample?mapId=${encodeURIComponent(context.mapId)}`), null, 2) } catch (e) { error(e) }
+  }
+  contractRun.onclick = async () => {
+    contractRun.disabled = true
+    try {
+      const result = await api('/integration/runs', { ...JSON.parse(contractInput.value), mapId: context.mapId }) as { id: string }
+      if (timer) clearTimeout(timer)
+      runId = result.id; generate.disabled = true; apply.disabled = true; analyze.disabled = true
+      emptyPreview(); void poll()
+    } catch (e) { error(e) } finally { contractRun.disabled = false }
+  }
+  contractBox.append(contractTitle, contractNote, sampleButton, contractInput, contractRun)
+  inputCard.append(contractBox)
+  if (context.crypt) {
+    contractBox.open = true
+    analyze.disabled = true; generate.disabled = true; prompt.readOnly = true
+    prompt.value = '기존 폐허마을 크리스마스 테마 유지'
+    objects.textContent = '폐허마을 TMX에서 추출한 오브젝트를 아래 DSL·Plan에서 선택합니다. town 샘플은 사용하지 않습니다.'
+    note.textContent = '대상: '+context.mapId+' · 기존 결과 유지 · 새 실행은 별도 기록 · 적용은 Crypt 전용 경로'
+  }
   const changeCard = document.createElement('section'); changeCard.className = 'lab-card lab-changes'
   changeCard.append(changes.changeList, changes.assetDetails)
   const recordDetails = document.createElement('details'); recordDetails.className = 'lab-history'
@@ -214,4 +264,13 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   note.className = 'lab-footnote'
   dialog.append(header, stepBar, layout, changeCard, recordDetails, note)
   mountElement.replaceChildren(dialog)
+  const requestedRun = new URLSearchParams(location.search).get('run')
+  if (requestedRun && /^[a-f0-9]{32}$/.test(requestedRun)) { runId = requestedRun; void poll() }
+  else if (context.crypt) {
+    void fetch(context.activeUrl, { cache: 'no-store' }).then(async r => {
+      if (!r.ok) throw new Error('현재 맵의 적용 기록을 찾지 못했습니다.')
+      const active = await r.json() as { id: string }
+      runId = active.id; await poll()
+    }).catch(error)
+  }
 }

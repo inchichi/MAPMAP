@@ -32,6 +32,7 @@ export type RunChanges = {
   counts: Record<ChangeAction, number>
   rows: ChangeRow[]
   validation: Record<string, unknown> | null
+  dsl?: Record<string, unknown> | null
   review: string | null
 }
 
@@ -131,6 +132,7 @@ const ROW_GRID = 'grid grid-cols-[36px_minmax(90px,1.1fr)_minmax(70px,0.9fr)_52p
 export type StyleChangePanel = {
   changeList: HTMLElement
   assetDetails: HTMLElement
+  dslCard: HTMLElement
   /** Crypt editor: follow the game map and open the run applied to it. */
   showMap: (mapId: string) => void
   /** Style workspace: open one run directly. */
@@ -138,6 +140,9 @@ export type StyleChangePanel = {
 }
 
 export const createStyleChangePanel = (): StyleChangePanel => {
+  const dslCard = el('details', 'lab-details')
+  const dslBody = el('pre', 'lab-log')
+  dslCard.append(el('summary', '', 'Visual DSL · 읽기 전용'), dslBody)
   // ---------- Change List ----------
   const changeList = el('section', 'flex flex-col gap-1.5 min-h-0')
   const head = el('div', 'flex flex-wrap items-center gap-2')
@@ -286,6 +291,7 @@ export const createStyleChangePanel = (): StyleChangePanel => {
       const run = await response.json() as RunChanges
       if (token !== loadToken) return
       current = run
+      dslBody.textContent = run.dsl ? JSON.stringify(run.dsl, null, 2) : '이전 실행: DSL 기록 없음'
       filter = 'all'
       selected = run.rows[0]?.asset ?? ''
       meta.textContent = `${run.prompt || '(프롬프트 기록 없음)'} · ${run.pipeline ?? '파이프라인 기록 없음'} · ${run.rows.length}종 · ${run.source === 'plan.json' ? '출처 plan.json' : '출처: 기존 실행 기록에서 추정 (plan.json 없음)'}`
@@ -335,12 +341,13 @@ export const createStyleChangePanel = (): StyleChangePanel => {
   return {
     changeList,
     assetDetails,
+    dslCard,
     showMap: (nextMapId: string) => {
       mapId = nextMapId
       void loadMap()
     },
     showRun: (runId: string) => {
-      if (current?.id === runId) return
+      if (current?.id === runId && current.status === 'ready') return
       mapId = ''
       runSelect.hidden = true
       void showRun(runId)

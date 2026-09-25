@@ -10,6 +10,15 @@ def publish(repo, folder):
     map_id=manifest['mapId']
     if map_id not in {'floor-0-town','floor-1-ruins'} or manifest['id']!=folder.name:
         raise ValueError('Crypt 맵 계약 불일치')
+    if status.get('pipeline') == 'crypt-ruins-plan-v1':
+        from contracts import check_folder
+        report = check_folder(folder)
+        if len(report) < 6 or any(report.values()): raise ValueError('통합 계약 검증 실패')
+        validation = json.loads((folder/'validation.json').read_text(encoding='utf8'))
+        if validation.get('all_variant_alpha_preserved') is not True: raise ValueError('알파 검증 실패')
+        current = json.loads((repo/f'public/crypt-style/active-{map_id}.json').read_text(encoding='utf8'))
+        if current['id'] not in (manifest['parent_run_id'], manifest['id']):
+            raise ValueError('생성 이후 적용 맵이 바뀌었습니다. 최신 결과에서 다시 시작해주세요.')
     expected={f'public/crypt-maps/{map_id}.tmx','src/games/crypt-crawler/assets/tilesets/ninja-dungeon-16.tsx','src/games/crypt-crawler/assets/tilesets/ninja-dungeon-16.png'}
     if set(manifest['source_hashes'])!=expected: raise ValueError('원본 검증 목록 불일치')
     for name,digest in manifest['source_hashes'].items():

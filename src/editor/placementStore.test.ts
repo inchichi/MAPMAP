@@ -61,6 +61,15 @@ describe('placementStore', () => {
     expect(() => installPromptTheme({ ...approval, placements: [{ ...approval.placements[0], imageUrl: 'https://example.com/x.png' }] })).toThrow()
     expect(loadPlacementsForMap('town')).toEqual([])
   })
+  it('replaces a complete town theme without accumulating maps or touching other placements', () => {
+    const ordinary = addPlacement('town', { kind: 'tile', tileId: 1 }, 0, 0)
+    const crypt = addPlacement('floor-1-ruins', { kind: 'tile', tileId: 2 }, 0, 0)
+    addPlacement('town', { kind: 'object', sourceGroup: 'prompt-theme', sourceAssetId: 'decoration-map' }, 0, 0)
+    installPromptTheme({ ...approval, replaceTheme: true })
+    installPromptTheme({ ...approval, replaceTheme: true })
+    expect(loadPlacementsForMap('town')).toEqual([ordinary, ...approval.placements])
+    expect(loadPlacementsForMap('floor-1-ruins')).toEqual([crypt])
+  })
   it('preserves night settings when a partial restore has no new settings', () => {
     const settings = addPlacement('town', {
       kind: 'object', sourceGroup: 'prompt-theme', renderLayer: 'decoration',

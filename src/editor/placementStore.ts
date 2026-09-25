@@ -111,6 +111,7 @@ export type PromptThemeApproval = {
   mapId: 'town'
   targets: string[]
   placements: PlacedItem[]
+  replaceTheme?: boolean
 }
 
 export const installPromptTheme = (approval: PromptThemeApproval): void => {
@@ -127,6 +128,7 @@ export const installPromptTheme = (approval: PromptThemeApproval): void => {
     throw new Error('이전 배치 백업에 실패했습니다. 적용하지 않았습니다.')
   }
   all.town = [...(all.town ?? []).filter(item => {
+    if (approval.replaceTheme && ['prompt-theme', 'flux-decorations-20260909'].includes(item.sourceGroup ?? '')) return false
     if (item.sourceGroup === 'prompt-theme' && item.themeSettings) {
       return !approval.placements.some(placement => placement.themeSettings)
     }
