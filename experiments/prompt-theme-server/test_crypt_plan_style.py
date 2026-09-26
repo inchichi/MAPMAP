@@ -9,7 +9,7 @@ from contracts import check_folder
 
 
 class CryptPlanTests(unittest.TestCase):
-    def test_revision_uses_ruins_coordinates_and_preserves_unselected_overlay(self):
+    def test_new_theme_uses_original_and_drops_previous_overlay(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(pipeline, 'ROOT', Path(tmp)):
             parent = Path(tmp)/('a'*32); parent.mkdir()
             Image.new('RGBA', (8,4), (20,30,40,255)).save(parent/'original-map.png')
@@ -31,8 +31,8 @@ class CryptPlanTests(unittest.TestCase):
             folder = Path(tmp)/run_id
             result = Image.open(folder/'decoration-map.png')
             self.assertEqual(result.size, (8,4))
-            self.assertEqual(result.getpixel((7,3)), (90,80,70,255))
-            self.assertEqual(result.getpixel((2,1)), (45,54,63,255))
+            self.assertEqual(result.getpixel((7,3)), (0,0,0,0))
+            self.assertEqual(result.getpixel((2,1)), (50,60,70,255))
             self.assertEqual(Image.open(parent/'decoration-map.png').getpixel((2,1)), (90,80,70,255))
             self.assertEqual(len(check_folder(folder)), 6)
             self.assertFalse(any(check_folder(folder).values()))

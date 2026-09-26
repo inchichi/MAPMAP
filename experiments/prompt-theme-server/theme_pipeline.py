@@ -194,7 +194,7 @@ class AutomaticPlanRequest(BaseModel):
 
 @app.post('/integration/plan')
 def automatic_plan(req: AutomaticPlanRequest):
-    from dsl import parse
+    from dsl_general import parse
     from planner import build
     from crypt_plan_style import baseline
     try:

@@ -4,18 +4,23 @@ import numpy as np
 from PIL import Image
 
 
-def compose(root, parent, spec, revisions):
+def compose(root, parent, spec, revisions, original=False):
     base_id=parent.get('composition_base_id',parent['id'])
     if not re.fullmatch('[a-f0-9]{32}',base_id): raise ValueError('Invalid composition base')
-    base_manifest=json.loads((root/base_id/'crypt-manifest.json').read_text(encoding='utf8'))
-    overlay=Image.open(root/base_id/'decoration-map.png').convert('RGBA')
-    bulbs=base_manifest['bulbs'].copy()
+    if original:
+        overlay=Image.new('RGBA',(parent['width'],parent['height']))
+        bulbs=[]
+    else:
+        base_manifest=json.loads((root/base_id/'crypt-manifest.json').read_text(encoding='utf8'))
+        overlay=Image.open(root/base_id/'decoration-map.png').convert('RGBA')
+        bulbs=base_manifest['bulbs'].copy()
     for name,run_id in revisions.items():
         if not re.fullmatch('[a-f0-9]{32}',run_id) or not re.fullmatch(r'prop-\d+',name): raise ValueError('Invalid revision path')
         folder=root/run_id/name
         output=Image.open(folder/'composite.png').convert('RGBA')
         offset=json.loads((folder/'placement.json').read_text(encoding='utf8'))
-        pixels=np.array(output);pixels[:,:,:3]=(pixels[:,:,:3].astype(float)*.9).astype('uint8')
+        pixels=np.array(output)
+        if not original: pixels[:,:,:3]=(pixels[:,:,:3].astype(float)*.9).astype('uint8')
         lights=[]
         if offset.get('twinkle'):
             a=np.array(Image.open(folder/'decoration.png').convert('RGBA'))

@@ -14,7 +14,9 @@ def build(dsl, sources):
         additions=[]
         if 'snow' in dsl['decorations']: additions.append('small softly shaded snow caps on upward-facing edges')
         if 'lights' in dsl['decorations']: additions.append('tiny warm golden bulbs attached closely to the object, with a thin cable')
-        prompt=(f"Edit only this {variant['width']} by {variant['height']} pixel-art prop shown in the image. "
+        prompt=(f"Requested visual theme: {dsl['source_text'] or dsl['theme']}. "
+                f"Edit only this {variant['width']} by {variant['height']} pixel-art prop shown in the image. "
+                'Express the requested theme through small attached decorations only. '
                 'Its precise semantic class is unknown; do not reinterpret it as a building or tree. '
                 + ('Add '+ ' and '.join(additions)+'. ' if additions else '')
                 +'Preserve original shape, scale, openings, supports, internal details and position. '

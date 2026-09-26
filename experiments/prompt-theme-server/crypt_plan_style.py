@@ -48,8 +48,9 @@ def prepare_data(dsl, plan):
     for row in rows:
         if row['asset'] not in variants: raise ValueError('Select an extracted ruins prop: '+row['asset'])
         if row['candidates'] != 1 or row.get('seed') is not None: raise ValueError('One candidate, service-selected seed only')
-    if dsl['theme'] != 'christmas' or dsl['night'] != bool(manifest['night']):
-        raise ValueError('This revision keeps the existing Christmas lighting; edit selected objects only')
+    # New requests start from original pixels, never from an earlier theme.
+    dsl['composition_mode'] = 'original'
+    dsl['extraction_profile'] = 'reference-difference-v1'
     folder = ROOT/uuid.uuid4().hex
     folder.mkdir()
     groups = []
@@ -86,7 +87,8 @@ def run(run_id):
     lock = ROOT/'.batch.lock'
     with lock.open('x') as handle: handle.write(run_id)
     try:
-        revisions = parent.get('asset_revisions', {}).copy()
+        fresh = dsl.get('composition_mode') == 'original'
+        revisions = {} if fresh else parent.get('asset_revisions', {}).copy()
         for row in rows:
             name = row['asset']
             status.update(status='running', stage=4, current_object=name)
@@ -97,7 +99,7 @@ def run(run_id):
                 (folder/name).mkdir(exist_ok=True)
                 if row['action'] == 'decorate':
                     edit(folder, row, source, pipeline=PIPELINE)
-                    padded, deco, offset = extract_margin(source, Image.open(folder/name/'flux-raw.png'))
+                    padded, deco, offset = extract_margin(source, Image.open(folder/name/'flux-raw.png'), generic=fresh)
                     deco.save(folder/name/'decoration.png')
                     base = recolor(source, dsl.get('color', {'gain':[1,1,1], 'bias':[0,0,0]})) if row.get('recolor_base') else source
                     base.save(folder/name/'recolor.png')
@@ -105,7 +107,7 @@ def run(run_id):
                     padded.paste(base,(offset['margin'],offset['margin']))
                     padded.save(folder/name/'base-padded.png')
                     output = Image.alpha_composite(padded, deco)
-                    result['postprocess_profile']='padded-margin-3-v1'
+                    result['postprocess_profile']='reference-difference-v1' if fresh else 'padded-margin-3-v1'
                     result['generation_seconds'] = read(folder/name, 'request-timing.json')['generation_seconds']
                     if name in recovery.get('reused_assets', []):
                         result['reused_from'] = recovery['source_run_id']
@@ -122,13 +124,14 @@ def run(run_id):
             save_status(folder, status)
         for path, digest in spec['hashes'].items():
             if hashlib.sha256((REPO/path).read_bytes()).hexdigest() != digest: raise ValueError('Source changed')
-        overlay,bulbs,base_id=compose(ROOT,parent,spec,revisions)
+        overlay,bulbs,base_id=compose(ROOT,parent,spec,revisions, original=fresh)
         overlay.save(folder/'decoration-map.png')
         original = Image.open(folder/'original-map.png').convert('RGBA')
-        preview = Image.alpha_composite(original, Image.new('RGBA', original.size, (12,23,58,round(parent['night']*255))))
+        night = .36 if dsl['night'] else 0
+        preview = Image.alpha_composite(original, Image.new('RGBA', original.size, (12,23,58,round(night*255))))
         Image.alpha_composite(preview, overlay).save(folder/'preview.png')
         write(folder, 'crypt-manifest.json', dict(parent, id=run_id, parent_run_id=parent['id'], bulbs=bulbs,
-                                                 composition_base_id=base_id, asset_revisions=revisions,
+                                                 composition_base_id=base_id, asset_revisions=revisions, night=night, theme=dsl['theme'],
                                                  overlay=f'/theme-runs/{run_id}/decoration-map.png'))
         write(folder, 'validation.json', {'source_hashes_unchanged': True, 'all_variant_alpha_preserved': True,
                                          'alpha_scope':'base sprite; decoration independently padded by 3 pixels'})

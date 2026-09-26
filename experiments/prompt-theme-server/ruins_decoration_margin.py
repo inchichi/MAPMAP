@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 
-def extract(source, raw, margin=3):
+def extract(source, raw, margin=3, generic=False):
     scale = max(1, min(6, 1024 // max(source.size)))
     size = (source.width * scale + 64, source.height * scale + 64)
     reference = Image.new('RGB', size, '#808080')
@@ -22,6 +22,9 @@ def extract(source, raw, margin=3):
     near_light = np.array(Image.fromarray(np.uint8(lights)*255).filter(ImageFilter.MaxFilter(scale*2+1)))>0
     cable = near_light&(rgb.max(2)<90)&(delta>35)
     mask = (snow|lights|cable)&nearby
+    if generic:
+        # Color-independent difference; this is a conservative heuristic, not semantic matting.
+        mask = (delta > 40)&nearby
     pixels = np.dstack((rgb.astype('uint8'),np.uint8(mask)*255))
     high = Image.fromarray(pixels).crop((32-margin*scale,32-margin*scale,
                                        32+(source.width+margin)*scale,32+(source.height+margin)*scale))
