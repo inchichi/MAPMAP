@@ -53,16 +53,16 @@
   color: #d8e3f6;
 }
 .editor-workspace-header button:hover:not(:disabled) { background-color: #33415a; }
-.editor-workspace .editor-style-action {
-  background: #a8c5ff;
+.editor-workspace .editor-workspace-header a.editor-style-action {
+  background: #2455bd;
   border: 1px solid transparent;
   border-radius: 9px;
-  color: #122442;
+  color: #ffffff;
   font-weight: 700;
   text-decoration: none;
   padding: 9px 16px;
 }
-.editor-workspace .editor-style-action:hover { background: #c1d5ff; }
+.editor-workspace .editor-workspace-header a.editor-style-action:hover { background: #193f91; color: #ffffff; }
 .editor-workspace .editor-preview-toolbar {
   background: #181f2c;
   border-color: #ffffff12;

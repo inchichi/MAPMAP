@@ -80,6 +80,7 @@ def prepare_data(dsl, plan):
 def run(run_id):
     folder = ROOT/run_id
     status, rows, dsl = read(folder, 'status.json'), read(folder, 'plan.json'), read(folder, 'dsl.json')
+    recovery = read(folder, 'recovery.json') if (folder/'recovery.json').exists() else {}
     parent = read(folder, 'parent-manifest.json')
     spec = read(folder, 'sources.json')
     lock = ROOT/'.batch.lock'
@@ -106,6 +107,8 @@ def run(run_id):
                     output = Image.alpha_composite(padded, deco)
                     result['postprocess_profile']='padded-margin-3-v1'
                     result['generation_seconds'] = read(folder/name, 'request-timing.json')['generation_seconds']
+                    if name in recovery.get('reused_assets', []):
+                        result['reused_from'] = recovery['source_run_id']
                 else:
                     output = recolor(source, dsl.get('color', {'gain': [1,1,1], 'bias': [0,0,0]}))
                     if not np.array_equal(np.array(output)[:,:,3],np.array(source)[:,:,3]): raise ValueError('Alpha changed')

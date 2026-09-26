@@ -1,6 +1,6 @@
 // Change List (Generate) + Asset Details (Review) for style runs.
 // Read-only view of `GET /runs/{id}/changes`: plan.json rows, or rows derived from older run records.
-// It never applies or edits a run; the applied run is only read from /crypt-style/active*.json.
+// Inspection is read-only; explicit selection applies a validated saved Crypt overlay.
 
 export const CHANGE_ACTIONS = ['decorate', 'recolor', 'add', 'cover', 'skip'] as const
 export type ChangeAction = (typeof CHANGE_ACTIONS)[number]
@@ -156,7 +156,11 @@ export const createStyleChangePanel = (): StyleChangePanel => {
   reviewLink.target = '_blank'
   reviewLink.rel = 'noopener'
   reviewLink.hidden = true
-  head.append(title, titleHint, runSelect, refresh, reviewLink)
+  const apply = el('button', 'h-[28px] rounded-md bg-[#396bd1] px-3 text-[11px] text-white disabled:opacity-40', '선택한 결과 적용') as HTMLButtonElement
+  apply.type = 'button'
+  apply.disabled = true
+  head.append(title, titleHint, runSelect, refresh, reviewLink, apply)
+  const selectionHint = el('p', 'text-[11px] text-[#9d9d9d]', '결과 선택은 비교용입니다. 적용 버튼을 눌러야 게임이 바뀝니다.')
   const meta = el('div', 'truncate text-[11px] leading-[1.5] text-[#9d9d9d]')
   // Filter chips and validation checks share one row so more list rows fit under the game view.
   const chips = el('div', 'flex flex-wrap gap-1')
@@ -165,7 +169,7 @@ export const createStyleChangePanel = (): StyleChangePanel => {
   toolbar.append(chips, checks)
   // The table scrolls by itself (min-h-0) so the sticky header stays put inside a height-capped parent.
   const table = el('div', 'min-h-0 overflow-y-auto flex flex-col rounded-lg border border-[#b6bac1]/20')
-  changeList.append(head, meta, toolbar, table)
+  changeList.append(head, selectionHint, meta, toolbar, table)
 
   // ---------- Asset Details ----------
   const assetDetails = el('section', 'flex flex-col gap-2 rounded-lg border border-[#b6bac1]/25 bg-[#0a0a0a]/60 p-2.5')
@@ -179,8 +183,10 @@ export const createStyleChangePanel = (): StyleChangePanel => {
   let filter: ChangeAction | 'all' = 'all'
   let selected = ''
   let loadToken = 0
+  let appliedId = ''
 
   const message = (text: string): void => {
+    apply.disabled = true
     meta.textContent = text
     checks.replaceChildren()
     chips.replaceChildren()
@@ -284,6 +290,8 @@ export const createStyleChangePanel = (): StyleChangePanel => {
 
   const showRun = async (runId: string): Promise<void> => {
     const token = ++loadToken
+    current = undefined
+    apply.disabled = true
     meta.textContent = '변경 목록을 불러오는 중…'
     try {
       const response = await fetch(`${API}/runs/${runId}/changes`, { cache: 'no-store' })
@@ -291,6 +299,8 @@ export const createStyleChangePanel = (): StyleChangePanel => {
       const run = await response.json() as RunChanges
       if (token !== loadToken) return
       current = run
+      apply.disabled = !mapId || run.mapId !== mapId || run.status !== 'ready' || run.id === appliedId
+      apply.textContent = run.id === appliedId ? '현재 적용 중' : '선택한 결과 적용'
       dslBody.textContent = run.dsl ? JSON.stringify(run.dsl, null, 2) : '이전 실행: DSL 기록 없음'
       filter = 'all'
       selected = run.rows[0]?.asset ?? ''
@@ -317,9 +327,10 @@ export const createStyleChangePanel = (): StyleChangePanel => {
       fetch(activeSelectionPath(mapId), { cache: 'no-store' }).then(async (r) => r.ok ? (await r.json() as { id?: string }).id ?? '' : '').catch(() => '')
     ])
     if (token !== loadToken) return
+    appliedId = activeId
     const mapRuns = runs.filter((run) => run.mapId === mapId && run.status === 'ready')
     runSelect.replaceChildren(...mapRuns.map((run) => {
-      const option = el('option', '', `${run.id.slice(0, 8)} · ${run.pipeline ?? ''}${run.id === activeId ? ' · 적용 중' : ''}`)
+      const option = el('option', '', `${run.id === activeId ? '[적용 중] ' : '[저장 결과] '}${run.id.slice(0, 8)} · ${run.prompt || run.pipeline || ''}`)
       option.value = run.id
       return option
     }))
@@ -334,6 +345,31 @@ export const createStyleChangePanel = (): StyleChangePanel => {
   }
 
   runSelect.addEventListener('change', () => { void showRun(runSelect.value) })
+  apply.addEventListener('click', () => {
+    if (!current || apply.disabled || !mapId) return
+    const runId = current.id
+    apply.disabled = true
+    runSelect.disabled = true
+    refresh.disabled = true
+    meta.textContent = '원본과 결과를 검증하고 적용하는 중…'
+    void (async () => {
+      try {
+        const response = await fetch(`${API}/runs/${runId}/crypt-select`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expected_active_id: appliedId })
+        })
+        if (!response.ok) throw new Error(await response.text())
+        const result = await response.json() as { editorUrl: string }
+        window.location.assign(result.editorUrl)
+      } catch (error) {
+        meta.textContent = `적용 실패: ${String(error)} · 새로고침 후 다시 선택해주세요.`
+        apply.disabled = false
+      } finally {
+        runSelect.disabled = false
+        refresh.disabled = false
+      }
+    })()
+  })
   refresh.addEventListener('click', () => { if (mapId) void loadMap() })
   message('게임 맵을 불러오면 이 맵에 적용된 스타일 결과의 변경 목록을 보여줍니다.')
   runSelect.hidden = true

@@ -1653,7 +1653,8 @@ export const createEditorApp = ({
       return undefined
     }
     const imagePath = resolveRelativePath(tsxFile.path, info.imageSource)
-    if (!imagePath.startsWith('src/games/my-sample-rpg/assets/')) {
+    if (!imagePath.startsWith('src/games/my-sample-rpg/assets/') &&
+        !imagePath.startsWith('src/games/crypt-crawler/assets/')) {
       return undefined
     }
     const kind = groupKindOf(entity.kind)
@@ -1758,7 +1759,7 @@ export const createEditorApp = ({
     const objectTarget = buildStyleObjectTarget(map, entity)
     if (objectTarget) {
       return buildCellsCanvasPreview({
-        imageUrl: `/${objectTarget.tilesetImagePath}`,
+        imageUrl: currentFiles.find(file => file.path === objectTarget.tilesetImagePath)?.url ?? `/${objectTarget.tilesetImagePath}`,
         columns: objectTarget.columns,
         tileWidth: objectTarget.tileWidth,
         tileHeight: objectTarget.tileHeight,
@@ -1770,6 +1771,43 @@ export const createEditorApp = ({
   }
   const bindEntityPreview = (target: HTMLElement, map: LoadedGameMap, entity: GameEntity): void => {
     treeHoverPreview.bind(target, () => buildEntityPreviewContent(map, entity))
+  }
+
+  // Crypt's atlas has no tile type metadata, so expose its used tiles by layer.
+  const cryptTileLists = new Map<string, HTMLElement>()
+  const cryptTilesFor = (map: LoadedGameMap): HTMLElement => {
+    const cached = cryptTileLists.get(map.file)
+    if (cached) return cached
+    const list = el('div', 'flex flex-col gap-1')
+    const file = currentFiles.find(item => item.path === map.file)
+    const atlas = currentFiles.find(item => item.name === 'ninja-dungeon-16.png')
+    if (!file || !atlas?.url) return list
+    const xml = new DOMParser().parseFromString(file.text, 'text/xml')
+    const firstGid = Number(xml.querySelector('tileset')?.getAttribute('firstgid') ?? 1)
+    for (const layer of xml.querySelectorAll('layer')) {
+      const name = layer.getAttribute('name') ?? ''
+      if (name === 'collision') continue
+      const data = layer.querySelector('data')
+      if (data?.getAttribute('encoding') !== 'csv') continue
+      const ids = [...new Set((data.textContent ?? '').split(',').map(Number).filter(gid => gid > 0).map(gid => (gid & 0x0fffffff) - firstGid))]
+      const details = el('details', 'text-[12px] text-[#d4d4d4]')
+      details.append(el('summary', 'cursor-pointer py-2', `${name} 타일 · ${ids.length}종`))
+      const grid = el('div', 'flex flex-wrap gap-1 p-1')
+      for (const tileId of ids) {
+        const tile = el('button', 'rounded border border-[#48484e] p-1') as HTMLButtonElement
+        tile.type = 'button'
+        tile.title = `${name} · 타일 ${tileId}`
+        tile.setAttribute('aria-label', tile.title)
+        const options = { imageUrl: atlas.url, columns: 32, tileWidth: 16, tileHeight: 16, tileId }
+        tile.append(buildTileSlicePreview({ ...options, targetSize: 32 }))
+        treeHoverPreview.bind(tile, () => buildTileSlicePreview(options))
+        grid.append(tile)
+      }
+      details.append(grid)
+      list.append(details)
+    }
+    cryptTileLists.set(map.file, list)
+    return list
   }
 
   const renderTree = (): void => {
@@ -1899,6 +1937,7 @@ export const createEditorApp = ({
       }
 
       // "ground" 같은 타일/지형 레이어 — 객체가 아니라 맵 자체의 구성. 보기 전용 정보로 한 줄에 보여준다.
+      if (game.adapter.id === 'crypt-crawler') group.append(cryptTilesFor(map))
       if (map.layers.length > 0) {
         const layersLine = el('div', 'px-1 pt-0.5 flex items-center gap-1.5 text-[11px] text-[#777777]')
         layersLine.append(

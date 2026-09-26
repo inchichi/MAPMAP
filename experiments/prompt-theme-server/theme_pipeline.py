@@ -392,6 +392,17 @@ def crypt_apply(run_id:str):
     except (ValueError,KeyError,FileNotFoundError) as error: raise HTTPException(409,str(error))
 
 
+class CryptSelection(BaseModel):
+    expected_active_id: str
+
+
+@app.post('/runs/{run_id}/crypt-select')
+def crypt_select(run_id:str, selection:CryptSelection):
+    from crypt_apply import publish
+    try: return publish(REPO,get_folder(run_id),expected_active_id=selection.expected_active_id)
+    except (ValueError,KeyError,FileNotFoundError) as error: raise HTTPException(409,str(error))
+
+
 app.mount('/artifacts', StaticFiles(directory=ROOT), name='artifacts')
 
 # Recover only when the service starts, not when tests import the module.

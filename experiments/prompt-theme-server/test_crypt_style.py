@@ -43,6 +43,10 @@ class CryptStyleTest(unittest.TestCase):
             self.assertEqual(result['editorUrl'],'/editor.html?game=crypt&map=floor-1-ruins')
             self.assertEqual(json.loads(town.read_text())['id'],'town-preserved')
             self.assertEqual(json.loads((target/'active-floor-1-ruins.json').read_text())['id'],folder.name)
+            with self.assertRaisesRegex(ValueError,'다른 결과'):
+                publish(repo,folder,expected_active_id='outdated')
+            publish(repo,folder,expected_active_id=folder.name)
+            self.assertEqual(len(list((target/'selection-history').glob('*.json'))),1)
             manifest['mapId']='../../outside'
             (folder/'crypt-manifest.json').write_text(json.dumps(manifest))
             with self.assertRaises(ValueError):publish(repo,folder)
