@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 
 
-def extract(source, raw, margin=3, generic=False):
+def extract(source, raw, margin=3, generic=False, high_resolution=False):
     scale = max(1, min(6, 1024 // max(source.size)))
     size = (source.width * scale + 64, source.height * scale + 64)
     reference = Image.new('RGB', size, '#808080')
@@ -28,6 +28,12 @@ def extract(source, raw, margin=3, generic=False):
     pixels = np.dstack((rgb.astype('uint8'),np.uint8(mask)*255))
     high = Image.fromarray(pixels).crop((32-margin*scale,32-margin*scale,
                                        32+(source.width+margin)*scale,32+(source.height+margin)*scale))
+    if high_resolution:
+        base = Image.new('RGBA', high.size)
+        base.paste(source.resize((source.width*scale,source.height*scale),Image.Resampling.NEAREST),
+                   (margin*scale,margin*scale))
+        return base, high, {'x':-margin,'y':-margin,'margin':margin,'texture_scale':scale,
+                            'display_width':source.width+margin*2,'display_height':source.height+margin*2}
     decoration = high.resize((source.width+margin*2,source.height+margin*2),Image.Resampling.LANCZOS)
     base = Image.new('RGBA', decoration.size)
     base.paste(source,(margin,margin))

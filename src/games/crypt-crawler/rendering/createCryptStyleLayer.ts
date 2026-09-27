@@ -9,6 +9,7 @@ type Manifest = {
   night: number
   bulbs: [number, number][]
   source_hashes: Record<string, string>
+  hires?: { asset: string; url: string; textureScale: number; width: number; height: number; positions: [number, number][] }[]
 }
 
 /** Visual-only layer: never edits TMX tiles, actor positions or collision. */
@@ -43,10 +44,28 @@ export async function createCryptStyleLayer(mapId: string, width: number, height
       const texture = await Assets.load<Texture>(manifest.overlay)
       if (disposed) return
       if (texture.width !== width || texture.height !== height) throw new Error('Crypt overlay size mismatch')
+      const decorations: Sprite[] = []
+      for (const item of manifest.hires ?? []) {
+        if (!/^[a-zA-Z0-9-]+$/.test(item.asset) || item.url !== `/theme-runs/${manifest.id}/${item.asset}/decoration.png`
+          || !Number.isInteger(item.textureScale) || item.textureScale < 1 || item.textureScale > 6
+          || !(item.width > 0 && item.height > 0)) throw new Error('Invalid high-resolution decoration')
+        const detail = await Assets.load<Texture>(item.url)
+        if (detail.width !== item.width * item.textureScale || detail.height !== item.height * item.textureScale) throw new Error('Decoration texture size mismatch')
+        detail.source.scaleMode = 'nearest'
+        for (const [x, y] of item.positions) {
+          if (!Number.isFinite(x) || !Number.isFinite(y) || x + item.width <= 0 || y + item.height <= 0 || x >= width || y >= height) throw new Error('Invalid decoration position')
+          const sprite = new Sprite(detail)
+          sprite.position.set(x, y)
+          sprite.width = item.width
+          sprite.height = item.height
+          decorations.push(sprite)
+        }
+      }
+      if (disposed) { for (const sprite of decorations) sprite.destroy(); return }
       container.removeChild(lights)
       for (const child of container.removeChildren()) child.destroy()
       const night = new Graphics().rect(0, 0, width, height).fill({ color: 0x0c173a, alpha: Math.max(0, Math.min(.7, manifest.night)) })
-      container.addChild(night, new Sprite(texture), lights)
+      container.addChild(night, new Sprite(texture), ...decorations, lights)
       // One batched Graphics, bounded to 512 lights rather than thousands of sprites.
       const stride = Math.max(1, Math.ceil(manifest.bulbs.length / 512))
       points = manifest.bulbs.filter(([x, y], i) => i % stride === 0 && x >= 0 && y >= 0 && x < width && y < height)

@@ -31,6 +31,14 @@ def publish(repo, folder, expected_active_id=None):
     with Image.open(folder/'decoration-map.png') as image:
         if image.mode!='RGBA' or image.size!=(manifest['width'],manifest['height']): raise ValueError('레이어 크기/투명도 불일치')
     if manifest['overlay']!=f'/theme-runs/{folder.name}/decoration-map.png': raise ValueError('레이어 경로 불일치')
+    for item in manifest.get('hires',[]):
+        import re
+        if not re.fullmatch('[a-zA-Z0-9-]+',item['asset']): raise ValueError('Invalid asset name')
+        if item['url']!=f"/theme-runs/{folder.name}/{item['asset']}/decoration.png": raise ValueError('Invalid asset URL')
+        scale=item['textureScale']
+        if not isinstance(scale,int) or not 1<=scale<=6: raise ValueError('Invalid texture scale')
+        with Image.open(folder/item['asset']/'decoration.png') as image:
+            if image.mode!='RGBA' or image.size!=(item['width']*scale,item['height']*scale): raise ValueError('Invalid high-resolution texture')
     target=repo/'public/crypt-style';target.mkdir(exist_ok=True)
     active=target/('active.json' if map_id=='floor-0-town' else f'active-{map_id}.json')
     if active.exists():
