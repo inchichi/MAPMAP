@@ -311,24 +311,9 @@
     <property name="displayText" value="나무 3"/>
    </properties>
   </object>
-  <object id="22" name="lamp_1" type="lamp" x="448" y="448" width="32" height="32">
-   <properties>
-    <property name="displayText" value="가로등 1"/>
-   </properties>
-  </object>
-  <object id="23" name="lamp_2" type="lamp" x="864" y="1024" width="64" height="32">
-   <properties>
-    <property name="displayText" value="가로등 2"/>
-   </properties>
-  </object>
   <object id="24" name="lamp_3" type="lamp" x="640" y="1088" width="96" height="96">
    <properties>
     <property name="displayText" value="가로등 3"/>
-   </properties>
-  </object>
-  <object id="25" name="lamp_4" type="lamp" x="480" y="1184" width="32" height="32">
-   <properties>
-    <property name="displayText" value="가로등 4"/>
    </properties>
   </object>
   <object id="26" name="lamp_5" type="lamp" x="128" y="1312" width="64" height="96">
@@ -376,11 +361,6 @@
     <property name="displayText" value="가로등 13"/>
    </properties>
   </object>
-  <object id="35" name="lamp_14" type="lamp" x="0" y="1344" width="32" height="32">
-   <properties>
-    <property name="displayText" value="가로등 14"/>
-   </properties>
-  </object>
   <object id="36" name="flower_1" type="flower" x="736" y="320" width="32" height="32">
    <properties>
     <property name="displayText" value="화단 1"/>
@@ -399,11 +379,6 @@
   <object id="39" name="flower_4" type="flower" x="1568" y="1376" width="32" height="32">
    <properties>
     <property name="displayText" value="화단 4"/>
-   </properties>
-  </object>
-  <object id="40" name="prop_1" type="prop" x="448" y="384" width="32" height="32">
-   <properties>
-    <property name="displayText" value="소품 1"/>
    </properties>
   </object>
   <object id="41" name="prop_2" type="prop" x="544" y="416" width="32" height="96">
@@ -426,24 +401,9 @@
     <property name="displayText" value="소품 5"/>
    </properties>
   </object>
-  <object id="45" name="prop_6" type="prop" x="832" y="1024" width="32" height="32">
-   <properties>
-    <property name="displayText" value="소품 6"/>
-   </properties>
-  </object>
-  <object id="46" name="prop_7" type="prop" x="832" y="1088" width="32" height="32">
-   <properties>
-    <property name="displayText" value="소품 7"/>
-   </properties>
-  </object>
   <object id="47" name="prop_8" type="prop" x="416" y="1216" width="32" height="32">
    <properties>
     <property name="displayText" value="소품 8"/>
-   </properties>
-  </object>
-  <object id="48" name="prop_9" type="prop" x="0" y="1280" width="32" height="32">
-   <properties>
-    <property name="displayText" value="소품 9"/>
    </properties>
   </object>
  </objectgroup>
