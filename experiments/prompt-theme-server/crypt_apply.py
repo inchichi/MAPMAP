@@ -7,6 +7,10 @@ def publish(repo, folder, expected_active_id=None):
     status=json.loads((folder/'status.json').read_text(encoding='utf8'))
     if status['status']!='ready': raise ValueError('검수 완료된 Crypt 결과만 적용할 수 있습니다.')
     manifest=json.loads((folder/'crypt-manifest.json').read_text(encoding='utf8'))
+    # Older Windows runs recorded native separators; runtime keys use URL paths.
+    hashes=manifest['source_hashes']
+    manifest['source_hashes']={name.replace('\\','/'):digest for name,digest in hashes.items()}
+    if len(manifest['source_hashes'])!=len(hashes): raise ValueError('Duplicate source paths')
     map_id=manifest['mapId']
     if map_id not in {'floor-0-town','floor-1-ruins'} or manifest['id']!=folder.name:
         raise ValueError('Crypt 맵 계약 불일치')

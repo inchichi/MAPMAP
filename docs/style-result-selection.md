@@ -8,3 +8,8 @@ The explicit `crypt-select` endpoint requires the active result ID observed by t
 editor. A changed active selection rejects the request. Source hashes, RGBA dimensions
 and planner contracts remain enforced. Default `crypt-apply` retains its parent check.
 Previous selections are preserved in `public/crypt-style/selection-history/`.
+
+The style workspace also exposes saved result selection when its inspected run is ready.
+High-resolution runs are labelled with quality and completed object counts. Both the
+Halloween town (9 assets, `14108377`) and ruins (45 assets, `3019d650`) are available
+under their respective map; selecting a result does not apply it automatically.

@@ -1,5 +1,15 @@
 # 마을 이야기 공방 · My Sample RPG
 
+## Style demo · 2026-09-28
+
+데모 브랜치: **[rainxk2/KTPP · style_demo](https://github.com/rainxk2/KTPP/tree/style_demo)**.
+
+- 예전 My Sample RPG `town` 맵: `/editor.html?game=my-sample-rpg&map=town`.
+- TMX 원본 추출 → 단독 이미지 Qwen3-VL 인식 → LLM 개별 프롬프트 → 원본 RGB 색·명암 보정 → FLUX 장식 생성·추출 → 검수·선택 적용.
+- 원본 크기·알파·좌표를 유지하고 기존 Crypt 경로와 실험을 보존합니다. 실패·소스 변경 결과는 승인할 수 없습니다.
+- 일반 장식 추출은 아직 실험적입니다. 전체 마을의 품질 검증 완료를 의미하지 않으며, 생성 중인 실행과 로컬 적용 기록은 이번 커밋에서 제외했습니다.
+- [실행 방법·제약](docs/town-vision-pipeline.md) · [캡처 사용 설명서](output/pdf/editor-step-by-step-20260928.pdf) · [전체 파이프라인 설명](output/pdf/style-pipeline-single-object-guide-20260928.pdf).
+
 ## 할로윈 고해상도 결과 · 2026-09-28
 
 최신 업로드 대상: **[rainxk2/KTPP · style](https://github.com/rainxk2/KTPP/tree/style)**.

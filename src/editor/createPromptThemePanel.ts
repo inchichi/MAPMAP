@@ -5,7 +5,7 @@ import { styleWorkspaceContext } from './styleWorkspaceContext'
 
 type Spec = { theme: string; decorations: string[]; night: boolean; twinkle: boolean; color: { gain: number[]; bias: number[] }; warnings: string[] }
 type Run = { id: string; mapId?: string; status: string; stage: number; prompt: string; preview?: string; original?: string; error?: string; warnings?: string[]; spec?: Spec; pipeline?: string; current_object?: string; completed_objects?: number; total_objects?: number }
-const stages = ['프롬프트 해석', 'TMX 원본 추출', '색·명암 보정', 'FLUX 장식 생성', '원본 좌표 정렬', '밤·반짝임', '미리보기/적용']
+const stages = ['프롬프트 해석', 'TMX 추출 · 단독 인식 · 개별 계획', '색·명암 보정', 'FLUX 장식 생성', '원본 좌표 정렬', '밤·반짝임', '미리보기/적용']
 
 export const createPromptThemePage = (mountElement: HTMLElement): void => {
   const context = styleWorkspaceContext(location.search)
@@ -44,6 +44,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     controls.append(b); return b
   }
   const analyze = button('대상 확인')
+  if (!context.crypt) analyze.textContent = '단독 인식 · LLM 계획'
   const generate = button('스타일 생성하기')
   const apply = button('게임에 적용하기 →')
   const history = button('실행 기록 / 결과 다시 열기')
@@ -96,6 +97,8 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
 
   generate.disabled = true; apply.disabled = true
   let runId: string | undefined
+  let visionPlanId: string | undefined
+  let needsVisualReview = false
   let plannedPrompt = ''
   let automaticContract: {dsl: unknown; plan: {asset: string}[]; parent_run_id: string} | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -110,18 +113,21 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   const show = (run: Run): void => {
     if ((run.mapId ?? 'town') !== context.mapId) { apply.disabled = true; error(new Error('다른 맵의 결과입니다. 현재 맵은 '+context.mapId)); return }
     const labels: Record<string,string> = { ready: '생성 완료 · 원본과 비교한 뒤 승인해주세요.', running: 'FLUX 생성 중 · 수분이 걸릴 수 있습니다.', queued: '생성 대기 중', failed: '생성 실패 · 상세 기록을 확인해주세요.' }
-    setProgress(run.status === 'ready' ? 3 : 2, (labels[run.status] ?? run.status) + (run.current_object ? ` · ${run.current_object} (${run.completed_objects ?? 0}/${run.total_objects ?? 0})` : ''))
+    labels.review_required = '생성 처리 종료 · 실패 항목과 장식 잘림을 검수해주세요.'
+    setProgress(['ready','review_required'].includes(run.status) ? 3 : 2, (labels[run.status] ?? run.status) + (run.current_object ? ` · ${run.current_object} (${run.completed_objects ?? 0}/${run.total_objects ?? 0})` : ''))
     meter.value = run.status === 'ready' ? 100 : (run.completed_objects ?? 0) / Math.max(1, run.total_objects ?? 1) * 100
     if (run.spec) showSpec(run.spec)
 
     status.textContent = stages.map((s,i) => `${i+1}. ${s} ${i+1<run.stage?'✓':i+1===run.stage?'←':''}`).join('\n')+'\n상태: '+run.status+(run.error?'\n'+run.error:'')+'\n'+(run.warnings??[]).join('\n')
     status.textContent += '\n방식: '+(run.pipeline ?? '이전 공통 장식 방식')+(run.current_object ? `\n대상: ${run.current_object} · ${run.completed_objects ?? 0}/${run.total_objects ?? 0} 완료` : '')
-    apply.disabled = run.status !== 'ready' || applying
-    applyHint.textContent = run.pipeline === 'town-plan-v1'
+    needsVisualReview = run.status === 'review_required' && run.pipeline === 'town-vision-v1'
+    apply.textContent = needsVisualReview ? '검수 완료 · 승인 후 적용' : '게임에 적용하기 →'
+    apply.disabled = (!needsVisualReview && run.status !== 'ready') || applying
+    applyHint.textContent = run.pipeline === 'town-plan-v1' || run.pipeline === 'town-vision-v1'
       ? '통합 결과: 이전 town 테마를 백업 후 전체 교체합니다. 다른 맵과 수동 배치는 유지합니다.'
       : '결과를 확인했나요? 선택한 오브젝트의 장식만 교체합니다.'
-    if (run.status === 'ready' || run.pipeline?.endsWith('plan-v1')) changes.showRun(run.id)
-    if (run.status === 'ready' && run.preview) {
+    if (run.status === 'ready' || needsVisualReview || run.pipeline?.endsWith('plan-v1')) changes.showRun(run.id)
+    if ((run.status === 'ready' || needsVisualReview) && run.preview) {
       previews.replaceChildren()
       for (const [label,url] of [['원본',run.original],['생성 미리보기',run.preview]] as [string, string | undefined][]) {
         if (!url) continue
@@ -144,20 +150,27 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   }
   analyze.onclick=async () => {
     try {
-      automaticContract=undefined; plannedPrompt=''; generate.disabled=true
+      automaticContract=undefined; visionPlanId=undefined; plannedPrompt=''; generate.disabled=true; analyze.disabled=true; prompt.readOnly=true
       status.textContent='해석 중...'; setProgress(0, '프롬프트 해석 중…'); apply.disabled=true; emptyPreview()
-      const plan=await api(context.crypt ? '/integration/plan' : '/plan',{prompt:prompt.value,mapId:context.mapId}) as {spec:Spec;objects:{id:string;category:string;box:number[];profile_label?:string}[]; dsl:unknown;plan:{asset:string}[];parent_run_id:string}
+      const plan=await api(context.crypt ? '/integration/plan' : '/town-vision/plan',{prompt:prompt.value,mapId:context.mapId}) as {id?:string;spec:Spec;objects:{id:string;category:string;box:number[];profile_label?:string;eligible?:boolean;image?:string}[]; dsl:unknown;plan:{asset:string;prompt?:string;recognition?:unknown}[];parent_run_id:string}
+      if (!context.crypt) { visionPlanId=plan.id; contractInput.value=JSON.stringify(plan.plan,null,2) }
       if (context.crypt) { automaticContract=plan; contractInput.value=JSON.stringify({dsl:plan.dsl,plan:plan.plan,parent_run_id:plan.parent_run_id},null,2) }
       plannedPrompt=prompt.value; objects.replaceChildren(); showSpec(plan.spec); setProgress(1, '해석 완료 · 변환할 오브젝트를 선택해주세요.')
       const preferred=['town_hall','tree_1','fountain_1','blacksmith_stall']
       for (const o of plan.objects) {
         const label=document.createElement('label'), input=document.createElement('input')
         input.type='checkbox';input.value=o.id;input.checked=context.crypt ? plan.objects.indexOf(o)<2 : preferred.includes(o.id)
+        if (o.eligible === false) { input.checked=false; input.disabled=true }
+        if (o.image) {
+          const thumbnail=document.createElement('img');thumbnail.src=o.image;thumbnail.alt=o.id
+          thumbnail.style.cssText='width:56px;height:56px;object-fit:contain';label.append(thumbnail)
+          label.title=plan.plan.find(row=>row.asset===o.id)?.prompt ?? ''
+        }
         label.append(input,document.createTextNode(o.profile_label ?? o.id+' ('+o.category+')'));objects.append(label)
       }
-      status.textContent=(context.crypt ? '규칙 기반 DSL·Planner · 크리스마스/겨울 소품 수정\n' : '규칙 기반 해석\n')+JSON.stringify(plan.spec,null,2)+'\n위 설정과 고급 계약의 대상별 프롬프트를 확인한 다음 생성하세요. 기본 선택은 2종이며 변경할 수 있습니다.'
+      status.textContent=(context.crypt ? '규칙 기반 DSL·Planner\n' : 'Qwen3-VL 단독 인식 + LLM 개별 계획\n')+JSON.stringify(plan.spec,null,2)+'\n분류와 개별 프롬프트를 확인하고 대상을 선택하세요. 복합·미확인 대상은 제외됩니다.'
       generate.disabled=false
-    } catch(e) { error(e);generate.disabled=true }
+    } catch(e) { error(e);generate.disabled=true } finally { analyze.disabled=false;prompt.readOnly=false }
   }
   prompt.oninput=() => {generate.disabled=true;apply.disabled=true;plannedPrompt=''; setProgress(0, '프롬프트가 변경됐습니다. 다시 해석해주세요.')}
   generate.onclick=async () => {
@@ -167,9 +180,10 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
       const targets=Array.from(objects.querySelectorAll<HTMLInputElement>('input:checked')).map(i=>i.value)
       if (!targets.length) throw new Error('대상을 하나 이상 선택해주세요.')
       if (context.crypt && !automaticContract) throw new Error('먼저 프롬프트를 해석해주세요.')
-      const run=await api(context.crypt ? '/integration/runs' : '/runs',context.crypt
+      if (!context.crypt && !visionPlanId) throw new Error('먼저 단독 인식과 LLM 계획을 실행해주세요.')
+      const run=await api(context.crypt ? '/integration/runs' : '/town-vision/runs',context.crypt
         ? {...automaticContract, mapId:context.mapId, plan:automaticContract!.plan.filter(row=>targets.includes(row.asset))}
-        : {prompt:prompt.value,targets}) as {id:string}
+        : {plan_id:visionPlanId,targets}) as {id:string}
       runId=run.id;void poll()
     } catch(e) {error(e);generate.disabled=false;analyze.disabled=false;prompt.readOnly=false}
   }
@@ -177,6 +191,11 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     if (!runId) return
     applying=true;apply.disabled=true
     try {
+      if (needsVisualReview) {
+        if (!window.confirm('원본·색 보정·장식의 위치와 잘림을 확인했나요? 검수 완료로 승인하고 게임에 적용합니다.')) return
+        await api(`/runs/${runId}/visual-accept`, {})
+        needsVisualReview=false
+      }
       if (context.crypt) {
         await api(`/runs/${runId}/crypt-apply`, {})
         localStorage.setItem('crypt-crawler:style-visible', 'true')
@@ -187,7 +206,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
       if (warning) { status.textContent = warning; return }
       setProgress(3, '적용 완료 · 게임 에디터로 돌아가 확인하세요.')
       for (const frame of document.querySelectorAll('iframe')) frame.contentWindow?.postMessage({type:'editor:placement-refresh'},location.origin)
-      status.textContent='적용·이 브라우저에 저장 완료. 상단의 게임 에디터로 돌아가 결과를 확인하세요. 장식 버튼으로 색 보정/밤/장식을 함께 끌 수 있습니다. 이전 배치는 브라우저에 백업했습니다. 선택한 오브젝트의 장식만 교체했습니다.'
+      status.textContent='적용·이 브라우저에 저장 완료. 게임 에디터에서 확인하세요. 장식 버튼으로 색 보정/밤/장식을 함께 끌 수 있습니다. 이전 배치는 브라우저에 백업했습니다.'
       location.assign(`/editor.html?styleRun=${runId}`)
     } catch(e) {error(e)} finally {applying=false;apply.disabled=false}
   }
@@ -218,7 +237,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   const selectionTools = document.createElement('div'); selectionTools.className = 'lab-selection-tools'
   for (const [text, checked] of [['전체 선택', true], ['선택 해제', false]] as const) {
     const select = document.createElement('button'); select.type = 'button'; select.className = 'lab-button'; select.textContent = text
-    select.onclick = () => objects.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.checked = checked })
+    select.onclick = () => objects.querySelectorAll<HTMLInputElement>('input').forEach(input => { if (!input.disabled) input.checked = checked })
     selectionTools.append(select)
   }
   inputCard.append(sectionTitle('어떤 분위기를 만들까요?', '원본 구조는 그대로. 색감과 장식만 새롭게.'), promptLabel, prompt, specTags, controls, sectionTitle('변환 대상', '대상을 확인한 뒤 필요한 오브젝트만 선택하세요.'), selectionTools, objects)
@@ -265,6 +284,12 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     } catch (e) { error(e) } finally { contractRun.disabled = false }
   }
   contractBox.append(contractTitle, contractNote, sampleButton, contractInput, contractRun)
+  if (!context.crypt) {
+    contractTitle.textContent='LLM 개별 프롬프트 · 인식 결과'
+    contractNote.textContent='단독 원본을 분류한 뒤 작성한 계획입니다. 확인 후 위 목록에서 생성 대상을 선택하세요.'
+    contractInput.readOnly=true;sampleButton.hidden=true;contractRun.hidden=true
+    prompt.value='할로윈 밤. 원본 구조를 유지하고 보라색 계열 색감과 명암을 보정해줘. 작은 호박등과 거미줄을 붙여줘.'
+  }
   inputCard.append(contractBox)
   if (context.crypt) {
     analyze.disabled = false; generate.disabled = true; prompt.readOnly = false

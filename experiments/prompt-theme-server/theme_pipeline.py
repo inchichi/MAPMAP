@@ -170,6 +170,42 @@ def runs():
     return [json.loads(p.read_text(encoding='utf8')) for p in sorted(ROOT.glob('*/status.json'), key=lambda p:p.stat().st_mtime,reverse=True)]
 
 
+@app.post('/town-vision/plan')
+def town_vision_plan(req: Request):
+    from town_vision_pipeline import plan
+    if (ROOT/'.batch.lock').exists() or not busy.acquire(blocking=False):raise HTTPException(409,'다른 작업이 진행 중입니다.')
+    try:return plan(req.prompt)
+    except Exception as error:raise HTTPException(422,str(error))
+    finally:busy.release()
+
+
+class TownVisionRun(BaseModel):
+    plan_id: str
+    targets: list[str] = Field(min_length=1,max_length=64)
+
+
+@app.post('/town-vision/runs')
+def town_vision_submit(req: TownVisionRun):
+    from town_vision_pipeline import prepare,run
+    if (ROOT/'.batch.lock').exists() or not busy.acquire(blocking=False):raise HTTPException(409,'다른 작업이 진행 중입니다.')
+    try:run_id=prepare(req.plan_id,req.targets)
+    except Exception as error:
+        busy.release();raise HTTPException(422,str(error))
+    def work():
+        try:run(run_id)
+        finally:busy.release()
+    pool.submit(work)
+    return {'id':run_id}
+
+
+@app.post('/runs/{run_id}/visual-accept')
+def visual_accept(run_id:str):
+    from town_vision_pipeline import accept
+    try:accept(get_folder(run_id))
+    except (ValueError,KeyError,FileNotFoundError) as error:raise HTTPException(409,str(error))
+    return {'id':run_id,'status':'ready'}
+
+
 @app.get('/integration/sample')
 def integration_sample(mapId: str = 'floor-1-ruins'):
     if mapId == 'floor-1-ruins':
@@ -363,7 +399,7 @@ def approve(run_id:str):
             raise HTTPException(409,'결과 이미지가 없습니다.')
     record_event(folder, 'approval_validated', placement_count=len(manifest['placements']))
     return {'id':run_id,'mapId':'town','targets':[o['id'] for o in manifest['objects']], 'placements':manifest['placements'],
-            'replaceTheme': status.get('pipeline') == 'town-plan-v1'}
+            'replaceTheme': status.get('pipeline') in ('town-plan-v1','town-vision-v1')}
 
 
 class AppliedReceipt(BaseModel):

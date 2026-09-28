@@ -99,7 +99,14 @@ def run(run_id):
                 (folder/name).mkdir(exist_ok=True)
                 if row['action'] == 'decorate':
                     edit(folder, row, source, pipeline=PIPELINE)
-                    padded, deco, offset = extract_margin(source, Image.open(folder/name/'flux-raw.png'), generic=fresh)
+                    policy = row.get('extraction')
+                    if policy:
+                        from decoration_policy import plan_extraction
+                        policy = plan_extraction(dsl.get('source_text') or dsl['theme'],row.get('decorations',[]))
+                        write(folder/name,'extraction-policy.json',policy)
+                    padded, deco, offset = extract_margin(source, Image.open(folder/name/'flux-raw.png'),
+                        generic=policy['method']=='review-only-difference' if policy else fresh,
+                        materials=policy['materials'] if policy and policy['method']=='material-mask' else None)
                     deco.save(folder/name/'decoration.png')
                     base = recolor(source, dsl.get('color', {'gain':[1,1,1], 'bias':[0,0,0]})) if row.get('recolor_base') else source
                     base.save(folder/name/'recolor.png')
@@ -108,6 +115,9 @@ def run(run_id):
                     padded.save(folder/name/'base-padded.png')
                     output = Image.alpha_composite(padded, deco)
                     result['postprocess_profile']='reference-difference-v1' if fresh else 'padded-margin-3-v1'
+                    if policy:
+                        result['postprocess_profile']=policy['method']
+                        result['requires_review']=True
                     result['generation_seconds'] = read(folder/name, 'request-timing.json')['generation_seconds']
                     if name in recovery.get('reused_assets', []):
                         result['reused_from'] = recovery['source_run_id']
@@ -136,7 +146,9 @@ def run(run_id):
         write(folder, 'validation.json', {'source_hashes_unchanged': True, 'all_variant_alpha_preserved': True,
                                          'alpha_scope':'base sprite; decoration independently padded by 3 pixels'})
         if any(check_folder(folder).values()): raise ValueError('Invalid contracts')
-        status.update(status='ready', stage=7, current_object=None, preview=f'/theme-runs/{run_id}/preview.png')
+        needs_review=any(r.get('extraction') for r in rows if r['action']=='decorate')
+        status.update(status='awaiting_review' if needs_review else 'ready', stage=7, current_object=None, preview=f'/theme-runs/{run_id}/preview.png')
+        if needs_review: status['warnings']=['유형별 추출 후보입니다. 의미 분할·장식 잘림 검수 전에는 적용할 수 없습니다.']
         save_status(folder, status)
         record_event(folder, 'crypt_plan_finalized', parent_run_id=parent['id'])
     except Exception as error:

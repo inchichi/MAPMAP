@@ -86,6 +86,11 @@ class CryptStyleTest(unittest.TestCase):
             (folder/'crypt-manifest.json').write_text(json.dumps(manifest))
             Image.new('RGBA',(16,16)).save(folder/'decoration-map.png')
             self.assertTrue(publish(repo,folder)['saved'])
+            manifest['source_hashes']={name.replace('/','\\'):digest for name,digest in hashes.items()}
+            (folder/'crypt-manifest.json').write_text(json.dumps(manifest))
+            self.assertTrue(publish(repo,folder)['saved'])
+            applied=json.loads((repo/'public/crypt-style/active.json').read_text())
+            self.assertEqual(applied['source_hashes'],hashes)
             with patch('pathlib.Path.replace',side_effect=PermissionError('simulated watcher lock')),patch('crypt_apply.time.sleep'):
                 self.assertTrue(publish(repo,folder)['saved'])
             self.assertEqual(json.loads((repo/'public/crypt-style/active.json').read_text())['id'],folder.name)

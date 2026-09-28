@@ -24,7 +24,7 @@ def finalize(run_id):
     Image.new('RGBA',original.size).save(folder/'decoration-map.png')
     preview.save(folder/'preview.png')
     manifest=dict(id=run_id,mapId=status['mapId'],width=original.width,height=original.height,night=0,bulbs=[],
-                  overlay=f'/theme-runs/{run_id}/decoration-map.png',hires=items,source_hashes=spec['hashes'],instances=len(spec['instances']))
+                  overlay=f'/theme-runs/{run_id}/decoration-map.png',hires=items,source_hashes={p.replace('\\','/'):h for p,h in spec['hashes'].items()},instances=len(spec['instances']))
     (folder/'crypt-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf8')
     status.update(status='ready',preview=f'/theme-runs/{run_id}/preview.png',warnings=['Preview is downsampled; runtime uses high-resolution textures. Visual QA required.'])
     save_status(folder,status)

@@ -1,6 +1,7 @@
 """Build per-group actions and edit prompts from validated DSL and source evidence."""
 from collections import Counter
 from contracts import Dsl, Plan
+from decoration_policy import plan_extraction
 
 
 def build(dsl, sources):
@@ -23,6 +24,7 @@ def build(dsl, sources):
                 'Keep decorations within three original pixels of the silhouette. '
                 'Keep the gray background unchanged. No extra objects, text, cast shadows or background scene.')
         rows.append({'asset':variant['id'],'kind':'prop','action':action,'prompt':prompt,
+                     'extraction':plan_extraction(dsl['source_text'] or dsl['theme'],dsl['decorations']),
                      'decorations':dsl['decorations'],'candidates':1,'instances':counts[variant['id']],
                      'reason':'TMX connected prop group; unknown semantic label',
                      'recolor_base':dsl.get('color',{}).get('gain',[1,1,1])!=[1,1,1] or dsl.get('color',{}).get('bias',[0,0,0])!=[0,0,0]})

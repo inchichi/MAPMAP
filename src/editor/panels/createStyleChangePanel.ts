@@ -36,7 +36,7 @@ export type RunChanges = {
   review: string | null
 }
 
-type RunSummary = { id: string; mapId?: string; pipeline?: string; status?: string; prompt?: string }
+type RunSummary = { id: string; mapId?: string; pipeline?: string; status?: string; prompt?: string; completed_objects?: number; total_objects?: number }
 
 const API = '/api/prompt-theme'
 
@@ -318,7 +318,7 @@ export const createStyleChangePanel = (): StyleChangePanel => {
     }
   }
 
-  const loadMap = async (): Promise<void> => {
+  const loadMap = async (preferredId?: string): Promise<void> => {
     const token = ++loadToken
     current = undefined
     message(`${mapId} · 적용된 스타일 결과를 찾는 중…`)
@@ -330,12 +330,14 @@ export const createStyleChangePanel = (): StyleChangePanel => {
     appliedId = activeId
     const mapRuns = runs.filter((run) => run.mapId === mapId && run.status === 'ready')
     runSelect.replaceChildren(...mapRuns.map((run) => {
-      const option = el('option', '', `${run.id === activeId ? '[적용 중] ' : '[저장 결과] '}${run.id.slice(0, 8)} · ${run.prompt || run.pipeline || ''}`)
+      const quality = run.pipeline?.includes('hires') ? '고해상도 · ' : ''
+      const count = run.total_objects ? `${run.completed_objects ?? run.total_objects}/${run.total_objects}종 · ` : ''
+      const option = el('option', '', `${run.id === activeId ? '[적용 중] ' : '[저장 결과] '}${quality}${count}${run.prompt || run.pipeline || ''} · ${run.id.slice(0, 8)}`)
       option.value = run.id
       return option
     }))
     runSelect.hidden = mapRuns.length === 0
-    const initial = mapRuns.some((run) => run.id === activeId) ? activeId : mapRuns[0]?.id
+    const initial = mapRuns.some((run) => run.id === preferredId) ? preferredId : mapRuns.some((run) => run.id === activeId) ? activeId : mapRuns[0]?.id
     if (!initial) {
       message(`${mapId}: 완료된 스타일 결과가 없습니다.`)
       return
@@ -386,7 +388,12 @@ export const createStyleChangePanel = (): StyleChangePanel => {
       if (current?.id === runId && current.status === 'ready') return
       mapId = ''
       runSelect.hidden = true
-      void showRun(runId)
+      void (async () => {
+        await showRun(runId)
+        if (current?.id !== runId || current.status !== 'ready') return
+        mapId = current.mapId
+        await loadMap(runId)
+      })()
     }
   }
 }
