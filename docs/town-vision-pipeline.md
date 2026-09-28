@@ -3,6 +3,11 @@
 Open `/editor.html?game=my-sample-rpg&map=town`; use the style link to
 `/editor.html?workspace=style&map=town`. Crypt data is not changed.
 
+The editor composer has Content Request and Style Results/Review tabs. Switching
+tabs preserves content input and does not apply results. The review tab exposes
+saved results and the existing change list, with DSL/asset details in the right
+sidebar and a link to the full style generation workspace.
+
 ## Implemented path
 
 1. Existing town TMX/profile extraction isolates object families.

@@ -1422,9 +1422,44 @@ export const createEditorApp = ({
   // Crypt: 컴포저 자리에 스타일 결과의 변경 목록(Generate), 결과 보드 위에 에셋 상세(Review)를 둔다(읽기 전용).
   const requestedStyleRun = new URLSearchParams(location.search).get('styleRun') ?? ''
   const townStyleRun = game.adapter.id === 'my-sample-rpg' && /^[a-f0-9]{32}$/.test(requestedStyleRun) ? requestedStyleRun : ''
-  const styleChanges = game.adapter.id === 'crypt-crawler' || townStyleRun ? createStyleChangePanel() : undefined
+  const styleChanges = game.adapter.id === 'crypt-crawler' || game.adapter.id === 'my-sample-rpg' ? createStyleChangePanel() : undefined
   if (styleChanges) {
-    composer.replaceChildren(el('p', 'text-[11px] text-[#9d9d9d]', '스타일 검수: 변경 목록에서 오브젝트를 선택하고, 위의 장식 버튼으로 원본과 비교하세요.'), styleChanges.changeList)
+    const contentPane = el('div', 'flex flex-col gap-1.5')
+    contentPane.append(...Array.from(composer.childNodes))
+    const stylePane = el('div', 'flex flex-col gap-2')
+    const createStyle = el('a', 'editor-style-action px-3 py-2 rounded self-start', '새 스타일 생성 열기 ↗')
+    createStyle.href = styleWorkspaceUrl()
+    createStyle.addEventListener('click', () => { createStyle.href = styleWorkspaceUrl() })
+    stylePane.append(createStyle, el('p', 'text-[11px] text-[#9d9d9d]', '저장 결과를 선택해 비교·적용하세요. 오브젝트를 선택하면 오른쪽에 원본·장식·합성이 표시됩니다.'), styleChanges.changeList)
+    const tabs = el('div', 'flex gap-2 border-b border-[#475569] pb-2')
+    tabs.setAttribute('role', 'tablist')
+    tabs.setAttribute('aria-label', '편집 작업 선택')
+    const contentTab = el('button', 'px-3 py-2 rounded font-semibold', '콘텐츠 생성 요청')
+    const styleTab = el('button', 'px-3 py-2 rounded font-semibold', '스타일 결과·검수')
+    const selectTab = (style: boolean): void => {
+      for (const [tab, pane, selected] of [[contentTab, contentPane, !style], [styleTab, stylePane, style]] as const) {
+        tab.setAttribute('aria-selected', String(selected))
+        tab.style.background = selected ? '#2456bd' : '#202b3d'
+        tab.style.color = selected ? '#ffffff' : '#b9c5d8'
+        pane.style.display = selected ? 'flex' : 'none'
+      }
+      styleChanges.dslCard.style.display = style ? '' : 'none'
+      styleChanges.assetDetails.style.display = style ? '' : 'none'
+    }
+    for (const [tab, pane, id] of [[contentTab, contentPane, 'content'], [styleTab, stylePane, 'style']] as const) {
+      tab.type = 'button'
+      tab.id = `composer-tab-${id}`
+      tab.setAttribute('role', 'tab')
+      tab.setAttribute('aria-controls', `composer-pane-${id}`)
+      pane.id = `composer-pane-${id}`
+      pane.setAttribute('role', 'tabpanel')
+      pane.setAttribute('aria-labelledby', tab.id)
+    }
+    contentTab.addEventListener('click', () => selectTab(false))
+    styleTab.addEventListener('click', () => selectTab(true))
+    tabs.append(contentTab, styleTab)
+    composer.replaceChildren(tabs, contentPane, stylePane)
+    selectTab(game.adapter.id === 'crypt-crawler' || !!townStyleRun)
     if (townStyleRun) styleChanges.showRun(townStyleRun)
   }
 
