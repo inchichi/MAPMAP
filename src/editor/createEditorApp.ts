@@ -1,5 +1,6 @@
 import { openProjectDirectory } from './openProjectDirectory'
 import { createHoverPreview, buildTileSlicePreview, buildImagePreview, buildCellsCanvasPreview } from './createHoverPreview'
+import { buildLayeredObjectHoverPreview } from './buildBuildingHoverPreview'
 import { extractTilesetTileIdByType, extractTmxTilesetImageInfo } from './tmxTileEntities'
 import type { StyleTransferMapObject } from './createStyleTransferModal'
 import { installDecorationDemo, loadPlacementsForMap, setDecorationLayerVisible, type PlacedItem } from './placementStore'
@@ -1790,6 +1791,9 @@ export const createEditorApp = ({
           targetSize: 128
         })
       }
+    }
+    if (game.adapter.id === 'my-sample-rpg' && ['building', 'tree', 'fountain', 'lamp', 'flower', 'prop'].includes(groupKindOf(entity.kind)) && !isTileClusterEntity(entity)) {
+      return buildLayeredObjectHoverPreview(currentFiles, map.file, entity.id)
     }
     const objectTarget = buildStyleObjectTarget(map, entity)
     if (objectTarget) {

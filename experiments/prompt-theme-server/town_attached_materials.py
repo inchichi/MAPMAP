@@ -25,7 +25,9 @@ def isolate(obj):
             included=name.split('_')[0] in family
             # These two canopy tiles have prop/lamp labels in the current TSX.
             if obj['category']=='tree' and name in {'town_prop_325','streetlamp_unlit_top_02'}:included=True
+            if obj['id']=='clock_tower' and name in {'town_prop_371','town_prop_387','streetlamp_lit_mid_right_cluster_00','streetlamp_lit_mid_right_cluster_01'}:included=True
             if obj['category']=='building':included=(included and name not in fountain_edges) or name.startswith('flower_box')
+            if obj['category']=='building' and name=='market_prop_411':included=False
             if obj['id']=='town_hall' and name.startswith('ground_pit_large_bottom'):included=True
             if obj['category']=='fountain' and name in fountain_edges:included=True
             if not included or name=='wall_cobble_fill':continue

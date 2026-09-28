@@ -157,7 +157,7 @@ export const buildTileClusterEntities = (
     seen.set(base, duplicates + 1)
     return {
       id: duplicates === 0 ? base : `${base}#${duplicates}`,
-      name: tileClusterName(cluster),
+      name: (mapId === 'town' ? ({ wall: '성벽·벽돌 장식', banner: '성벽 깃발' } as Record<string, string>)[cluster.kind] ?? '' : '') + ' ' + tileClusterName(cluster),
       kind: cluster.kind,
       mapId
     }

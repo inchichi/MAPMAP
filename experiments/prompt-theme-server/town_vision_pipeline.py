@@ -66,6 +66,19 @@ def palette_color(source,direction):
     return Image.fromarray(a)
 
 
+def shared_objects(objects):
+    """Exact RGBA + dimensions; never group merely by model labels."""
+    from town_attached_materials import isolate
+    groups={}
+    for obj in objects:
+        source=isolate(obj)
+        key=hashlib.sha256(source.tobytes()+str(source.size).encode()).hexdigest()
+        instance={'id':obj['id'],'box':obj['box']}
+        if key in groups:groups[key]['instances'].append(instance)
+        else:groups[key]=dict(obj,source_hash=key,instances=[instance])
+    return list(groups.values())
+
+
 def plan(prompt):
     from theme_pipeline import ROOT,catalog,layers,sources,save_status
     from profile_decorations import profiles
@@ -84,7 +97,7 @@ def plan(prompt):
         original,_,_,hashes=layers({'gain':[1,1,1],'bias':[0,0,0]});original.save(folder/'original-map.png')
         cache=ROOT/'recognition-cache-v1';cache.mkdir(exist_ok=True)
         rows=[];objects=[];configured=profiles()
-        selected=[o for o in catalog() if o['id'] in configured]
+        selected=shared_objects([o for o in catalog() if o['id'] in configured])
         for index,obj in enumerate(selected):
             status.update(current_object=obj['id'],completed_objects=index,total_objects=len(selected));save_status(folder,status)
             source=isolate(obj);source.save(folder/f'{obj["id"]}-original.png')
@@ -118,8 +131,8 @@ def plan(prompt):
                 save(folder,f'{obj["id"]}-prompt-response.json',{'raw':raw})
                 action='decorate' if direction['decorations'] else 'recolor'
             rows.append({'asset':obj['id'],'kind':label['kind'],'action':action,'prompt':edit_prompt,'candidates':1,
-                         'instances':1,'reason':label['label'],'recognition':label,'source_hash':source_hash})
-            objects.append(dict(obj,profile_label=f'{obj["id"]} · {label["label"]} · {label["composition"]}',eligible=safe,
+                         'instances':len(obj['instances']),'reason':label['label'],'recognition':label,'source_hash':source_hash})
+            objects.append(dict(obj,profile_label=f'{obj["id"]} · {label["label"]} · {len(obj["instances"])}곳 공유 · {label["composition"]}',eligible=safe,
                                 image=f'/theme-runs/{folder.name}/{obj["id"]}-original.png',recognition=label))
         save(folder,'plan.json',rows);save(folder,'objects.json',objects)
         save(folder,'labels.json',{r['source_hash']:{'kind':r['kind'],'by':'model:Qwen3-VL-8B-Instruct',
@@ -190,7 +203,11 @@ def run(run_id):
                     # Do not let resampling introduce pixels outside the original silhouette.
                     a=np.array(overlay);a[:,:,3]=np.minimum(a[:,:,3],np.array(source.getchannel('A')));overlay=Image.fromarray(a)
                     if not overlay.getbbox():raise ValueError('No decoration extracted')
-                colors.alpha_composite(corrected,(x,y));decorations.alpha_composite(overlay,(x,y))
+                for instance in obj.get('instances',[{'id':name,'box':obj['box']}]):
+                    ix,iy,iw,ih=instance['box']
+                    if (iw,ih)!=source.size:raise ValueError('Shared instance size mismatch')
+                    colors.alpha_composite(corrected,(ix,iy));decorations.alpha_composite(overlay,(ix,iy))
+                result['reused_instances']=[i['id'] for i in obj.get('instances',[])]
             except Exception as exc:
                 result={'status':'failed','error':str(exc)};errors.append(name+': '+str(exc))
             overlay.save(target/'decoration.png');Image.alpha_composite(corrected,overlay).save(target/'composite.png')

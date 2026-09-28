@@ -14,7 +14,12 @@ sidebar and a link to the full style generation workspace.
 2. `/town-vision/plan` asks Qwen3-VL for theme direction, classifies isolated
    nearest-neighbor enlarged crops (no surrounding map), then writes a per-object
    English FLUX prompt from the recognized features and user theme.
-3. Recognition cache is keyed by source pixels and dimensions. Raw outputs and
+3. Exact RGBA pixels and dimensions group identical objects before recognition,
+   prompting and generation. Each representative records all instance IDs/boxes;
+   one generated result is composited at every instance coordinate. Town currently
+   has 35 instances and 13 exact source groups, including 11 identical flower pots.
+   Selection is group-level: choosing a representative styles all its instances.
+   Recognition cache is keyed by source pixels and dimensions. Raw outputs and
    unreviewed labels are retained. Multiple/fragment/unknown objects are not selectable.
 4. The user reviews recognition and prompts, selects objects, and submits a stored
    plan ID. The server rechecks source hashes, asset membership and eligibility.
@@ -28,7 +33,7 @@ sidebar and a link to the full style generation workspace.
 The generic difference extractor is NOT semantic segmentation and may omit/cut ornaments.
 Review is mandatory; the pipeline connection does not imply solved extraction quality.
 Full-map overlays currently store native-resolution decorations. High-resolution mask
-quality and identical-object reuse beyond selected town profiles need further improvement.
+quality and recognition of visually similar but nonidentical sprites need further improvement.
 
 ## Services
 

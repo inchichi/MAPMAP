@@ -20,8 +20,9 @@ def extend_town_profiles(result):
         *[(f'lamp_{i}',[128+(i-5)*160,1312,64,96],'lamp') for i in range(5,14)],
         ('flower_1',[736,320,32,32],'flower box'),('flower_2',[832,320,32,32],'flower box'),
         ('flower_3',[448,1120,32,32],'flower box'),('flower_4',[1568,1376,32,32],'flower pot'),
-        ('prop_2',[544,416,32,96],'flower pots'),('prop_3',[672,416,32,96],'flower pots'),
-        ('prop_4',[1024,416,32,96],'flower pots'),('prop_5',[896,480,32,32],'flower pot'),
+        ('prop_2',[544,416,32,32],'flower pot'),('prop_3',[672,416,32,32],'flower pot'),
+        ('prop_4',[1024,416,32,32],'flower pot'),('prop_5',[896,480,32,32],'flower pot'),
+        *[(f'prop_{n}_{row}',[x,416+(row-1)*32,32,32],'flower pot') for n,x in [(2,544),(3,672),(4,1024)] for row in (2,3)],
         ('prop_8',[416,1216,32,32],'flower pot')]:
         w,h=box[2:];scale=2 if h>160 else 3
         canvas=[max(320,w*scale+64),max(320,h*scale+64)]

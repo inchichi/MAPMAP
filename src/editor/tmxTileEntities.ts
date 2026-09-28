@@ -181,6 +181,7 @@ const collectTileTypes = (tilesetElement: Element): Map<number, string> => {
 }
 
 const kindForTileType = (type: string): string | undefined => {
+  if (type === 'planter_tree_bloom') return 'prop'
   // 그림자 타일은 사물 본체가 아니라 옆 칸에 드리운 효과라, 군집 모양만 부풀린다 — 제외.
   if (type.includes('shadow') || EXCLUDED_TILE_TYPES.has(type)) {
     return undefined
@@ -621,6 +622,15 @@ export const extractTmxTileClusterDetails = (
   // 빈 안쪽에 object 사각형이 있을 때 실제로는 안 겹치는데도 지워진다.
   const excludeRects = options.excludeRects ?? []
   const isSuppressed = (cluster: WorkingCluster): boolean => {
+    // Mislabelled canopy/clock fragments are already owned by full TMX objects.
+    const parentKind = cluster.cells.every(index => ['town_prop_325', 'streetlamp_unlit_top_02'].includes(grid.typeGrid[index] ?? ''))
+      ? 'tree'
+      : cluster.cells.every(index => ['town_prop_371', 'town_prop_387', 'streetlamp_lit_mid_right_cluster_00', 'streetlamp_lit_mid_right_cluster_01'].includes(grid.typeGrid[index] ?? '')) ? 'building' : undefined
+    if (parentKind && excludeRects.some(rect => rect.kind === parentKind && cluster.cells.every(index => {
+      const x = ((index % width) + 0.5) * tileWidth
+      const y = (Math.floor(index / width) + 0.5) * tileHeight
+      return x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height
+    }))) return true
     // 구조물 종류는 모든 object 사각형에, 그 외(분수·나무 등 독립 사물)는 같은 종류의
     // 사각형에만 억제된다 — 건물 안의 분수는 남기되, 분수 object가 있으면 그 군집은 지운다.
     const relevantRects = STRUCTURAL_KINDS.has(cluster.kind)
