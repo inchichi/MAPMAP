@@ -8,7 +8,7 @@ from object_decorations import request_image
 
 
 def isolate(obj):
-    m,ts,atlas,_=sources();tw=int(m.get('tilewidth'));th=int(m.get('tileheight'));mw=int(m.get('width'))
+    m,ts,atlas,_=sources(obj.get('mapId','town'));tw=int(m.get('tilewidth'));th=int(m.get('tileheight'));mw=int(m.get('width'))
     cols=int(ts.get('columns'));first=int(m.find('tileset').get('firstgid'));x,y,w,h=obj['box']
     out=Image.new('RGBA',(w,h));types={int(t.get('id')):t.get('type','') for t in ts.findall('tile')}
     family={'building':{'roof','chimney','gable','window','wall','market','clocktower','stairs','door','ladder'},
@@ -30,6 +30,7 @@ def isolate(obj):
             if obj['category']=='building' and name=='market_prop_411':included=False
             if obj['id']=='town_hall' and name.startswith('ground_pit_large_bottom'):included=True
             if obj['category']=='fountain' and name in fountain_edges:included=True
+            if obj.get('tile_gids'):included=(raw&0x1fffffff) in obj['tile_gids']
             if not included or name=='wall_cobble_fill':continue
             tile=atlas.crop(((tid%cols)*tw,(tid//cols)*th,(tid%cols+1)*tw,(tid//cols+1)*th))
             if raw&0x20000000:tile=tile.transpose(Image.Transpose.TRANSPOSE)

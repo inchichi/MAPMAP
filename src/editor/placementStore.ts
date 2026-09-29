@@ -27,6 +27,7 @@ export type PlacedItem = {
   visible?: boolean
   sourceAssetId?: string
   themeSettings?: {
+    tilesetImageUrl?: string
     runId: string
     night: number
     twinkle: boolean
@@ -108,18 +109,19 @@ export const installDecorationDemo = (items: PlacedItem[]): void => {
 
 export type PromptThemeApproval = {
   id: string
-  mapId: 'town'
+  mapId: 'town' | 'harvest-village'
   targets: string[]
   placements: PlacedItem[]
   replaceTheme?: boolean
 }
 
 export const installPromptTheme = (approval: PromptThemeApproval): void => {
-  if (approval.mapId !== 'town' || !/^[a-f0-9]{32}$/.test(approval.id) ||
+  if (!['town', 'harvest-village'].includes(approval.mapId) || !/^[a-f0-9]{32}$/.test(approval.id) ||
     !Array.isArray(approval.targets) || !Array.isArray(approval.placements) ||
     approval.placements.some(item => item.kind !== 'object' || item.renderLayer !== 'decoration' ||
       item.sourceGroup !== 'prompt-theme' || !Number.isFinite(item.col) || !Number.isFinite(item.row) ||
-      !item.imageUrl?.startsWith(`/theme-runs/${approval.id}/`))) {
+      !item.imageUrl?.startsWith(`/theme-runs/${approval.id}/`) ||
+      (item.themeSettings?.tilesetImageUrl !== undefined && !item.themeSettings.tilesetImageUrl.startsWith(`/theme-runs/${approval.id}/`)))) {
     throw new Error('올바른 스타일 승인 결과가 아닙니다.')
   }
   const all = loadAll()
@@ -127,7 +129,7 @@ export const installPromptTheme = (approval: PromptThemeApproval): void => {
   if (!writeLocalStorage('my-sample-rpg:placements-before-theme', JSON.stringify(all))) {
     throw new Error('이전 배치 백업에 실패했습니다. 적용하지 않았습니다.')
   }
-  all.town = [...(all.town ?? []).filter(item => {
+  all[approval.mapId] = [...(all[approval.mapId] ?? []).filter(item => {
     if (approval.replaceTheme && ['prompt-theme', 'flux-decorations-20260909'].includes(item.sourceGroup ?? '')) return false
     if (item.sourceGroup === 'prompt-theme' && item.themeSettings) {
       return !approval.placements.some(placement => placement.themeSettings)

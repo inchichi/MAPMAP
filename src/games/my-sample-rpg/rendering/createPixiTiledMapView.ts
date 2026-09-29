@@ -3082,10 +3082,12 @@ export const createPixiTiledMapView = async ({
   messageLayer.sortableChildren = true
   app.stage.addChild(world)
 
+  const appliedAtlasUrl = loadPlacementsForMap(sceneId).find(item => item.visible !== false && item.themeSettings)?.themeSettings?.tilesetImageUrl
+  if (appliedAtlasUrl && map.tilesets.length !== 1) throw new Error('Theme atlas requires exactly one map tileset')
   for (const tileset of map.tilesets) {
     tilesetResources.set(
       tileset.source,
-      await loadTilesetRenderResources(tileset, imageUrls)
+      await loadTilesetRenderResources(tileset, appliedAtlasUrl ? { ...imageUrls, [tileset.image.source]: appliedAtlasUrl } : imageUrls)
     )
   }
   const characterTilesetResources = await loadTilesetRenderResources(
@@ -7044,8 +7046,9 @@ export const createPixiTiledMapView = async ({
   const renderPlacements = async (items: PlacedItem[]): Promise<void> => {
     const revision = ++decorationRevision
     for (const light of bulbLights.removeChildren()) light.destroy()
-    const enabled = sceneId === 'town' && items.some(item => item.renderLayer === 'decoration' && item.visible !== false)
-    const settings = enabled ? items.find(item => item.visible !== false && item.themeSettings)?.themeSettings : undefined
+    const settings = items.find(item => item.visible !== false && item.themeSettings)?.themeSettings
+    // Explicit generated settings belong to the current map; only legacy decorations use the town fallback.
+    const enabled = Boolean(settings) || (sceneId === 'town' && items.some(item => item.renderLayer === 'decoration' && item.visible !== false))
     nightShade.visible = enabled && (settings ? settings.night > 0 : true)
     nightShade.alpha = settings ? Math.max(0, Math.min(0.8, settings.night)) / 0.58 : 1
     twinkleEnabled = settings?.twinkle ?? true
@@ -7108,6 +7111,11 @@ export const createPixiTiledMapView = async ({
   }
 
   const refreshPlacements = (): void => {
+    const nextAtlasUrl = loadPlacementsForMap(sceneId).find(item => item.visible !== false && item.themeSettings)?.themeSettings?.tilesetImageUrl
+    if (nextAtlasUrl !== appliedAtlasUrl) {
+      window.location.reload()
+      return
+    }
     void renderPlacements(loadPlacementsForMap(sceneId))
   }
 

@@ -2,9 +2,21 @@ import unittest
 import numpy as np
 from PIL import Image, ImageDraw
 from registered_decoration import extract_registered
+from unittest.mock import patch
+from registered_decoration import RegistrationError
 
 
 class RegisteredDecorationTest(unittest.TestCase):
+    def test_large_translation_remains_blocked_and_logged(self):
+        source=Image.new('RGBA',(32,32),(170,90,40,255))
+        raw=Image.new('RGB',(256,256),'#808080')
+        warp=np.array([[1,0,0],[0,1,-34]],dtype=np.float32)
+        with patch('registered_decoration.cv2.findTransformECC',return_value=(.99,warp)):
+            with self.assertRaises(RegistrationError) as caught:
+                extract_registered(source,raw)
+        self.assertFalse(caught.exception.report['approved'])
+        self.assertEqual(caught.exception.report['limits']['maximum_translation_native_pixels'],2)
+
     def test_identical_source_has_no_decoration_and_base_is_unchanged(self):
         source = Image.new('RGBA', (32,32))
         ImageDraw.Draw(source).rectangle((4,4,27,27), fill=(170,90,40,255))

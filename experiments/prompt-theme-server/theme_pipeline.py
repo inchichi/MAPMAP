@@ -10,6 +10,8 @@ from PIL import Image
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from run_records import record_event, review_html
 from run_changes import changes as run_changes
 from pydantic import BaseModel, Field, ValidationError
@@ -27,6 +29,15 @@ async def lifespan(_app):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_error(_request,error):
+    # Uploaded document bytes must never be echoed in validation responses.
+    return JSONResponse(status_code=422,content={'detail':[
+        {key:item[key] for key in ('loc','msg','type') if key in item} for item in error.errors()]})
+
+
 pool = ThreadPoolExecutor(max_workers=1)
 busy = threading.Lock()
 PRESETS = {
@@ -50,8 +61,9 @@ def parse_prompt(prompt):
     color = not any(w in p for w in ['색 변경 없이','색은 그대로','원본 색','no recolor'])
     return {'parser':'rules-v1', 'theme':theme, 'decorations':decorations, 'night':night, 'twinkle':twinkle and 'lights' in decorations, 'color':PRESETS[theme] if color else {'gain':[1,1,1],'bias':[0,0,0]}, 'warnings':['규칙 기반 해석입니다. 아래 설정을 확인하세요. 세부 색상명·광원 방향은 아직 자동 해석하지 않습니다.', '장식은 자동 마스크/정렬 결과이며 원본과 겹치는 부분은 미리보기에서 확인해야 합니다.']}
 
-def sources():
-    tmx = REPO/'src/games/my-sample-rpg/assets/maps/town.tmx'
+def sources(map_id='town'):
+    if map_id not in {'town','harvest-village'}:raise ValueError('Unsupported style map')
+    tmx = REPO/f'src/games/my-sample-rpg/assets/maps/{map_id}.tmx'
     m = ET.parse(tmx).getroot()
     ref = m.find('tileset')
     tsx = (tmx.parent/ref.get('source')).resolve()
@@ -59,7 +71,10 @@ def sources():
     image = (tsx.parent/ts.find('image').get('source')).resolve()
     return m, ts, Image.open(image).convert('RGBA'), {str(p.relative_to(REPO)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [tmx,tsx,image]}
 
-def catalog():
+def catalog(map_id='town'):
+    if map_id!='town':
+        from map_style_catalog import catalog as map_catalog
+        return map_catalog(map_id)
     m,_,_,_ = sources()
     return [{'id':o.get('name'), 'category':o.get('type'), 'box':[int(float(o.get(k,0))) for k in ['x','y','width','height']]} for o in m.findall('.//object') if o.get('type') in ['building','tree','fountain','lamp','flower','prop'] and float(o.get('width','0'))>0]
 
@@ -70,8 +85,8 @@ def recolor(image, color):
     a[:,:,:3][a[:,:,3]>0] = mapped[a[:,:,3]>0]
     return Image.fromarray(a)
 
-def layers(color):
-    m,ts,atlas,hashes = sources()
+def layers(color,map_id='town'):
+    m,ts,atlas,hashes = sources(map_id)
     tw,th,mw,mh = [int(m.get(k)) for k in ['tilewidth','tileheight','width','height']]
     first = int(m.find('tileset').get('firstgid'))
     cols = int(ts.get('columns'))
@@ -170,13 +185,46 @@ def runs():
     return [json.loads(p.read_text(encoding='utf8')) for p in sorted(ROOT.glob('*/status.json'), key=lambda p:p.stat().st_mtime,reverse=True)]
 
 
+class DocumentPlanRequest(Request):
+    mapId: str = 'town'
+    document_base64: str | None = Field(default=None,max_length=86000000)
+    document_name: str = Field(default='',max_length=200)
+    reviewed_requirements: list[dict] | None = Field(default=None,max_length=16)
+
+
 @app.post('/town-vision/plan')
-def town_vision_plan(req: Request):
+def town_vision_plan(req: DocumentPlanRequest):
     from town_vision_pipeline import plan
     if (ROOT/'.batch.lock').exists() or not busy.acquire(blocking=False):raise HTTPException(409,'다른 작업이 진행 중입니다.')
-    try:return plan(req.prompt)
+    try:
+        document=None
+        if req.document_base64:
+            from document_planner import extract_document
+            document=extract_document(req.document_base64)
+            document['name']=req.document_name
+        return plan(req.prompt,document,req.reviewed_requirements,req.targets,map_id=req.mapId)
     except Exception as error:raise HTTPException(422,str(error))
     finally:busy.release()
+
+
+class GroundPropRequest(BaseModel):
+    plan_id: str
+    asset: str = Field(min_length=1,max_length=80)
+    prompt: str = Field(min_length=3,max_length=300)
+
+
+@app.post('/town-vision/ground-prop-pilot')
+def ground_prop_submit(req: GroundPropRequest):
+    from ground_prop_pilot import prepare,run
+    if (ROOT/'.batch.lock').exists() or not busy.acquire(blocking=False):raise HTTPException(409,'Another generation is running')
+    try:run_id=prepare(req.plan_id,req.asset,req.prompt)
+    except Exception as error:
+        busy.release();raise HTTPException(422,str(error))
+    def work():
+        try:run(run_id)
+        finally:busy.release()
+    pool.submit(work)
+    return {'id':run_id}
 
 
 class TownVisionRun(BaseModel):
@@ -360,7 +408,8 @@ def apply(run_id:str):
     folder=get_folder(run_id);s=json.loads((folder/'status.json').read_text(encoding='utf8'))
     if s['status']!='ready': raise HTTPException(409,'완료된 미리보기만 적용할 수 있습니다.')
     manifest=json.loads((folder/'manifest.json').read_text(encoding='utf8'))
-    if sources()[3]!=manifest['source_hashes']: raise HTTPException(409,'원본 맵이 변경됐습니다. 다시 생성해주세요.')
+    if s.get('mapId','town')!='town':raise HTTPException(409,'이 맵은 /approve 후 브라우저에 저장합니다.')
+    if sources(s.get('mapId','town'))[3]!=manifest['source_hashes']: raise HTTPException(409,'원본 맵이 변경됐습니다. 다시 생성해주세요.')
     if not STATE: raise HTTPException(409,'이 에디터는 /approve 후 브라우저에 저장합니다.')
     response=requests.get(STATE,timeout=20);response.raise_for_status();state=response.json()
     if state.get('backgrounds',{}).get('town'): raise HTTPException(409,'전체 스타일 배경이 활성화되어 있습니다. 먼저 원본 배경으로 복원해주세요.')
@@ -389,16 +438,17 @@ def approve(run_id:str):
         if not required <= checks.keys() or any(checks.values()) or validation.get('alpha_preserved') is not True:
             raise HTTPException(409, '통합 계약/알파 검증을 통과하지 못했습니다.')
     manifest=json.loads((folder/'manifest.json').read_text(encoding='utf8'))
-    if sources()[3]!=manifest['source_hashes']: raise HTTPException(409,'원본 맵이 변경됐습니다. 다시 생성해주세요.')
-    for item in manifest['placements']:
-        url=item.get('imageUrl','')
+    if sources(status.get('mapId','town'))[3]!=manifest['source_hashes']: raise HTTPException(409,'원본 맵이 변경됐습니다. 다시 생성해주세요.')
+    image_urls=[item.get('imageUrl','') for item in manifest['placements']]
+    image_urls += [item['themeSettings']['tilesetImageUrl'] for item in manifest['placements'] if item.get('themeSettings',{}).get('tilesetImageUrl')]
+    for url in image_urls:
         prefix='/theme-runs/'+run_id+'/'
         if not url.startswith(prefix): raise HTTPException(409,'결과 경로가 일치하지 않습니다.')
         path=(folder/url[len(prefix):]).resolve()
         if not path.is_relative_to(folder.resolve()) or not path.is_file():
             raise HTTPException(409,'결과 이미지가 없습니다.')
     record_event(folder, 'approval_validated', placement_count=len(manifest['placements']))
-    return {'id':run_id,'mapId':'town','targets':[o['id'] for o in manifest['objects']], 'placements':manifest['placements'],
+    return {'id':run_id,'mapId':status.get('mapId','town'),'targets':[o['id'] for o in manifest['objects']], 'placements':manifest['placements'],
             'replaceTheme': status.get('pipeline') in ('town-plan-v1','town-vision-v1')}
 
 

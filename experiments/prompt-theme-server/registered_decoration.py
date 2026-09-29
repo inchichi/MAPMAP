@@ -8,6 +8,12 @@ import numpy as np
 from PIL import Image
 
 
+class RegistrationError(ValueError):
+    def __init__(self,report):
+        self.report=report
+        super().__init__('Structural drift exceeds registration limits: '+str(report))
+
+
 def extract_registered(source, raw, margin=3):
     scale = max(1, min(6, 1024 // max(source.size)))
     size = (source.width * scale + 64, source.height * scale + 64)
@@ -26,7 +32,10 @@ def extract_registered(source, raw, margin=3):
         raise ValueError('Registration failed; regeneration or manual review required') from error
     singular = np.linalg.svd(warp[:, :2], compute_uv=False)
     if score < .9 or singular.min() < .92 or singular.max() > 1.08 or np.abs(warp[:, 2]).max() > scale*2:
-        raise ValueError(f'Structural drift exceeds registration limits: score={score:.4f}, scale={singular.tolist()}, warp={warp.tolist()}')
+        raise RegistrationError({'registration_score':float(score),'scale':singular.tolist(),'warp':warp.tolist(),
+            'translation_native_pixels':(warp[:,2]/scale).tolist(),
+            'limits':{'minimum_score':.9,'scale_range':[.92,1.08],'maximum_translation_native_pixels':2},
+            'approved':False})
     aligned = cv2.warpAffine(generated, warp, size, flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
                              borderMode=cv2.BORDER_CONSTANT, borderValue=(128, 128, 128))
     alpha = np.zeros(ref.shape[:2], np.uint8)

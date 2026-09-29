@@ -44,6 +44,13 @@ describe('placementStore', () => {
       renderLayer: 'decoration', sourceGroup: 'prompt-theme', visible: true
     }]
   }
+  it('installs harvest theme without changing town placements', () => {
+    installPromptTheme(approval)
+    const townBefore = loadPlacementsForMap('town')
+    installPromptTheme({ ...approval, mapId: 'harvest-village', replaceTheme: true })
+    expect(loadPlacementsForMap('harvest-village')).toEqual(approval.placements)
+    expect(loadPlacementsForMap('town')).toEqual(townBefore)
+  })
   it('applies one generated object without deleting other decorations or maps', () => {
     const ordinary = addPlacement('town', { kind: 'tile', tileId: 1 }, 0, 0)
     addPlacement('cave', { kind: 'tile', tileId: 2 }, 1, 1)

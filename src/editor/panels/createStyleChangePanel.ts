@@ -2,6 +2,9 @@
 // Read-only view of `GET /runs/{id}/changes`: plan.json rows, or rows derived from older run records.
 // Inspection is read-only; explicit selection applies a validated saved Crypt overlay.
 
+import { applyPromptThemeRun } from '../applyPromptThemeRun'
+import { loadPlacementsForMap } from '../placementStore'
+
 export const CHANGE_ACTIONS = ['decorate', 'recolor', 'add', 'cover', 'skip'] as const
 export type ChangeAction = (typeof CHANGE_ACTIONS)[number]
 
@@ -32,6 +35,7 @@ export type RunChanges = {
   counts: Record<ChangeAction, number>
   rows: ChangeRow[]
   validation: Record<string, unknown> | null
+  color_coverage?: { covered_tiles: number; used_tiles: number; coverage_complete: boolean } | null
   dsl?: Record<string, unknown> | null
   review: string | null
 }
@@ -81,6 +85,8 @@ const VALIDATION_LABELS: Record<string, string> = {
   ground_does_not_cover_props: '바닥이 소품을 가리지 않음',
   soil_path_preserved: '흙길 유지',
   alpha_preserved: '알파 보존',
+  color_coverage_complete: '전체 타일 색상 처리',
+  atlas_alpha_preserved: '타일셋 알파 보존',
   tiles_covered: '타일 전부 처리'
 }
 
@@ -306,6 +312,9 @@ export const createStyleChangePanel = (): StyleChangePanel => {
       selected = run.rows[0]?.asset ?? ''
       meta.textContent = `${run.prompt || '(프롬프트 기록 없음)'} · ${run.pipeline ?? '파이프라인 기록 없음'} · ${run.rows.length}종 · ${run.source === 'plan.json' ? '출처 plan.json' : '출처: 기존 실행 기록에서 추정 (plan.json 없음)'}`
       meta.title = meta.textContent
+      meta.textContent += run.color_coverage
+        ? ` · 타일 색상 ${run.color_coverage.covered_tiles}/${run.color_coverage.used_tiles}종 · 시각 검수 별도`
+        : ' · 전체 타일 색상 범위 미검증 (오브젝트 완료 수와 별개)'
       checks.replaceChildren(...validationChecks(run.validation).map(({ label, ok }) =>
         el('span', `rounded border px-1.5 py-px text-[10px] ${ok ? 'border-[#3f7a48] text-[#93d69a]' : 'border-[#8a3a3a] text-[#f09c9c]'}`, `${ok ? '✓' : '✗'} ${label}`)
       ))
@@ -324,7 +333,9 @@ export const createStyleChangePanel = (): StyleChangePanel => {
     message(`${mapId} · 적용된 스타일 결과를 찾는 중…`)
     const [runs, activeId] = await Promise.all([
       fetch(`${API}/runs`, { cache: 'no-store' }).then(async (r) => r.ok ? await r.json() as RunSummary[] : []).catch(() => [] as RunSummary[]),
-      fetch(activeSelectionPath(mapId), { cache: 'no-store' }).then(async (r) => r.ok ? (await r.json() as { id?: string }).id ?? '' : '').catch(() => '')
+      ['town', 'harvest-village'].includes(mapId)
+        ? Promise.resolve(loadPlacementsForMap(mapId).find(item => item.visible !== false && item.themeSettings)?.themeSettings?.runId ?? '')
+        : fetch(activeSelectionPath(mapId), { cache: 'no-store' }).then(async (r) => r.ok ? (await r.json() as { id?: string }).id ?? '' : '').catch(() => '')
     ])
     if (token !== loadToken) return
     appliedId = activeId
@@ -350,12 +361,20 @@ export const createStyleChangePanel = (): StyleChangePanel => {
   apply.addEventListener('click', () => {
     if (!current || apply.disabled || !mapId) return
     const runId = current.id
+    const targetMapId = current.mapId
     apply.disabled = true
     runSelect.disabled = true
     refresh.disabled = true
     meta.textContent = '원본과 결과를 검증하고 적용하는 중…'
     void (async () => {
       try {
+        if (['town', 'harvest-village'].includes(targetMapId)) {
+          const warning = await applyPromptThemeRun(runId)
+          appliedId = runId
+          apply.textContent = '현재 적용 중'
+          meta.textContent = warning ?? '적용 완료 · 게임 화면에 반영했습니다.'
+          return
+        }
         const response = await fetch(`${API}/runs/${runId}/crypt-select`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ expected_active_id: appliedId })

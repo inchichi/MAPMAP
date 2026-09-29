@@ -26,10 +26,50 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   back.className = 'lab-back'
   const note = document.createElement('p')
   note.textContent = '오브젝트별 맞춤 설정: 장식 영역·보호 영역·배치 좌표 고정 → 각각 FLUX 생성 → 결과별 추출·검수. 중복 조각은 부모 오브젝트에 포함하며, 승인 전 게임은 변경하지 않습니다.'
+  const pixelPolicy = document.createElement('p')
+  pixelPolicy.textContent = '픽셀 게임 스타일 고정 · 실사/3D/부드러운 그라데이션 금지 · 마을 장식은 원본 해상도·최근접 보간·최대 24색으로 검수'
+  pixelPolicy.className = 'lab-footnote'
   const prompt = document.createElement('textarea')
   prompt.setAttribute('aria-label', '테마 프롬프트')
-  prompt.value = '크리스마스 밤 마을. 눈과 전구를 추가하고 은은하게 반짝이게 해줘.'
+  prompt.value = ''
   prompt.placeholder = '원하는 계절, 색감, 장식과 시간대를 설명해주세요.'
+  const documentInput = document.createElement('input')
+  documentInput.type = 'file'
+  documentInput.accept = '.docx'
+  documentInput.setAttribute('aria-label', '기획서 DOCX 업로드')
+  documentInput.hidden = true
+  const inputMode = document.createElement('select')
+  inputMode.setAttribute('aria-label', '스타일 입력 방식')
+  inputMode.className = 'lab-button'
+  inputMode.add(new Option('테마 프롬프트', 'prompt'))
+  if (!context.crypt) inputMode.add(new Option('시나리오 · 기획서 DOCX', 'document'))
+  inputMode.hidden = context.crypt
+  const documentHint = document.createElement('p')
+  documentHint.textContent = context.crypt ? '' : '기획서 DOCX (64 MB 이하): 본문·표를 분석합니다. 참고 이미지와 외부 링크는 수동 검토가 필요합니다.'
+  documentHint.hidden = true
+  let documentBase64: string | undefined
+  const requirementReview = document.createElement('textarea')
+  requirementReview.setAttribute('aria-label', '기획서 요구사항 검토 JSON')
+  requirementReview.placeholder = '분석 후 요구사항과 근거 ID가 표시됩니다. 수정 후 다시 분석하면 검토한 요구사항만 사용합니다.'
+  requirementReview.hidden = true
+  requirementReview.oninput = () => { generate.disabled=true; apply.disabled=true; plannedPrompt='' }
+  documentInput.onchange = async () => {
+    documentBase64 = undefined
+    requirementReview.value=''; requirementReview.hidden=true
+    generate.disabled = true; apply.disabled = true; plannedPrompt = ''
+    const file = documentInput.files?.[0]
+    if (!file) return
+    try {
+      inputMode.disabled = true
+      if (file.size > 64_000_000) throw new Error('64 MB 이하 DOCX를 선택하세요.')
+      const bytes = new Uint8Array(await file.arrayBuffer())
+      let binary = ''
+      for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192))
+      documentBase64 = btoa(binary)
+      prompt.value = '기획서의 마을 시각 연출을 적용해줘. 원본 구조와 위치는 유지하고 게임 로직 변경은 별도 작업으로 분리해줘.'
+      documentHint.textContent = `${file.name} · 준비됨. 분석 후 문단 근거와 영어 DSL을 검토하세요.`
+    } catch (e) { error(e) } finally { inputMode.disabled = false }
+  }
   const status = document.createElement('pre')
   status.className = 'lab-log'
   const objects = document.createElement('div')
@@ -124,10 +164,10 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
     apply.textContent = needsVisualReview ? '검수 완료 · 승인 후 적용' : '게임에 적용하기 →'
     apply.disabled = (!needsVisualReview && run.status !== 'ready') || applying
     applyHint.textContent = run.pipeline === 'town-plan-v1' || run.pipeline === 'town-vision-v1'
-      ? '통합 결과: 이전 town 테마를 백업 후 전체 교체합니다. 다른 맵과 수동 배치는 유지합니다.'
+      ? `통합 결과: 이전 ${context.mapId} 테마를 백업 후 전체 교체합니다. 다른 맵과 수동 배치는 유지합니다.`
       : '결과를 확인했나요? 선택한 오브젝트의 장식만 교체합니다.'
     if (run.status === 'ready' || needsVisualReview || run.pipeline?.endsWith('plan-v1')) changes.showRun(run.id)
-    if ((run.status === 'ready' || needsVisualReview) && run.preview) {
+    if ((run.status === 'ready' || run.status === 'review_required') && run.preview) {
       previews.replaceChildren()
       for (const [label,url] of [['원본',run.original],['생성 미리보기',run.preview]] as [string, string | undefined][]) {
         if (!url) continue
@@ -145,14 +185,20 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
       if (run.id !== runId || !dialog.isConnected) return
       show(run)
       if (['queued','running'].includes(run.status)) timer=setTimeout(() => { void poll() },2500)
-      else { generate.disabled = !plannedPrompt || plannedPrompt !== prompt.value; analyze.disabled=false; prompt.readOnly=false }
+      else { generate.disabled = !plannedPrompt || plannedPrompt !== prompt.value; analyze.disabled=false; prompt.readOnly=false; inputMode.disabled=false }
     } catch(e) { error(e); analyze.disabled=false; generate.disabled=false }
   }
   analyze.onclick=async () => {
     try {
+      if (inputMode.value === 'document' && !documentBase64) throw new Error('시나리오 · 기획서 DOCX를 먼저 선택하세요.')
+      if (prompt.value.trim().length < 2) throw new Error('테마 또는 문서 적용 범위를 입력하세요.')
+      inputMode.disabled=true
       automaticContract=undefined; visionPlanId=undefined; plannedPrompt=''; generate.disabled=true; analyze.disabled=true; prompt.readOnly=true
+      documentInput.disabled=true
+      requirementReview.readOnly=true
       status.textContent='해석 중...'; setProgress(0, '프롬프트 해석 중…'); apply.disabled=true; emptyPreview()
-      const plan=await api(context.crypt ? '/integration/plan' : '/town-vision/plan',{prompt:prompt.value,mapId:context.mapId}) as {id?:string;spec:Spec;objects:{id:string;category:string;box:number[];profile_label?:string;eligible?:boolean;image?:string}[]; dsl:unknown;plan:{asset:string;prompt?:string;recognition?:unknown}[];parent_run_id:string}
+      const plan=await api(context.crypt ? '/integration/plan' : '/town-vision/plan',{prompt:prompt.value,mapId:context.mapId,...(!context.crypt && inputMode.value === 'document' && documentBase64 ? {document_base64:documentBase64,document_name:documentInput.files?.[0]?.name,...(requirementReview.value ? {reviewed_requirements:JSON.parse(requirementReview.value)} : {})} : {})}) as {id?:string;spec:Spec;objects:{id:string;category:string;box:number[];profile_label?:string;eligible?:boolean;image?:string}[]; document?:{requirements:unknown};dsl:unknown;plan:{asset:string;prompt?:string;recognition?:unknown}[];parent_run_id:string}
+      if (plan.document) { requirementReview.value=JSON.stringify(plan.document.requirements,null,2);requirementReview.hidden=false }
       if (!context.crypt) { visionPlanId=plan.id; contractInput.value=JSON.stringify(plan.plan,null,2) }
       if (context.crypt) { automaticContract=plan; contractInput.value=JSON.stringify({dsl:plan.dsl,plan:plan.plan,parent_run_id:plan.parent_run_id},null,2) }
       plannedPrompt=prompt.value; objects.replaceChildren(); showSpec(plan.spec); setProgress(1, '해석 완료 · 변환할 오브젝트를 선택해주세요.')
@@ -170,12 +216,13 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
       }
       status.textContent=(context.crypt ? '규칙 기반 DSL·Planner\n' : 'Qwen3-VL 단독 인식 + LLM 개별 계획\n')+JSON.stringify(plan.spec,null,2)+'\n분류와 개별 프롬프트를 확인하고 대상을 선택하세요. 복합·미확인 대상은 제외됩니다.'
       generate.disabled=false
-    } catch(e) { error(e);generate.disabled=true } finally { analyze.disabled=false;prompt.readOnly=false }
+    } catch(e) { error(e);generate.disabled=true } finally { analyze.disabled=false;prompt.readOnly=false;documentInput.disabled=false;requirementReview.readOnly=false;inputMode.disabled=false }
   }
   prompt.oninput=() => {generate.disabled=true;apply.disabled=true;plannedPrompt=''; setProgress(0, '프롬프트가 변경됐습니다. 다시 해석해주세요.')}
   generate.onclick=async () => {
     try {
       if (plannedPrompt!==prompt.value) throw new Error('프롬프트를 다시 해석해주세요.')
+      inputMode.disabled=true
       generate.disabled=true;analyze.disabled=true;apply.disabled=true;prompt.readOnly=true;emptyPreview(); setProgress(2, '생성·색 보정 요청 중…')
       const targets=Array.from(objects.querySelectorAll<HTMLInputElement>('input:checked')).map(i=>i.value)
       if (!targets.length) throw new Error('대상을 하나 이상 선택해주세요.')
@@ -185,7 +232,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
         ? {...automaticContract, mapId:context.mapId, plan:automaticContract!.plan.filter(row=>targets.includes(row.asset))}
         : {plan_id:visionPlanId,targets}) as {id:string}
       runId=run.id;void poll()
-    } catch(e) {error(e);generate.disabled=false;analyze.disabled=false;prompt.readOnly=false}
+    } catch(e) {error(e);generate.disabled=false;analyze.disabled=false;prompt.readOnly=false;inputMode.disabled=false}
   }
   apply.onclick=async () => {
     if (!runId) return
@@ -234,13 +281,30 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   const layout = document.createElement('div'); layout.className = 'lab-layout'
   const inputCard = document.createElement('section'); inputCard.className = 'lab-card lab-input'
   const promptLabel = document.createElement('label'); promptLabel.textContent = '테마 프롬프트'; prompt.id='lab-prompt'; promptLabel.htmlFor=prompt.id
+  inputMode.onchange = () => {
+    const usesDocument = inputMode.value === 'document'
+    documentInput.hidden = !usesDocument
+    documentHint.hidden = !usesDocument
+    documentHint.textContent = '기획서 DOCX (64 MB 이하): 본문·표 분석. 참고 이미지와 외부 링크는 수동 검토가 필요합니다.'
+    documentInput.value = ''; documentBase64 = undefined
+    requirementReview.value = ''; requirementReview.hidden = true
+    prompt.value = usesDocument ? '기획서의 마을 시각 연출을 적용해줘. 원본 구조와 위치는 유지하고 게임 로직 변경은 별도 작업으로 분리해줘.' : ''
+    promptLabel.textContent = usesDocument ? '문서 적용 범위 · 추가 지시' : '테마 프롬프트'
+    prompt.setAttribute('aria-label', promptLabel.textContent)
+    plannedPrompt = ''; visionPlanId = undefined; automaticContract = undefined
+    generate.disabled = true; apply.disabled = true
+    if (timer) clearTimeout(timer)
+    runId = undefined
+    objects.replaceChildren(); specTags.replaceChildren(); emptyPreview()
+    setProgress(0, '입력 방식이 변경됐습니다. 새 입력으로 분석해주세요.')
+  }
   const selectionTools = document.createElement('div'); selectionTools.className = 'lab-selection-tools'
   for (const [text, checked] of [['전체 선택', true], ['선택 해제', false]] as const) {
     const select = document.createElement('button'); select.type = 'button'; select.className = 'lab-button'; select.textContent = text
     select.onclick = () => objects.querySelectorAll<HTMLInputElement>('input').forEach(input => { if (!input.disabled) input.checked = checked })
     selectionTools.append(select)
   }
-  inputCard.append(sectionTitle('어떤 분위기를 만들까요?', '원본 구조는 그대로. 색감과 장식만 새롭게.'), promptLabel, prompt, specTags, controls, sectionTitle('변환 대상', '대상을 확인한 뒤 필요한 오브젝트만 선택하세요.'), selectionTools, objects)
+  inputCard.append(sectionTitle('어떤 분위기를 만들까요?', '문서 또는 테마 프롬프트를 선택하세요. 원본 구조는 유지합니다.'), inputMode, documentInput, documentHint, requirementReview, promptLabel, prompt, specTags, controls, sectionTitle('변환 대상', '대상을 확인한 뒤 필요한 오브젝트만 선택하세요.'), selectionTools, objects)
   controls.replaceChildren(analyze, generate)
   const outputCard = document.createElement('section'); outputCard.className = 'lab-card lab-output'
   const previewHead = sectionTitle('미리보기 · 비교', '이미지를 누르면 원본 크기로 볼 수 있습니다. 승인 전에는 게임이 바뀌지 않습니다.')
@@ -303,7 +367,7 @@ export const createPromptThemePage = (mountElement: HTMLElement): void => {
   const recordTitle = document.createElement('summary'); recordTitle.textContent = '이전 실험 기록'
   recordDetails.append(recordTitle, history, records)
   note.className = 'lab-footnote'
-  dialog.append(header, stepBar, layout, changeCard, recordDetails, note)
+  dialog.append(header, pixelPolicy, stepBar, layout, changeCard, recordDetails, note)
   mountElement.replaceChildren(dialog)
   const requestedRun = new URLSearchParams(location.search).get('run')
   if (requestedRun && /^[a-f0-9]{32}$/.test(requestedRun)) { runId = requestedRun; void poll() }

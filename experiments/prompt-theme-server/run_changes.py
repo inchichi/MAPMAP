@@ -117,5 +117,6 @@ def changes(folder):
             'source': 'plan.json' if plan is not None else 'derived',
             'counts': {action: counts.get(action, 0) for action in ACTIONS},
             'rows': rows, 'dsl': read_json(folder/'dsl.json'), 'validation': read_json(folder/'validation.json'),
+            'color_coverage': read_json(folder/'color-coverage.json'),
             'preview': url(folder, 'preview.png'), 'original': url(folder, 'original-map.png'),
             'review': url(folder, 'review.html')}

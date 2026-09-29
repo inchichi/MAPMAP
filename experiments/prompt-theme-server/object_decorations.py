@@ -59,10 +59,13 @@ def surface_masks(original, kind):
 
 
 def request_image(folder, source, prompt, flux, alpha, pipeline=None, backend=None):
+    from pixel_style import pixel_prompt,VERSION as PIXEL_POLICY
+    prompt=pixel_prompt(prompt)
     source.save(folder/'flux-input.png')
     record = {
         'pipeline':pipeline or VERSION, 'model':'FLUX.1-Kontext-dev', 'prompt':prompt,
         'steps':28, 'alpha':alpha, 'geometry_lock':False,
+        'pixel_policy':PIXEL_POLICY,
         'seed':'service random; not exposed'
     }
     (folder/'generation.json').write_text(json.dumps(record, indent=2))

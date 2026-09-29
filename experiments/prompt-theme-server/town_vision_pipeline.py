@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import requests
 from PIL import Image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Literal
 
 PIPELINE='town-vision-v1'
@@ -34,6 +34,14 @@ class Direction(BaseModel):
     twinkle: bool
     decorations: list[str] = Field(max_length=6)
 
+    @model_validator(mode='before')
+    @classmethod
+    def unused_palette(cls,value):
+        # No palette interpolation is used at zero strength. Keep the original raw response.
+        if isinstance(value,dict) and value.get('recolor_strength')==0 and value.get('palette')==[]:
+            return dict(value,palette=['#000000','#808080','#ffffff'])
+        return value
+
 
 def save(folder,name,data):
     (folder/name).write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf8')
@@ -43,8 +51,8 @@ def read(folder,name):
     return json.loads((folder/name).read_text(encoding='utf8'))
 
 
-def infer(prompt, image=None):
-    body={'prompt':prompt,'max_tokens':700}
+def infer(prompt, image=None, max_tokens=700):
+    body={'prompt':prompt,'max_tokens':max_tokens}
     if image is not None:
         buffer=io.BytesIO();image.save(buffer,format='PNG');body['image']=base64.b64encode(buffer.getvalue()).decode()
     response=requests.post(os.environ.get('THEME_VISION_URL','http://127.0.0.1:18776')+'/generate',json=body,timeout=180)
@@ -79,25 +87,67 @@ def shared_objects(objects):
     return list(groups.values())
 
 
-def plan(prompt):
+def plan(prompt, document=None, reviewed_requirements=None, target_ids=None,map_id='town'):
     from theme_pipeline import ROOT,catalog,layers,sources,save_status
     from profile_decorations import profiles
     from town_attached_materials import isolate
+    sources(map_id)  # Reject unsupported maps before creating a run.
     folder=ROOT/uuid.uuid4().hex;folder.mkdir()
-    status={'id':folder.name,'mapId':'town','pipeline':PIPELINE,'prompt':prompt,'status':'planning','stage':1,'created':time.time()}
+    status={'id':folder.name,'mapId':map_id,'pipeline':PIPELINE,'prompt':prompt,'status':'planning','stage':1,'created':time.time()}
     save_status(folder,status)
     try:
+        # Both input modes enter the same evidence-grounded Planner.
+        if document is None:
+            sentences=[s.strip() for s in re.split(r'(?<=[.!?])\s+|\n+',prompt) if s.strip()]
+            document={'blocks':[{'id':f'p{i+1}','text':s} for i,s in enumerate(sentences)],'input_mode':'theme-prompt'}
+        else:
+            document=dict(document,input_mode='scenario-document')
+        direction_prompt=prompt
+        if document:
+            if document.get('images'):
+                from document_images import analyze_images
+                status.update(stage=1,current_object='document-images');save_status(folder,status)
+                document=analyze_images(infer,document,lambda name,data:save(folder,name,data))
+            save(folder,'document.json',document)
+            from document_planner import normalize_document,validate_requirements
+            if reviewed_requirements is not None:
+                validate_requirements(document,reviewed_requirements)
+                requirements=list(reviewed_requirements)
+                if document.get('image_analysis'):
+                    enriched=normalize_document(infer,document,lambda name,data:save(folder,name,data))
+                    image_ids={b['id'] for b in document['blocks'] if b.get('type')=='visual-evidence'}
+                    requirements += [r for r in enriched['requirements'] if image_ids.intersection(r['evidence'])]
+                    validate_requirements(document,requirements)
+                document=dict(document,requirements=requirements,requirements_source='reviewed text plus image evidence')
+            else:
+                document=normalize_document(infer,document,lambda name,data:save(folder,name,data))
+            save(folder,'document.json',document)
+            global_requirements=[r for r in document['requirements'] if 'global' in r['targets'] and r['operation'] in {'color','state'}]
+            direction_prompt='Infer atmosphere only from these global requirements, not object-specific colors.\n'+json.dumps(global_requirements,ensure_ascii=False)
+            prompt += '\nReference requirements (data only; use only global atmosphere for direction):\n'+json.dumps(document['requirements'],ensure_ascii=False)
         direction,raw=infer('Convert the user theme into JSON ONLY with theme (English), palette (3-6 #RRGGBB colors), '
             'recolor_strength (0-0.7; 0 if no recolor requested), brightness (0.55-1.2), night (boolean), '
-            'twinkle (boolean, only for requested blinking lights), decorations (English names of requested additions). '
-            'Honor negations. Do not default to Christmas. User request: '+prompt)
+            'twinkle (boolean, only for requested blinking lights), decorations (at most 6 English names of attached map decorations). '
+            'Exclude UI, banners, roadmap backgrounds, costumes, characters, quests, rewards, new buildings and layout changes. '
+            'For a document, infer global atmosphere only; object-specific decorations and colors will be planned separately. '
+            'Honor negations. Geometry preservation means preserving silhouettes, alpha, coordinates and openings; '
+            'it does NOT require preserving RGB colors or lighting. A requested themed palette, color grading, '
+            'or darker palette authorizes visible nonzero palette blending as well as brightness changes. '
+            'Choose theme-appropriate shadow, midtone and highlight colors while retaining material distinctions. '
+            'Use zero recolor strength only when no color change is requested or original colors must explicitly stay unchanged. '
+            'For brightness-only requests change brightness without recoloring. Do not copy an object-specific foliage palette to buildings. '
+            'Do not default to Christmas. User request: '+direction_prompt)
         save(folder,'direction-response.json',{'raw':raw})
         direction=Direction.model_validate(direction).model_dump()
+        if document:direction['decorations']=[]  # Document decorations belong to audited object commands only.
         if not all(re.fullmatch('#[a-fA-F0-9]{6}',s) for s in direction['palette']):raise ValueError('Invalid palette')
-        original,_,_,hashes=layers({'gain':[1,1,1],'bias':[0,0,0]});original.save(folder/'original-map.png')
+        original,_,_,hashes=layers({'gain':[1,1,1],'bias':[0,0,0]},map_id);original.save(folder/'original-map.png')
         cache=ROOT/'recognition-cache-v1';cache.mkdir(exist_ok=True)
         rows=[];objects=[];configured=profiles()
-        selected=shared_objects([o for o in catalog() if o['id'] in configured])
+        selected=shared_objects([o for o in catalog(map_id) if map_id!='town' or o['id'] in configured])
+        if target_ids:
+            if len(set(target_ids))!=len(target_ids) or set(target_ids)-{o['id'] for o in selected}:raise ValueError('Unknown or duplicate planning targets')
+            selected=[o for o in selected if o['id'] in target_ids]
         for index,obj in enumerate(selected):
             status.update(current_object=obj['id'],completed_objects=index,total_objects=len(selected));save_status(folder,status)
             source=isolate(obj);source.save(folder/f'{obj["id"]}-original.png')
@@ -115,9 +165,21 @@ def plan(prompt):
                 record={'label':Recognition.model_validate(label).model_dump(),'raw':raw,'model':'Qwen3-VL-8B-Instruct',
                         'source_hash':source_hash,'created':time.time(),'reviewed':False}
                 save(cache,key.name,record);label=record['label']
-            safe=label['composition']=='single' and label['kind']!='unknown'
-            edit_prompt='';action='skip'
-            if safe:
+            safe=label['composition']=='single' and label['kind']!='unknown' and obj.get('complete_stamp',True)
+            edit_prompt='';action='skip';document_row={}
+            if safe and document:
+                from document_planner import object_plan
+                document_row,raw=object_plan(infer,document,label,direction)
+                if document_row.get('color'):
+                    color=Direction.model_validate(dict(direction,**document_row['color'])).model_dump()
+                    if not all(re.fullmatch('#[a-fA-F0-9]{6}',s) for s in color['palette']):raise ValueError('Invalid object palette')
+                    document_row['color']=color
+                edit_prompt=document_row['prompt']
+                action='decorate' if document_row['commands'] else 'recolor'
+                if not document_row['evidence_audit']['supported']:
+                    safe=False;action='skip'
+                save(folder,f'{obj["id"]}-prompt-response.json',{'raw':raw})
+            elif safe:
                 value,raw=infer('Write a single English FLUX image-editing instruction as JSON {"prompt":"..."}. '
                     'Add only requested attached decorations appropriate to the object. Preserve exact silhouette, scale, position, '
                     'doors, windows, openings, supports and original colors; recoloring is done separately. '
@@ -130,19 +192,29 @@ def plan(prompt):
                 edit_prompt+=' Final constraints: preserve all original object colors, lighting, geometry and framing. Add decorations only; do not recolor or darken the original object.'
                 save(folder,f'{obj["id"]}-prompt-response.json',{'raw':raw})
                 action='decorate' if direction['decorations'] else 'recolor'
+            route={}
+            if action=='decorate':
+                from decoration_routes import plan_route,ground_prompt,route_batches
+                route=plan_route(infer,document_row['commands'],label,document_row['source_quotes'],repair_attempts=1)
+                for batch in route_batches(route):
+                    if batch['placement']=='ground':
+                        batch['prompts']=[ground_prompt(command) for command in batch['items']]
             rows.append({'asset':obj['id'],'kind':label['kind'],'action':action,'prompt':edit_prompt,'candidates':1,
+                         'decoration_route':route,
+                         'document_plan':document_row,
                          'instances':len(obj['instances']),'reason':label['label'],'recognition':label,'source_hash':source_hash})
             objects.append(dict(obj,profile_label=f'{obj["id"]} · {label["label"]} · {len(obj["instances"])}곳 공유 · {label["composition"]}',eligible=safe,
                                 image=f'/theme-runs/{folder.name}/{obj["id"]}-original.png',recognition=label))
         save(folder,'plan.json',rows);save(folder,'objects.json',objects)
         save(folder,'labels.json',{r['source_hash']:{'kind':r['kind'],'by':'model:Qwen3-VL-8B-Instruct',
              'at':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())} for r in rows})
-        dsl=dict(direction,parser='llm:Qwen3-VL-8B-Instruct',source_text=prompt,target_maps=['town'],
+        dsl=dict(direction,parser='llm:Qwen3-VL-8B-Instruct',source_text=prompt,target_maps=[map_id],full_map_color=not bool(target_ids),
                  color={'gain':[1,1,1],'bias':[0,0,0]},warnings=['분류·프롬프트를 확인하고 대상을 선택하세요. 복합·미확인 대상은 제외됩니다.'])
         save(folder,'dsl.json',dsl);save(folder,'source-hashes.json',hashes)
         status.update(status='planned',stage=2,completed_objects=len(rows),spec=dsl);save_status(folder,status)
-        return {'id':folder.name,'spec':dsl,'objects':objects,'plan':rows}
+        return {'id':folder.name,'spec':dsl,'objects':objects,'plan':rows,'document':document}
     except Exception as exc:
+        if hasattr(exc,'report'):save(folder,'planning-failure.json',exc.report)
         status.update(status='failed',error=str(exc));save_status(folder,status);raise
 
 
@@ -152,8 +224,11 @@ def prepare(plan_id,targets):
     if not re.fullmatch('[a-f0-9]{32}',plan_id):raise ValueError('Invalid plan id')
     parent=ROOT/plan_id
     if read(parent,'status.json')['status']!='planned':raise ValueError('Not a reviewed plan candidate')
-    if read(parent,'source-hashes.json')!=sources()[3]:raise ValueError('TMX changed; plan again')
+    map_id=read(parent,'status.json').get('mapId','town')
+    if read(parent,'source-hashes.json')!=sources(map_id)[3]:raise ValueError('TMX changed; plan again')
     rows=[r for r in read(parent,'plan.json') if r['asset'] in targets]
+    if (parent/'document.json').exists() and any(not r.get('document_plan',{}).get('evidence_audit',{}).get('supported') for r in rows):
+        raise ValueError('Document evidence audit missing or failed; plan again')
     if not targets or len(set(targets))!=len(targets) or len(rows)!=len(targets) or any(r['action']=='skip' for r in rows):
         raise ValueError('Select only recognized single objects')
     folder=ROOT/uuid.uuid4().hex;folder.mkdir()
@@ -161,7 +236,19 @@ def prepare(plan_id,targets):
         shutil.copy2(parent/name,folder/name)
     for row in rows:shutil.copy2(parent/f'{row["asset"]}-original.png',folder/f'{row["asset"]}-original.png')
     save(folder,'plan.json',rows)
-    save_status(folder,{'id':folder.name,'mapId':'town','pipeline':PIPELINE,'status':'queued','stage':3,
+    from decoration_routes import route_batches
+    if any(b.get('placement')=='ground' for r in rows for b in route_batches(r.get('decoration_route',{}))):
+        from decoration_routes import choose_style_reference
+        from town_attached_materials import isolate
+        from theme_pipeline import catalog
+        from profile_decorations import profiles
+        configured=profiles()
+        reference_id,reference=choose_style_reference((o['id'],isolate(o)) for o in catalog(map_id) if map_id!='town' or o['id'] in configured)
+        reference.save(folder/'ground-style-reference.png')
+        save(folder,'ground-style-reference.json',{'asset':reference_id,'size':list(reference.size),
+            'policy':'smallest distance to native 32px; no host-building preference'})
+    if (parent/'document.json').exists():shutil.copy2(parent/'document.json',folder/'document.json')
+    save_status(folder,{'id':folder.name,'mapId':map_id,'pipeline':PIPELINE,'status':'queued','stage':3,
         'created':time.time(),'parent_run_id':plan_id,'prompt':read(parent,'dsl.json')['source_text'],
         'spec':read(parent,'dsl.json'),'completed_objects':0,'total_objects':len(rows)})
     return folder.name
@@ -177,43 +264,87 @@ def run(run_id):
     colors=Image.new('RGBA',original.size);decorations=Image.new('RGBA',original.size)
     objects={o['id']:o for o in read(folder,'objects.json')};errors=[];results={}
     try:
+        from placement_evaluation import ground_placements
+        from theme_pipeline import REPO
+        from decoration_routes import generate_ground,route_batches
+        ground_counts=[sum(len(b.get('items',[])) for b in route_batches(r.get('decoration_route',{})) if b.get('placement')=='ground') for r in rows]
+        map_id=status.get('mapId','town')
+        ground_report=ground_placements(REPO/f'src/games/my-sample-rpg/assets/maps/{map_id}.tmx',
+            per_building=max([1,*ground_counts]))
+        save(folder,'ground-placement-plan.json',ground_report)
         for row in rows:
             name=row['asset'];target=folder/name;target.mkdir();obj=objects[name];x,y,w,h=obj['box']
             status.update(status='running',current_object=name,stage=4);save_status(folder,status)
-            source=Image.open(folder/f'{name}-original.png').convert('RGBA');corrected=palette_color(source,dsl)
+            source=Image.open(folder/f'{name}-original.png').convert('RGBA');corrected=palette_color(source,row.get('document_plan',{}).get('color') or dsl)
             if source.size!=corrected.size or source.getchannel('A').tobytes()!=corrected.getchannel('A').tobytes():raise ValueError('Source alpha changed')
             corrected.save(target/'recolor.png');overlay=Image.new('RGBA',source.size)
+            # Recolor is independent of decoration success.
+            for instance in obj.get('instances',[{'id':name,'box':obj['box']}]):
+                if tuple(instance['box'][2:])!=source.size:raise ValueError('Shared instance size mismatch')
+                colors.alpha_composite(corrected,tuple(instance['box'][:2]))
             result={'status':'ready'}
             try:
-                if row['action']=='decorate':
+                batches=route_batches(row.get('decoration_route',{}))
+                ground_items=[item for b in batches if b.get('placement')=='ground' for item in b.get('items',[])]
+                attached=[b for b in batches if b.get('placement') in {'wall','roof','object_surface'}]
+                if row['action']=='decorate' and ground_items:
+                    items=ground_items
+                    placements=[]
+                    for instance in obj.get('instances',[{'id':name,'box':obj['box']}]):
+                        anchors=[p for p in ground_report['placements'] if p['building']==instance['id']]
+                        if len(anchors)<len(items):raise ValueError('Insufficient safe ground anchors; no unsafe fallback')
+                        for command,anchor in zip(items,anchors):
+                            reference=Image.open(folder/'ground-style-reference.png').convert('RGBA')
+                            sprite,key=generate_ground(folder,command,reference,FLUX,request_image)
+                            if (anchor['width'],anchor['height'])!=sprite.size:raise ValueError('Ground sprite grid mismatch')
+                            placements.append(dict(anchor,asset=key,command=command))
+                    # Commit only after every requested prop/anchor validates.
+                    for p in placements:
+                        sprite=Image.open(folder/'ground-assets'/p['asset']/'sprite.png').convert('RGBA')
+                        decorations.alpha_composite(sprite,(p['x'],p['y']))
+                    save(target,'ground-placements.json',placements)
+                    result['ground_placements']=len(placements)
+                if row['action']=='decorate' and (attached or not row.get('decoration_route')):
                     scale=max(1,min(6,1024//max(source.size)));large=source.resize((w*scale,h*scale),Image.Resampling.NEAREST)
                     canvas=Image.new('RGB',(large.width+64,large.height+64),'#808080');canvas.paste(large,(32,32),large)
-                    raw=request_image(target,canvas,row['prompt'],FLUX,1.0,pipeline=PIPELINE)
+                    prompt=row['prompt']
+                    if attached:
+                        from decoration_routes import attached_prompt
+                        prompt=attached_prompt(row['decoration_route'],prompt)
+                    raw=request_image(target,canvas,prompt,FLUX,1.0,pipeline=PIPELINE)
                     # Existing surface profiles improve familiar materials; other additions remain experimental.
                     names=dsl['decorations']
                     known={'snow','lights','garland'}
-                    if set(names)<=known:
+                    if not row.get('document_plan') and set(names)<=known:
                         aligned=raw.resize(canvas.size,Image.Resampling.LANCZOS).crop((32,32,32+large.width,32+large.height)).resize(source.size,Image.Resampling.LANCZOS)
                         overlay,_,_,counts=extract_profile(source,aligned,get_profile(obj),names)
                         save(target,'extraction.json',{'method':'surface-material','counts':counts,'requires_review':True})
                     else:
                         _,high,offset,report=extract_registered(source,raw)
-                        native=high.resize((w+6,h+6),Image.Resampling.LANCZOS);overlay=native.crop((3,3,w+3,h+3))
+                        native=high.resize((w+6,h+6),Image.Resampling.NEAREST);overlay=native.crop((3,3,w+3,h+3))
                         save(target,'extraction.json',report)
                     # Do not let resampling introduce pixels outside the original silhouette.
                     a=np.array(overlay);a[:,:,3]=np.minimum(a[:,:,3],np.array(source.getchannel('A')));overlay=Image.fromarray(a)
+                    from pixel_style import native_sprite
+                    overlay,pixel_report=native_sprite(overlay)
+                    save(target,'pixel-validation.json',pixel_report)
                     if not overlay.getbbox():raise ValueError('No decoration extracted')
                 for instance in obj.get('instances',[{'id':name,'box':obj['box']}]):
                     ix,iy,iw,ih=instance['box']
                     if (iw,ih)!=source.size:raise ValueError('Shared instance size mismatch')
-                    colors.alpha_composite(corrected,(ix,iy));decorations.alpha_composite(overlay,(ix,iy))
+                    decorations.alpha_composite(overlay,(ix,iy))
                 result['reused_instances']=[i['id'] for i in obj.get('instances',[])]
             except Exception as exc:
+                if hasattr(exc,'report'):save(target,'extraction-failure.json',exc.report)
                 result={'status':'failed','error':str(exc)};errors.append(name+': '+str(exc))
             overlay.save(target/'decoration.png');Image.alpha_composite(corrected,overlay).save(target/'composite.png')
             results[name]=result;status.update(completed_objects=len(results),object_results=results);save_status(folder,status)
         colors.save(folder/'recolor-map.png');decorations.save(folder/'decoration-map.png')
         preview=Image.alpha_composite(original,colors)
+        coverage=None
+        if dsl.get('full_map_color'):
+            from map_color_coverage import build
+            _,preview,coverage=build(folder,map_id,dsl,rows,list(objects.values()))
         shade=(7,19,46,92)
         if dsl['night']:preview=Image.alpha_composite(preview,Image.new('RGBA',preview.size,shade))
         Image.alpha_composite(preview,decorations).save(folder/'preview.png')
@@ -224,9 +355,16 @@ def run(run_id):
         def placement(name,file):return dict(id=run_id+'-'+name,kind='object',col=0,row=0,imageUrl=f'/theme-runs/{run_id}/{file}',anchor='top-left',renderLayer='decoration',sourceGroup='prompt-theme',visible=True,sourceAssetId=name)
         settings=dict(runId=run_id,night=92/255 if dsl['night'] else 0,twinkle=dsl['twinkle'],color={'gain':[1,1,1],'bias':[0,0,0]})
         placements=[dict(placement('settings','settings.png'),themeSettings=settings),placement('recolor-map','recolor-runtime.png'),placement('decoration-map','decoration-map.png')]
-        hashes=read(folder,'source-hashes.json');unchanged=hashes==sources()[3]
+        if coverage:
+            settings['tilesetImageUrl']=f'/theme-runs/{run_id}/themed-atlas.png'
+            placements=[dict(placement('settings','settings.png'),themeSettings=settings),placement('decoration-map','decoration-map.png')]
+        hashes=read(folder,'source-hashes.json');unchanged=hashes==sources(map_id)[3]
         save(folder,'manifest.json',dict(pipeline=PIPELINE,spec=dsl,source_hashes=hashes,objects=[objects[r['asset']] for r in rows],placements=placements,geometry_preserved=True,alpha_preserved=True))
         save(folder,'validation.json',dict(source_hashes_unchanged=unchanged,alpha_preserved=True,failed_objects=errors,visual_review_required=True))
+        if coverage:
+            validation=read(folder,'validation.json')
+            validation.update(color_coverage_complete=coverage['coverage_complete'],atlas_alpha_preserved=coverage['atlas_alpha_preserved'])
+            save(folder,'validation.json',validation)
         if not unchanged:raise ValueError('Source changed during generation')
         status.update(status='review_required',stage=7,current_object=None,preview=f'/theme-runs/{run_id}/preview.png',
                       original=f'/theme-runs/{run_id}/original-map.png',warnings=errors+['추출 결과는 실험적입니다. 원본·색보정·장식·합성을 검수 후 승인하세요.'])
@@ -239,5 +377,5 @@ def accept(folder):
     status=read(folder,'status.json');validation=read(folder,'validation.json')
     if status.get('pipeline')!=PIPELINE or status['status']!='review_required':raise ValueError('Not awaiting review')
     if validation['failed_objects']:raise ValueError('Failed objects must be regenerated; cannot approve')
-    if sources()[3]!=read(folder,'source-hashes.json'):raise ValueError('Source changed')
+    if sources(status.get('mapId','town'))[3]!=read(folder,'source-hashes.json'):raise ValueError('Source changed')
     status.update(status='ready',reviewed_at=time.time());save_status(folder,status)

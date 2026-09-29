@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { styleWorkspaceContext } from './styleWorkspaceContext'
 
 describe('style workspace map context', () => {
+  it('routes harvest village to document planning and returns to the same map', () => {
+    const context = styleWorkspaceContext('?workspace=style&map=harvest-village')
+    expect(context.crypt).toBe(false)
+    expect(context.editorUrl).toBe('/editor.html?game=my-sample-rpg&map=harvest-village')
+  })
   it('defaults to the previous Crypt ruins editor, never the town demo', () => {
     expect(styleWorkspaceContext('?workspace=style').editorUrl).toBe('/editor.html?game=crypt&map=floor-1-ruins')
   })
