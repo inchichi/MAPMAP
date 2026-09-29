@@ -3,10 +3,37 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock,patch
 from PIL import Image
-from decoration_routes import plan_route,generate_ground,choose_style_reference,ground_prompt,route_batches,attached_prompt
+from decoration_routes import plan_route,generate_ground,choose_style_reference,ground_prompt,route_batches,attached_prompt,command_evidence
 
 
 class RouteTests(unittest.TestCase):
+    def test_paired_sources_skip_reverse_translation(self):
+        infer=Mock(side_effect=[({'placement':'ground','item':'Add one straw pile.'},'route'),({'supported':True},'audit')])
+        result=plan_route(infer,['Add straw pile.'],{},[{'id':'p1','text':'짚더미와 조명'}],
+            command_sources=[[{'id':'p1','text':'짚더미'}]])
+        self.assertEqual(infer.call_count,2)
+        self.assertEqual(result['source_quotes'],[{'id':'p1','text':'짚더미'}])
+        self.assertNotIn('조명',infer.call_args_list[0].args[0])
+
+    def test_paired_sources_fail_closed(self):
+        for sources in ([],[[{'id':'p1','text':'invented'}]],[[{'id':'p2','text':'straw'}]]):
+            infer=Mock()
+            with self.assertRaises(ValueError):
+                plan_route(infer,['Add straw.'],{},[{'id':'p1','text':'straw'}],command_sources=sources)
+            infer.assert_not_called()
+
+    def test_command_evidence_is_verbatim_and_isolated(self):
+        infer=Mock(side_effect=[({'spans':[{'id':'p1','quote':'Hang ribbons on the wall.'}]},'grounding'),
+            ({'placement':'wall','item':None},'route'),({'supported':True},'audit')])
+        result=plan_route(infer,['Add ribbons.'],{},[{'id':'p1','text':'Hang ribbons on the wall. Place boxes outside.'}],ground_evidence=True)
+        self.assertEqual(result['source_quotes'],[{'id':'p1','text':'Hang ribbons on the wall.'}])
+        for call in infer.call_args_list[1:]:self.assertNotIn('boxes',call.args[0])
+
+    def test_invented_installation_quote_is_rejected(self):
+        for spans in ([],[{'id':'p1','quote':'Hang on wall'}],[{'id':'p99','quote':'Place outside'}]):
+            with self.assertRaisesRegex(ValueError,'not verbatim'):
+                command_evidence(lambda _:({'spans':spans},''),'Add ribbons.',[{'id':'p1','text':'Place outside'}])
+
     def test_repair_keeps_command_and_requires_audit(self):
         infer=Mock(side_effect=[({'placement':'ground','item':'Add one pumpkin.'},'bad'),
                                 ({'placement':'wall','item':None},'repair'),({'supported':True},'audit')])

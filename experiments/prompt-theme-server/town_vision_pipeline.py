@@ -169,7 +169,7 @@ def plan(prompt, document=None, reviewed_requirements=None, target_ids=None,map_
             edit_prompt='';action='skip';document_row={}
             if safe and document:
                 from document_planner import object_plan
-                document_row,raw=object_plan(infer,document,label,direction)
+                document_row,raw=object_plan(infer,document,label,direction,require_command_sources=True)
                 if document_row.get('color'):
                     color=Direction.model_validate(dict(direction,**document_row['color'])).model_dump()
                     if not all(re.fullmatch('#[a-fA-F0-9]{6}',s) for s in color['palette']):raise ValueError('Invalid object palette')
@@ -195,7 +195,7 @@ def plan(prompt, document=None, reviewed_requirements=None, target_ids=None,map_
             route={}
             if action=='decorate':
                 from decoration_routes import plan_route,ground_prompt,route_batches
-                route=plan_route(infer,document_row['commands'],label,document_row['source_quotes'],repair_attempts=1)
+                route=plan_route(infer,document_row['commands'],label,document_row['source_quotes'],repair_attempts=1,command_sources=document_row['command_sources'])
                 for batch in route_batches(route):
                     if batch['placement']=='ground':
                         batch['prompts']=[ground_prompt(command) for command in batch['items']]

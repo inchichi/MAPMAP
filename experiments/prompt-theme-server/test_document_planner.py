@@ -68,4 +68,20 @@ class DocumentPlannerTests(unittest.TestCase):
             object_plan(lambda _: ({'evidence':[],'commands':[],'color':{'brightness':.7}},''),{'blocks':[]}, {}, {})
 
 
+class PairedPlannerTests(unittest.TestCase):
+    def test_source_pair_survives_translation(self):
+        def infer(prompt,**kwargs):
+            if prompt.startswith('Audit'):return {'supported':True},'audit'
+            return {'evidence':['p1'],'edits':[{'id':'p1','text':'짚더미','command':'Add straw piles.'}],
+                    'placement':'ground','color':None},'plan'
+        result,_=object_plan(infer,{'blocks':[{'id':'p1','text':'집 밖 짚더미'}]}, {},{},require_command_sources=True)
+        self.assertEqual(result['commands'],['Add straw piles.'])
+        self.assertEqual(result['command_sources'],[[{'id':'p1','text':'짚더미'}]])
+
+    def test_missing_pair_does_not_fall_back_to_search(self):
+        with self.assertRaisesRegex(ValueError,'source-paired'):
+            object_plan(lambda *a,**k:({'evidence':['p1'],'commands':['Add straw.']},''),
+                        {'blocks':[{'id':'p1','text':'Straw'}]}, {},{},require_command_sources=True)
+
+
 if __name__=='__main__': unittest.main()
