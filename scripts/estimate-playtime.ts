@@ -30,7 +30,8 @@ import { parseTiledMap, type ParsedTiledMap } from '../src/games/my-sample-rpg/t
 const MOVE_TILES_PER_SECOND = 8 // characterState 기본 이동 속도
 const WANDER_FACTOR = 1.35 // 처음 오는 길은 최단 경로보다 돌아간다
 const PORTAL_SECONDS = 2 // 포탈 앞에서 F, 씬 로딩
-const READ_CHARS_PER_MINUTE = 225
+// 한국어 성인 묵독은 분당 500~600자 안팎이고 게임 대사는 더 빨리 넘긴다(예전 225자는 3배 가까이 느렸다).
+const READ_CHARS_PER_MINUTE = 550
 const SECONDS_PER_DIALOGUE_LINE = 0.6 // 줄 넘김 클릭
 const SWING_SECONDS = 0.62 // 공격 동작 320ms + 쿨다운 300ms
 const HIT_RATE = 0.8 // 몬스터가 움직여 빗나가는 비율
