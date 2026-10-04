@@ -128,7 +128,7 @@ def main():
     out.save(PNG)
 
     # .tsx 갱신 — tilecount / 이미지 높이 / 새 tile 엔트리
-    tsx = open(TSX).read()
+    tsx = open(TSX, encoding='utf-8').read()
     new_count = old_count + new_rows * COLS
     tsx = tsx.replace(f'tilecount="{old_count}"', f'tilecount="{new_count}"')
     tsx = re.sub(r'(<image source="town-32.png" width="256" height=")\d+(")',
@@ -136,7 +136,7 @@ def main():
     entries = ''.join(f'  <tile id="{old_count + n}" type="{name}"/>\n'
                       for n, (name, _) in enumerate(generated))
     tsx = tsx.replace('</tileset>', entries + '</tileset>')
-    open(TSX, 'w').write(tsx)
+    open(TSX, 'w', encoding='utf-8', newline='\n').write(tsx)
 
     print(f'타일 {len(generated)}개 추가 → tilecount {old_count} → {new_count}, '
           f'이미지 높이 {sheet.size[1]} → {out.size[1]}')

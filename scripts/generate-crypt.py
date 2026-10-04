@@ -1601,7 +1601,7 @@ def write_tmx(result):
   parts.append(' </objectgroup>\n')
 
   parts.append('</map>\n')
-  open(path, 'w', encoding='utf-8').write(''.join(parts))
+  open(path, 'w', encoding='utf-8', newline='\n').write(''.join(parts))
   return path
 
 

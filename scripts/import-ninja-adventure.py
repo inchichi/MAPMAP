@@ -199,7 +199,7 @@ def build_atlas(root):
     f' width="{atlas.width}" height="{atlas.height}"/>\n'
     '</tileset>\n'
   )
-  open(f'{TILESET_DIR}/{ATLAS_NAME}.tsx', 'w', encoding='utf-8').write(tsx)
+  open(f'{TILESET_DIR}/{ATLAS_NAME}.tsx', 'w', encoding='utf-8', newline='\n').write(tsx)
 
   manifest = {
     'tile': TILE,
@@ -218,7 +218,7 @@ def build_atlas(root):
       for block in blocks
     },
   }
-  open(MANIFEST_PATH, 'w', encoding='utf-8').write(
+  open(MANIFEST_PATH, 'w', encoding='utf-8', newline='\n').write(
     json.dumps(manifest, ensure_ascii=False, indent=2) + '\n'
   )
 
@@ -363,7 +363,7 @@ def write_license(root):
     )
   provenance.append(f'imported: {date.today().isoformat()}')
   provenance.append('reproduce: python3 scripts/import-ninja-adventure.py')
-  open(f'{LICENSE_DIR}/SOURCE.txt', 'w', encoding='utf-8').write(
+  open(f'{LICENSE_DIR}/SOURCE.txt', 'w', encoding='utf-8', newline='\n').write(
     '\n'.join(provenance) + '\n'
   )
   print(f'라이선스 기록: {LICENSE_DIR}/')

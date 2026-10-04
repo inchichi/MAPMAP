@@ -141,7 +141,7 @@ assert h == BASE_HEIGHT, (
     f'시트 높이가 {h}px다. 먼저 scripts/generate-transition-tiles.py를 실행해 '
     f'{BASE_HEIGHT}px 기준 상태를 만들 것')
 
-tsx = open(TSX).read()
+tsx = open(TSX, encoding='utf-8').read()
 tsx_count = int(re.search(r'tilecount="(\d+)"', tsx).group(1))
 assert tsx_count >= BASE_TILECOUNT, (
     f'tsx tilecount={tsx_count} < {BASE_TILECOUNT}: 전환 타일이 빠진 상태다')
@@ -149,7 +149,7 @@ tsx = re.sub(r'\n  <tile id="(\d+)"[^/]*/>',
              lambda m: '' if int(m.group(1)) >= BASE_TILECOUNT else m.group(0), tsx)
 
 # ---------------------------------------------------------------- 타일 덧붙이기
-manifest = json.load(open(os.path.join(VENDOR, 'manifest.json')))
+manifest = json.load(open(os.path.join(VENDOR, 'manifest.json'), encoding='utf-8'))
 sheets = {}
 for entry in manifest:
     if entry['sheet'] not in sheets:
@@ -183,16 +183,16 @@ tsx = re.sub(r'tilecount="\d+"', f'tilecount="{new_count}"', tsx)
 tsx = re.sub(r'(<image source="town-32.png" width="\d+" height=")\d+(")',
              rf'\g<1>{new_h}\g<2>', tsx)
 tsx = tsx.replace('</tileset>', '\n'.join(entries) + '\n</tileset>')
-open(TSX, 'w').write(tsx)
+open(TSX, 'w', encoding='utf-8', newline='\n').write(tsx)
 
 # 런타임 UI(인벤토리/장비/상점 아이콘)는 시트 전체를 CSS로 스케일해 잘라 쓰므로
 # 높이가 틀리면 아이콘이 눌린 채 엉뚱한 타일을 가리킨다. 여기서 같이 갱신한다.
-size_ts = open(SIZE_TS).read()
+size_ts = open(SIZE_TS, encoding='utf-8').read()
 size_ts = re.sub(r'(TOWN_TILESET_IMAGE_WIDTH = )\d+', rf'\g<1>{w}', size_ts)
 size_ts = re.sub(r'(TOWN_TILESET_IMAGE_HEIGHT = )\d+', rf'\g<1>{new_h}', size_ts)
-open(SIZE_TS, 'w').write(size_ts)
+open(SIZE_TS, 'w', encoding='utf-8', newline='\n').write(size_ts)
 
-json.dump(gids, open(OUT_GIDS, 'w'), indent=1, ensure_ascii=False)
+json.dump(gids, open(OUT_GIDS, 'w', encoding='utf-8', newline='\n'), indent=1, ensure_ascii=False)
 print(f'{len(manifest)}개 타일 추가: id {BASE_TILECOUNT}..{BASE_TILECOUNT + len(manifest) - 1} '
       f'(tilecount {new_count}, 이미지 {w}x{new_h})')
 print('wrote', PNG, TSX, SIZE_TS, OUT_GIDS)
