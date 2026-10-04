@@ -1,56 +1,35 @@
 import type { QuestObjectiveDefinition } from '../questLog'
 import { getPlayerEquipmentItemDefinitionById } from '../playerEquipment'
 import { renderItemIconById } from './createBlacksmithShopOverlay'
+import { getMonsterCatalogEntry, getMonsterKindLabel } from './monsterCatalog'
 
 // 퀘스트 목표의 "대상"(몬스터/아이템)을 파란 밑줄 링크로 만들고, 클릭하면 그 대상의 이미지를
 // 보여주는 팝업을 띄운다. 유저가 무엇을 잡고/얻어야 하는지 시각적으로 알 수 있게 한다.
 // 퀘스트 UI가 DOM이라 전부 DOM으로 구현한다(트래커·B창 공용).
 
-// 게임 속과 같은 LPC 몬스터 시트(assets/monsters/lpc)
-const lpcMonsterSheetUrl = (file: string) =>
-  new URL(`../assets/monsters/lpc/${file}`, import.meta.url).href
-const MONSTER_SLIME_SHEET_URL = lpcMonsterSheetUrl('slime.png')
-const MONSTER_PIG_SHEET_URL = lpcMonsterSheetUrl('pig-walk.png')
-const MONSTER_ROCK_SHEET_URL = lpcMonsterSheetUrl('golem-walk.png')
-const MONSTER_MUSHROOM_SHEET_URL = lpcMonsterSheetUrl('mushroom.png')
-
-// 몬스터 스프라이트 시트의 idle 밴드(상/하)와 프레임 수 — 첫 idle 프레임만 잘라 팝업에 보여준다.
-// (시트 프레임은 동적 검출이라 정확 크롭이 어려워 첫 프레임 베스트에포트.)
+// 몬스터 그림은 게임 속과 같은 LPC 시트 — 종류 목록(monsterCatalog)의 왼쪽 대기 동작 첫 프레임을
+// 잘라 보여준다. 새 몬스터를 목록에 넣으면 팝업도 따라온다.
 type MonsterPopupSprite = {
   sheetUrl: string
-  idleTop: number
-  idleBottom: number
-  idleFrameCount: number
+  cellWidth: number
+  cellHeight: number
+  row: number
+  frame: number
   label: string
 }
-const MONSTER_POPUP_SPRITES: Record<string, MonsterPopupSprite> = {
-  monster_slime: {
-    sheetUrl: MONSTER_SLIME_SHEET_URL,
-    idleTop: 0,
-    idleBottom: 64,
-    idleFrameCount: 8,
-    label: '말캉이'
-  },
-  monster_pig: {
-    sheetUrl: MONSTER_PIG_SHEET_URL,
-    idleTop: 128,
-    idleBottom: 256,
-    idleFrameCount: 4,
-    label: '꿀꿀이'
-  },
-  monster_rock: {
-    sheetUrl: MONSTER_ROCK_SHEET_URL,
-    idleTop: 128,
-    idleBottom: 192,
-    idleFrameCount: 7,
-    label: '바위돌이'
-  },
-  monster_mushroom: {
-    sheetUrl: MONSTER_MUSHROOM_SHEET_URL,
-    idleTop: 0,
-    idleBottom: 64,
-    idleFrameCount: 2,
-    label: '버섯돌이'
+const getMonsterPopupSprite = (appearanceType: string): MonsterPopupSprite | undefined => {
+  const entry = getMonsterCatalogEntry(appearanceType)
+  if (!entry) {
+    return undefined
+  }
+  const strip = entry.spec.idleLeft
+  return {
+    sheetUrl: strip.url,
+    cellWidth: strip.cellWidth,
+    cellHeight: strip.cellHeight,
+    row: strip.row,
+    frame: strip.frames[0] ?? 0,
+    label: entry.label
   }
 }
 
@@ -82,7 +61,7 @@ export const describeQuestObjectiveTarget = (
     return {
       kind: 'monster',
       appearanceType,
-      label: MONSTER_POPUP_SPRITES[appearanceType]?.label ?? appearanceType
+      label: getMonsterKindLabel(appearanceType)
     }
   }
   if (
@@ -117,7 +96,7 @@ const renderMonsterIdleFrame = (
   box: HTMLElement,
   appearanceType: string
 ): void => {
-  const sprite = MONSTER_POPUP_SPRITES[appearanceType]
+  const sprite = getMonsterPopupSprite(appearanceType)
   if (!sprite) {
     box.textContent = '?'
     return
@@ -127,17 +106,12 @@ const renderMonsterIdleFrame = (
   const image = new Image()
   image.src = sprite.sheetUrl
   image.addEventListener('load', () => {
-    const frameWidth = image.naturalWidth / sprite.idleFrameCount
-    const bandHeight = sprite.idleBottom - sprite.idleTop
-    if (frameWidth <= 0 || bandHeight <= 0) {
-      return
-    }
-    const scale = Math.min(maxWidth / frameWidth, maxHeight / bandHeight)
-    box.style.width = `${Math.round(frameWidth * scale)}px`
-    box.style.height = `${Math.round(bandHeight * scale)}px`
+    const scale = Math.min(maxWidth / sprite.cellWidth, maxHeight / sprite.cellHeight)
+    box.style.width = `${Math.round(sprite.cellWidth * scale)}px`
+    box.style.height = `${Math.round(sprite.cellHeight * scale)}px`
     box.style.backgroundImage = `url(${sprite.sheetUrl})`
     box.style.backgroundRepeat = 'no-repeat'
-    box.style.backgroundPosition = `0px -${Math.round(sprite.idleTop * scale)}px`
+    box.style.backgroundPosition = `-${Math.round(sprite.frame * sprite.cellWidth * scale)}px -${Math.round(sprite.row * sprite.cellHeight * scale)}px`
     box.style.backgroundSize = `${Math.round(image.naturalWidth * scale)}px ${Math.round(image.naturalHeight * scale)}px`
     box.style.imageRendering = 'pixelated'
   })

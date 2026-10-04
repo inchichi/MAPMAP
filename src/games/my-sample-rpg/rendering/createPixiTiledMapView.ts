@@ -271,7 +271,13 @@ import {
   BOSS_RENDER_SCALE_MULTIPLIER,
   MONSTER_HP_MULTIPLIER
 } from '../monsterTuning'
-import { loadLpcMonsterTextures, type LpcMonsterSpec } from './loadLpcMonsterTextures'
+import { loadLpcMonsterTextures } from './loadLpcMonsterTextures'
+import {
+  DEFAULT_MONSTER_DEATH_SOUND,
+  MONSTER_CATALOG,
+  getMonsterCatalogEntry,
+  type MonsterBehaviorConfig
+} from './monsterCatalog'
 import { createGameSoundEffects, isGameSoundEffectId } from './createGameSoundEffects'
 import {
   createPauseMenuOverlay,
@@ -471,25 +477,6 @@ type MonsterPigBehaviorState = {
   hitReactionUntilMilliseconds: number
 }
 
-type MonsterBehaviorConfig = {
-  renderScale: number
-  aggroRangeTiles: number
-  deAggroRangeTiles: number
-  chaseSpeedTilesPerSecond: number
-  patrolSpeedTilesPerSecond: number
-  attackRangeTiles: number
-  attackIntervalMilliseconds: number
-  attackDurationMilliseconds: number
-  hitReactionDurationMilliseconds: number
-  idleAnimationSpeed: number
-  runAnimationSpeed: number
-  hitAnimationSpeed: number
-  attackAnimationSpeed: number
-  usesRunAnimation: boolean
-  runMotionBobPixels: number
-  runMotionSwayPixels: number
-}
-
 type PlayerHitReactionState = {
   directionX: number
   directionY: number
@@ -649,10 +636,6 @@ const SCENARIO_REWARD_ITEM_LABEL_BY_ID: Record<string, string> = Object.fromEntr
 ])
 
 const SIGN_POST_APPEARANCE_TYPE = 'sign_inn'
-const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
-const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
-const MONSTER_ROCK_APPEARANCE_TYPE = 'monster_rock'
-const MONSTER_MUSHROOM_APPEARANCE_TYPE = 'monster_mushroom'
 const GROUND_LAYER_NAME = 'ground'
 const GRASS_TILE_TYPES = new Set(['garden_round_mid_01'])
 const GAME_VIEWPORT_WIDTH = 960
@@ -661,80 +644,8 @@ const CAMERA_DEFAULT_ZOOM = 1.1
 const CAMERA_MIN_ZOOM = 0.8
 const CAMERA_MAX_ZOOM = 2
 const CAMERA_ZOOM_WHEEL_SPEED = 0.0015
-const MONSTER_PIG_WORLD_SCALE = 1
-const MONSTER_SLIME_WORLD_SCALE = 1
-// PA2 스트립 몬스터(바위/버섯)는 프레임이 32-38px라 확대 배율이 1을 넘는다.
-const MONSTER_ROCK_WORLD_SCALE = 1
-const MONSTER_MUSHROOM_WORLD_SCALE = 0.62
-
-// ---- LPC 몬스터 시트(행 순서: 위·왼·아래·오른, 오른쪽이 없는 시트는 반전)
-const lpcMonsterUrl = (file: string) =>
-  new URL(`../assets/monsters/lpc/${file}`, import.meta.url).href
-const lpcStrip = (
-  file: string,
-  cellWidth: number,
-  cellHeight: number,
-  row: number,
-  frames: readonly number[],
-  mirror = false
-) => ({ url: lpcMonsterUrl(file), cellWidth, cellHeight, row, frames, mirror })
-const range = (count: number) => Array.from({ length: count }, (_, index) => index)
-// 꿀꿀이: 농장 돼지(걷기 4프레임, 먹기 = 들이받기)
-const LPC_PIG_SPEC: LpcMonsterSpec = {
-  idleLeft: lpcStrip('pig-walk.png', 128, 128, 1, [0]),
-  idleRight: lpcStrip('pig-walk.png', 128, 128, 3, [0]),
-  runLeft: lpcStrip('pig-walk.png', 128, 128, 1, range(4)),
-  runRight: lpcStrip('pig-walk.png', 128, 128, 3, range(4)),
-  hitLeft: lpcStrip('pig-walk.png', 128, 128, 1, [2]),
-  hitRight: lpcStrip('pig-walk.png', 128, 128, 3, [2]),
-  attackLeft: lpcStrip('pig-eat.png', 128, 128, 1, range(4)),
-  attackRight: lpcStrip('pig-eat.png', 128, 128, 3, range(4))
-}
-// 말캉이: 슬라임(통통 튀기 6프레임, 덮치기 8프레임). 방향이 없어 오른쪽은 반전
-const LPC_SLIME_SPEC: LpcMonsterSpec = {
-  idleLeft: lpcStrip('slime.png', 64, 64, 0, range(6)),
-  idleRight: lpcStrip('slime.png', 64, 64, 0, range(6), true),
-  runLeft: lpcStrip('slime.png', 64, 64, 0, range(6)),
-  runRight: lpcStrip('slime.png', 64, 64, 0, range(6), true),
-  hitLeft: lpcStrip('slime.png', 64, 64, 0, [3]),
-  hitRight: lpcStrip('slime.png', 64, 64, 0, [3], true),
-  attackLeft: lpcStrip('slime.png', 64, 64, 1, range(8)),
-  attackRight: lpcStrip('slime.png', 64, 64, 1, range(8), true)
-}
-// 바위돌이: 골렘(걷기 7프레임, 공격 칸은 64x96)
-const LPC_GOLEM_SPEC: LpcMonsterSpec = {
-  idleLeft: lpcStrip('golem-walk.png', 64, 64, 1, [0]),
-  idleRight: lpcStrip('golem-walk.png', 64, 64, 3, [0]),
-  runLeft: lpcStrip('golem-walk.png', 64, 64, 1, range(7)),
-  runRight: lpcStrip('golem-walk.png', 64, 64, 3, range(7)),
-  hitLeft: lpcStrip('golem-die.png', 64, 64, 0, [1]),
-  hitRight: lpcStrip('golem-die.png', 64, 64, 0, [1], true),
-  attackLeft: lpcStrip('golem-attack.png', 64, 96, 1, range(7)),
-  attackRight: lpcStrip('golem-attack.png', 64, 96, 3, range(7))
-}
-// 버섯돌이: 얼굴 달린 버섯(2프레임씩 표정 변화). 방향이 없어 오른쪽은 반전
-const LPC_MUSHROOM_SPEC: LpcMonsterSpec = {
-  idleLeft: lpcStrip('mushroom.png', 64, 64, 0, [0, 1]),
-  idleRight: lpcStrip('mushroom.png', 64, 64, 0, [0, 1], true),
-  runLeft: lpcStrip('mushroom.png', 64, 64, 1, [0, 1]),
-  runRight: lpcStrip('mushroom.png', 64, 64, 1, [0, 1], true),
-  hitLeft: lpcStrip('mushroom.png', 64, 64, 2, [0]),
-  hitRight: lpcStrip('mushroom.png', 64, 64, 2, [0], true),
-  attackLeft: lpcStrip('mushroom.png', 64, 64, 3, [0, 1]),
-  attackRight: lpcStrip('mushroom.png', 64, 64, 3, [0, 1], true)
-}
-const MONSTER_PIG_CHASE_SPEED_TILES_PER_SECOND = 4.4
-const MONSTER_PIG_IDLE_ANIMATION_SPEED = 0.08
-const MONSTER_PIG_RUN_ANIMATION_SPEED = 0.22
-const MONSTER_PIG_HIT_ANIMATION_SPEED = 0.18
-const MONSTER_PIG_ATTACK_ANIMATION_SPEED = 0.14
-const MONSTER_PIG_ATTACK_INTERVAL_MILLISECONDS = 5000
-const MONSTER_PIG_ATTACK_DURATION_MILLISECONDS = 720
-const MONSTER_PIG_ATTACK_RANGE_TILES = 1.2
-const MONSTER_PIG_AGGRO_RANGE_TILES = 4.8
-const MONSTER_PIG_DE_AGGRO_RANGE_TILES = 7.2
-const MONSTER_PIG_HIT_REACTION_DURATION_MILLISECONDS = 260
-const MONSTER_PIG_RESPAWN_DELAY_MILLISECONDS = 8000
+// 일반 몬스터는 쓰러지고 이만큼 뒤에 다시 생긴다(종류 공통).
+const MONSTER_RESPAWN_DELAY_MILLISECONDS = 8000
 // 보스 몬스터: TMX 오브젝트 이름이 '-보스'로 끝난다(예: 말캉이-보스).
 const isBossCharacterId = (characterId: string): boolean => characterId.endsWith('-보스')
 // 퀘스트에 아직 필요한 보스는 영영 사라지지 않고 이만큼 뒤에 다시 생긴다.
@@ -1028,98 +939,16 @@ const QUEST_BADGE_Y_OFFSET = 10
 const LPC_HEAD_CLEARANCE_PIXELS = 22
 // 한 프레임 동안 위치 변화가 없어도 이 시간까지는 걷는 중으로 본다(프레임 사이 떨림 방지).
 const LPC_MOVING_HOLD_MILLISECONDS = 120
-type MonsterAppearanceType =
-  | typeof MONSTER_PIG_APPEARANCE_TYPE
-  | typeof MONSTER_SLIME_APPEARANCE_TYPE
-  | typeof MONSTER_ROCK_APPEARANCE_TYPE
-  | typeof MONSTER_MUSHROOM_APPEARANCE_TYPE
-
-const MONSTER_BEHAVIOR_CONFIG_BY_APPEARANCE_TYPE: Record<
-  MonsterAppearanceType,
-  MonsterBehaviorConfig
-> = {
-  [MONSTER_PIG_APPEARANCE_TYPE]: {
-    renderScale: MONSTER_PIG_WORLD_SCALE,
-    aggroRangeTiles: MONSTER_PIG_AGGRO_RANGE_TILES,
-    deAggroRangeTiles: MONSTER_PIG_DE_AGGRO_RANGE_TILES,
-    chaseSpeedTilesPerSecond: MONSTER_PIG_CHASE_SPEED_TILES_PER_SECOND,
-    patrolSpeedTilesPerSecond: 2.4,
-    attackRangeTiles: MONSTER_PIG_ATTACK_RANGE_TILES,
-    attackIntervalMilliseconds: MONSTER_PIG_ATTACK_INTERVAL_MILLISECONDS,
-    attackDurationMilliseconds: MONSTER_PIG_ATTACK_DURATION_MILLISECONDS,
-    hitReactionDurationMilliseconds: MONSTER_PIG_HIT_REACTION_DURATION_MILLISECONDS,
-    idleAnimationSpeed: MONSTER_PIG_IDLE_ANIMATION_SPEED,
-    runAnimationSpeed: MONSTER_PIG_RUN_ANIMATION_SPEED,
-    hitAnimationSpeed: MONSTER_PIG_HIT_ANIMATION_SPEED,
-    attackAnimationSpeed: MONSTER_PIG_ATTACK_ANIMATION_SPEED,
-    usesRunAnimation: true,
-    runMotionBobPixels: 0,
-    runMotionSwayPixels: 0
-  },
-  [MONSTER_SLIME_APPEARANCE_TYPE]: {
-    renderScale: MONSTER_SLIME_WORLD_SCALE,
-    aggroRangeTiles: 4.4,
-    deAggroRangeTiles: 6.8,
-    chaseSpeedTilesPerSecond: 3.1,
-    patrolSpeedTilesPerSecond: 1.8,
-    attackRangeTiles: 1.0,
-    attackIntervalMilliseconds: 5400,
-    attackDurationMilliseconds: 760,
-    hitReactionDurationMilliseconds: 240,
-    idleAnimationSpeed: 0.06,
-    runAnimationSpeed: 0.16,
-    hitAnimationSpeed: 0.16,
-    attackAnimationSpeed: 0.12,
-    usesRunAnimation: true,
-    runMotionBobPixels: 0,
-    runMotionSwayPixels: 0
-  },
-  [MONSTER_ROCK_APPEARANCE_TYPE]: {
-    // 바위돌이 — 느리고 단단한 광산 골렘. 어그로가 짧고 추격이 굼뜨다.
-    renderScale: MONSTER_ROCK_WORLD_SCALE,
-    aggroRangeTiles: 3.6,
-    deAggroRangeTiles: 6.4,
-    chaseSpeedTilesPerSecond: 1.7,
-    patrolSpeedTilesPerSecond: 0.9,
-    attackRangeTiles: 1.0,
-    attackIntervalMilliseconds: 4200,
-    attackDurationMilliseconds: 700,
-    hitReactionDurationMilliseconds: 320,
-    idleAnimationSpeed: 0.1,
-    runAnimationSpeed: 0.22,
-    hitAnimationSpeed: 0.2,
-    attackAnimationSpeed: 0.26,
-    usesRunAnimation: true,
-    runMotionBobPixels: 0,
-    runMotionSwayPixels: 0
-  },
-  [MONSTER_MUSHROOM_APPEARANCE_TYPE]: {
-    // 버섯돌이 — 재빠르고 성가신 못가 버섯. 넓은 어그로, 빠른 발.
-    renderScale: MONSTER_MUSHROOM_WORLD_SCALE,
-    aggroRangeTiles: 5.2,
-    deAggroRangeTiles: 7.6,
-    chaseSpeedTilesPerSecond: 3.4,
-    patrolSpeedTilesPerSecond: 2.2,
-    attackRangeTiles: 1.0,
-    attackIntervalMilliseconds: 4600,
-    attackDurationMilliseconds: 600,
-    hitReactionDurationMilliseconds: 220,
-    idleAnimationSpeed: 0.14,
-    runAnimationSpeed: 0.3,
-    hitAnimationSpeed: 0.22,
-    attackAnimationSpeed: 0.3,
-    usesRunAnimation: true,
-    runMotionBobPixels: 0,
-    runMotionSwayPixels: 0
-  }
-}
-
+// 종류별 행동값은 monsterCatalog.ts. 목록에 없는 monster_* 는 꿀꿀이 행동을 쓴다(그림이 없으면
+// 아래 텍스처 표에도 없어 AI 가 돌지 않는다).
+const FALLBACK_MONSTER_BEHAVIOR = getMonsterCatalogEntry('monster_pig')!.behavior
 const getMonsterBehaviorConfig = (
   character: CharacterState
 ): MonsterBehaviorConfig =>
-  MONSTER_BEHAVIOR_CONFIG_BY_APPEARANCE_TYPE[
-    character.appearanceType as MonsterAppearanceType
-  ] ?? MONSTER_BEHAVIOR_CONFIG_BY_APPEARANCE_TYPE[MONSTER_PIG_APPEARANCE_TYPE]
+  getMonsterCatalogEntry(character.appearanceType)?.behavior ?? FALLBACK_MONSTER_BEHAVIOR
+
+const isStationaryMonster = (character: CharacterState): boolean =>
+  getMonsterCatalogEntry(character.appearanceType)?.behavior.stationary === true
 
 const createMonsterHealthBar = (): NonNullable<
   RenderedCharacterNode['monsterHealthBar']
@@ -1243,20 +1072,14 @@ export const createPixiTiledMapView = async ({
     tinyDungeonWeaponImageTexture,
     slashVfxTextures,
     protectVfxTextures,
-    monsterPigAnimationTextures,
-    monsterSlimeAnimationTextures,
-    monsterRockAnimationTextures,
-    monsterMushroomAnimationTextures
+    catalogMonsterAnimationTextures
   ] = await Promise.all([
     loadTextureSafe(PORTAL_INSIDE_IMAGE_URL),
     loadTextureSafe(TINY_DUNGEON_TILESET_IMAGE_URL),
     loadSlashVfxTextures(),
     loadProtectVfxTextures(),
-    // LPC 몬스터(그림체 통일): 출처는 assets/monsters/lpc/CREDITS.txt
-    loadLpcMonsterTextures(LPC_PIG_SPEC),
-    loadLpcMonsterTextures(LPC_SLIME_SPEC),
-    loadLpcMonsterTextures(LPC_GOLEM_SPEC),
-    loadLpcMonsterTextures(LPC_MUSHROOM_SPEC)
+    // LPC 몬스터(그림체 통일): 종류 목록은 monsterCatalog.ts, 출처는 assets/monsters/lpc/CREDITS.txt
+    Promise.all(MONSTER_CATALOG.map((entry) => loadLpcMonsterTextures(entry.spec)))
   ])
   const playerWeaponAppearanceTexturesByItemId = new Map(
     await Promise.all(
@@ -1290,15 +1113,9 @@ export const createPixiTiledMapView = async ({
   )
   const messagePanelTexture = createMessagePanelTexture()
 
-  const monsterAnimationTexturesByAppearanceType: Record<
-    MonsterAppearanceType,
-    MonsterAnimationTextures
-  > = {
-    [MONSTER_PIG_APPEARANCE_TYPE]: monsterPigAnimationTextures,
-    [MONSTER_SLIME_APPEARANCE_TYPE]: monsterSlimeAnimationTextures,
-    [MONSTER_ROCK_APPEARANCE_TYPE]: monsterRockAnimationTextures,
-    [MONSTER_MUSHROOM_APPEARANCE_TYPE]: monsterMushroomAnimationTextures
-  }
+  const monsterAnimationTexturesByAppearanceType = new Map<string, MonsterAnimationTextures>(
+    MONSTER_CATALOG.map((entry, index) => [entry.appearanceType, catalogMonsterAnimationTextures[index]])
+  )
 
   tinyDungeonWeaponImageTexture.source.scaleMode = 'nearest'
   tinyDungeonWeaponImageTexture.source.addressMode = 'clamp-to-edge'
@@ -4814,9 +4631,7 @@ export const createPixiTiledMapView = async ({
     const isSignPostCharacter =
       character.appearanceType === SIGN_POST_APPEARANCE_TYPE
     const monsterAnimationTextures = isMonsterCharacter
-      ? monsterAnimationTexturesByAppearanceType[
-          character.appearanceType as MonsterAppearanceType
-        ]
+      ? monsterAnimationTexturesByAppearanceType.get(character.appearanceType)
       : undefined
     const monsterBehaviorConfig = isMonsterCharacter
       ? getMonsterBehaviorConfig(character)
@@ -5679,9 +5494,7 @@ export const createPixiTiledMapView = async ({
     const combatState = monsterCombatStates.get(characterId)
     const character = getCharacterStateById(characterId)
     const monsterAnimationTextures =
-      monsterAnimationTexturesByAppearanceType[
-        character.appearanceType as MonsterAppearanceType
-      ]
+      monsterAnimationTexturesByAppearanceType.get(character.appearanceType)
     const behaviorConfig = getMonsterBehaviorConfig(character)
 
     if (
@@ -5896,6 +5709,10 @@ export const createPixiTiledMapView = async ({
     distanceInTiles: number
   ): void {
     const targetCharacter = getCharacterStateById(targetCharacterId)
+    // 뿌리박은 제자리 몬스터(식인 꽃 등)는 밀려나지 않는다.
+    if (isStationaryMonster(targetCharacter)) {
+      return
+    }
     const direction = getKnockbackDirection(targetCharacter, sourceCharacter)
 
     tryMoveCharacter(
@@ -5903,6 +5720,18 @@ export const createPixiTiledMapView = async ({
       direction.x * distanceInTiles,
       direction.y * distanceInTiles,
       { preserveFacing: true }
+    )
+  }
+
+  function faceCharacterHorizontally(characterId: string, deltaX: number): void {
+    if (deltaX === 0) {
+      return
+    }
+    const facing: CharacterState['facing'] = deltaX < 0 ? 'left' : 'right'
+    characterStates = characterStates.map((character) =>
+      character.id === characterId && character.facing !== facing
+        ? { ...character, facing }
+        : character
     )
   }
 
@@ -6722,15 +6551,10 @@ export const createPixiTiledMapView = async ({
     )
 
     if (isMonsterDefeated(nextCombatState)) {
-      if (
-        character.appearanceType === MONSTER_SLIME_APPEARANCE_TYPE ||
-        character.appearanceType === MONSTER_MUSHROOM_APPEARANCE_TYPE
-      ) {
-        gameSoundEffects.play('slimeDeath')
-      } else {
-        // 돼지/바위 등 — 묵직한 타격음으로 사망을 알린다(전용 음원이 생기면 교체).
-        gameSoundEffects.play('playerSwordHit')
-      }
+      gameSoundEffects.play(
+        getMonsterCatalogEntry(character.appearanceType)?.sounds?.death ??
+          DEFAULT_MONSTER_DEATH_SOUND
+      )
       setQuestLogWithObjectiveFeedback(
         recordMonsterDefeatQuestProgress(currentQuestLog, {
           sceneId,
@@ -6793,7 +6617,7 @@ export const createPixiTiledMapView = async ({
       } else {
         monsterRespawnAtById.set(
           characterId,
-          now + MONSTER_PIG_RESPAWN_DELAY_MILLISECONDS
+          now + MONSTER_RESPAWN_DELAY_MILLISECONDS
         )
       }
       const renderNode = renderedCharacters.get(characterId)
@@ -7909,7 +7733,7 @@ export const createPixiTiledMapView = async ({
         })
 
         if (intent) {
-          if (intent.movement) {
+          if (intent.movement && !isStationaryMonster(character)) {
             // 코너 어시스트는 플레이어 조작 이동에만 — 몬스터가 한 칸 길목을
             // 통과하게 되면 난이도가 바뀌고, 구르기·넉백은 각자 고유 규칙이 있다.
             const didMove = tryMoveCharacter(
@@ -7949,9 +7773,7 @@ export const createPixiTiledMapView = async ({
 
         if (
           character.appearanceType.startsWith('monster_') &&
-          monsterAnimationTexturesByAppearanceType[
-            character.appearanceType as MonsterAppearanceType
-          ]
+          monsterAnimationTexturesByAppearanceType.get(character.appearanceType)
         ) {
           if (maybeRespawnMonster(character.id, now)) {
             continue
@@ -8039,13 +7861,11 @@ export const createPixiTiledMapView = async ({
                   now,
                   monsterBehaviorConfig
                 )
-                if (
-                  monsterCharacter.appearanceType ===
-                    MONSTER_SLIME_APPEARANCE_TYPE ||
-                  monsterCharacter.appearanceType ===
-                    MONSTER_MUSHROOM_APPEARANCE_TYPE
-                ) {
-                  gameSoundEffects.play('slimeAttack')
+                const attackSound = getMonsterCatalogEntry(
+                  monsterCharacter.appearanceType
+                )?.sounds?.attack
+                if (attackSound) {
+                  gameSoundEffects.play(attackSound)
                 }
                 monsterContactDamageLockedUntilById.set(
                   character.id,
@@ -8069,7 +7889,10 @@ export const createPixiTiledMapView = async ({
               }
             }
 
-            if (distance > 0) {
+            if (monsterBehaviorConfig.stationary) {
+              // 제자리 몬스터: 움직이지 않고 플레이어 쪽(왼/오른)을 바라본다.
+              faceCharacterHorizontally(character.id, deltaX)
+            } else if (distance > 0) {
               const stepDistance =
                 (monsterBehaviorConfig.chaseSpeedTilesPerSecond *
                   app.ticker.deltaMS) /
@@ -8083,6 +7906,11 @@ export const createPixiTiledMapView = async ({
             }
 
             syncMonsterAnimation(character.id, 'run')
+            continue
+          }
+
+          if (monsterBehaviorConfig.stationary) {
+            syncMonsterAnimation(character.id, 'idle')
             continue
           }
 

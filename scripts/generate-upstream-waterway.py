@@ -50,6 +50,17 @@ VILLAGE_SPAWN = (12, 5)           # 돌아갈 때 딴따라마을 도착 칸(수
 SINK = (21, 10)                   # 구멍 칸(2x2 꼭짓점 구멍의 가운데 칸)
 STELE_AT = (23, 13)               # 비석 2x2 의 왼쪽 위 칸 — 상호작용 오브젝트는 왼쪽 아래 칸
 LOOKOUT = (34, 13)                # 동쪽 전망 둑 끝(표지판 칸)
+# 몬스터(2장 첫 맵 — 도착 레벨 약 19 보다 조금 약하게). 늪뱀은 물가를 기어 다니고, 식인 꽃은
+# 제자리 함정(monsterCatalog 의 stationary). 꽃 하나는 전망 둑 길목을 지킨다.
+MONSTERS = [
+    ('늪뱀-1', 'monster_snake', 16, (13, 11)),
+    ('늪뱀-2', 'monster_snake', 16, (6, 14)),
+    ('늪뱀-3', 'monster_snake', 17, (27, 10)),
+    ('늪뱀-4', 'monster_snake', 17, (28, 18)),
+    ('식인 꽃-1', 'monster_flower', 17, (18, 14)),
+    ('식인 꽃-2', 'monster_flower', 18, (31, 14)),
+    ('식인 꽃-3', 'monster_flower', 17, (27, 7)),
+]
 
 
 class Map:
@@ -190,7 +201,14 @@ for dx in range(-3, 4):
         if math.hypot(dx, dy) < 3.2:
             walk.add((SINK[0] + dx, SINK[1] + 3 + dy))
 walk = {c for c in walk if c not in water_cells}
+for _n, kind, _l, (mx, my) in MONSTERS:
+    r = 1 if kind == 'monster_snake' else 0       # 순찰하는 뱀은 둘레 3x3 을 비운다
+    for dx in range(-r, r + 1):
+        for dy in range(-r, r + 1):
+            walk.add((mx + dx, my + dy))
 reserved = set(walk)
+# 몬스터가 나무 윗부분에 가려 생기지 않게: 몬스터 칸 둘레(위로 두 줄까지)에는 수관을 걸지 않는다.
+no_canopy = {(mx + dx, my + dy) for _n, _k, _l, (mx, my) in MONSTERS for dx in (-1, 0, 1) for dy in (-2, -1, 0)}
 
 
 def free(x, y):
@@ -226,6 +244,8 @@ def upper_layer_for(cell):
     """나무 윗부분을 그릴 레이어. 뒤(먼저 심은) 나무가 object_upper 를 쓰고 있으면 앞 나무는
     deco 에 그려 위에 오게 한다. 둘 다 차 있으면 None(세 겹은 덩어리져 보여 심지 않는다).
     나무는 위(뒤) 행부터 심으므로 나중에 심는 쪽이 늘 앞이다."""
+    if cell in no_canopy:
+        return None
     if not m.get('object_upper', *cell):
         return 'object_upper'
     if not m.get('deco', *cell):
@@ -423,7 +443,7 @@ if orphans:
 walls, seen = flood(ARRIVAL)
 
 STELE_FRONT = (STELE_AT[0], STELE_AT[1] + 2)
-checks = [('도착 칸', ARRIVAL), ('비석 앞', STELE_FRONT), ('전망 둑', (LOOKOUT[0], LOOKOUT[1] + 1)),
+checks = [(n, p) for n, _k, _l, p in MONSTERS] + [('도착 칸', ARRIVAL), ('비석 앞', STELE_FRONT), ('전망 둑', (LOOKOUT[0], LOOKOUT[1] + 1)),
           ('구멍 남쪽 물가', next((SINK[0], y) for y in range(SINK[1], H) if (SINK[0], y) not in water_cells))] + \
          [(f'아치 {x}', (x, GATE[1])) for x in range(GATE[0], GATE[0] + GATE[2])]
 problems = []
@@ -487,6 +507,9 @@ def portal(oid, name, x, y, w, h, props):
 
 
 chars = [
+    character(20 + i, name, x, y, [('blocksMovement', 'bool', 'true'), ('monster.level', 'int', lvl), ('type', '', kind)])
+    for i, (name, kind, lvl, (x, y)) in enumerate(MONSTERS)
+] + [
     character(1, 'sunken_stele', STELE_AT[0], STELE_AT[1] + 1, [
         ('blocksMovement', 'bool', 'true'),
         ('controller.dialogueLines', 'list', ['물가에 반쯤 잠긴 돌 비석이다.',
@@ -509,14 +532,14 @@ portals = [
 out = ['<?xml version="1.0" encoding="UTF-8"?>',
        f'<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" '
        f'width="{W}" height="{H}" tilewidth="32" tileheight="32" infinite="0" '
-       f'nextlayerid="{FIRST_LAYER_ID + len(LAYER_NAMES)}" nextobjectid="11">',
+       f'nextlayerid="{FIRST_LAYER_ID + len(LAYER_NAMES)}" nextobjectid="40">',
        '<!-- scripts/generate-upstream-waterway.py 가 생성한다. 손으로 고치지 말고 스크립트를 고친 뒤 다시 돌릴 것. -->',
        ' <tileset firstgid="1" source="../tilesets/town-32.tsx"/>']
 for i, name in enumerate(LAYER_NAMES, start=FIRST_LAYER_ID):
     rows = ',\n'.join(','.join(str(v) for v in m.L[name][y * W:(y + 1) * W]) for y in range(H))
     out.append(f' <layer id="{i}" name="{name}" width="{W}" height="{H}">\n  <data encoding="csv">\n{rows}\n</data>\n </layer>')
 out.append(' <objectgroup id="2" name="characters">')
-out.append('  <!-- 룬 비석(sunken_stele, c2-01 조사 목표), 갈대골 표지판, 아치 표지판 -->')
+out.append('  <!-- 룬 비석(sunken_stele, c2-01 조사 목표), 갈대골 표지판, 아치 표지판 / 늪뱀 4(Lv16~17), 식인 꽃 3(Lv17~18, 제자리) -->')
 out += chars
 out.append(' </objectgroup>')
 out.append(' <objectgroup id="3" name="portals">')

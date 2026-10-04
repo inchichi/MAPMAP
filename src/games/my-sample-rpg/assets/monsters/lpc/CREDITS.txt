@@ -19,3 +19,9 @@ mushroom.png — 버섯돌이
   "LPC Big Mushroom", https://opengameart.org/content/lpc-big-mushroom
   저작자: Baŝto
   라이선스: CC-BY-SA 3.0 / GPL 3.0
+
+snake.png — 늪뱀 (2장)
+man_eater_flower.png — 식인 꽃 (2장)
+  "[LPC] Monsters" (공격 동작), https://opengameart.org/content/lpc-monsters
+  원작: Charles Sanchez (CharlesGabriel), Liberated Pixel Cup base assets. 공격 동작: bluecarrot16
+  라이선스: CC-BY-SA 3.0 / GPL 3.0 (bluecarrot16 기여분은 OGA-BY 3.0)

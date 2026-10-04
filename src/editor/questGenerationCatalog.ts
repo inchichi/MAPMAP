@@ -1,3 +1,5 @@
+import { MONSTER_CATALOG } from '../games/my-sample-rpg/rendering/monsterCatalog'
+
 export type QuestObjectiveType =
   | 'monster-defeat'
   | 'item-use'
@@ -54,14 +56,12 @@ export const QUEST_MONSTER_DROP_ITEMS: { itemId: string; label: string }[] = [
   { itemId: 'Iron_Helmet', label: '철 투구' }
 ]
 
-export const QUEST_MONSTERS: { appearanceType: string; label: string }[] = [
-  { appearanceType: 'monster_slime', label: '슬라임' },
-  { appearanceType: 'monster_pig', label: '돼지' },
-  { appearanceType: 'monster_rock', label: '바위돌이' },
-  { appearanceType: 'monster_mushroom', label: '버섯돌이' }
-]
+// 게임의 몬스터 종류 목록(monsterCatalog)을 그대로 쓴다 — 새 몬스터를 넣으면 생성 목록에도 생긴다.
+export const QUEST_MONSTERS: { appearanceType: string; label: string }[] = MONSTER_CATALOG.map(
+  (entry) => ({ appearanceType: entry.appearanceType, label: entry.label })
+)
 
-export const QUEST_MONSTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine']
+export const QUEST_MONSTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine', 'upstream-waterway']
 
 // town is the start scene and would complete immediately, so it is excluded.
 export const QUEST_SCENE_ENTER_SCENES = [

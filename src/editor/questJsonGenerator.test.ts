@@ -9,6 +9,7 @@ vi.mock('./llmProvider', () => ({
 import { generateJson } from './llmProvider'
 import { generateQuestJson } from './questJsonGenerator'
 import type { GeneratedQuestJson } from './questJsonSchema'
+import { MONSTER_CATALOG } from '../games/my-sample-rpg/rendering/monsterCatalog'
 
 const profile = CURRENT_GAME_PROJECT_PROFILE
 const mockGenerateJson = vi.mocked(generateJson)
@@ -112,14 +113,13 @@ describe('generateQuestJson', () => {
     expect(monsterBranch?.properties?.target?.properties?.sceneId?.enum).toEqual([
       'hunting-ground',
       'cave',
-      'crystal-mine'
+      'crystal-mine',
+      'upstream-waterway'
     ])
-    expect(monsterBranch?.properties?.target?.properties?.appearanceType?.enum).toEqual([
-      'monster_slime',
-      'monster_pig',
-      'monster_rock',
-      'monster_mushroom'
-    ])
+    // 몬스터 종류는 게임의 몬스터 목록을 그대로 따른다
+    expect(monsterBranch?.properties?.target?.properties?.appearanceType?.enum).toEqual(
+      MONSTER_CATALOG.map((entry) => entry.appearanceType)
+    )
     expect(itemUseBranch?.properties?.target?.properties?.itemId?.enum).toEqual([
       'health-potion',
       'mana-potion',
