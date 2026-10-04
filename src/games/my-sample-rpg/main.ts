@@ -43,7 +43,10 @@ import { applyQuestGatedEvents } from './tiled/applyQuestGatedEvents'
 import { createNpcCharactersFromEventLayers } from './tiled/createNpcCharactersFromEventLayers'
 import { parseTiledMap, parseTiledTileset } from './tiled/parseTiledMap'
 import { createInitialPlayerInventory } from './playerInventory'
-import { ensurePlayerLoadoutPickaxe } from './playerLoadout'
+import {
+  ensurePlayerLoadoutPickaxe,
+  ensurePlayerLoadoutTestGear
+} from './playerLoadout'
 import { createInitialPlayerProfile } from './playerProfile'
 import {
   PLAYER_SAVE_STATE_STORAGE_KEY,
@@ -285,6 +288,12 @@ let playerInventory =
 // 곡괭이는 기본 지급 — 시작 아이템 도입 전의 세이브를 로드해도 채굴을 바로 테스트할 수 있게.
 ;({ equipment: playerEquipment, inventory: playerInventory } =
   ensurePlayerLoadoutPickaxe({
+    equipment: playerEquipment,
+    inventory: playerInventory
+  }))
+// 테스트용(임시): 무기 종류별 기초 무기와 기초 방어구를 가방에 넣어 둔다 — 없는 것만 채운다.
+;({ equipment: playerEquipment, inventory: playerInventory } =
+  ensurePlayerLoadoutTestGear({
     equipment: playerEquipment,
     inventory: playerInventory
   }))

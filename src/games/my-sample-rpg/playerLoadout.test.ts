@@ -9,7 +9,9 @@ import {
   setPlayerInventorySlot
 } from './playerInventory'
 import {
+  PLAYER_TEST_GEAR_ITEM_IDS,
   ensurePlayerLoadoutPickaxe,
+  ensurePlayerLoadoutTestGear,
   equipPlayerInventorySlot,
   unequipPlayerEquipmentSlot
 } from './playerLoadout'
@@ -163,5 +165,24 @@ describe('equipPlayerInventorySlot', () => {
         ]
       }
     })
+  })
+})
+
+describe('ensurePlayerLoadoutTestGear', () => {
+  it('fills missing test gear once, skipping items already owned or equipped', () => {
+    const state = {
+      equipment: createInitialPlayerEquipment(),
+      inventory: createInitialPlayerInventory()
+    }
+    const nextState = ensurePlayerLoadoutTestGear(state)
+    const ownedIds = [
+      ...nextState.inventory.slots.map((slot) => slot?.id),
+      ...nextState.equipment.slots.map((slot) => slot.item?.id)
+    ]
+
+    for (const itemId of PLAYER_TEST_GEAR_ITEM_IDS) {
+      expect(ownedIds.filter((id) => id === itemId)).toHaveLength(1)
+    }
+    expect(ensurePlayerLoadoutTestGear(nextState)).toEqual(nextState)
   })
 })
