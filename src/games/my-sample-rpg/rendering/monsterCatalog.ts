@@ -251,6 +251,38 @@ export const MONSTER_CATALOG: readonly MonsterCatalogEntry[] = [
       usesRunAnimation: false,
       stationary: true
     }
+  },
+  {
+    // 늪개구리 전사(2장): LPC Frogman(청록으로 바꾼 것, scripts/recolor-frogman.py). 칸 80x96 —
+    // 줄 0~3 삼지창 찌르기(위·왼·아래·오른 4프레임), 4~7 뛰어 걷기(6프레임), 8 쓰러짐.
+    // 무리 지어 다니며 사거리 긴 삼지창으로 찌른다. 뛰어오는 동안은 빠르지만 찌른 뒤 틈이 길다.
+    appearanceType: 'monster_frog',
+    label: '늪개구리 전사',
+    spec: {
+      idleLeft: lpcStrip('frogman.png', 80, 96, 5, [0, 1]),
+      idleRight: lpcStrip('frogman.png', 80, 96, 7, [0, 1]),
+      runLeft: lpcStrip('frogman.png', 80, 96, 5, range(6)),
+      runRight: lpcStrip('frogman.png', 80, 96, 7, range(6)),
+      hitLeft: lpcStrip('frogman.png', 80, 96, 8, [0]),
+      hitRight: lpcStrip('frogman.png', 80, 96, 8, [0], true),
+      attackLeft: lpcStrip('frogman.png', 80, 96, 1, range(4)),
+      attackRight: lpcStrip('frogman.png', 80, 96, 3, range(4))
+    },
+    behavior: {
+      ...BASE_BEHAVIOR,
+      aggroRangeTiles: 5.0,
+      deAggroRangeTiles: 7.6,
+      chaseSpeedTilesPerSecond: 3.6,
+      patrolSpeedTilesPerSecond: 1.7,
+      attackRangeTiles: 1.6,
+      attackIntervalMilliseconds: 4200,
+      attackDurationMilliseconds: 640,
+      hitReactionDurationMilliseconds: 260,
+      idleAnimationSpeed: 0.05,
+      runAnimationSpeed: 0.2,
+      hitAnimationSpeed: 0.18,
+      attackAnimationSpeed: 0.16
+    }
   }
 ]
 

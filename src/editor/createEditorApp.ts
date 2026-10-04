@@ -1140,7 +1140,8 @@ export const createEditorApp = ({
     { id: 'crystal-mine', label: '수정 광산', icon: 'orb' },
     { id: 'harvest-village', label: '딴따라마을', icon: 'tree' },
     { id: 'upstream-waterway', label: '수로 상류길', icon: 'map' },
-    { id: 'reed-village', label: '갈대골', icon: 'tent' }
+    { id: 'reed-village', label: '갈대골', icon: 'tent' },
+    { id: 'sunken-forest', label: '가라앉은 숲', icon: 'tree' }
   ]
   const mapSwitcher = el('div', 'flex items-center gap-1')
   // 새 창/새로고침은 아이콘 버튼으로 — 의미는 title(툴팁)로 유지한다.

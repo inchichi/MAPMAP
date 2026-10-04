@@ -37,6 +37,7 @@ const CASES: ReadonlyArray<string> = [
   'harvest-village',
   'upstream-waterway',
   'reed-village',
+  'sunken-forest',
   'unknown',
   '',
   'Town',

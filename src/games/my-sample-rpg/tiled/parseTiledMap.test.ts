@@ -81,7 +81,7 @@ describe('parseTiledMap', () => {
       name: 'town-32',
       tileWidth: 32,
       tileHeight: 32,
-      tileCount: 1785,
+      tileCount: 1790,
       columns: 8,
       image: {
         source: 'town-32.png',

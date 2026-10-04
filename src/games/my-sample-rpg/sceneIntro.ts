@@ -5,7 +5,8 @@ const SCENE_INTRO_MESSAGES: Record<string, string> = {
   'crystal-mine': '잊힌 수정 광산',
   'harvest-village': '딴따라마을',
   'upstream-waterway': '수로 상류길',
-  'reed-village': '갈대골'
+  'reed-village': '갈대골',
+  'sunken-forest': '가라앉은 숲'
 }
 
 export const getSceneIntroMessage = (sceneId: string): string =>

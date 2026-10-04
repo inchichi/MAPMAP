@@ -11,6 +11,7 @@ import {
   HIDDEN_CACHE_QUEST_ID,
   VANISHING_WATER_QUEST_ID,
   REED_VILLAGE_QUEST_ID,
+  DROWNED_PATH_QUEST_ID,
   FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS,
   FINAL_SUPPLIES_QUEST_ID,
   HARVEST_VILLAGE_VISIT_QUEST_ID,
@@ -141,7 +142,7 @@ describe('chapter 2 reed village (q017, turned in to another npc)', () => {
 })
 
 describe('questLog', () => {
-  it('registers the quest catalog with stable q001-q017 ids', () => {
+  it('registers the quest catalog with stable q001-q018 ids', () => {
     expect(QUEST_DEFINITIONS.map((definition) => definition.id)).toEqual([
       ...BEGINNER_ARC_QUEST_IDS,
       MINE_ORE_RUSH_QUEST_ID,
@@ -152,11 +153,12 @@ describe('questLog', () => {
       WEAPON_PATH_QUEST_ID,
       HIDDEN_CACHE_QUEST_ID,
       VANISHING_WATER_QUEST_ID,
-      REED_VILLAGE_QUEST_ID
+      REED_VILLAGE_QUEST_ID,
+      DROWNED_PATH_QUEST_ID
     ])
     // 1장(q001~q015)은 티르코네일, 2장부터는 가라앉은 숲
     expect(
-      QUEST_DEFINITIONS.filter((definition) => !definition.id.match(/^q01[67]/)).every(
+      QUEST_DEFINITIONS.filter((definition) => !definition.id.match(/^q01[678]/)).every(
         (definition) => definition.regionName === '티르코네일 마을'
       )
     ).toBe(true)

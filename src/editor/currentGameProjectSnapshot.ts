@@ -38,6 +38,11 @@ export const CURRENT_GAME_PROJECT_PROFILE: GameStructureProfile = {
       id: 'reed-village',
       name: 'Reed Village',
       file: 'src/games/my-sample-rpg/assets/maps/reed-village.tmx'
+    },
+    {
+      id: 'sunken-forest',
+      name: 'Sunken Forest',
+      file: 'src/games/my-sample-rpg/assets/maps/sunken-forest.tmx'
     }
   ],
   npcs: [

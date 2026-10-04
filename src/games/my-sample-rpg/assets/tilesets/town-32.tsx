@@ -5,7 +5,7 @@
   name="town-32"
   tilewidth="32"
   tileheight="32"
-  tilecount="1785"
+  tilecount="1790"
   columns="8"
 >
   <image source="town-32.png" width="256" height="7168"/>
@@ -1771,4 +1771,9 @@
   <tile id="1782" type="swamp_deck_v"/>
   <tile id="1783" type="swamp_deck_shadow"/>
   <tile id="1784" type="swamp_raft"/>
+  <tile id="1785" type="swamp_fog_0"/>
+  <tile id="1786" type="swamp_fog_1"/>
+  <tile id="1787" type="swamp_fog_2"/>
+  <tile id="1788" type="swamp_fog_edge_w"/>
+  <tile id="1789" type="swamp_fog_wall"/>
 </tileset>

@@ -60,7 +60,11 @@ export const QUEST_GIVER_PORTRAIT_KEY_BY_NPC_ID: Partial<Record<string, string>>
   rona: 'character_villager_flower_dress',
   lady: 'id:lady',
   mage: 'id:mage',
-  camp_merchant: 'character_ranger_green'
+  camp_merchant: 'character_ranger_green',
+  // 2장: 갈대골 주요 인물 전용 외형(scripts/add-npc-variants.py)
+  miren: 'id:miren',
+  odi: 'id:odi',
+  tobin: 'id:tobin'
 }
 // 32px 초상화를 2배(64px)로 — 예전 16px 초상화의 4배와 같은 화면 크기
 const PORTRAIT_SCALE = 2

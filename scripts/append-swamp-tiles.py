@@ -452,6 +452,42 @@ def main():
                 rp[xx, yy] = (40, 26, 16, 255)
     gids['raft'] = add('swamp_raft', raft)
 
+    # 아래 타일은 가라앉은 숲(c2-03)에서 더했다 — 독안개. roof 레이어(캐릭터 위)에 깐다.
+    # 이어 붙여도 이음새가 없게 주기 경계가 맞는 값 잡음(한 칸 주기)으로 짙기를 정한다.
+    def fog_tile(salt, alpha_lo, alpha_hi, ramp=None):
+        img = Image.new('RGBA', (TILE, TILE), (0, 0, 0, 0))
+        fp = img.load()
+        for yy in range(TILE):
+            for xx in range(TILE):
+                n = 0.0
+                for k, (freq, amp) in enumerate([(2, 0.55), (4, 0.3), (8, 0.15)]):
+                    u, v = xx / TILE * freq, yy / TILE * freq
+                    x0, y0 = int(u) % freq, int(v) % freq
+                    fx, fy = smooth(u - int(u)), smooth(v - int(v))
+                    c = [[h32(x0 + i, y0 + j, salt + k) if True else 0 for i in (0, 1)] for j in (0, 1)]
+                    c = [[h32((x0 + i) % freq, (y0 + j) % freq, salt + k) for i in (0, 1)] for j in (0, 1)]
+                    n += amp * ((c[0][0] * (1 - fx) + c[0][1] * fx) * (1 - fy) + (c[1][0] * (1 - fx) + c[1][1] * fx) * fy)
+                a = alpha_lo + (alpha_hi - alpha_lo) * n
+                if ramp == 'w':
+                    a *= smooth(xx / (TILE - 1))           # 서쪽 끝에서 0 → 동쪽으로 짙어진다
+                fp[xx, yy] = (176, 196, 164, round(255 * max(0.0, min(1.0, a))))
+        return img
+
+    gids['fog'] = [add(f'swamp_fog_{i}', fog_tile(700 + i * 11, 0.30, 0.62)) for i in range(3)]
+    gids['fog_edge_w'] = add('swamp_fog_edge_w', fog_tile(760, 0.30, 0.62, ramp='w'))
+    # 안개 장막(상호작용 오브젝트 그림): 희뿌연 둥근 안개 덩어리. 가운데는 거의 불투명, 가장자리로 갈수록
+    # 부드럽게 사라진다(네모 모서리가 보이지 않게 칸 안에서 완전히 0 이 된다).
+    wall = fog_tile(790, 0.0, 1.0)
+    wp = wall.load()
+    for yy in range(TILE):
+        for xx in range(TILE):
+            _r, _g, _b, a = wp[xx, yy]
+            d = math.hypot((xx - 15.5) / 15.5, (yy - 16.5) / 15.5)
+            body = max(0.0, min(1.0, (1.0 - d) / 0.45))
+            shade = 0.86 + 0.14 * (a / 255)
+            wp[xx, yy] = (round(214 * shade), round(226 * shade), round(208 * shade), round(255 * 0.95 * body))
+    gids['fog_wall'] = add('swamp_fog_wall', wall)
+
     total_slots = BASE_SLOTS + len(new_tiles)
     rows_total = -(-total_slots // COLUMNS)
     out = Image.new('RGBA', (COLUMNS * TILE, rows_total * TILE), (0, 0, 0, 0))

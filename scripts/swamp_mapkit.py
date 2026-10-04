@@ -329,11 +329,14 @@ class SwampMap:
                 self.put_swamp_tree(x, y) or self.put_dead_tree(pick, x, y)
         return cands
 
-    def plant_drowned_trees(self, cands, accept, limit=6):
-        """물속에 선 고목(가라앉은 숲): 둘레 3x3 이 모두 물인 칸, 서로 3칸 이상."""
+    def plant_drowned_trees(self, cands, accept, limit=6, chance=1.0):
+        """물속에 선 고목(가라앉은 숲): 둘레 3x3 이 모두 물인 칸, 서로 3칸 이상.
+        chance < 1 이면 위(뒤) 행부터 심되 칸마다 그 확률로만 골라, 맵 위쪽에 몰리지 않고 고르게 흩어진다."""
         drowned = 0
-        for y, _r, x in cands:
+        for y, r, x in cands:
             if drowned >= limit or not accept(x, y) or (x, y) not in self.water_cells:
+                continue
+            if chance < 1.0 and st.h32(x, y, 67) >= chance:
                 continue
             if not all((x + dx, y + dy) in self.water_cells for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
                 continue

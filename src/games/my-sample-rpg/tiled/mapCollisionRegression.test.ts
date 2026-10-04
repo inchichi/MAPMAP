@@ -88,6 +88,15 @@ describe('portal footprints cover their whole approach corridor', () => {
     expect(isWallTileAt(wallsOf('upstream-waterway'), dock.targetSpawn.x, dock.targetSpawn.y)).toBe(false)
   })
 
+  it('opens the reed village forest gate onto the sunken forest entrance', () => {
+    const gate = portalNamed('reed-village', 'forest_gate')
+    const back = portalNamed('sunken-forest', 'reed_gate')
+    expect(gate.targetSceneId).toBe('sunken-forest')
+    expect(back.targetSceneId).toBe('reed-village')
+    expect(isWallTileAt(wallsOf('sunken-forest'), gate.targetSpawn.x, gate.targetSpawn.y)).toBe(false)
+    expect(isWallTileAt(wallsOf('reed-village'), back.targetSpawn.x, back.targetSpawn.y)).toBe(false)
+  })
+
   it('spans both walkable columns at the cave mine shaft', () => {
     const portal = portalNamed('cave', 'mine_shaft')
 
@@ -261,7 +270,8 @@ describe('every open cell is reachable', () => {
     ['cave', [2, 10] as [number, number]],
     ['crystal-mine', [29, 35] as [number, number]],
     ['upstream-waterway', [5, 21] as [number, number]],
-    ['reed-village', [3, 17] as [number, number]]
+    ['reed-village', [3, 17] as [number, number]],
+    ['sunken-forest', [2, 22] as [number, number]]
   ])('leaves no unreachable floor in %s', (name, start) => {
     expect(reachableFrom(name, start)).toEqual([])
   })

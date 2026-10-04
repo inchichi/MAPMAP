@@ -26,6 +26,9 @@ export const SUNKEN_STELE_NPC_ID = 'sunken_stele'
 // c2-02 = q017. 갈대골 촌장 미렌에게 보고한다(이멜이 보낸다).
 export const REED_VILLAGE_QUEST_ID = 'q017-reed-village'
 export const REED_VILLAGE_CHIEF_NPC_ID = 'miren'
+// c2-03 = q018. 가라앉은 숲 어귀 — 늪개구리 전사를 몰아내고 사라진 사냥꾼들의 흔적을 찾는다.
+export const DROWNED_PATH_QUEST_ID = 'q018-drowned-path'
+export const HUNTER_TRACE_NPC_ID = 'hunter_trace'
 
 export const FIRST_SLIME_HUNT_OBJECTIVE_ID = 'defeat-slimes'
 export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 12
@@ -166,6 +169,7 @@ const SCENE_CRYSTAL_MINE = 'crystal-mine'
 const SCENE_HARVEST_VILLAGE = 'harvest-village'
 const SCENE_UPSTREAM_WATERWAY = 'upstream-waterway'
 const SCENE_REED_VILLAGE = 'reed-village'
+const SCENE_SUNKEN_FOREST = 'sunken-forest'
 const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
 const MONSTER_MUSHROOM_APPEARANCE_TYPE = 'monster_mushroom'
@@ -1015,6 +1019,59 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       gold: 250,
       experience: 500,
       items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }]
+    }
+  },
+  {
+    // 숲 문은 q017 을 마치면 열린다. 미렌의 조카 렌을 포함한 사냥꾼 다섯이 석 달째 돌아오지 않았다.
+    // 사냥꾼 일지가 "동쪽 안개 속 종소리"를 가리켜 c2-04(독안개, 오디의 해독 향)로 이어진다.
+    id: DROWNED_PATH_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: REED_VILLAGE_CHIEF_NPC_ID,
+    giverName: '촌장 미렌',
+    title: '늪에 잠긴 길',
+    trackerLabel: '늪개구리 전사 처치',
+    prerequisiteQuestIds: [REED_VILLAGE_QUEST_ID],
+    requestText:
+      '석 달 전 숲에 들어간 사냥꾼 다섯이 돌아오지 않았다. 숲 어귀의 늪개구리 전사들을 몰아내고 사냥꾼들의 흔적을 찾아 달라.',
+    guideText:
+      '갈대골 남동쪽 문으로 가라앉은 숲에 들어가 늪개구리 전사를 물리치고, 북쪽 둔덕의 사냥꾼 야영지를 살펴본 뒤 미렌에게 돌아가자.',
+    startDialogueLines: [
+      '하르에게 일러 두었네. 이제 숲 문을 지나갈 수 있을 걸세.',
+      '석 달 전 숲에 들어간 사냥꾼 다섯이 아직 돌아오지 않았네. 그중엔 내 조카 렌도 있지.',
+      '숲 어귀엔 요즘 삼지창을 든 개구리 녀석들이 떼로 몰려다닌다더군. 녀석들을 몰아내 주게.',
+      '사냥꾼들은 늘 북쪽 둔덕에 야영지를 꾸렸었네. 무엇이든 흔적을 찾아 주게.'
+    ],
+    activeDialogueLines: ['북쪽 둔덕의 사냥꾼 야영지를 찾아보게. 개구리 녀석들을 조심하고.'],
+    talkTargetDialogueLines: [
+      '오래전에 꺼진 모닥불 곁에 갈대골 문양이 새겨진 활집이 놓여 있다.',
+      '젖은 사냥 일지의 마지막 장: "동쪽 안개 속에서 종이 울린다. 렌이 소리를 따라갔다. 우리도 뒤따른다."',
+      '일지를 챙겨 촌장 미렌에게 가져가자.'
+    ],
+    completionDialogueLines: [
+      '렌의 활집이로군… 그 아이가 아끼던 것이야.',
+      '안개 속 종소리를 따라갔다고? 그 안개는 들이마시면 숨이 막히는 독안개라네.',
+      '약초꾼 오디라면 독안개를 견딜 방법을 알지도 모르겠군. 북쪽 섬 오두막으로 찾아가 보게.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-frog-warriors',
+        label: '늪개구리 전사',
+        required: 6,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_SUNKEN_FOREST, appearanceType: 'monster_frog' }
+      },
+      {
+        id: 'find-hunter-trace',
+        label: '사냥꾼 야영지 살펴보기',
+        required: 1,
+        type: 'talk',
+        target: { npcId: HUNTER_TRACE_NPC_ID }
+      }
+    ],
+    rewards: {
+      gold: 320,
+      experience: 700,
+      items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 3 }]
     }
   }
 ]

@@ -61,7 +61,13 @@ export const QUEST_MONSTERS: { appearanceType: string; label: string }[] = MONST
   (entry) => ({ appearanceType: entry.appearanceType, label: entry.label })
 )
 
-export const QUEST_MONSTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine', 'upstream-waterway']
+export const QUEST_MONSTER_SCENES = [
+  'hunting-ground',
+  'cave',
+  'crystal-mine',
+  'upstream-waterway',
+  'sunken-forest'
+]
 
 // town is the start scene and would complete immediately, so it is excluded.
 export const QUEST_SCENE_ENTER_SCENES = [
@@ -70,7 +76,8 @@ export const QUEST_SCENE_ENTER_SCENES = [
   'crystal-mine',
   'harvest-village',
   'upstream-waterway',
-  'reed-village'
+  'reed-village',
+  'sunken-forest'
 ]
 
 export const QUEST_SHOPS: { shopId: string; label: string }[] = [

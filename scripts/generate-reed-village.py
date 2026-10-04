@@ -34,7 +34,8 @@ UPSTREAM_LOOKOUT_SPAWN = (33, 14)                               # 돌아갈 때 
 CHIEF_HOUSE = (17, 12)                                          # 초가 5x8 의 왼쪽 위 칸
 HOUSE_2 = (12, 18)
 HERB_HUT = (29, 0)
-EAST_GATE = [(43, 26), (43, 27)]                                # 가라앉은 숲으로 가는 문(닫힘)
+EAST_GATE = [(43, 26), (43, 27)]                                # 가라앉은 숲으로 가는 문(q017 완료 후 열림)
+FOREST_ARRIVAL = (2, 22)                                        # 가라앉은 숲 서쪽 입구 도착 칸
 # 섬: 둥근 사각형(초타원 지수 2.6) — 집(5x8)과 마당을 앉힐 평평한 땅이 필요하다. (x0, y0, x1, y1) 꼭짓점 좌표
 ISLANDS = [
     (1, 13, 7, 23),       # 서쪽 나루 섬
@@ -164,7 +165,7 @@ NPCS = [
      'character_villager_flower_dress',
      ['늪 약초는 독이 되기도 하고 약이 되기도 해요.', '독안개 냄새가 요즘 부쩍 짙어졌어요.']),
     ('reed_guard', (40, 25), '문지기 하르', 'character_villager_brown_tunic',
-     ['저 문 너머가 가라앉은 숲이다.', '촌장님 허락 없이는 아무도 못 지나간다.']),
+     ['저 문 너머가 가라앉은 숲이다. 숲길은 위험하다.', '촌장님 말씀을 듣고 가라. 개구리 녀석들이 떼로 다닌다.']),
     ('reed_weaver', (24, 22), '갈대 엮는 네아', 'character_villager_flower_dress',
      ['갈대로 지붕을 이고, 갈대로 바구니를 엮지.', '물이 불어나서 갈대밭이 반이나 잠겼어.']),
     ('reed_fisher', (6, 16), '낚시꾼 베른', 'character_bearded_apron_man',
@@ -216,6 +217,8 @@ chars += [
         ('blocksMovement', 'bool', 'true'),
         ('controller.dialogueLines', 'list', ['굵은 밧줄로 단단히 묶인 나무 문이다.', '문지기 하르가 지키고 있다.']),
         ('controller.scriptId', '', 'vn-dialogue'),
+        # 촌장 미렌에게 보고(q017)하면 하르가 밧줄을 푼다
+        ('quest.hiddenWhenCompleted', '', 'q017-reed-village'),
         ('type', '', 'town_prop_fence_gate')])
     for i, (x, y) in enumerate(EAST_GATE)
 ]
@@ -224,6 +227,10 @@ portals = [
         ('appearanceType', '', 'swamp_raft'), ('targetFacing', '', 'left'),
         ('targetSceneId', '', 'upstream-waterway'),
         ('targetSpawnTileX', 'int', UPSTREAM_LOOKOUT_SPAWN[0]), ('targetSpawnTileY', 'int', UPSTREAM_LOOKOUT_SPAWN[1])]),
+    portal(41, 'forest_gate', EAST_GATE[0][0], EAST_GATE[0][1], 1, len(EAST_GATE), [
+        ('appearanceType', '', 'swamp_deck_h'), ('quest.requiresCompleted', '', 'q017-reed-village'),
+        ('targetFacing', '', 'right'), ('targetSceneId', '', 'sunken-forest'),
+        ('targetSpawnTileX', 'int', FOREST_ARRIVAL[0]), ('targetSpawnTileY', 'int', FOREST_ARRIVAL[1])]),
 ]
 m.write_tmx(OUT, 'scripts/generate-reed-village.py', chars,
             '사공 토빈, 촌장 미렌(c2-02 보고), 약초꾼 오디, 문지기 하르, 주민 둘 / 표지판 / 가라앉은 숲 문(닫힘)',

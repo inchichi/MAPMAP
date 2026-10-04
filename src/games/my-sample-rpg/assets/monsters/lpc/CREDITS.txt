@@ -25,3 +25,8 @@ man_eater_flower.png — 식인 꽃 (2장)
   "[LPC] Monsters" (공격 동작), https://opengameart.org/content/lpc-monsters
   원작: Charles Sanchez (CharlesGabriel), Liberated Pixel Cup base assets. 공격 동작: bluecarrot16
   라이선스: CC-BY-SA 3.0 / GPL 3.0 (bluecarrot16 기여분은 OGA-BY 3.0)
+
+frogman.png — 늪개구리 전사 (2장, 청록으로 색 바꿈: scripts/recolor-frogman.py)
+  "LPC Frogman", https://opengameart.org/content/lpc-frogman
+  저작자: Evert, Stephen "Redshrike" Challener (원작), Puffolotti (옆 걸음 다리 동작)
+  라이선스: CC-BY 3.0 / OGA-BY 3.0

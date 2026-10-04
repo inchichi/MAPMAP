@@ -324,8 +324,8 @@
    <properties>
     <property name="blocksMovement" type="bool" value="true"/>
     <property name="controller.dialogueLines" type="list">
-     <item value="저 문 너머가 가라앉은 숲이다."/>
-     <item value="촌장님 허락 없이는 아무도 못 지나간다."/>
+     <item value="저 문 너머가 가라앉은 숲이다. 숲길은 위험하다."/>
+     <item value="촌장님 말씀을 듣고 가라. 개구리 녀석들이 떼로 다닌다."/>
     </property>
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="문지기 하르"/>
@@ -385,6 +385,7 @@
      <item value="문지기 하르가 지키고 있다."/>
     </property>
     <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="quest.hiddenWhenCompleted" value="q017-reed-village"/>
     <property name="type" value="town_prop_fence_gate"/>
    </properties>
   </object>
@@ -396,6 +397,7 @@
      <item value="문지기 하르가 지키고 있다."/>
     </property>
     <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="quest.hiddenWhenCompleted" value="q017-reed-village"/>
     <property name="type" value="town_prop_fence_gate"/>
    </properties>
   </object>
@@ -409,6 +411,16 @@
     <property name="targetSceneId" value="upstream-waterway"/>
     <property name="targetSpawnTileX" type="int" value="33"/>
     <property name="targetSpawnTileY" type="int" value="14"/>
+   </properties>
+  </object>
+  <object id="41" name="forest_gate" type="portal" x="1376" y="832" width="32" height="64">
+   <properties>
+    <property name="appearanceType" value="swamp_deck_h"/>
+    <property name="quest.requiresCompleted" value="q017-reed-village"/>
+    <property name="targetFacing" value="right"/>
+    <property name="targetSceneId" value="sunken-forest"/>
+    <property name="targetSpawnTileX" type="int" value="2"/>
+    <property name="targetSpawnTileY" type="int" value="22"/>
    </properties>
   </object>
  </objectgroup>
