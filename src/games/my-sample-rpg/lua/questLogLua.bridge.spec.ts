@@ -188,7 +188,7 @@ describe('questLogLua (real wasm bridge)', () => {
     log = recordItemUseQuestProgress(log, 'health-potion')
     log = completeQuest(log, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     log = startQuest(log, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 5; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
+    for (let i = 0; i < 10; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
     log = completeQuest(log, PIG_TROUBLE_QUEST_ID).nextQuestLog
     log = startQuest(log, BLACKSMITH_PREPARATION_QUEST_ID)
 
@@ -200,7 +200,7 @@ describe('questLogLua (real wasm bridge)', () => {
     luaLog = lua.recordItemUseQuestProgress(luaLog, 'health-potion')
     luaLog = lua.completeQuest(luaLog, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 5; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
+    for (let i = 0; i < 10; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
     luaLog = lua.completeQuest(luaLog, PIG_TROUBLE_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, BLACKSMITH_PREPARATION_QUEST_ID)
 
@@ -226,7 +226,7 @@ describe('questLogLua (real wasm bridge)', () => {
     log = recordItemUseQuestProgress(log, 'health-potion')
     log = completeQuest(log, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     log = startQuest(log, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 5; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
+    for (let i = 0; i < 10; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
     log = completeQuest(log, PIG_TROUBLE_QUEST_ID).nextQuestLog
     log = startQuest(log, BLACKSMITH_PREPARATION_QUEST_ID)
     log = recordShopOpenQuestProgress(log, 'blacksmith')
@@ -241,7 +241,7 @@ describe('questLogLua (real wasm bridge)', () => {
     luaLog = lua.recordItemUseQuestProgress(luaLog, 'health-potion')
     luaLog = lua.completeQuest(luaLog, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 5; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
+    for (let i = 0; i < 10; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
     luaLog = lua.completeQuest(luaLog, PIG_TROUBLE_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, BLACKSMITH_PREPARATION_QUEST_ID)
     luaLog = lua.recordShopOpenQuestProgress(luaLog, 'blacksmith')
@@ -273,7 +273,7 @@ describe('questLogLua (real wasm bridge)', () => {
     log = recordItemUseQuestProgress(log, 'health-potion')
     log = completeQuest(log, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     log = startQuest(log, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 5; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
+    for (let i = 0; i < 10; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
     log = completeQuest(log, PIG_TROUBLE_QUEST_ID).nextQuestLog
     log = startQuest(log, BLACKSMITH_PREPARATION_QUEST_ID)
     log = recordShopOpenQuestProgress(log, 'blacksmith')
@@ -294,7 +294,7 @@ describe('questLogLua (real wasm bridge)', () => {
     luaLog = lua.recordItemUseQuestProgress(luaLog, 'health-potion')
     luaLog = lua.completeQuest(luaLog, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 5; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
+    for (let i = 0; i < 10; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
     luaLog = lua.completeQuest(luaLog, PIG_TROUBLE_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, BLACKSMITH_PREPARATION_QUEST_ID)
     luaLog = lua.recordShopOpenQuestProgress(luaLog, 'blacksmith')

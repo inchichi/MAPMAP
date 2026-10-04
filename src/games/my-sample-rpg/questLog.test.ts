@@ -174,7 +174,7 @@ describe('questLog', () => {
     questLog = completeQuest(questLog, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
 
     questLog = startQuest(questLog, PIG_TROUBLE_QUEST_ID)
-    for (let defeat = 0; defeat < 5; defeat += 1) {
+    for (let defeat = 0; defeat < 10; defeat += 1) {
       questLog = recordMonsterDefeatQuestProgress(questLog, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_pig'
@@ -223,9 +223,9 @@ describe('questLog', () => {
       sceneId: 'cave',
       appearanceType: 'monster_pig'
     })
-    // 보스만 잡아서는 끝나지 않는다 — 보스실 앞 바위돌이 4마리도 물리쳐야 한다.
+    // 보스만 잡아서는 끝나지 않는다 — 보스실 앞 바위돌이 8마리도 물리쳐야 한다.
     expect(getQuestProgress(questLog, PIG_BOSS_THREAT_QUEST_ID).status).toBe('active')
-    for (let index = 0; index < 4; index += 1) {
+    for (let index = 0; index < 8; index += 1) {
       questLog = recordMonsterDefeatQuestProgress(questLog, {
         sceneId: 'cave',
         appearanceType: 'monster_rock'

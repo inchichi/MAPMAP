@@ -21,7 +21,7 @@ export const CAMP_MERCHANT_NPC_ID = 'camp_merchant'
 export const HIDDEN_CACHE_NPC_ID = 'hidden_cache'
 
 export const FIRST_SLIME_HUNT_OBJECTIVE_ID = 'defeat-slimes'
-export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 6
+export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 12
 export const FIRST_SLIME_HUNT_REWARD_GOLD = 100
 export const FIRST_SLIME_HUNT_REWARD_EXPERIENCE = 216
 
@@ -179,15 +179,15 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     prerequisiteQuestIds: [],
     requestText: '마을의 마법사가 퀘스트를 의뢰했다.',
     guideText:
-      '마을 오른쪽 "사냥터로 가는 길"로 포탈을 타 말캉이 6마리를 잡고 오자.',
+      '마을 오른쪽 "사냥터로 가는 길"로 포탈을 타 말캉이 12마리를 잡고 오자.',
     startDialogueLines: [
       '요즘 마을 밖 사냥터에 말캉이들이 자주 나타나고 있단다.',
       '아직 위험한 수준은 아니지만, 초보자인 네가 전투에 익숙해지기에는 딱 좋겠구나.',
-      '마을 오른쪽의 "사냥터로 가는 길"을 따라가서 말캉이 6마리를 처치하고 돌아오너라.'
+      '마을 오른쪽의 "사냥터로 가는 길"을 따라가서 말캉이 12마리를 처치하고 돌아오너라.'
     ],
     activeDialogueLines: [
       '아직 말캉이 기운이 남아 있구나.',
-      '사냥터에서 말캉이 6마리를 처치하고 돌아오너라.'
+      '사냥터에서 말캉이 12마리를 처치하고 돌아오너라.'
     ],
     completionDialogueLines: [
       '잘했다, {playerName}.',
@@ -276,15 +276,15 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     ],
     requestText:
       '마법사는 사냥터에 말캉이보다 더 거친 꿀꿀이들이 나타났다고 했다.',
-    guideText: '사냥터로 가서 꿀꿀이 5마리를 처치하자.',
+    guideText: '사냥터로 가서 꿀꿀이 10마리를 처치하자.',
     startDialogueLines: [
       '말캉이만 있는 줄 알았더니, 꿀꿀이들도 점점 사나워지고 있구나.',
       '꿀꿀이는 말캉이보다 조금 더 강하다. 방심하면 안 된다.',
-      '이번에는 사냥터에서 꿀꿀이 5마리를 처치하고 돌아오너라.'
+      '이번에는 사냥터에서 꿀꿀이 10마리를 처치하고 돌아오너라.'
     ],
     activeDialogueLines: [
       '꿀꿀이는 말캉이보다 조금 더 강하다.',
-      '사냥터에서 꿀꿀이 5마리를 처치하고 돌아오너라.'
+      '사냥터에서 꿀꿀이 10마리를 처치하고 돌아오너라.'
     ],
     completionDialogueLines: [
       '역시 이상하군.',
@@ -295,7 +295,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       {
         id: 'defeat-pigs',
         label: '꿀꿀이',
-        required: 5,
+        required: 10,
         type: 'monster-defeat',
         target: {
           sceneId: SCENE_HUNTING_GROUND,
@@ -535,7 +535,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       {
         id: 'defeat-cave-guardians',
         label: '보스실 앞 바위돌이',
-        required: 4,
+        required: 8,
         type: 'monster-defeat',
         target: {
           sceneId: SCENE_CAVE,
@@ -600,7 +600,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       {
         id: 'defeat-mine-mushrooms',
         label: '광산 버섯돌이',
-        required: 3,
+        required: 6,
         type: 'monster-defeat',
         target: {
           sceneId: SCENE_CRYSTAL_MINE,
@@ -695,13 +695,13 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     trackerLabel: '들녘 꿀꿀이 쫓아내기',
     prerequisiteQuestIds: [HARVEST_VILLAGE_VISIT_QUEST_ID],
     requestText: '사냥터 버려진 돼지 농장의 꿀꿀이들이 밤마다 밀밭까지 내려온다. 쫓아내 달라.',
-    guideText: '사냥터 북쪽 버려진 돼지 농장에서 꿀꿀이 4마리를 처치하고 파딘에게 돌아가자.',
+    guideText: '사냥터 북쪽 버려진 돼지 농장에서 꿀꿀이 8마리를 처치하고 파딘에게 돌아가자.',
     startDialogueLines: [
       '어젯밤에도 밀이 한 이랑 통째로 짓밟혔어.',
       '범인은 사냥터 북쪽, 버려진 돼지 농장에 눌러앉은 꿀꿀이들이야.',
-      '네 마리만 혼내 주면 한동안은 얌전하겠지.'
+      '여덟 마리만 혼내 주면 한동안은 얌전하겠지.'
     ],
-    activeDialogueLines: ['버려진 돼지 농장은 사냥터 야영지 바로 위쪽이야. 네 마리면 돼.'],
+    activeDialogueLines: ['버려진 돼지 농장은 사냥터 야영지 바로 위쪽이야. 여덟 마리면 돼.'],
     completionDialogueLines: [
       '정말 해냈구나! 오늘 밤엔 다리 뻗고 자겠어.',
       '갓 거둔 밀로 구운 빵이야. 포션이랑 같이 챙겨 가.'
@@ -710,7 +710,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       {
         id: 'defeat-field-pigs',
         label: '꿀꿀이',
-        required: 4,
+        required: 8,
         type: 'monster-defeat',
         target: {
           sceneId: SCENE_HUNTING_GROUND,
@@ -773,11 +773,11 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     trackerLabel: '동굴 버섯돌이 처치',
     prerequisiteQuestIds: [HARVEST_VILLAGE_VISIT_QUEST_ID, CAVE_ENTRANCE_INVESTIGATION_QUEST_ID],
     requestText: '동굴에서 날아온 버섯 포자가 저택 정원을 시들게 한다. 근원인 버섯돌이를 없애 달라.',
-    guideText: '동굴 통로의 버섯돌이 3마리를 처치하고 세라핀 부인에게 돌아가자.',
+    guideText: '동굴 통로의 버섯돌이 6마리를 처치하고 세라핀 부인에게 돌아가자.',
     startDialogueLines: [
       '정원의 장미가 하룻밤 새 잿빛으로 시들었어요.',
       '정원사 말로는 동굴 바람을 타고 온 버섯 포자 탓이래요.',
-      '동굴 통로에 사는 버섯돌이 세 마리만 없애 주시겠어요?'
+      '동굴 통로에 사는 버섯돌이 여섯 마리만 없애 주시겠어요?'
     ],
     activeDialogueLines: ['버섯돌이는 동굴 서쪽 현관과 수정 골방 쪽에 있다고 해요.'],
     completionDialogueLines: [
@@ -788,7 +788,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       {
         id: 'defeat-cave-mushrooms',
         label: '버섯돌이',
-        required: 3,
+        required: 6,
         type: 'monster-defeat',
         target: {
           sceneId: SCENE_CAVE,
@@ -812,7 +812,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     prerequisiteQuestIds: [PIG_BOSS_THREAT_QUEST_ID, MINE_ORE_RUSH_QUEST_ID],
     requestText:
       '검이든 지팡이든 활이든, 손에 쥔 무기로 길을 증명하라. 잊힌 광산의 주인 꿀꿀이 대장을 쓰러뜨려라.',
-    guideText: '잊힌 수정 광산에서 바위돌이 3마리를 처치하고, 용암 단조장의 꿀꿀이 대장을 쓰러뜨리자.',
+    guideText: '잊힌 수정 광산에서 바위돌이 6마리를 처치하고, 용암 단조장의 꿀꿀이 대장을 쓰러뜨리자.',
     startDialogueLines: [
       '{playerName}, 이제 너는 어느 길도 정해지지 않은 모험가가 아니다.',
       '검을 들면 검사, 지팡이를 들면 마법사, 활을 들면 사수 — 무기가 길을 연다.',
@@ -829,7 +829,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       {
         id: 'defeat-mine-rocks',
         label: '광산 바위돌이',
-        required: 3,
+        required: 6,
         type: 'monster-defeat',
         target: {
           sceneId: SCENE_CRYSTAL_MINE,
