@@ -282,6 +282,7 @@ import {
   createQuestLogOverlay
 } from './createQuestLogOverlay'
 import { createQuestTrackerOverlay } from './createQuestTrackerOverlay'
+import { createWindowStack } from './createWindowStack'
 import {
   startScenarioRun,
   type ScenarioRewardGrant,
@@ -1511,6 +1512,7 @@ export const createPixiTiledMapView = async ({
   let isPlayerStatOpen = false
   let isPlayerEquipmentOpen = false
   let isPlayerSkillOpen = false
+  let windowStack: ReturnType<typeof createWindowStack>
   let isQuestLogOpen = false
   let isBlacksmithShopOpen = false
   let isPotionShopOpen = false
@@ -1758,8 +1760,10 @@ export const createPixiTiledMapView = async ({
     }
 
     const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
+    // 쿨다운은 휘두르기가 끝난 뒤부터 센다(동작 320ms + 300ms ≈ 0.62초에 한 번).
+    // 예전엔 시작부터 세어 0.3초마다 — 동작이 끝나기도 전에 다음 공격이 나갔다.
     playerAttackReadyAtMilliseconds =
-      now + PLAYER_ATTACK_COOLDOWN_MILLISECONDS
+      now + PLAYER_ATTACK_DURATION_MILLISECONDS + PLAYER_ATTACK_COOLDOWN_MILLISECONDS
 
     // 장착 무기의 공격 방식 분기: 근접은 기존 스윙+슬래시, 활/마법은 발사체.
     const attackKind = getEquippedPlayerWeaponAttackKind(currentPlayerEquipment)
@@ -3442,6 +3446,9 @@ export const createPixiTiledMapView = async ({
     }
 
     isPlayerUiOpen = nextIsOpen
+    if (nextIsOpen) {
+      windowStack.raise('.player-inventory-overlay')
+    }
     syncPlayerUiOverlays()
   }
   const setPlayerStatOpen = (nextIsOpen: boolean) => {
@@ -3450,6 +3457,9 @@ export const createPixiTiledMapView = async ({
     }
 
     isPlayerStatOpen = nextIsOpen
+    if (nextIsOpen) {
+      windowStack.raise('.player-stat-overlay')
+    }
     syncPlayerUiOverlays()
   }
   const setPlayerEquipmentOpen = (nextIsOpen: boolean) => {
@@ -3458,6 +3468,9 @@ export const createPixiTiledMapView = async ({
     }
 
     isPlayerEquipmentOpen = nextIsOpen
+    if (nextIsOpen) {
+      windowStack.raise('.player-equipment-overlay')
+    }
     syncPlayerUiOverlays()
   }
   const setPlayerSkillOpen = (nextIsOpen: boolean) => {
@@ -3466,6 +3479,9 @@ export const createPixiTiledMapView = async ({
     }
 
     isPlayerSkillOpen = nextIsOpen
+    if (nextIsOpen) {
+      windowStack.raise('.player-skill-overlay')
+    }
     syncPlayerUiOverlays()
   }
   const setQuestLogOpen = (nextIsOpen: boolean) => {
@@ -3474,6 +3490,9 @@ export const createPixiTiledMapView = async ({
     }
 
     isQuestLogOpen = nextIsOpen
+    if (nextIsOpen) {
+      windowStack.raise('.quest-log-overlay')
+    }
     syncPlayerUiOverlays()
   }
   const setBlacksmithShopOpen = (nextIsOpen: boolean) => {
@@ -3488,6 +3507,7 @@ export const createPixiTiledMapView = async ({
 
     isBlacksmithShopOpen = nextIsOpen
     if (nextIsOpen) {
+      windowStack.raise('.blacksmith-shop-overlay')
       setQuestLogWithObjectiveFeedback(
         recordShopOpenQuestProgress(currentQuestLog, 'blacksmith')
       )
@@ -3506,6 +3526,7 @@ export const createPixiTiledMapView = async ({
 
     isPotionShopOpen = nextIsOpen
     if (nextIsOpen) {
+      windowStack.raise('.blacksmith-shop-overlay')
       setQuestLogWithObjectiveFeedback(
         recordShopOpenQuestProgress(currentQuestLog, 'potion')
       )
@@ -8605,6 +8626,7 @@ export const createPixiTiledMapView = async ({
     app.start()
   }
 
+  windowStack = createWindowStack(mountElement)
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
   window.addEventListener('blur', handleWindowBlur)
@@ -9130,6 +9152,7 @@ export const createPixiTiledMapView = async ({
 
     isDestroyed = true
     window.removeEventListener('keydown', handleKeyDown)
+    windowStack.destroy()
     window.removeEventListener('keyup', handleKeyUp)
     window.removeEventListener('blur', handleWindowBlur)
     window.removeEventListener('resize', handleWindowResize)
