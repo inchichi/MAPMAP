@@ -17,6 +17,31 @@ import {
 
 import { loadTextureSafe } from './loadTextureSafe'
 import {
+  getLpcActionFrameIndex,
+  getLpcAnchor,
+  getLpcDirectionFromFacing,
+  getLpcPlayerAttackAnimation,
+  getLpcPlayerLayerFiles,
+  getLpcWalkFrameIndex,
+  createLpcSheetCache,
+  getLpcNpcFullBodyUrl,
+  getLpcNpcSheetKey,
+  loadLpcArrowTexture,
+  loadLpcNpcSheets,
+  LPC_PLAYER_LAYER_ORDER,
+  type LpcAnimationName,
+  type LpcCharacterSheets,
+  type LpcPlayerLayerSlot,
+  type LpcPlayerLook
+} from './lpcCharacterSprites'
+import {
+  createFlowingWaterSurface,
+  createWaterRipplePatternTextures,
+  parseWaterFillTileType,
+  type FlowingWaterSurface,
+  type FlowingWaterSurfaceCell
+} from './flowingWaterSurface'
+import {
   addPlacement,
   loadPlacementsForMap,
   removePlacement,
@@ -57,6 +82,11 @@ import {
   getPlayerProjectileDirectionFromFacing,
   getPlayerProjectileHitRect,
   getPlayerProjectileRotation,
+  PLAYER_ENERGY_BOLT_BASE_POWER,
+  PLAYER_MAGIC_ATTACK_COOLDOWN_MILLISECONDS,
+  PLAYER_MAGIC_ATTACK_TARGET_RANGE_PIXELS,
+  selectPlayerMagicTarget,
+  steerPlayerProjectileToward,
   stepPlayerProjectile,
   type PlayerProjectileKind,
   type PlayerProjectileState
@@ -69,11 +99,39 @@ import type { PlayerProfile } from '../playerProfile'
 import { type PlayerQuickslots } from '../playerQuickslots'
 import { type PlayerSkillSlots } from '../playerSkillSlots'
 import {
+  PLAYER_CHAIN_LIGHTNING_SKILL_ID,
   PLAYER_DASH_SKILL_ID,
+  PLAYER_FIREBALL_SKILL_ID,
   PLAYER_FOCUS_SKILL_ID,
+  PLAYER_ICE_BOLT_SKILL_ID,
+  PLAYER_MULTI_SHOT_SKILL_ID,
+  PLAYER_PIERCING_ARROW_SKILL_ID,
+  PLAYER_POISON_ARROW_SKILL_ID,
   PLAYER_PROTECT_SKILL_ID,
   getPlayerFocusSkillManaRestoreByLevel
 } from '../playerSkills'
+import {
+  MULTI_SHOT_DAMAGE_RATIO,
+  PIERCING_ARROW_MAX_HITS,
+  POISON_TICK_COUNT,
+  POISON_TICK_INTERVAL_MILLISECONDS,
+  getMultiShotArrowCount,
+  getPoisonDamagePerTick,
+  selectMultiShotTargets
+} from '../playerBowSkills'
+import {
+  FIREBALL_BURN_TICK_COUNT,
+  FIREBALL_BURN_TICK_INTERVAL_MILLISECONDS,
+  FIREBALL_SPLASH_DAMAGE_RATIO,
+  PLAYER_MAGIC_CAST_RECOVERY_MILLISECONDS,
+  PLAYER_MAGIC_CAST_WINDUP_MILLISECONDS,
+  getChainLightningHitDamage,
+  getChainLightningJumpCount,
+  getFireballBurnDamagePerTick,
+  getIceBoltFreezeDurationMilliseconds,
+  selectChainLightningTargets,
+  selectFireballSplashTargets
+} from '../playerMagicSkills'
 import {
   PLAYER_SMASH_SKILL_COOLDOWN_MILLISECONDS,
   PLAYER_SMASH_SKILL_EFFECT_ANIMATION_SPEED,
@@ -102,12 +160,15 @@ import {
   recordItemUseQuestProgress,
   recordMonsterDefeatQuestProgress,
   recordQuestObjectiveProgress,
+  getAllQuestDefinitions,
   getQuestProgress,
+  getVisibleQuestDefinitions,
   recordShopOpenQuestProgress,
   recordTalkQuestProgress,
   startQuest,
   type CompleteQuestResult,
   type QuestItemReward,
+  type QuestDefinition,
   type QuestLogState
 } from '../questLog'
 // 팀원(develop-chich) Lua 방식: 모듈별 Lua 래퍼 인스턴스 + 비변환 함수는 TS에서.
@@ -157,7 +218,8 @@ import {
   getPlayerControlQuickslotIndexFromCode,
   isPlayerControlCaptureModifierKey,
   isPlayerControlPauseKey,
-  setPlayerControlBinding
+  setPlayerControlBinding,
+  getPlayerControlBindingDisplayText
 } from '../lua/luaGameLogic'
 import { resolveCharacterInteractionTarget } from '../interaction/resolveCharacterInteractionTarget'
 import {
@@ -203,15 +265,22 @@ import blacksmithPortraitUrl from '../assets/portraits/blacksmith-mozarchan.png'
 import potionMerchantPortraitUrl from '../assets/portraits/potion-merchant.png'
 import santaPortraitUrl from '../assets/portraits/santa.png'
 import type { MonsterAnimationTextures } from './monsterAnimationTextures'
-import { loadMonsterPigAnimationTextures } from './loadMonsterPigAnimationTextures'
-import { loadMonsterSlimeAnimationTextures } from './loadMonsterSlimeAnimationTextures'
-import { loadMonsterStripAnimationTextures } from './loadMonsterStripAnimationTextures'
+import {
+  BOSS_DAMAGE_MULTIPLIER,
+  BOSS_HP_MULTIPLIER,
+  BOSS_RENDER_SCALE_MULTIPLIER,
+  MONSTER_HP_MULTIPLIER
+} from '../monsterTuning'
+import { loadLpcMonsterTextures, type LpcMonsterSpec } from './loadLpcMonsterTextures'
 import { createGameSoundEffects, isGameSoundEffectId } from './createGameSoundEffects'
 import {
   createPauseMenuOverlay,
   type AudioSettings
 } from './createPauseMenuOverlay'
-import { createQuestLogOverlay } from './createQuestLogOverlay'
+import {
+  QUEST_GIVER_PORTRAIT_KEY_BY_NPC_ID,
+  createQuestLogOverlay
+} from './createQuestLogOverlay'
 import { createQuestTrackerOverlay } from './createQuestTrackerOverlay'
 import {
   startScenarioRun,
@@ -258,6 +327,9 @@ type CreatePixiTiledMapViewInput = {
   // 이 씬에서 이미 획득한 바닥 코인 타일 키(`x,y`) — 렌더에서 제외된다.
   collectedCoinTileKeys: readonly string[]
   onCoinPileCollected: (tileKey: string) => void
+  // 이 씬에서 이미 쓰러뜨린 보스 id — 다시 나타나지 않는다.
+  defeatedBossIds: readonly string[]
+  onBossDefeated: (bossId: string) => void
   onMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   onPotionMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   audioSettings: AudioSettings
@@ -315,7 +387,8 @@ type ActiveCharacterDamageText = {
 type MonsterGoldDrop = {
   id: string
   container: Container
-  coin: Graphics
+  coin: Sprite
+  shine: Graphics
   amountText: Text
   amount: number
   position: {
@@ -344,6 +417,21 @@ type RenderedCharacterNode = {
   container: Container
   sprite: Sprite
   renderScale: number
+  // 이름표·체력바·레벨 뱃지: 나무·건물·떨어진 돈에 가리지 않게 메시지 레이어(월드 맨 위)에서
+  // 캐릭터 위치를 따라다닌다.
+  labelContainer?: Container
+  // LPC 그림체 캐릭터(플레이어·NPC): sprite 는 1칸짜리 투명 판(라벨·막대·판정 기준)이고,
+  // 실제 그림은 발끝 기준으로 그 위에 얹힌 lpc.sprite 다.
+  lpc?: {
+    sprite: Sprite
+    // 플레이어: 장비 레이어별 스프라이트(뒤 무기 → 기본 → 신발 → 갑옷 → 머리 → 투구 → 앞 무기)
+    playerLayers?: Map<LpcPlayerLayerSlot, Sprite>
+    npcSheets?: LpcCharacterSheets
+    cell: number
+    lastX: number
+    lastY: number
+    movingUntilMilliseconds: number
+  }
   playerArmorSprite?: Sprite
   playerHelmetSprite?: Sprite
   questBadge?: Sprite
@@ -440,51 +528,51 @@ const TINY_DUNGEON_TILESET_IMAGE_URL = new URL(
 ).href
 const MONSTER_EQUIPMENT_DROP_IMAGE_URL_BY_DROP_ID: Record<string, string> = {
   'iron-sword_drop': new URL(
-    '../assets/weapons/weapon-sword.png',
+    '../assets/weapons/lpc/weapon-icon-iron-sword.png',
     import.meta.url
   ).href,
   'battle-axe_drop': new URL(
-    '../assets/weapons/weapon-axe.png',
+    '../assets/weapons/lpc/weapon-icon-battle-axe.png',
     import.meta.url
   ).href,
   'long-spear_drop': new URL(
-    '../assets/weapons/weapon-spear.png',
+    '../assets/weapons/lpc/weapon-icon-long-spear.png',
     import.meta.url
   ).href,
   'quick-dagger_drop': new URL(
-    '../assets/weapons/weapon-dagger.png',
+    '../assets/weapons/lpc/weapon-icon-quick-dagger.png',
     import.meta.url
   ).href,
   'spiked-mace_drop': new URL(
-    '../assets/weapons/weapon-mace.png',
+    '../assets/weapons/lpc/weapon-icon-spiked-mace.png',
     import.meta.url
   ).href,
   'magic-staff_drop': new URL(
-    '../assets/weapons/weapon-staff.png',
+    '../assets/weapons/lpc/weapon-icon-magic-staff.png',
     import.meta.url
   ).href,
   Leather_Armor_drop: new URL(
-    '../assets/armor/dropimage/Leather_Armor_drop.png',
+    '../assets/characters/lpc/gear-icon-Leather_Armor.png',
     import.meta.url
   ).href,
   Leather_Helmet_drop: new URL(
-    '../assets/armor/dropimage/Leather_Helmet_drop.png',
+    '../assets/characters/lpc/gear-icon-Leather_Helmet.png',
     import.meta.url
   ).href,
   Chain_Armor_drop: new URL(
-    '../assets/armor/dropimage/Chain_Armor_drop.png',
+    '../assets/characters/lpc/gear-icon-Chain_Armor.png',
     import.meta.url
   ).href,
   Chain_Helmet_drop: new URL(
-    '../assets/armor/dropimage/Chain_Helmet_drop.png',
+    '../assets/characters/lpc/gear-icon-Chain_Helmet.png',
     import.meta.url
   ).href,
   Iron_Armor_drop: new URL(
-    '../assets/armor/dropimage/Iron_Armor_drop.png',
+    '../assets/characters/lpc/gear-icon-Iron_Armor.png',
     import.meta.url
   ).href,
   Iron_Helmet_drop: new URL(
-    '../assets/armor/dropimage/Iron_Helmet_drop.png',
+    '../assets/characters/lpc/gear-icon-Iron_Helmet.png',
     import.meta.url
   ).href
 }
@@ -541,6 +629,8 @@ const LEVEL_UP_TEXT_STYLE = new TextStyle({
 })
 const BLACKSMITH_SHOP_NPC_ID = 'blacksmith'
 const POTION_SHOP_NPC_ID = 'potion_merchant'
+// 물약 상점을 여는 NPC: 마을 물약상인 + 사냥터 야영지 떠돌이 상인
+const POTION_SHOP_NPC_IDS = new Set([POTION_SHOP_NPC_ID, 'camp_merchant'])
 
 // 비주얼노벨 대화창을 쓰는 NPC → 초상화 이미지. 여기 등록된 NPC 는 머리 위 말풍선 대신
 // 하단 대화창으로 대사를 보여준다. (우선 대장장이 모차르찬부터)
@@ -570,35 +660,68 @@ const CAMERA_DEFAULT_ZOOM = 1.1
 const CAMERA_MIN_ZOOM = 0.8
 const CAMERA_MAX_ZOOM = 2
 const CAMERA_ZOOM_WHEEL_SPEED = 0.0015
-const MONSTER_PIG_WORLD_SCALE = 0.315
-const MONSTER_SLIME_WORLD_SCALE = 0.287
+const MONSTER_PIG_WORLD_SCALE = 1
+const MONSTER_SLIME_WORLD_SCALE = 1
 // PA2 스트립 몬스터(바위/버섯)는 프레임이 32-38px라 확대 배율이 1을 넘는다.
-const MONSTER_ROCK_WORLD_SCALE = 1.2
-const MONSTER_MUSHROOM_WORLD_SCALE = 1.15
-const MONSTER_ROCK_IDLE_URL = new URL(
-  '../assets/monsters/pa2/rock-idle.png',
-  import.meta.url
-).href
-const MONSTER_ROCK_RUN_URL = new URL(
-  '../assets/monsters/pa2/rock-run.png',
-  import.meta.url
-).href
-const MONSTER_ROCK_HIT_URL = new URL(
-  '../assets/monsters/pa2/rock-hit.png',
-  import.meta.url
-).href
-const MONSTER_MUSHROOM_IDLE_URL = new URL(
-  '../assets/monsters/pa2/mushroom-idle.png',
-  import.meta.url
-).href
-const MONSTER_MUSHROOM_RUN_URL = new URL(
-  '../assets/monsters/pa2/mushroom-run.png',
-  import.meta.url
-).href
-const MONSTER_MUSHROOM_HIT_URL = new URL(
-  '../assets/monsters/pa2/mushroom-hit.png',
-  import.meta.url
-).href
+const MONSTER_ROCK_WORLD_SCALE = 1
+const MONSTER_MUSHROOM_WORLD_SCALE = 0.62
+
+// ---- LPC 몬스터 시트(행 순서: 위·왼·아래·오른, 오른쪽이 없는 시트는 반전)
+const lpcMonsterUrl = (file: string) =>
+  new URL(`../assets/monsters/lpc/${file}`, import.meta.url).href
+const lpcStrip = (
+  file: string,
+  cellWidth: number,
+  cellHeight: number,
+  row: number,
+  frames: readonly number[],
+  mirror = false
+) => ({ url: lpcMonsterUrl(file), cellWidth, cellHeight, row, frames, mirror })
+const range = (count: number) => Array.from({ length: count }, (_, index) => index)
+// 꿀꿀이: 농장 돼지(걷기 4프레임, 먹기 = 들이받기)
+const LPC_PIG_SPEC: LpcMonsterSpec = {
+  idleLeft: lpcStrip('pig-walk.png', 128, 128, 1, [0]),
+  idleRight: lpcStrip('pig-walk.png', 128, 128, 3, [0]),
+  runLeft: lpcStrip('pig-walk.png', 128, 128, 1, range(4)),
+  runRight: lpcStrip('pig-walk.png', 128, 128, 3, range(4)),
+  hitLeft: lpcStrip('pig-walk.png', 128, 128, 1, [2]),
+  hitRight: lpcStrip('pig-walk.png', 128, 128, 3, [2]),
+  attackLeft: lpcStrip('pig-eat.png', 128, 128, 1, range(4)),
+  attackRight: lpcStrip('pig-eat.png', 128, 128, 3, range(4))
+}
+// 말캉이: 슬라임(통통 튀기 6프레임, 덮치기 8프레임). 방향이 없어 오른쪽은 반전
+const LPC_SLIME_SPEC: LpcMonsterSpec = {
+  idleLeft: lpcStrip('slime.png', 64, 64, 0, range(6)),
+  idleRight: lpcStrip('slime.png', 64, 64, 0, range(6), true),
+  runLeft: lpcStrip('slime.png', 64, 64, 0, range(6)),
+  runRight: lpcStrip('slime.png', 64, 64, 0, range(6), true),
+  hitLeft: lpcStrip('slime.png', 64, 64, 0, [3]),
+  hitRight: lpcStrip('slime.png', 64, 64, 0, [3], true),
+  attackLeft: lpcStrip('slime.png', 64, 64, 1, range(8)),
+  attackRight: lpcStrip('slime.png', 64, 64, 1, range(8), true)
+}
+// 바위돌이: 골렘(걷기 7프레임, 공격 칸은 64x96)
+const LPC_GOLEM_SPEC: LpcMonsterSpec = {
+  idleLeft: lpcStrip('golem-walk.png', 64, 64, 1, [0]),
+  idleRight: lpcStrip('golem-walk.png', 64, 64, 3, [0]),
+  runLeft: lpcStrip('golem-walk.png', 64, 64, 1, range(7)),
+  runRight: lpcStrip('golem-walk.png', 64, 64, 3, range(7)),
+  hitLeft: lpcStrip('golem-die.png', 64, 64, 0, [1]),
+  hitRight: lpcStrip('golem-die.png', 64, 64, 0, [1], true),
+  attackLeft: lpcStrip('golem-attack.png', 64, 96, 1, range(7)),
+  attackRight: lpcStrip('golem-attack.png', 64, 96, 3, range(7))
+}
+// 버섯돌이: 얼굴 달린 버섯(2프레임씩 표정 변화). 방향이 없어 오른쪽은 반전
+const LPC_MUSHROOM_SPEC: LpcMonsterSpec = {
+  idleLeft: lpcStrip('mushroom.png', 64, 64, 0, [0, 1]),
+  idleRight: lpcStrip('mushroom.png', 64, 64, 0, [0, 1], true),
+  runLeft: lpcStrip('mushroom.png', 64, 64, 1, [0, 1]),
+  runRight: lpcStrip('mushroom.png', 64, 64, 1, [0, 1], true),
+  hitLeft: lpcStrip('mushroom.png', 64, 64, 2, [0]),
+  hitRight: lpcStrip('mushroom.png', 64, 64, 2, [0], true),
+  attackLeft: lpcStrip('mushroom.png', 64, 64, 3, [0, 1]),
+  attackRight: lpcStrip('mushroom.png', 64, 64, 3, [0, 1], true)
+}
 const MONSTER_PIG_CHASE_SPEED_TILES_PER_SECOND = 4.4
 const MONSTER_PIG_IDLE_ANIMATION_SPEED = 0.08
 const MONSTER_PIG_RUN_ANIMATION_SPEED = 0.22
@@ -611,6 +734,10 @@ const MONSTER_PIG_AGGRO_RANGE_TILES = 4.8
 const MONSTER_PIG_DE_AGGRO_RANGE_TILES = 7.2
 const MONSTER_PIG_HIT_REACTION_DURATION_MILLISECONDS = 260
 const MONSTER_PIG_RESPAWN_DELAY_MILLISECONDS = 8000
+// 보스 몬스터: TMX 오브젝트 이름이 '-보스'로 끝난다(예: 말캉이-보스).
+const isBossCharacterId = (characterId: string): boolean => characterId.endsWith('-보스')
+// 퀘스트에 아직 필요한 보스는 영영 사라지지 않고 이만큼 뒤에 다시 생긴다.
+const BOSS_RETRY_RESPAWN_DELAY_MILLISECONDS = 30000
 const MONSTER_CONTACT_DAMAGE_COOLDOWN_MILLISECONDS = 900
 const PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES = 1.2
 const DAMAGE_TEXT_FLOAT_DISTANCE = 16
@@ -624,8 +751,14 @@ const PLAYER_HIT_REACTION_DURATION_MILLISECONDS = 180
 const PLAYER_DAMAGE_INVULNERABILITY_MILLISECONDS = 600
 const PLAYER_HIT_REACTION_MAX_OFFSET_PIXELS = 6
 const PLAYER_PROTECT_SKILL_COOLDOWN_MILLISECONDS = 4600
-const MONSTER_GOLD_DROP_ICON_RADIUS = 7
-const MONSTER_GOLD_DROP_ICON_SHINE_RADIUS = 2
+// 떨어진 돈: 동굴 바닥 금화와 같은 LPC 금화 더미 타일(town-32 gid 1109~1112, 동전 몇 개 → 쌓인 더미).
+const MONSTER_GOLD_DROP_PILE_GIDS: readonly number[] = [1109, 1110, 1111, 1112]
+// 금액이 이 값 이상이면 한 단계 큰 더미 그림
+const MONSTER_GOLD_DROP_PILE_THRESHOLDS: readonly number[] = [0, 20, 45, 90]
+const MONSTER_GOLD_DROP_ICON_RADIUS = 8
+// 튀어나오는 연출: 위로 솟았다 떨어지며 두 번 튄다
+const MONSTER_GOLD_DROP_POP_MILLISECONDS = 520
+const MONSTER_GOLD_DROP_POP_HEIGHT_PIXELS = 18
 const MONSTER_GOLD_DROP_AMOUNT_TEXT_STYLE = new TextStyle({
   align: 'center',
   fill: 0xffd86b,
@@ -683,8 +816,8 @@ const SIGN_POST_LABEL_STYLE = new TextStyle({
   breakWords: true,
   fill: 0xf4e7c5,
   fontFamily: '"Jersey 25", NeoDunggeunmo, monospace',
-  fontSize: 9,
-  lineHeight: 10,
+  fontSize: 11,
+  lineHeight: 12,
   padding: 0,
   stroke: {
     color: 0x2e2313,
@@ -890,6 +1023,10 @@ const QUEST_OBJECTIVE_COMPLETE_TEXT = '퀘스트 목표 완료!'
 const QUEST_COMPLETE_TEXT = '퀘스트 완료!'
 const QUEST_BADGE_SCALE = 0.16
 const QUEST_BADGE_Y_OFFSET = 10
+// LPC 캐릭터는 머리가 타일 위로 약 22px 솟는다 — 머리 위 막대·뱃지를 그만큼 더 올린다.
+const LPC_HEAD_CLEARANCE_PIXELS = 22
+// 한 프레임 동안 위치 변화가 없어도 이 시간까지는 걷는 중으로 본다(프레임 사이 떨림 방지).
+const LPC_MOVING_HOLD_MILLISECONDS = 120
 type MonsterAppearanceType =
   | typeof MONSTER_PIG_APPEARANCE_TYPE
   | typeof MONSTER_SLIME_APPEARANCE_TYPE
@@ -1065,6 +1202,8 @@ export const createPixiTiledMapView = async ({
   onQuestLogChange,
   collectedCoinTileKeys,
   onCoinPileCollected,
+  defeatedBossIds,
+  onBossDefeated,
   onMerchantInventoryChange,
   onPotionMerchantInventoryChange,
   audioSettings,
@@ -1112,22 +1251,11 @@ export const createPixiTiledMapView = async ({
     loadTextureSafe(TINY_DUNGEON_TILESET_IMAGE_URL),
     loadSlashVfxTextures(),
     loadProtectVfxTextures(),
-    loadMonsterPigAnimationTextures(),
-    loadMonsterSlimeAnimationTextures(),
-    loadMonsterStripAnimationTextures({
-      idleUrl: MONSTER_ROCK_IDLE_URL,
-      runUrl: MONSTER_ROCK_RUN_URL,
-      hitUrl: MONSTER_ROCK_HIT_URL,
-      frameWidth: 38,
-      frameHeight: 34
-    }),
-    loadMonsterStripAnimationTextures({
-      idleUrl: MONSTER_MUSHROOM_IDLE_URL,
-      runUrl: MONSTER_MUSHROOM_RUN_URL,
-      hitUrl: MONSTER_MUSHROOM_HIT_URL,
-      frameWidth: 32,
-      frameHeight: 32
-    })
+    // LPC 몬스터(그림체 통일): 출처는 assets/monsters/lpc/CREDITS.txt
+    loadLpcMonsterTextures(LPC_PIG_SPEC),
+    loadLpcMonsterTextures(LPC_SLIME_SPEC),
+    loadLpcMonsterTextures(LPC_GOLEM_SPEC),
+    loadLpcMonsterTextures(LPC_MUSHROOM_SPEC)
   ])
   const playerWeaponAppearanceTexturesByItemId = new Map(
     await Promise.all(
@@ -1272,11 +1400,29 @@ export const createPixiTiledMapView = async ({
   const monsterEquipmentDrops = new Map<string, MonsterEquipmentDrop>()
   // 무기별 기본 공격 발사체(화살·에너지볼). 이동/수명은 playerProjectile.ts 순수 로직,
   // 여기는 스프라이트·벽/몬스터 판정·데미지 배선만 담당한다.
+  // 에너지볼트(마법 공격)는 targetId 몬스터를 따라가고, reticle 이 그 몬스터 발밑에 조준 표시를 띄운다.
   const activePlayerProjectiles = new Map<
     string,
-    { state: PlayerProjectileState; sprite: Container }
+    {
+      state: PlayerProjectileState
+      sprite: Container
+      targetId?: string
+      reticle?: Container
+      // 마법 발사체: 명중 시 데미지와 스킬 효과(빙결·폭발)를 이 값으로 처리한다.
+      magic?: { skillId?: string; skillLevel: number; damage: number }
+      physicalDamage?: number
+      // 관통 화살: 이미 꿰뚫은 몬스터는 다시 맞지 않는다.
+      pierceHitIds?: Set<string>
+      // 독화살: 맞은 적을 중독시키는 스킬 레벨
+      poisonSkillLevel?: number
+    }
   >()
   let playerProjectileCounter = 0
+  // 명중 순간의 짧은 빛 번짐(에너지볼트). 수명이 끝나면 지운다.
+  const activeProjectileImpacts: Array<{
+    sprite: Container
+    startedAtMilliseconds: number
+  }> = []
   // 맵에 배치된 바닥 코인 더미(shadow_lower 레이어의 cave_prop_gold_* 타일).
   // CompositeTilemap 은 타일 단위 제거가 불가능해 개별 스프라이트로 분리해 둔다.
   const coinPileSprites = new Map<
@@ -1345,14 +1491,14 @@ export const createPixiTiledMapView = async ({
   let syncPlayerCharacterVisual: (nowMilliseconds?: number) => void = () => {}
   let isSceneTransitionPending = false
   let isDestroyed = false
-  const isBossMonsterScene = sceneIntroMessage === '동굴'
-  const monsterCombatStateOptions = isBossMonsterScene
-    ? {
-        hpMultiplier: 2,
-        damageMultiplier: 2
-      }
-    : undefined
-  const monsterRenderScaleMultiplier = isBossMonsterScene ? 2 : 1
+  // 일반 몬스터 체력 2배(세 번쯤 때려야 쓰러지게). 보스(이름이 '-보스'로 끝남)는 어느 맵에서든
+  // 체력 10배·피해 2배·크기 2배.
+  const getMonsterCombatStateOptions = (characterId: string) =>
+    isBossCharacterId(characterId)
+      ? { hpMultiplier: BOSS_HP_MULTIPLIER, damageMultiplier: BOSS_DAMAGE_MULTIPLIER }
+      : { hpMultiplier: MONSTER_HP_MULTIPLIER }
+  const getMonsterRenderScaleMultiplier = (characterId: string) =>
+    isBossCharacterId(characterId) ? BOSS_RENDER_SCALE_MULTIPLIER : 1
   const clearPressedInputState = () => {
     pressedDirections.clear()
     pressedActions.clear()
@@ -1458,13 +1604,33 @@ export const createPixiTiledMapView = async ({
   let playerAttackQueuedAfterRoll = false
   let playerAttackResolvedStartedAtMilliseconds: number | undefined
   let playerAttackReadyAtMilliseconds = 0
+  let playerMagicAttackReadyAtMilliseconds = 0
   let lastRuntimeErrorMessage: string | undefined
   let depthSortedLayer: Container | undefined
-  let characterStates = characters.map((character) => ({
-    ...character,
-    position: { ...character.position },
-    collisionSize: { ...character.collisionSize }
-  }))
+  // 이 몬스터(씬·외형)를 잡아야 하는 퀘스트가 아직 끝나지 않았는가 — 보스를 퀘스트를 받기
+  // 전에 잡아 버려 퀘스트를 깰 수 없게 되는 일을 막는다.
+  const isMonsterStillNeededByQuest = (monster: CharacterState): boolean =>
+    getAllQuestDefinitions().some((definition) => {
+      const status = getQuestProgress(currentQuestLog, definition.id).status
+      if (status === 'completed' || status === 'ready-to-turn-in') {
+        return false
+      }
+      return definition.objectives.some(
+        (objective) =>
+          objective.type === 'monster-defeat' &&
+          objective.target.sceneId === sceneId &&
+          objective.target.appearanceType === monster.appearanceType
+      )
+    })
+  // 쓰러뜨린 보스는 씬에 다시 놓지 않는다(엔딩 대사와 맞게 — 보스는 한 번만 잡는다).
+  const defeatedBossIdSet = new Set(defeatedBossIds)
+  let characterStates = characters
+    .filter((character) => !(isBossCharacterId(character.id) && defeatedBossIdSet.has(character.id)))
+    .map((character) => ({
+      ...character,
+      position: { ...character.position },
+      collisionSize: { ...character.collisionSize }
+    }))
   const initialPlayerCharacter = characterStates.find(
     (character) => character.id === PLAYER_CHARACTER_ID
   )
@@ -1587,7 +1753,7 @@ export const createPixiTiledMapView = async ({
     )
   }
   const triggerPlayerAttack = (now: number) => {
-    if (now < playerAttackReadyAtMilliseconds) {
+    if (now < playerAttackReadyAtMilliseconds || isPlayerCasting(now)) {
       return
     }
 
@@ -1603,21 +1769,27 @@ export const createPixiTiledMapView = async ({
       return
     }
 
-    // 원거리: 무기 스윙 모션은 재사용하되 슬래시 VFX·근접 판정은 만들지 않는다
-    // (suppressDamage 로 resolvePlayerAttackDamage 의 폴백 프로브 경로까지 봉인).
-    playerAttackStartedAtMilliseconds = now
-    playerAttackResolvedStartedAtMilliseconds = now
-    playerAttackFacing = playerCharacter.facing
-    spawnPlayerProjectile(
-      playerCharacter,
-      attackKind === 'bow' ? 'arrow' : 'energy-ball'
-    )
-    gameSoundEffects.play(attackKind === 'bow' ? 'playerRollWhoosh' : 'playerSkill')
+    // 원거리: 지팡이는 조준 에너지볼트, 활은 조준 화살. 동작(찌르기/쏘기)과 발사 시점은
+    // 시전 흐름(beginPlayerMagicCast)이 맡는다.
+    if (attackKind === 'magic') {
+      triggerPlayerStaffAttack(now)
+    } else {
+      triggerPlayerBowAttack(now)
+    }
   }
 
   // 발사체 비주얼은 전용 아트가 아직 없어 Graphics 로 그린다(골드 드랍 동전과 같은 방식).
   const createArrowProjectileSprite = (rotation: number): Container => {
     const container = new Container()
+    // LPC 화살 그림(오른쪽 향함)을 진행 방향으로 돌린다.
+    if (lpcArrowTexture.width > 1) {
+      const arrowSprite = new Sprite(lpcArrowTexture)
+      arrowSprite.anchor.set(0.75, 0.5)
+      arrowSprite.roundPixels = true
+      container.addChild(arrowSprite)
+      container.rotation = rotation
+      return container
+    }
     const arrow = new Graphics()
     // 오른쪽(+x)을 향해 그린 뒤 진행 방향으로 회전: 몸통 → 촉 → 깃 순서.
     arrow.rect(-7, -1, 11, 2)
@@ -1644,21 +1816,121 @@ export const createPixiTiledMapView = async ({
     return container
   }
 
+  // 에너지볼트: 꼬리가 긴 보랏빛 마력 화살. 오른쪽(+x)을 향해 그린 뒤 진행 방향으로 회전한다.
+  const createEnergyBoltProjectileSprite = (rotation: number): Container => {
+    const container = new Container()
+    const tail = new Graphics()
+    tail.poly([-18, 0, -4, -3.5, 4, 0, -4, 3.5])
+    tail.fill({ color: 0x9b7bff, alpha: 0.45 })
+    const glow = new Graphics()
+    glow.ellipse(1, 0, 9, 6)
+    glow.fill({ color: 0xb79bff, alpha: 0.4 })
+    const core = new Graphics()
+    core.ellipse(2, 0, 5, 2.6)
+    core.fill({ color: 0xf4efff })
+    core.stroke({ color: 0xc9b6ff, width: 1 })
+    container.addChild(tail, glow, core)
+    container.rotation = rotation
+    return container
+  }
+
+  // 조준 표시: 대상 몬스터 발밑의 납작한 링 + 네 귀퉁이 눈금.
+  const createMagicTargetReticle = (): Container => {
+    const container = new Container()
+    const ring = new Graphics()
+    ring.ellipse(0, 0, 15, 6)
+    ring.stroke({ color: 0xc9b6ff, width: 1.5, alpha: 0.9 })
+    for (const [x, y] of [[-19, 0], [19, 0], [0, -8], [0, 8]]) {
+      ring.circle(x, y, 1.5)
+      ring.fill({ color: 0xe9e0ff, alpha: 0.95 })
+    }
+    container.addChild(ring)
+    return container
+  }
+
+  const MAGIC_IMPACT_DURATION_MILLISECONDS = 260
+  // 명중 순간의 빛 번짐(색·크기는 마법마다).
+  const spawnMagicImpact = (x: number, y: number, now: number, color: number, radius = 10) => {
+    const container = new Container()
+    const burst = new Graphics()
+    burst.circle(0, 0, radius)
+    burst.fill({ color, alpha: 0.55 })
+    burst.circle(0, 0, radius * 0.4)
+    burst.fill({ color: 0xffffff })
+    container.addChild(burst)
+    container.position.set(x, y)
+    container.zIndex = Math.round(y + map.tileHeight * 2)
+    depthSortedLayer?.addChild(container)
+    activeProjectileImpacts.push({ sprite: container, startedAtMilliseconds: now })
+  }
+
+  // 얼음 화살: 하늘색 결정 화살촉 + 서리 꼬리.
+  const createIceBoltProjectileSprite = (rotation: number): Container => {
+    const container = new Container()
+    const tail = new Graphics()
+    tail.poly([-16, 0, -3, -3, 3, 0, -3, 3])
+    tail.fill({ color: 0x9fe0ff, alpha: 0.45 })
+    const shard = new Graphics()
+    shard.poly([-4, -3, 8, 0, -4, 3, -1, 0])
+    shard.fill({ color: 0xe8f9ff })
+    shard.stroke({ color: 0x7fcfff, width: 1 })
+    container.addChild(tail, shard)
+    container.rotation = rotation
+    return container
+  }
+
+  // 불덩이: 겹친 주황·노랑 원 + 뒤로 날리는 불꽃 꼬리.
+  const createFireballProjectileSprite = (rotation: number): Container => {
+    const container = new Container()
+    const tail = new Graphics()
+    tail.poly([-20, 0, -4, -6, 2, 0, -4, 6])
+    tail.fill({ color: 0xff6a2a, alpha: 0.5 })
+    const outer = new Graphics()
+    outer.circle(0, 0, 7.5)
+    outer.fill({ color: 0xff7a2e, alpha: 0.85 })
+    const inner = new Graphics()
+    inner.circle(1, 0, 4)
+    inner.fill({ color: 0xffe08a })
+    container.addChild(tail, outer, inner)
+    container.rotation = rotation
+    return container
+  }
+
   const spawnPlayerProjectile = (
     character: CharacterState,
-    kind: PlayerProjectileKind
+    kind: PlayerProjectileKind,
+    options: {
+      direction?: { x: number; y: number }
+      targetId?: string
+      magic?: { skillId?: string; skillLevel: number; damage: number }
+      origin?: { x: number; y: number }
+      // 활 스킬처럼 기본 공격력과 다른 물리 피해를 주는 화살
+      physicalDamage?: number
+      pierce?: boolean
+      poisonSkillLevel?: number
+    } = {}
   ) => {
-    const direction = getPlayerProjectileDirectionFromFacing(character.facing)
+    const direction =
+      options.direction ?? getPlayerProjectileDirectionFromFacing(character.facing)
     const state = createPlayerProjectile({
       kind,
-      originX: character.position.x * map.tileWidth + characterPixelWidth / 2,
-      originY: character.position.y * map.tileHeight + characterPixelHeight / 2,
+      originX:
+        options.origin?.x ?? character.position.x * map.tileWidth + characterPixelWidth / 2,
+      originY:
+        options.origin?.y ?? character.position.y * map.tileHeight + characterPixelHeight / 2,
       direction
     })
+    const rotation = getPlayerProjectileRotation(direction)
     const sprite =
       kind === 'arrow'
-        ? createArrowProjectileSprite(getPlayerProjectileRotation(direction))
-        : createEnergyBallProjectileSprite()
+        ? createArrowProjectileSprite(rotation)
+        : kind === 'energy-bolt'
+          ? createEnergyBoltProjectileSprite(rotation)
+          : kind === 'ice-bolt'
+            ? createIceBoltProjectileSprite(rotation)
+            : kind === 'fireball'
+              ? createFireballProjectileSprite(rotation)
+              : createEnergyBallProjectileSprite()
 
     playerProjectileCounter += 1
     const projectileId = `player-projectile-${playerProjectileCounter}`
@@ -1666,7 +1938,728 @@ export const createPixiTiledMapView = async ({
     sprite.position.set(state.x, state.y)
     sprite.zIndex = Math.round(state.y + map.tileHeight)
     depthSortedLayer?.addChild(sprite)
-    activePlayerProjectiles.set(projectileId, { state, sprite })
+
+    let reticle: Container | undefined
+    if (options.targetId) {
+      reticle = createMagicTargetReticle()
+      reticle.label = `${projectileId}:reticle`
+      depthSortedLayer?.addChild(reticle)
+    }
+
+    activePlayerProjectiles.set(projectileId, {
+      state,
+      sprite,
+      targetId: options.targetId,
+      reticle,
+      magic: options.magic,
+      physicalDamage: options.physicalDamage,
+      pierceHitIds: options.pierce ? new Set() : undefined,
+      poisonSkillLevel: options.poisonSkillLevel
+    })
+  }
+
+  // 대상 몬스터의 발밑(조준 링) 좌표.
+  const getMonsterReticlePosition = (monster: CharacterState) => {
+    const rect = createPixelCollisionRectFromCharacter(monster)
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height }
+  }
+
+  // ---------------------------------------------------------------- 마법(시전·마법 공격·마법 스킬)
+  // 마법 공격(D)과 마법 스킬은 마법 무기를 장착해야 쓸 수 있다. 시전은 공통 흐름:
+  //   대상 조준 → 지팡이를 들어 마법진을 펼치는 준비(windup) → 마법 발동 → 여운(recovery).
+  // 준비 중에는 걷기·구르기·다른 공격이 막힌다.
+  type PlayerMagicCast = {
+    startedAtMilliseconds: number
+    releaseAtMilliseconds: number
+    endAtMilliseconds: number
+    facing: CharacterState['facing']
+    color: number
+    effect: Container
+    circle: Graphics
+    orb: Graphics
+    release?: (now: number) => void
+    // 플레이어 LPC 동작(지팡이 시전 = thrust, 활 = shoot)
+    animation: LpcAnimationName
+    windupMilliseconds: number
+    recoveryMilliseconds: number
+  }
+  let playerMagicCast: PlayerMagicCast | undefined
+  const playerMagicSkillReadyAtMilliseconds = new Map<string, number>()
+  const PLAYER_MAGIC_SKILL_COOLDOWN_MILLISECONDS: Record<string, number> = {
+    [PLAYER_ICE_BOLT_SKILL_ID]: 900,
+    [PLAYER_FIREBALL_SKILL_ID]: 1400,
+    [PLAYER_CHAIN_LIGHTNING_SKILL_ID]: 1800
+  }
+  const MAGIC_COLOR = {
+    arcane: 0xb79bff,
+    ice: 0x8fd8ff,
+    fire: 0xff8a3d,
+    lightning: 0xfff2a0
+  } as const
+
+  const isPlayerCasting = (now: number): boolean =>
+    playerMagicCast !== undefined && now < playerMagicCast.releaseAtMilliseconds
+
+  const hasMagicWeaponEquipped = (): boolean =>
+    getEquippedPlayerWeaponAttackKind(currentPlayerEquipment) === 'magic'
+
+  const getLivingMonsterMagicPoints = () =>
+    characterStates
+      .filter(
+        (character) =>
+          isMonsterCharacter(character) && !isMonsterCombatStateDefeated(character.id)
+      )
+      .map((character) => ({ id: character.id, ...getCharacterPixelCenter(character) }))
+
+  const showPlayerMagicMessage = (message: string) => {
+    showCharacterDamageText(
+      PLAYER_CHARACTER_ID,
+      message,
+      EVADE_TEXT_DURATION_MILLISECONDS,
+      EVADE_TEXT_STYLE
+    )
+  }
+
+  // 시전 가능 여부 + 조준. 안 되면 이유를 띄우고 undefined.
+  const preparePlayerMagic = (now: number) => {
+    if (
+      playerProfile.hp.current === 0 ||
+      isSceneTransitionPending ||
+      isPlayerRolling(now) ||
+      playerMagicCast !== undefined
+    ) {
+      return undefined
+    }
+
+    if (!hasMagicWeaponEquipped()) {
+      showPlayerMagicMessage('마법 무기를 장착해야 한다')
+      return undefined
+    }
+
+    const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
+    const origin = getCharacterPixelCenter(playerCharacter)
+    const target = selectPlayerMagicTarget({
+      originX: origin.x,
+      originY: origin.y,
+      facing: playerCharacter.facing,
+      candidates: getLivingMonsterMagicPoints()
+    })
+
+    if (!target) {
+      showPlayerMagicMessage('주변에 대상이 없다')
+      return undefined
+    }
+
+    return { playerCharacter, origin, target }
+  }
+
+  // 마법진(발밑 회전 고리 + 룬 점) + 지팡이 끝 마력 구슬.
+  const createPlayerMagicCastEffect = (color: number) => {
+    const effect = new Container()
+    effect.label = 'player:magic-cast'
+    const circle = new Graphics()
+    circle.ellipse(0, 0, 22, 9)
+    circle.stroke({ color, width: 1.5, alpha: 0.9 })
+    circle.ellipse(0, 0, 15, 6)
+    circle.stroke({ color: 0xffffff, width: 1, alpha: 0.55 })
+    for (let index = 0; index < 6; index += 1) {
+      const angle = (Math.PI * 2 * index) / 6
+      circle.circle(Math.cos(angle) * 22, Math.sin(angle) * 9, 1.6)
+      circle.fill({ color: 0xffffff, alpha: 0.9 })
+    }
+    const orb = new Graphics()
+    orb.circle(0, 0, 6)
+    orb.fill({ color, alpha: 0.45 })
+    orb.circle(0, 0, 3)
+    orb.fill({ color: 0xffffff })
+    effect.addChild(circle, orb)
+    depthSortedLayer?.addChild(effect)
+    return { effect, circle, orb }
+  }
+
+  const beginPlayerMagicCast = (
+    now: number,
+    color: number,
+    origin: { x: number; y: number },
+    target: { x: number; y: number },
+    release: (now: number) => void,
+    options: {
+      animation?: LpcAnimationName
+      windupMilliseconds?: number
+      recoveryMilliseconds?: number
+      showMagicCircle?: boolean
+    } = {}
+  ) => {
+    const windup = options.windupMilliseconds ?? PLAYER_MAGIC_CAST_WINDUP_MILLISECONDS
+    const recovery = options.recoveryMilliseconds ?? PLAYER_MAGIC_CAST_RECOVERY_MILLISECONDS
+    // 대상 쪽으로 돌아선다 — 상하/좌우 중 더 큰 축.
+    const dx = target.x - origin.x
+    const dy = target.y - origin.y
+    const facing: CharacterState['facing'] =
+      Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down'
+    const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
+    characterStates = characterStates.map((character) =>
+      character.id === PLAYER_CHARACTER_ID ? { ...playerCharacter, facing } : character
+    )
+    const { effect, circle, orb } = createPlayerMagicCastEffect(color)
+    // 활 쏘기는 마법진·마력 구슬 없이 동작만.
+    effect.visible = options.showMagicCircle ?? true
+    playerMagicCast = {
+      startedAtMilliseconds: now,
+      releaseAtMilliseconds: now + windup,
+      endAtMilliseconds: now + windup + recovery,
+      facing,
+      color,
+      effect,
+      circle,
+      orb,
+      release,
+      animation: options.animation ?? 'thrust',
+      windupMilliseconds: windup,
+      recoveryMilliseconds: recovery
+    }
+    if (options.showMagicCircle ?? true) {
+      gameSoundEffects.play('playerSkill')
+    }
+    syncPlayerCharacterVisual(now)
+    updatePlayerMagicCast(now)
+  }
+
+  // 지팡이 끝(마력 구슬·발사 지점) — LPC 찌르기 동작의 발동 프레임에서 잰 지팡이 머리 위치
+  // (캐릭터 중심 기준 픽셀).
+  const STAFF_TIP_OFFSET_BY_FACING: Record<string, { x: number; y: number }> = {
+    up: { x: 18, y: -55 },
+    left: { x: -31, y: -35 },
+    down: { x: -3, y: 14 },
+    right: { x: 30, y: -35 }
+  }
+  const getPlayerStaffTipPosition = (facing: CharacterState['facing']) => {
+    const center = getCharacterPixelCenter(getCharacterStateById(PLAYER_CHARACTER_ID))
+    const offset = STAFF_TIP_OFFSET_BY_FACING[facing] ?? STAFF_TIP_OFFSET_BY_FACING.down
+    return { x: center.x + offset.x, y: center.y + offset.y }
+  }
+
+  function updatePlayerMagicCast(now: number) {
+    const cast = playerMagicCast
+
+    if (!cast) {
+      return
+    }
+
+    if (playerProfile.hp.current === 0 || now >= cast.endAtMilliseconds) {
+      cast.effect.removeFromParent()
+      cast.effect.destroy({ children: true })
+      playerMagicCast = undefined
+      return
+    }
+
+    if (cast.release && now >= cast.releaseAtMilliseconds) {
+      const release = cast.release
+      cast.release = undefined
+      release(now)
+    }
+
+    const feet = getMonsterReticlePosition(getCharacterStateById(PLAYER_CHARACTER_ID))
+    const windup = Math.min(1, (now - cast.startedAtMilliseconds) / cast.windupMilliseconds)
+    const fade =
+      now < cast.releaseAtMilliseconds
+        ? 1
+        : 1 - (now - cast.releaseAtMilliseconds) / cast.recoveryMilliseconds
+    // 마법진: 발밑에서 펼쳐지며 천천히 돈다(납작한 원이라 회전 대신 점들을 흐르게 보이도록 skew).
+    cast.circle.position.set(feet.x, feet.y - 2)
+    cast.circle.scale.set(0.4 + 0.6 * windup)
+    cast.circle.skew.set(0, Math.sin(now / 160) * 0.12)
+    cast.circle.alpha = 0.95 * fade
+    // 구슬: 모이며 커지다 발동 순간 가장 밝다.
+    const tip = getPlayerStaffTipPosition(cast.facing)
+    cast.orb.position.set(tip.x, tip.y)
+    cast.orb.scale.set(0.5 + windup * 0.9 + 0.08 * Math.sin(now / 40))
+    cast.orb.alpha = fade
+    cast.effect.zIndex = Math.round(feet.y + map.tileHeight)
+  }
+
+  const clearPlayerMagicCast = () => {
+    if (!playerMagicCast) {
+      return
+    }
+    playerMagicCast.effect.removeFromParent()
+    playerMagicCast.effect.destroy({ children: true })
+    playerMagicCast = undefined
+  }
+
+  // 발동 시점에 대상이 이미 쓰러졌으면 그 자리에서 다시 조준한다.
+  const resolveMagicReleaseTarget = (targetId: string) => {
+    const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
+    const origin = getCharacterPixelCenter(playerCharacter)
+    const living = getLivingMonsterMagicPoints()
+    const target =
+      living.find((point) => point.id === targetId) ??
+      selectPlayerMagicTarget({
+        originX: origin.x,
+        originY: origin.y,
+        facing: playerCharacter.facing,
+        candidates: living
+      })
+    return { playerCharacter, origin, target }
+  }
+
+  const fireHomingMagicProjectile = (
+    kind: PlayerProjectileKind,
+    targetId: string | undefined,
+    magic: { skillId?: string; skillLevel: number; damage: number }
+  ) => {
+    const { playerCharacter, origin, target } = targetId
+      ? resolveMagicReleaseTarget(targetId)
+      : { ...findPlayerAimTarget(), target: undefined }
+    const tip = getPlayerStaffTipPosition(playerCharacter.facing)
+    const direction = target
+      ? (() => {
+          const length = Math.hypot(target.x - origin.x, target.y - origin.y) || 1
+          return { x: (target.x - origin.x) / length, y: (target.y - origin.y) / length }
+        })()
+      : getPlayerProjectileDirectionFromFacing(playerCharacter.facing)
+    spawnPlayerProjectile(playerCharacter, kind, {
+      direction,
+      targetId: target?.id,
+      magic,
+      origin: tip
+    })
+  }
+
+  // 마법 공력 공통: 지력 마법 공격력 + 자체 위력 + 마법 무기 보너스(검·활 보너스는 안 더한다).
+  const getPlayerMagicDamage = (power: number): number =>
+    playerStatEffects.getPlayerMagicAttackPower(playerProfile) +
+    power +
+    (hasMagicWeaponEquipped() ? getEquippedPlayerAttackBonus(currentPlayerEquipment) : 0)
+
+  // 조준 대상(사거리 안 가장 가까운 몬스터). 없으면 undefined — 기본 공격은 그때 정면으로 쏜다.
+  const findPlayerAimTarget = () => {
+    const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
+    const origin = getCharacterPixelCenter(playerCharacter)
+    const target = selectPlayerMagicTarget({
+      originX: origin.x,
+      originY: origin.y,
+      facing: playerCharacter.facing,
+      candidates: getLivingMonsterMagicPoints()
+    })
+    return { playerCharacter, origin, target }
+  }
+
+  // 정면 한 칸 앞(조준 대상이 없을 때 돌아설 기준점).
+  const getPlayerFacingPoint = (playerCharacter: CharacterState, origin: { x: number; y: number }) => {
+    const direction = getPlayerProjectileDirectionFromFacing(playerCharacter.facing)
+    return { x: origin.x + direction.x * map.tileWidth, y: origin.y + direction.y * map.tileHeight }
+  }
+
+  // 지팡이 기본 공격: 지팡이를 찌르며 에너지볼트(MP 없음). 대상을 조준해 따라간다.
+  const triggerPlayerStaffAttack = (now: number) => {
+    if (now < playerMagicAttackReadyAtMilliseconds || playerMagicCast) {
+      return
+    }
+    const { origin, target, playerCharacter } = findPlayerAimTarget()
+    playerMagicAttackReadyAtMilliseconds = now + PLAYER_MAGIC_ATTACK_COOLDOWN_MILLISECONDS
+    beginPlayerMagicCast(
+      now,
+      MAGIC_COLOR.arcane,
+      origin,
+      target ?? getPlayerFacingPoint(playerCharacter, origin),
+      () =>
+        fireHomingMagicProjectile('energy-bolt', target?.id, {
+          skillLevel: 1,
+          damage: getPlayerMagicDamage(PLAYER_ENERGY_BOLT_BASE_POWER)
+        })
+    )
+  }
+
+  // 활 기본 공격: 시위를 당겨(쏘기 동작) 조준 화살을 날린다. 피해는 힘 기반 물리 공격력.
+  const PLAYER_BOW_DRAW_MILLISECONDS = 300
+  const PLAYER_BOW_RECOVERY_MILLISECONDS = 180
+  const triggerPlayerBowAttack = (now: number) => {
+    if (now < playerMagicAttackReadyAtMilliseconds || playerMagicCast) {
+      return
+    }
+    const { origin, target, playerCharacter } = findPlayerAimTarget()
+    playerMagicAttackReadyAtMilliseconds = now + PLAYER_MAGIC_ATTACK_COOLDOWN_MILLISECONDS
+    beginPlayerMagicCast(
+      now,
+      0xffffff,
+      origin,
+      target ?? getPlayerFacingPoint(playerCharacter, origin),
+      () => {
+        fireAimedArrow(target?.id)
+        gameSoundEffects.play('playerRollWhoosh')
+      },
+      {
+        animation: 'shoot',
+        windupMilliseconds: PLAYER_BOW_DRAW_MILLISECONDS,
+        recoveryMilliseconds: PLAYER_BOW_RECOVERY_MILLISECONDS,
+        showMagicCircle: false
+      }
+    )
+  }
+
+  const fireAimedArrow = (
+    targetId: string | undefined,
+    damageOverride?: number,
+    extra: { pierce?: boolean; poisonSkillLevel?: number } = {}
+  ) => {
+    const { playerCharacter, origin, target } = targetId
+      ? resolveMagicReleaseTarget(targetId)
+      : { ...findPlayerAimTarget(), target: undefined }
+    const direction = target
+      ? (() => {
+          const length = Math.hypot(target.x - origin.x, target.y - origin.y) || 1
+          return { x: (target.x - origin.x) / length, y: (target.y - origin.y) / length }
+        })()
+      : getPlayerProjectileDirectionFromFacing(playerCharacter.facing)
+    spawnPlayerProjectile(playerCharacter, 'arrow', {
+      direction,
+      // 관통 화살은 유도하지 않고 곧게 날아간다.
+      targetId: extra.pierce ? undefined : target?.id,
+      physicalDamage: damageOverride,
+      pierce: extra.pierce,
+      poisonSkillLevel: extra.poisonSkillLevel
+    })
+  }
+
+  // 마법 스킬(아이스 볼트·파이어볼·체인 라이트닝). MP 차감은 triggerPlayerSkillById 가 한다.
+  const triggerPlayerMagicSkill = (skillId: string, now: number): boolean => {
+    if (now < (playerMagicSkillReadyAtMilliseconds.get(skillId) ?? 0)) {
+      showPlayerMagicMessage('아직 준비되지 않았다')
+      return false
+    }
+
+    const prepared = preparePlayerMagic(now)
+
+    if (!prepared) {
+      return false
+    }
+
+    const skillLevel = getPlayerSkillLevelById(playerProfile, skillId) ?? 1
+    const damage = getPlayerMagicDamage(getPlayerSkillDamageById(playerProfile, skillId))
+    const targetId = prepared.target.id
+    playerMagicSkillReadyAtMilliseconds.set(
+      skillId,
+      now + (PLAYER_MAGIC_SKILL_COOLDOWN_MILLISECONDS[skillId] ?? 1000)
+    )
+
+    if (skillId === PLAYER_ICE_BOLT_SKILL_ID) {
+      beginPlayerMagicCast(now, MAGIC_COLOR.ice, prepared.origin, prepared.target, () =>
+        fireHomingMagicProjectile('ice-bolt', targetId, { skillId, skillLevel, damage })
+      )
+    } else if (skillId === PLAYER_FIREBALL_SKILL_ID) {
+      beginPlayerMagicCast(now, MAGIC_COLOR.fire, prepared.origin, prepared.target, () =>
+        fireHomingMagicProjectile('fireball', targetId, { skillId, skillLevel, damage })
+      )
+    } else {
+      beginPlayerMagicCast(now, MAGIC_COLOR.lightning, prepared.origin, prepared.target, (releaseNow) =>
+        releaseChainLightning(targetId, skillLevel, damage, releaseNow)
+      )
+    }
+
+    return true
+  }
+
+  // 활 스킬(멀티샷·관통 화살·독화살). 활이 필요하고, 쏘기 동작 끝에 화살이 나간다.
+  // MP 차감은 triggerPlayerSkillById 가 한다.
+  const PLAYER_BOW_SKILL_COOLDOWN_MILLISECONDS: Record<string, number> = {
+    [PLAYER_MULTI_SHOT_SKILL_ID]: 1200,
+    [PLAYER_PIERCING_ARROW_SKILL_ID]: 1500,
+    [PLAYER_POISON_ARROW_SKILL_ID]: 1000
+  }
+  const triggerPlayerBowSkill = (skillId: string, now: number): boolean => {
+    if (getEquippedPlayerWeaponAttackKind(currentPlayerEquipment) !== 'bow') {
+      showPlayerMagicMessage('활을 장착해야 한다')
+      return false
+    }
+    if (
+      playerProfile.hp.current === 0 ||
+      isSceneTransitionPending ||
+      isPlayerRolling(now) ||
+      playerMagicCast !== undefined
+    ) {
+      return false
+    }
+    if (now < (playerMagicSkillReadyAtMilliseconds.get(skillId) ?? 0)) {
+      showPlayerMagicMessage('아직 준비되지 않았다')
+      return false
+    }
+    const { origin, target, playerCharacter } = findPlayerAimTarget()
+    // 관통 화살은 대상이 없어도 정면으로 쏠 수 있다. 나머지는 조준 대상이 있어야 한다.
+    if (!target && skillId !== PLAYER_PIERCING_ARROW_SKILL_ID) {
+      showPlayerMagicMessage('주변에 대상이 없다')
+      return false
+    }
+    const skillLevel = getPlayerSkillLevelById(playerProfile, skillId) ?? 1
+    const damage = getPlayerBasicAttackDamage(false) + getPlayerSkillDamageById(playerProfile, skillId)
+    playerMagicSkillReadyAtMilliseconds.set(
+      skillId,
+      now + (PLAYER_BOW_SKILL_COOLDOWN_MILLISECONDS[skillId] ?? 1000)
+    )
+    const aimPoint = target ?? getPlayerFacingPoint(playerCharacter, origin)
+    beginPlayerMagicCast(
+      now,
+      0xffffff,
+      origin,
+      aimPoint,
+      () => {
+        gameSoundEffects.play('playerRollWhoosh')
+        if (skillId === PLAYER_MULTI_SHOT_SKILL_ID) {
+          const releaseOrigin = getCharacterPixelCenter(getCharacterStateById(PLAYER_CHARACTER_ID))
+          const targets = selectMultiShotTargets(
+            releaseOrigin,
+            getLivingMonsterMagicPoints(),
+            getMultiShotArrowCount(skillLevel),
+            PLAYER_MAGIC_ATTACK_TARGET_RANGE_PIXELS
+          )
+          for (const multiTarget of targets) {
+            fireAimedArrow(multiTarget.id, Math.max(1, Math.round(damage * MULTI_SHOT_DAMAGE_RATIO)))
+          }
+        } else if (skillId === PLAYER_PIERCING_ARROW_SKILL_ID) {
+          fireAimedArrow(target?.id, damage, { pierce: true })
+        } else {
+          fireAimedArrow(target?.id, damage, { poisonSkillLevel: skillLevel })
+        }
+      },
+      {
+        animation: 'shoot',
+        windupMilliseconds: PLAYER_BOW_DRAW_MILLISECONDS,
+        recoveryMilliseconds: PLAYER_BOW_RECOVERY_MILLISECONDS,
+        showMagicCircle: false
+      }
+    )
+    return true
+  }
+
+  // ---- 체인 라이트닝: 즉발. 지팡이 끝 → 첫 대상 → 가까운 적들로 번개가 튄다 ----
+  const activeLightningArcs: Array<{ graphics: Graphics; startedAtMilliseconds: number }> = []
+  const LIGHTNING_ARC_DURATION_MILLISECONDS = 280
+
+  const drawLightningArc = (
+    graphics: Graphics,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    seed: number
+  ) => {
+    // 끝점 사이를 8마디로 나눠 직각 방향으로 흔든 지그재그. seed 로 매번 모양이 달라진다.
+    const points: number[] = []
+    const dx = to.x - from.x
+    const dy = to.y - from.y
+    const length = Math.hypot(dx, dy) || 1
+    const nx = -dy / length
+    const ny = dx / length
+    for (let index = 0; index <= 8; index += 1) {
+      const t = index / 8
+      const jitter =
+        index === 0 || index === 8 ? 0 : Math.sin(seed * 12.9898 + index * 78.233) * 7
+      points.push(from.x + dx * t + nx * jitter, from.y + dy * t + ny * jitter)
+    }
+    graphics.poly(points, false)
+    graphics.stroke({ color: 0x8fb4ff, width: 4, alpha: 0.55 })
+    graphics.poly(points, false)
+    graphics.stroke({ color: 0xfffbe0, width: 1.6, alpha: 1 })
+  }
+
+  function releaseChainLightning(
+    targetId: string,
+    skillLevel: number,
+    damage: number,
+    now: number
+  ) {
+    const { playerCharacter, target } = resolveMagicReleaseTarget(targetId)
+
+    if (!target) {
+      return
+    }
+
+    const chain = selectChainLightningTargets({
+      first: target,
+      candidates: getLivingMonsterMagicPoints(),
+      jumpCount: getChainLightningJumpCount(skillLevel)
+    })
+    const graphics = new Graphics()
+    graphics.label = 'player:chain-lightning'
+    let previous = getPlayerStaffTipPosition(playerCharacter.facing)
+    chain.forEach((point, index) => {
+      drawLightningArc(graphics, previous, point, now + index)
+      previous = point
+    })
+    graphics.zIndex = Math.round(Math.max(...chain.map((point) => point.y)) + map.tileHeight * 2)
+    depthSortedLayer?.addChild(graphics)
+    activeLightningArcs.push({ graphics, startedAtMilliseconds: now })
+
+    chain.forEach((point, index) => {
+      applyDamageToMonster(point.id, getChainLightningHitDamage(damage, index), now)
+      spawnMagicImpact(point.x, point.y, now, MAGIC_COLOR.lightning, 8)
+    })
+  }
+
+  // ---- 몬스터 상태 이상: 빙결(이동·공격 정지) / 화상(주기 피해) ----
+  type MonsterMagicStatus = {
+    frozenUntilMilliseconds: number
+    // 지속 피해(화상·중독). 하나만 걸린다 — 새로 걸리면 덮어쓴다.
+    dotKind: 'burn' | 'poison'
+    burnTicksLeft: number
+    burnNextTickAtMilliseconds: number
+    burnDamagePerTick: number
+    burnIntervalMilliseconds: number
+    frost?: Graphics
+  }
+  const monsterMagicStatuses = new Map<string, MonsterMagicStatus>()
+
+  const getMonsterMagicStatus = (monsterId: string): MonsterMagicStatus => {
+    let status = monsterMagicStatuses.get(monsterId)
+    if (!status) {
+      status = {
+        frozenUntilMilliseconds: 0,
+        dotKind: 'burn',
+        burnTicksLeft: 0,
+        burnNextTickAtMilliseconds: 0,
+        burnDamagePerTick: 0,
+        burnIntervalMilliseconds: FIREBALL_BURN_TICK_INTERVAL_MILLISECONDS
+      }
+      monsterMagicStatuses.set(monsterId, status)
+    }
+    return status
+  }
+
+  const isMonsterFrozen = (monsterId: string, now: number): boolean =>
+    (monsterMagicStatuses.get(monsterId)?.frozenUntilMilliseconds ?? 0) > now
+
+  const freezeMonster = (monsterId: string, durationMilliseconds: number, now: number) => {
+    const status = getMonsterMagicStatus(monsterId)
+    status.frozenUntilMilliseconds = Math.max(
+      status.frozenUntilMilliseconds,
+      now + durationMilliseconds
+    )
+    // 얼면 불은 꺼진다.
+    status.burnTicksLeft = 0
+    showCharacterDamageText(monsterId, '빙결!', EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE)
+  }
+
+  const applyMonsterDamageOverTime = (
+    monsterId: string,
+    kind: MonsterMagicStatus['dotKind'],
+    dot: { damagePerTick: number; ticks: number; intervalMilliseconds: number },
+    now: number
+  ) => {
+    const status = getMonsterMagicStatus(monsterId)
+    status.dotKind = kind
+    status.burnTicksLeft = dot.ticks
+    status.burnDamagePerTick = dot.damagePerTick
+    status.burnIntervalMilliseconds = dot.intervalMilliseconds
+    status.burnNextTickAtMilliseconds = now + dot.intervalMilliseconds
+    if (kind === 'burn') {
+      // 불이 붙으면 얼음은 녹는다.
+      status.frozenUntilMilliseconds = Math.min(status.frozenUntilMilliseconds, now)
+    } else {
+      showCharacterDamageText(monsterId, '중독!', EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE)
+    }
+  }
+
+  const igniteMonster = (monsterId: string, damagePerTick: number, now: number) =>
+    applyMonsterDamageOverTime(monsterId, 'burn', {
+      damagePerTick,
+      ticks: FIREBALL_BURN_TICK_COUNT,
+      intervalMilliseconds: FIREBALL_BURN_TICK_INTERVAL_MILLISECONDS
+    }, now)
+
+  const updateMonsterMagicStatuses = (now: number) => {
+    for (const [monsterId, status] of monsterMagicStatuses) {
+      const node = renderedCharacters.get(monsterId)
+      const defeated = isMonsterCombatStateDefeated(monsterId)
+      const frozen = !defeated && status.frozenUntilMilliseconds > now
+
+      if (!defeated && status.burnTicksLeft > 0 && now >= status.burnNextTickAtMilliseconds) {
+        status.burnTicksLeft -= 1
+        status.burnNextTickAtMilliseconds = now + status.burnIntervalMilliseconds
+        applyDamageToMonster(monsterId, status.burnDamagePerTick, now)
+        const center = getCharacterPixelCenter(getCharacterStateById(monsterId))
+        spawnMagicImpact(
+          center.x,
+          center.y - 4,
+          now,
+          status.dotKind === 'poison' ? 0x8fe36a : MAGIC_COLOR.fire,
+          6
+        )
+      }
+
+      const burning = !isMonsterCombatStateDefeated(monsterId) && status.burnTicksLeft > 0
+
+      if (node) {
+        node.sprite.tint = frozen
+          ? 0x9fdcff
+          : burning
+            ? status.dotKind === 'poison'
+              ? 0xb8f08a
+              : 0xffb488
+            : 0xffffff
+        const animated = monsterPigAnimatedSprites.get(monsterId)
+        if (frozen) {
+          animated?.stop()
+        } else if (animated && !animated.playing && !defeated) {
+          animated.play()
+        }
+      }
+
+      // 얼음 껍질: 몬스터 발밑~몸통을 덮는 반투명 결정.
+      if (frozen && !status.frost) {
+        const frost = new Graphics()
+        frost.roundRect(-14, -26, 28, 28, 6)
+        frost.fill({ color: 0xcdeeff, alpha: 0.32 })
+        frost.stroke({ color: 0xe8f8ff, width: 1, alpha: 0.8 })
+        frost.poly([-9, -22, -4, -12, -11, -8])
+        frost.fill({ color: 0xffffff, alpha: 0.5 })
+        frost.label = `${monsterId}:frost`
+        depthSortedLayer?.addChild(frost)
+        status.frost = frost
+      }
+      if (status.frost) {
+        if (!frozen) {
+          status.frost.removeFromParent()
+          status.frost.destroy()
+          status.frost = undefined
+        } else {
+          const feet = getMonsterReticlePosition(getCharacterStateById(monsterId))
+          status.frost.position.set(feet.x, feet.y)
+          status.frost.zIndex = Math.round(feet.y + map.tileHeight + 1)
+        }
+      }
+
+      if (defeated || (!frozen && !burning && !status.frost)) {
+        if (node) {
+          node.sprite.tint = 0xffffff
+        }
+        monsterMagicStatuses.delete(monsterId)
+      }
+    }
+
+    for (let index = activeLightningArcs.length - 1; index >= 0; index -= 1) {
+      const arc = activeLightningArcs[index]
+      const progress = (now - arc.startedAtMilliseconds) / LIGHTNING_ARC_DURATION_MILLISECONDS
+      if (progress >= 1) {
+        arc.graphics.removeFromParent()
+        arc.graphics.destroy()
+        activeLightningArcs.splice(index, 1)
+        continue
+      }
+      // 번쩍임: 처음엔 밝게 깜빡이다 사라진다.
+      arc.graphics.alpha = (1 - progress) * (0.7 + 0.3 * Math.sin(now / 18))
+    }
+  }
+
+  const clearMagicEffects = () => {
+    clearPlayerMagicCast()
+    for (const arc of activeLightningArcs) {
+      arc.graphics.removeFromParent()
+      arc.graphics.destroy()
+    }
+    activeLightningArcs.length = 0
+    for (const status of monsterMagicStatuses.values()) {
+      status.frost?.removeFromParent()
+      status.frost?.destroy()
+    }
+    monsterMagicStatuses.clear()
   }
 
   // 기본 공격 데미지 = 스탯 공격력 + 장비 보너스. 스탯 항은 공격 종류로 갈린다:
@@ -1677,9 +2670,107 @@ export const createPixiTiledMapView = async ({
       : playerStatEffects.getPlayerPhysicalAttackPower(playerProfile)) +
     getEquippedPlayerAttackBonus(currentPlayerEquipment)
 
+  // 마법 발사체 명중: 데미지 + 종류별 효과(빙결 / 폭발·화상).
+  const applyMagicProjectileHit = (
+    state: PlayerProjectileState,
+    magic: { skillId?: string; skillLevel: number; damage: number },
+    targetId: string,
+    now: number
+  ) => {
+    applyDamageToMonster(targetId, magic.damage, now)
+
+    if (state.kind === 'ice-bolt') {
+      spawnMagicImpact(state.x, state.y, now, MAGIC_COLOR.ice, 10)
+      if (!isMonsterCombatStateDefeated(targetId)) {
+        freezeMonster(targetId, getIceBoltFreezeDurationMilliseconds(magic.skillLevel), now)
+      }
+      return
+    }
+
+    if (state.kind === 'fireball') {
+      spawnMagicImpact(state.x, state.y, now, MAGIC_COLOR.fire, 22)
+      const burn = getFireballBurnDamagePerTick(magic.skillLevel)
+      if (!isMonsterCombatStateDefeated(targetId)) {
+        igniteMonster(targetId, burn, now)
+      }
+      for (const splash of selectFireballSplashTargets(
+        { x: state.x, y: state.y },
+        targetId,
+        getLivingMonsterMagicPoints()
+      )) {
+        applyDamageToMonster(
+          splash.id,
+          Math.max(1, Math.round(magic.damage * FIREBALL_SPLASH_DAMAGE_RATIO)),
+          now
+        )
+        if (!isMonsterCombatStateDefeated(splash.id)) {
+          igniteMonster(splash.id, burn, now)
+        }
+      }
+      return
+    }
+
+    spawnMagicImpact(state.x, state.y, now, MAGIC_COLOR.arcane, 10)
+  }
+
+  const removePlayerProjectile = (projectileId: string) => {
+    const projectile = activePlayerProjectiles.get(projectileId)
+    if (!projectile) {
+      return
+    }
+    projectile.sprite.removeFromParent()
+    projectile.sprite.destroy({ children: true })
+    projectile.reticle?.removeFromParent()
+    projectile.reticle?.destroy({ children: true })
+    activePlayerProjectiles.delete(projectileId)
+  }
+
   // 매 프레임: 발사체 이동 → 벽/사거리/몬스터 판정 → 스프라이트 동기화.
   const updatePlayerProjectiles = (now: number, deltaMilliseconds: number) => {
+    for (let index = activeProjectileImpacts.length - 1; index >= 0; index -= 1) {
+      const impact = activeProjectileImpacts[index]
+      const progress =
+        (now - impact.startedAtMilliseconds) / MAGIC_IMPACT_DURATION_MILLISECONDS
+      if (progress >= 1) {
+        impact.sprite.removeFromParent()
+        impact.sprite.destroy({ children: true })
+        activeProjectileImpacts.splice(index, 1)
+        continue
+      }
+      impact.sprite.scale.set(1 + progress * 1.6)
+      impact.sprite.alpha = 1 - progress
+    }
+
     for (const [projectileId, projectile] of activePlayerProjectiles) {
+      // 유도: 대상이 살아 있으면 그쪽으로 꺾고 조준 링을 따라 붙인다. 쓰러지면 직진.
+      if (projectile.targetId) {
+        const target = characterStates.find(
+          (character) => character.id === projectile.targetId
+        )
+
+        if (target && !isMonsterCombatStateDefeated(target.id)) {
+          const center = getCharacterPixelCenter(target)
+          projectile.state = steerPlayerProjectileToward(
+            projectile.state,
+            center.x,
+            center.y,
+            deltaMilliseconds
+          )
+          const reticlePosition = getMonsterReticlePosition(target)
+          projectile.reticle?.position.set(reticlePosition.x, reticlePosition.y)
+          if (projectile.reticle) {
+            projectile.reticle.zIndex = Math.round(reticlePosition.y - 1)
+            projectile.reticle.rotation = 0
+            projectile.reticle.alpha = 0.75 + 0.25 * Math.sin(now / 90)
+          }
+        } else {
+          projectile.targetId = undefined
+          projectile.reticle?.removeFromParent()
+          projectile.reticle?.destroy({ children: true })
+          projectile.reticle = undefined
+        }
+      }
+
       const { next, expired } = stepPlayerProjectile(
         projectile.state,
         deltaMilliseconds
@@ -1699,30 +2790,68 @@ export const createPixiTiledMapView = async ({
         finished = true
       }
 
-      if (!finished) {
+      if (!finished && projectile.pierceHitIds) {
+        // 관통: 겹친 몬스터를 모두 맞히고 계속 날아간다.
+        for (const monster of resolveMonstersInCollisionRect(getPlayerProjectileHitRect(next))) {
+          if (projectile.pierceHitIds.has(monster.id)) {
+            continue
+          }
+          projectile.pierceHitIds.add(monster.id)
+          applyDamageToMonster(
+            monster.id,
+            projectile.physicalDamage ?? getPlayerBasicAttackDamage(false),
+            now
+          )
+          spawnMagicImpact(next.x, next.y, now, 0xcfe8ff, 7)
+        }
+        if (projectile.pierceHitIds.size >= PIERCING_ARROW_MAX_HITS) {
+          finished = true
+        }
+      } else if (!finished) {
         const targetMonster = resolveClosestMonsterInCollisionRect(
           getPlayerProjectileHitRect(next)
         )
 
         if (targetMonster) {
-          applyDamageToMonster(
-            targetMonster.id,
-            getPlayerBasicAttackDamage(next.kind === 'energy-ball'),
-            now
-          )
+          if (projectile.magic) {
+            applyMagicProjectileHit(next, projectile.magic, targetMonster.id, now)
+          } else {
+            applyDamageToMonster(
+              targetMonster.id,
+              projectile.physicalDamage ??
+                getPlayerBasicAttackDamage(next.kind === 'energy-ball'),
+              now
+            )
+            if (
+              projectile.poisonSkillLevel !== undefined &&
+              !isMonsterCombatStateDefeated(targetMonster.id)
+            ) {
+              applyMonsterDamageOverTime(targetMonster.id, 'poison', {
+                damagePerTick: getPoisonDamagePerTick(projectile.poisonSkillLevel),
+                ticks: POISON_TICK_COUNT,
+                intervalMilliseconds: POISON_TICK_INTERVAL_MILLISECONDS
+              }, now)
+            }
+          }
           finished = true
         }
       }
 
       if (finished) {
-        projectile.sprite.removeFromParent()
-        projectile.sprite.destroy({ children: true })
-        activePlayerProjectiles.delete(projectileId)
+        removePlayerProjectile(projectileId)
         continue
       }
 
       projectile.sprite.position.set(next.x, next.y)
       projectile.sprite.zIndex = Math.round(next.y + map.tileHeight)
+
+      if (next.kind === 'energy-bolt' || next.kind === 'ice-bolt' || next.kind === 'fireball') {
+        projectile.sprite.rotation = getPlayerProjectileRotation(next.direction)
+        projectile.sprite.alpha = 0.85 + 0.15 * Math.sin(next.traveledPixels / 6)
+      } else if (next.kind === 'arrow') {
+        // 조준 화살도 꺾이며 날아가므로 진행 방향으로 계속 돌린다.
+        projectile.sprite.rotation = getPlayerProjectileRotation(next.direction)
+      }
 
       if (next.kind === 'energy-ball') {
         // 에너지볼만 은은한 맥동 — 진행 거리 기반이라 일시정지 중에는 멈춘다.
@@ -1733,11 +2862,14 @@ export const createPixiTiledMapView = async ({
   }
 
   const clearPlayerProjectiles = () => {
-    for (const projectile of activePlayerProjectiles.values()) {
-      projectile.sprite.removeFromParent()
-      projectile.sprite.destroy({ children: true })
+    for (const projectileId of [...activePlayerProjectiles.keys()]) {
+      removePlayerProjectile(projectileId)
     }
-    activePlayerProjectiles.clear()
+    for (const impact of activeProjectileImpacts) {
+      impact.sprite.removeFromParent()
+      impact.sprite.destroy({ children: true })
+    }
+    activeProjectileImpacts.length = 0
   }
   const triggerPlayerRoll = (
     vector: PlayerRollVector,
@@ -1749,6 +2881,7 @@ export const createPixiTiledMapView = async ({
       !normalizedVector ||
       playerProfile.hp.current === 0 ||
       isSceneTransitionPending ||
+      isPlayerCasting(now) ||
       now < playerRollReadyAtMilliseconds
     ) {
       return false
@@ -1957,7 +3090,29 @@ export const createPixiTiledMapView = async ({
         didTrigger = triggerPlayerProtectSkill(now)
         break
       case PLAYER_SMASH_SKILL_ID:
+        // 스매시는 검 계열(근접 무기) 스킬 — 지팡이·활로는 쓸 수 없다.
+        if (getEquippedPlayerWeaponAttackKind(currentPlayerEquipment) !== 'melee') {
+          showPlayerMagicMessage('근접 무기를 들어야 한다')
+          return false
+        }
         didTrigger = triggerPlayerSmashSkill(now)
+        break
+      case PLAYER_MULTI_SHOT_SKILL_ID:
+      case PLAYER_PIERCING_ARROW_SKILL_ID:
+      case PLAYER_POISON_ARROW_SKILL_ID:
+        if (!triggerPlayerBowSkill(skillId, now)) {
+          return false
+        }
+        didTrigger = true
+        break
+      case PLAYER_ICE_BOLT_SKILL_ID:
+      case PLAYER_FIREBALL_SKILL_ID:
+      case PLAYER_CHAIN_LIGHTNING_SKILL_ID:
+        // 실패 이유(무기·대상·쿨다운)는 마법 쪽에서 이미 띄웠다 — 공통 '준비 안 됨' 문구를 생략.
+        if (!triggerPlayerMagicSkill(skillId, now)) {
+          return false
+        }
+        didTrigger = true
         break
       case PLAYER_DASH_SKILL_ID: {
         // 돌진: 이동 입력 방향(없으면 바라보는 방향)으로 구르고, 도착 즉시 벤다.
@@ -2471,9 +3626,14 @@ export const createPixiTiledMapView = async ({
       gameSoundEffects.play('levelUp')
       showCharacterDamageText(
         PLAYER_CHARACTER_ID,
-        nextPlayerProgress.levelsGained > 1
-          ? `레벨 업 x${nextPlayerProgress.levelsGained}!`
-          : '레벨 업!',
+        // 능력치 분배 안내: 무기에 맞는 능력치(검·활 = 힘, 지팡이 = 지력)를 올리도록 키를 알려 준다.
+        `${
+          nextPlayerProgress.levelsGained > 1
+            ? `레벨 업 x${nextPlayerProgress.levelsGained}!`
+            : '레벨 업!'
+        }\n능력치 포인트 +${playerProfile.statPoints} (${getPlayerControlBindingDisplayText(
+          currentPlayerControlBindings.stat
+        )}키)`,
         DAMAGE_TEXT_DURATION_MILLISECONDS,
         LEVEL_UP_TEXT_STYLE
       )
@@ -2648,6 +3808,20 @@ export const createPixiTiledMapView = async ({
     syncPlayerUiOverlays()
   }
 
+  // 대화창 초상화: 일러스트가 있으면 그것, 없으면 그 NPC 의 LPC 전신을 픽셀 그대로 키워 쓴다.
+  const getNpcDialoguePortrait = (
+    characterId: string
+  ): { portraitUrl: string; pixelArtPortrait: boolean } => {
+    const illustration = NPC_PORTRAITS[characterId]
+    if (illustration) {
+      return { portraitUrl: illustration, pixelArtPortrait: false }
+    }
+    const character = characterStates.find((candidate) => candidate.id === characterId)
+    const key = character ? getLpcNpcSheetKey(character.id, character.appearanceType) : undefined
+    const fullBody = key ? getLpcNpcFullBodyUrl(key) : undefined
+    return { portraitUrl: fullBody ?? '', pixelArtPortrait: fullBody !== undefined }
+  }
+
   const startScenarioForNpc = (npcCharacter: CharacterState) => {
     const scenario = getScenarioForNpc(npcCharacter.id)
     if (!scenario) {
@@ -2664,7 +3838,7 @@ export const createPixiTiledMapView = async ({
             (character) => character.id === request.speaker
           )
           npcDialogueOverlay.show({
-            portraitUrl: NPC_PORTRAITS[request.speaker] ?? '',
+            ...getNpcDialoguePortrait(request.speaker),
             name: speakerCharacter?.displayText ?? request.speaker,
             lines: request.lines,
             choices: request.choices,
@@ -2819,11 +3993,16 @@ export const createPixiTiledMapView = async ({
         setQuestLogWithObjectiveFeedback(
           recordTalkQuestProgress(currentQuestLog, targetCharacter.id)
         )
+        // 대사를 다 넘긴 뒤에 상점을 연다(대화창과 상점이 겹치지 않게).
+        // 대화 목표의 상대 NPC(퀘스트를 준 사람이 아님)는 자기 대사를 말한다.
         showQuestDialogue(
           targetCharacter.id,
-          interaction.definition.activeDialogueLines
+          targetCharacter.id !== interaction.definition.giverNpcId &&
+            interaction.definition.talkTargetDialogueLines
+            ? interaction.definition.talkTargetDialogueLines
+            : interaction.definition.activeDialogueLines,
+          () => maybeOpenQuestNpcShop(targetCharacter.id)
         )
-        maybeOpenQuestNpcShop(targetCharacter.id)
         return
       }
       case 'complete': {
@@ -2841,14 +4020,78 @@ export const createPixiTiledMapView = async ({
       }
     }
   }
-  const showQuestDialogue = (characterId: string, lines: string[]) => {
-    showCharacterMessage(
-      characterId,
-      formatQuestTextLines(lines, {
-        playerName: playerProfile.name
-      }).join('\n'),
-      QUEST_DIALOGUE_DURATION_MILLISECONDS
+  // 도착만 하면 되는 퀘스트(autoTurnInOnSceneEnter)는 이 씬에 들어온 순간 완료하고, 준 사람이
+  // 다음 퀘스트를 바로 맡긴다. 준 사람은 이 씬에 없으므로 멀리서 전하는 말로 대화창에 띄운다.
+  const runSceneEnterAutoTurnIns = () => {
+    const readyDefinition = getVisibleQuestDefinitions().find(
+      (definition) =>
+        definition.autoTurnInOnSceneEnter &&
+        getQuestProgress(currentQuestLog, definition.id).status === 'ready-to-turn-in'
     )
+
+    if (!readyDefinition) {
+      return
+    }
+
+    const result = completeQuest(currentQuestLog, readyDefinition.id)
+    let nextQuestLog = result.nextQuestLog
+    const lines = [...readyDefinition.completionDialogueLines]
+    const followUp = getNextQuestInteractionForNpc(nextQuestLog, readyDefinition.giverNpcId)
+
+    if (followUp?.action === 'start') {
+      nextQuestLog = startQuest(nextQuestLog, followUp.questId)
+      lines.push(...followUp.definition.startDialogueLines)
+    }
+
+    setQuestLog(nextQuestLog)
+    grantQuestCompletionRewards(result)
+    showRemoteQuestGiverDialogue(readyDefinition, lines)
+  }
+  // 의뢰인이 이 씬에 없어도(멀리서 전하는 말, 퀘스트 창의 대사 다시 보기) 의뢰인 그림으로 대화창을 띄운다.
+  const showRemoteQuestGiverDialogue = (definition: QuestDefinition, lines: string[]) => {
+    const giverNpcId = definition.giverNpcId
+    const giverCharacter = characterStates.find((character) => character.id === giverNpcId)
+    const sheetKey = getLpcNpcSheetKey(
+      giverNpcId,
+      giverCharacter?.appearanceType ?? QUEST_GIVER_PORTRAIT_KEY_BY_NPC_ID[giverNpcId] ?? ''
+    )
+    const fullBody = sheetKey ? getLpcNpcFullBodyUrl(sheetKey) : undefined
+
+    npcDialogueOverlay.show({
+      portraitUrl: NPC_PORTRAITS[giverNpcId] ?? fullBody ?? '',
+      pixelArtPortrait: !NPC_PORTRAITS[giverNpcId] && fullBody !== undefined,
+      name: definition.giverName,
+      lines: formatQuestTextLines(lines, { playerName: playerProfile.name })
+    })
+  }
+  // 퀘스트 대사는 클릭/Space/Enter 로 한 줄씩 넘기는 대화창으로 보여 준다(예전 말풍선은
+  // 3.6초 만에 사라져 읽을 수 없었다). 다른 대화가 열려 있으면 말풍선으로 대신한다.
+  const showQuestDialogue = (
+    characterId: string,
+    lines: string[],
+    onComplete?: () => void
+  ) => {
+    const formattedLines = formatQuestTextLines(lines, {
+      playerName: playerProfile.name
+    })
+
+    if (npcDialogueOverlay.isOpen()) {
+      showCharacterMessage(
+        characterId,
+        formattedLines.join('\n'),
+        QUEST_DIALOGUE_DURATION_MILLISECONDS
+      )
+      onComplete?.()
+      return
+    }
+
+    hideCharacterMessage(characterId)
+    npcDialogueOverlay.show({
+      ...getNpcDialoguePortrait(characterId),
+      name: getCharacterStateById(characterId).displayText ?? '',
+      lines: formattedLines,
+      onComplete
+    })
   }
   const maybeOpenQuestNpcShop = (npcId: string) => {
     if (npcId === BLACKSMITH_SHOP_NPC_ID) {
@@ -2856,7 +4099,7 @@ export const createPixiTiledMapView = async ({
       return
     }
 
-    if (npcId === POTION_SHOP_NPC_ID) {
+    if (POTION_SHOP_NPC_IDS.has(npcId)) {
       setPotionShopOpen(true)
     }
   }
@@ -3006,7 +4249,14 @@ export const createPixiTiledMapView = async ({
     getQuestLog: () => currentQuestLog,
     getPlayerName: () => playerProfile.name,
     onRequestOpenChange: setQuestLogOpen,
-    onQuestLogChange: setQuestLog
+    onQuestLogChange: setQuestLog,
+    onRequestReplayDialogue: (definition) => {
+      setQuestLogOpen(false)
+      showRemoteQuestGiverDialogue(definition, [
+        ...definition.startDialogueLines,
+        ...definition.completionDialogueLines
+      ])
+    }
   })
   questTrackerOverlay = createQuestTrackerOverlay({
     mountElement,
@@ -3109,6 +4359,46 @@ export const createPixiTiledMapView = async ({
   const caveEntranceTexture = await loadTextureSafe(
     imageUrls['cave1-visible.png']
   )
+  // 플레이어 장비 레이어 시트: 장비를 바꾸면 그때 필요한 시트만 불러 온다.
+  const lpcSheetCache = createLpcSheetCache()
+  const lpcArrowTexture = await loadLpcArrowTexture()
+  const getPlayerLook = (): LpcPlayerLook => {
+    const itemId = (slotId: string) =>
+      currentPlayerEquipment.slots.find((slot) => slot.id === slotId)?.item?.id
+    return {
+      weaponId: itemId('weapon'),
+      armorId: itemId('armor'),
+      hatId: itemId('hat'),
+      bootsId: itemId('boots')
+    }
+  }
+  {
+    // 첫 화면에서 맨몸이 깜빡이지 않게 현재 장비의 걷기·공격 시트를 미리 불러 둔다.
+    const look = getPlayerLook()
+    const preload: Array<[string, LpcAnimationName]> = []
+    for (const animation of ['walk', getLpcPlayerAttackAnimation(look.weaponId)] as const) {
+      for (const file of Object.values(getLpcPlayerLayerFiles(look, animation))) {
+        if (file) {
+          preload.push([file, animation])
+        }
+      }
+    }
+    await lpcSheetCache.preload(preload)
+  }
+  const lpcNpcSheets = await loadLpcNpcSheets(
+    characterStates.flatMap((character) => [`id:${character.id}`, character.appearanceType])
+  )
+  const getLpcNpcSheetsFor = (character: CharacterState) => {
+    const key = getLpcNpcSheetKey(character.id, character.appearanceType)
+    return key ? lpcNpcSheets.get(key) : undefined
+  }
+  // LPC 캐릭터의 판정·라벨 기준이 되는 1칸 크기 투명 판.
+  const lpcPlaceholderTexture = (() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = map.tileWidth
+    canvas.height = map.tileHeight
+    return Texture.from(canvas)
+  })()
   caveEntranceTexture.source.addressMode = 'clamp-to-edge'
   const resolveMapPortalTexture = (appearanceType: string): Texture => {
     if (appearanceType === 'cave_entrance') {
@@ -3135,6 +4425,61 @@ export const createPixiTiledMapView = async ({
   }
 
   const themeColorTargets: Container[] = []
+  // 물 채움 타일(cave_fill_Water_*)은 무늬 없는 바탕(_00)만 CompositeTilemap 에 굽고,
+  // 물결은 flowingWaterSurface 가 물 영역 전체에 이어지는 반복 무늬 두 겹으로 흘려 보낸다.
+  // 물길은 하류 방향으로 흐르고 넓은 못은 잔잔하게 일렁인다(타일 경계 이음새 없음).
+  const flowingWaterSurfaces: FlowingWaterSurface[] = []
+  const waterRippleTexturesByKey = new Map<string, Texture[]>()
+  const waterPlainTexturesByKey = new Map<string, Texture | null>()
+  const resolveWaterPlainTexture = (
+    tileset: ParsedTiledTileset,
+    renderResources: TilesetRenderResources,
+    family: string
+  ): { patternKey: string; plainTexture: Texture } | undefined => {
+    const patternKey = `${tileset.source}|${family}`
+    let plainTexture = waterPlainTexturesByKey.get(patternKey)
+
+    if (plainTexture === undefined) {
+      let plainLocalId: number | undefined
+      const rippleLocalIds: number[] = []
+
+      for (const [localId, tileType] of Object.entries(tileset.tileTypes)) {
+        const waterFillTile = parseWaterFillTileType(tileType)
+
+        if (waterFillTile?.family !== family) {
+          continue
+        }
+        if (waterFillTile.variant === 0) {
+          plainLocalId = Number(localId)
+        } else {
+          rippleLocalIds.push(Number(localId))
+        }
+      }
+
+      const rippleTextures =
+        plainLocalId === undefined
+          ? undefined
+          : createWaterRipplePatternTextures(
+              renderResources.imageTexture,
+              renderResources.tileTextures[plainLocalId].frame,
+              rippleLocalIds
+                .sort((left, right) => left - right)
+                .map((localId) => renderResources.tileTextures[localId].frame),
+              `water:${family}`
+            )
+
+      plainTexture =
+        plainLocalId !== undefined && rippleTextures
+          ? renderResources.tileTextures[plainLocalId]
+          : null
+      waterPlainTexturesByKey.set(patternKey, plainTexture)
+      if (rippleTextures) {
+        waterRippleTexturesByKey.set(patternKey, rippleTextures)
+      }
+    }
+
+    return plainTexture ? { patternKey, plainTexture } : undefined
+  }
   for (const layer of map.layers) {
     if (layer.name.toLowerCase() === DEPTH_SORTED_LAYER_NAME) {
       const nextDepthSortedLayer = new Container()
@@ -3172,6 +4517,7 @@ export const createPixiTiledMapView = async ({
     const tilemap = new CompositeTilemap()
     const transformedTileLayer = new Container()
     const coinPileLayer = new Container()
+    const layerWaterCells: FlowingWaterSurfaceCell[] = []
 
     tilemap.label = `layer:${layer.name}`
     tilemap.alpha = layer.opacity
@@ -3226,6 +4572,26 @@ export const createPixiTiledMapView = async ({
         continue
       }
 
+      // 물 채움 타일은 뒤집힘과 무관하게 바탕만 굽고 칸 좌표를 물결 레이어로 넘긴다.
+      const waterFillTile = parseWaterFillTileType(tileset.tileTypes[tile.localId])
+      const waterPlain = waterFillTile
+        ? resolveWaterPlainTexture(tileset, renderResources, waterFillTile.family)
+        : undefined
+
+      if (waterPlain) {
+        tilemap.tile(
+          waterPlain.plainTexture,
+          tile.x * map.tileWidth,
+          tile.y * map.tileHeight
+        )
+        layerWaterCells.push({
+          x: tile.x,
+          y: tile.y,
+          patternKey: waterPlain.patternKey
+        })
+        continue
+      }
+
       if (hasTileTransform(tile)) {
         transformedTileLayer.addChild(
           createTransformedTileSprite(
@@ -3245,11 +4611,32 @@ export const createPixiTiledMapView = async ({
       )
     }
 
+    const flowingWaterSurface =
+      layerWaterCells.length > 0
+        ? createFlowingWaterSurface({
+            cells: layerWaterCells,
+            rippleTexturesByKey: waterRippleTexturesByKey,
+            tileWidth: map.tileWidth,
+            tileHeight: map.tileHeight,
+            label: `layer:${layer.name}:flowing-water`
+          })
+        : undefined
+
     world.addChild(tilemap)
+    if (flowingWaterSurface) {
+      // 바탕 바로 위, 같은 레이어의 다른 타일/상위 레이어(둑, 소품)보다 아래에 그린다.
+      flowingWaterSurface.container.alpha = layer.opacity
+      flowingWaterSurface.container.visible = layer.visible
+      flowingWaterSurfaces.push(flowingWaterSurface)
+      world.addChild(flowingWaterSurface.container)
+    }
     world.addChild(transformedTileLayer)
     world.addChild(coinPileLayer)
     if (!['ground', 'shadow_lower', 'shadow_upper'].includes(layer.name)) {
       themeColorTargets.push(tilemap, transformedTileLayer)
+      if (flowingWaterSurface) {
+        themeColorTargets.push(flowingWaterSurface.container)
+      }
     }
   }
 
@@ -3258,6 +4645,146 @@ export const createPixiTiledMapView = async ({
     depthSortedLayer.label = 'layer:characters:depth'
     depthSortedLayer.sortableChildren = true
     world.addChild(depthSortedLayer)
+  }
+
+  // ---------------------------------------------------------------- LPC 캐릭터(플레이어·NPC)
+  // 발끝 기준 스프라이트를 1칸 판(container 원점 = 타일 왼쪽 위) 위에 얹는다.
+  function createLpcCharacterNode(
+    container: Container,
+    character: CharacterState,
+    npcSheets: LpcCharacterSheets | undefined
+  ): NonNullable<RenderedCharacterNode['lpc']> {
+    const createLayerSprite = (label: string, zIndex: number) => {
+      const layerSprite = new Sprite(Texture.EMPTY)
+      layerSprite.label = label
+      layerSprite.roundPixels = true
+      layerSprite.zIndex = zIndex
+      layerSprite.position.set(map.tileWidth / 2, map.tileHeight)
+      container.addChild(layerSprite)
+      return layerSprite
+    }
+    const lpcSprite = createLayerSprite(`character:${character.id}:lpc`, 10)
+    const playerLayers =
+      character.id === PLAYER_CHARACTER_ID
+        ? new Map(
+            LPC_PLAYER_LAYER_ORDER.map(
+              (slot, index) =>
+                [slot, createLayerSprite(`character:${character.id}:lpc:${slot}`, 10 + index * 0.01)] as const
+            )
+          )
+        : undefined
+    if (playerLayers) {
+      lpcSprite.visible = false
+    }
+    return {
+      sprite: lpcSprite,
+      playerLayers,
+      npcSheets,
+      cell: 0,
+      lastX: character.position.x,
+      lastY: character.position.y,
+      movingUntilMilliseconds: 0
+    }
+  }
+
+  // 플레이어가 지금 하고 있는 1회성 동작(시전·쏘기·근접 공격)과 그 진행률.
+  function getPlayerLpcAction(now: number):
+    | { animation?: LpcAnimationName; progress: number; facing: string }
+    | undefined {
+    const cast = playerMagicCast
+    if (cast) {
+      return {
+        animation: cast.animation,
+        progress:
+          (now - cast.startedAtMilliseconds) /
+          (cast.endAtMilliseconds - cast.startedAtMilliseconds),
+        facing: cast.facing
+      }
+    }
+    if (playerAttackStartedAtMilliseconds !== undefined) {
+      const elapsed = now - playerAttackStartedAtMilliseconds
+      if (elapsed >= 0 && elapsed < PLAYER_ATTACK_DURATION_MILLISECONDS) {
+        return {
+          progress: elapsed / PLAYER_ATTACK_DURATION_MILLISECONDS,
+          facing: playerAttackFacing ?? getCharacterStateById(PLAYER_CHARACTER_ID).facing
+        }
+      }
+    }
+    return undefined
+  }
+
+  function syncLpcCharacterVisual(
+    renderNode: RenderedCharacterNode,
+    character: CharacterState,
+    now: number
+  ) {
+    const lpc = renderNode.lpc
+    if (!lpc) {
+      return
+    }
+
+    if (character.position.x !== lpc.lastX || character.position.y !== lpc.lastY) {
+      lpc.movingUntilMilliseconds = now + LPC_MOVING_HOLD_MILLISECONDS
+      lpc.lastX = character.position.x
+      lpc.lastY = character.position.y
+    }
+    const isMoving = now < lpc.movingUntilMilliseconds
+
+    const walkFrameIndex = getLpcWalkFrameIndex(isMoving, now)
+    const scaleX = renderNode.sprite.scale.x / renderNode.renderScale
+    const scaleY = renderNode.sprite.scale.y / renderNode.renderScale
+    const applyFrame = (
+      target: Sprite,
+      frames: { cell: number; frames: Record<string, Texture[]> } | undefined,
+      facing: string,
+      frameIndex: number
+    ) => {
+      if (!frames) {
+        target.visible = false
+        return
+      }
+      const directionFrames = frames.frames[getLpcDirectionFromFacing(facing)]
+      target.texture = directionFrames[Math.min(frameIndex, directionFrames.length - 1)]
+      const anchor = getLpcAnchor(frames.cell)
+      target.anchor.set(anchor.x, anchor.y)
+      target.scale.set(scaleX, scaleY)
+      target.visible = true
+    }
+
+    if (lpc.playerLayers) {
+      const look = getPlayerLook()
+      const action = getPlayerLpcAction(now)
+      let animation: LpcAnimationName = 'walk'
+      let frameIndex = walkFrameIndex
+      let facing: string = character.facing
+      if (action) {
+        animation = action.animation ?? getLpcPlayerAttackAnimation(look.weaponId)
+        frameIndex = getLpcActionFrameIndex(
+          action.progress,
+          animation === 'shoot' ? 13 : animation === 'thrust' ? 8 : 6
+        )
+        facing = action.facing
+      }
+      let files = getLpcPlayerLayerFiles(look, animation)
+      // 동작 시트가 아직 안 불러졌으면 그동안은 걷기 자세로.
+      if (!files.base || !lpcSheetCache.get(files.base, animation)) {
+        animation = 'walk'
+        frameIndex = walkFrameIndex
+        files = getLpcPlayerLayerFiles(look, animation)
+      }
+      for (const [slot, layerSprite] of lpc.playerLayers) {
+        const file = files[slot]
+        applyFrame(
+          layerSprite,
+          file ? lpcSheetCache.get(file, animation) : undefined,
+          facing,
+          frameIndex
+        )
+      }
+      return
+    }
+
+    applyFrame(lpc.sprite, lpc.npcSheets?.walk, character.facing, walkFrameIndex)
   }
 
   for (const character of characterStates) {
@@ -3284,12 +4811,21 @@ export const createPixiTiledMapView = async ({
             map.tileWidth
           )
         : undefined
+    // 플레이어와 LPC 시트가 있는 NPC 는 LPC 그림체로 그린다(sprite 는 1칸 투명 판).
+    const isLpcCharacter =
+      character.id === PLAYER_CHARACTER_ID || getLpcNpcSheetsFor(character) !== undefined
     const sprite = monsterAnimationTextures
       ? new AnimatedSprite(monsterAnimationTextures.idleLeft)
-      : new Sprite(resolvedCharacterAppearanceTexture!.texture)
+      : new Sprite(
+          isLpcCharacter
+            ? lpcPlaceholderTexture
+            : resolvedCharacterAppearanceTexture!.texture
+        )
     const renderScale = monsterBehaviorConfig
-      ? monsterBehaviorConfig.renderScale * monsterRenderScaleMultiplier
-      : resolvedCharacterAppearanceTexture!.renderScale
+      ? monsterBehaviorConfig.renderScale * getMonsterRenderScaleMultiplier(character.id)
+      : isLpcCharacter
+        ? 1
+        : resolvedCharacterAppearanceTexture!.renderScale
     const isPlayer = character.id === PLAYER_CHARACTER_ID
     const playerHealthBar = isPlayer
       ? createPlayerResourceBar()
@@ -3307,8 +4843,9 @@ export const createPixiTiledMapView = async ({
             text: playerProfile.name
           })
         : undefined
+    // 몬스터 이름(보스 이름표 포함)은 레벨 배지가 보여 준다 — 따로 이름표를 만들면 겹치고, 따라다니지도 않는다.
     const displayLabel =
-      character.displayText === undefined
+      character.displayText === undefined || isMonsterCharacter
         ? undefined
         : new Text({
             style: isSignPostCharacter
@@ -3328,9 +4865,11 @@ export const createPixiTiledMapView = async ({
         : undefined
     if (displayLabelPanel && displayLabel) {
       displayLabelPanel.roundPixels = true
+      // 표지판 이름: 흰 말풍선 대신 나무 판자 색(말풍선 판을 갈색으로 물들임) — 글자 크기에 맞춘 작은 판
+      displayLabelPanel.tint = 0x8a5a2e
       displayLabelPanel.setSize(
-        Math.max(112, Math.ceil(displayLabel.width) + 18),
-        Math.max(28, Math.ceil(displayLabel.height) + 8)
+        Math.max(48, Math.ceil(displayLabel.width) + 16),
+        Math.max(18, Math.ceil(displayLabel.height) + 8)
       )
     }
     const levelBadge =
@@ -3351,6 +4890,13 @@ export const createPixiTiledMapView = async ({
     sprite.roundPixels = true
     sprite.zIndex = 10
     container.addChild(sprite)
+    const lpcNode = isLpcCharacter
+      ? createLpcCharacterNode(
+          container,
+          character,
+          getLpcNpcSheetsFor(character)
+        )
+      : undefined
     if (displayLabelPanel) {
       displayLabelPanel.label = `character:${character.id}:display-label-panel`
       displayLabelPanel.zIndex = 16
@@ -3401,7 +4947,7 @@ export const createPixiTiledMapView = async ({
         character.id,
         luaMonsterCombat.createMonsterCombatState(
           character.level ?? 1,
-          monsterCombatStateOptions
+          getMonsterCombatStateOptions(character.id)
         )
       )
       monsterSpawnStates.set(character.id, {
@@ -3475,6 +5021,8 @@ export const createPixiTiledMapView = async ({
       container,
       sprite,
       renderScale,
+      lpc: lpcNode,
+      labelContainer: undefined,
       playerArmorSprite: isPlayer ? playerArmorSprite : undefined,
       playerHelmetSprite: isPlayer ? playerHelmetSprite : undefined,
       playerHealthBar,
@@ -3547,6 +5095,52 @@ export const createPixiTiledMapView = async ({
   }
   depthSortedLayer.sortChildren()
   world.addChild(messageLayer)
+  for (const characterId of renderedCharacters.keys()) {
+    attachCharacterLabelLayer(characterId)
+  }
+
+  // 캐릭터 이름표류를 메시지 레이어로 옮긴다(좌표계는 캐릭터 컨테이너와 같다).
+  function attachCharacterLabelLayer(characterId: string) {
+    const renderNode = renderedCharacters.get(characterId)
+    if (!renderNode || renderNode.labelContainer) {
+      return
+    }
+    const labelContainer = new Container()
+    labelContainer.label = `character:${characterId}:labels`
+    labelContainer.sortableChildren = true
+    for (const element of [
+      renderNode.displayLabelPanel,
+      renderNode.displayLabel,
+      renderNode.playerNameBadge,
+      renderNode.playerHealthBar?.container,
+      renderNode.playerManaBar?.container,
+      renderNode.monsterHealthBar?.container,
+      renderNode.levelBadge
+    ]) {
+      if (element) {
+        labelContainer.addChild(element)
+      }
+    }
+    renderNode.labelContainer = labelContainer
+    // 표지판 이름판은 맨 아래에 — 지나가는 플레이어의 체력바·이름표를 덮지 않게.
+    if (renderNode.displayLabelPanel) {
+      messageLayer.addChildAt(labelContainer, 0)
+    } else {
+      messageLayer.addChild(labelContainer)
+    }
+  }
+
+  // 매 프레임: 이름표 레이어를 캐릭터 위치·표시 여부에 맞춘다.
+  function syncCharacterLabelLayers() {
+    for (const renderNode of renderedCharacters.values()) {
+      const labels = renderNode.labelContainer
+      if (!labels) {
+        continue
+      }
+      labels.visible = renderNode.container.visible
+      labels.position.copyFrom(renderNode.container.position)
+    }
+  }
 
   function getCharacterStateById(characterId: string): CharacterState {
     const character = characterStates.find(
@@ -3658,14 +5252,25 @@ export const createPixiTiledMapView = async ({
       )
     }
 
+    // 몬스터 그림은 충돌 칸보다 크다: 그림의 발끝 가운데가 충돌 칸의 아래 가운데에 오게 당긴다.
+    const monsterSpriteOffsetX = isMonsterCharacter
+      ? Math.round(
+          (character.collisionSize.width * map.tileWidth - renderNode.sprite.width) / 2
+        )
+      : 0
+    const monsterSpriteOffsetY = isMonsterCharacter
+      ? Math.round(character.collisionSize.height * map.tileHeight - renderNode.sprite.height)
+      : 0
     renderNode.container.visible = true
     renderNode.container.position.set(
       character.position.x * map.tileWidth +
         playerHitReactionOffsetX +
-        monsterRunMotionOffsetX,
+        monsterRunMotionOffsetX +
+        monsterSpriteOffsetX,
       character.position.y * map.tileHeight +
         playerHitReactionOffsetY +
-        monsterRunMotionOffsetY
+        monsterRunMotionOffsetY +
+        monsterSpriteOffsetY
     )
     renderNode.container.zIndex = getCharacterDepthSortValue(
       character.position.y,
@@ -3673,6 +5278,7 @@ export const createPixiTiledMapView = async ({
       map.tileHeight
     ) + (character.appearanceType === SIGN_POST_APPEARANCE_TYPE ? 1 : 0)
     syncPlayerRollSpriteVisual(renderNode, playerRollVisualState)
+    syncLpcCharacterVisual(renderNode, character, now)
     syncCharacterDisplayLabel(renderNode)
     syncPlayerNameBadge(renderNode, character)
     syncCharacterLevelBadge(renderNode, character)
@@ -3732,6 +5338,12 @@ export const createPixiTiledMapView = async ({
   }
 
   const syncPlayerEquipmentSprites = (renderNode: RenderedCharacterNode) => {
+    // LPC 기사는 갑옷·투구가 그림에 들어 있다 — 예전 2D 덧그림은 쓰지 않는다.
+    if (renderNode.lpc) {
+      if (renderNode.playerArmorSprite) renderNode.playerArmorSprite.visible = false
+      if (renderNode.playerHelmetSprite) renderNode.playerHelmetSprite.visible = false
+      return
+    }
     syncPlayerEquipmentSprite(renderNode, 'armor', renderNode.playerArmorSprite)
     syncPlayerEquipmentSprite(renderNode, 'hat', renderNode.playerHelmetSprite)
   }
@@ -3865,7 +5477,11 @@ export const createPixiTiledMapView = async ({
       renderNode.questBadge.zIndex = renderNode.container.zIndex + 2000
       renderNode.questBadge.position.set(
         Math.round(renderNode.container.x + renderNode.sprite.width / 2),
-        Math.round(renderNode.container.y - QUEST_BADGE_Y_OFFSET)
+        Math.round(
+          renderNode.container.y -
+            QUEST_BADGE_Y_OFFSET -
+            (renderNode.lpc ? LPC_HEAD_CLEARANCE_PIXELS : 0)
+        )
       )
     }
 
@@ -3922,7 +5538,8 @@ export const createPixiTiledMapView = async ({
       PLAYER_HEALTH_BAR_HEIGHT +
         PLAYER_MANA_BAR_HEIGHT +
         PLAYER_MANA_BAR_GAP +
-        PLAYER_STATUS_STACK_CLEARANCE
+        PLAYER_STATUS_STACK_CLEARANCE +
+        (renderNode.lpc ? LPC_HEAD_CLEARANCE_PIXELS : 0)
     )
 
     healthBar.container.visible = true
@@ -4480,7 +6097,7 @@ export const createPixiTiledMapView = async ({
       characterId,
       luaMonsterCombat.createMonsterCombatState(
         nextCharacter.level ?? 1,
-        monsterCombatStateOptions
+        getMonsterCombatStateOptions(nextCharacter.id)
       )
     )
     monsterPatrolStates.delete(characterId)
@@ -4497,6 +6114,13 @@ export const createPixiTiledMapView = async ({
     return true
   }
 
+  // town-32 타일셋(모든 맵의 첫 타일셋)의 gid 그림
+  function getTownTileTexture(gid: number): Texture {
+    const tileset = map.tilesets[0]
+    const resources = tilesetResources.get(tileset.source)
+    return resources?.tileTextures[gid - tileset.firstGid] ?? Texture.EMPTY
+  }
+
   function spawnMonsterGoldDrop(
     characterId: string,
     amount: number,
@@ -4508,8 +6132,17 @@ export const createPixiTiledMapView = async ({
   ): void {
     const dropId = `${characterId}:${++monsterGoldDropSequence}`
     const container = new Container()
-    const coin = new Graphics()
-    const coinHighlight = new Graphics()
+    const pileIndex = MONSTER_GOLD_DROP_PILE_THRESHOLDS.filter(
+      (threshold) => amount >= threshold
+    ).length - 1
+    const coin = new Sprite(getTownTileTexture(MONSTER_GOLD_DROP_PILE_GIDS[Math.max(0, pileIndex)] ?? 1109))
+    // 반짝임: 더미 위에서 가끔 빛나는 십자 별
+    const shine = new Graphics()
+    shine.poly([0, -4, 1, -1, 4, 0, 1, 1, 0, 4, -1, 1, -4, 0, -1, -1])
+    shine.fill({ color: 0xfffbe0 })
+    const shadow = new Graphics()
+    shadow.ellipse(0, 1, 9, 3)
+    shadow.fill({ color: 0x000000, alpha: 0.22 })
     const amountText = new Text({
       style: MONSTER_GOLD_DROP_AMOUNT_TEXT_STYLE,
       text: `${amount}원`
@@ -4517,27 +6150,16 @@ export const createPixiTiledMapView = async ({
 
     container.label = `monster-gold-drop:${dropId}`
     container.sortableChildren = true
+    coin.anchor.set(0.5, 0.78)
     coin.roundPixels = true
-    coinHighlight.roundPixels = true
+    shine.roundPixels = true
     amountText.roundPixels = true
-    coin.circle(0, 0, MONSTER_GOLD_DROP_ICON_RADIUS)
-    coin.fill({ color: 0xf0c24b })
-    coin.stroke({ color: 0x8b5a00, width: 2 })
-    coinHighlight.circle(
-      -MONSTER_GOLD_DROP_ICON_RADIUS * 0.28,
-      -MONSTER_GOLD_DROP_ICON_RADIUS * 0.28,
-      MONSTER_GOLD_DROP_ICON_SHINE_RADIUS
-    )
-    coinHighlight.fill({ color: 0xfff1b0 })
-    coinHighlight.alpha = 0.9
-    amountText.position.set(
-      -Math.round(amountText.width / 2),
-      MONSTER_GOLD_DROP_ICON_RADIUS + 4
-    )
+    amountText.position.set(-Math.round(amountText.width / 2), MONSTER_GOLD_DROP_ICON_RADIUS + 2)
+    shadow.zIndex = -1
     coin.zIndex = 0
-    coinHighlight.zIndex = 1
+    shine.zIndex = 1
     amountText.zIndex = 2
-    container.addChild(coin, coinHighlight, amountText)
+    container.addChild(shadow, coin, shine, amountText)
     container.position.set(position.x, position.y)
     container.zIndex = Math.round(position.y + map.tileHeight)
     depthSortedLayer?.addChild(container)
@@ -4545,6 +6167,7 @@ export const createPixiTiledMapView = async ({
       id: dropId,
       container,
       coin,
+      shine,
       amountText,
       amount,
       position: {
@@ -4559,15 +6182,23 @@ export const createPixiTiledMapView = async ({
     drop: MonsterGoldDrop,
     now: number
   ) => {
-    const bobOffset = Math.sin((now - drop.createdAt) / 220) * 1.5
-
-    drop.container.position.set(drop.position.x, drop.position.y + bobOffset)
+    const age = now - drop.createdAt
+    // 튀어나오기: 처음엔 위로 솟았다가 땅에 닿으며 한 번 더 작게 튄다. 그 뒤엔 가만히.
+    const pop = Math.min(1, age / MONSTER_GOLD_DROP_POP_MILLISECONDS)
+    const lift =
+      pop < 0.65
+        ? Math.sin((pop / 0.65) * Math.PI) * MONSTER_GOLD_DROP_POP_HEIGHT_PIXELS
+        : Math.sin(((pop - 0.65) / 0.35) * Math.PI) * MONSTER_GOLD_DROP_POP_HEIGHT_PIXELS * 0.25
+    drop.coin.position.set(0, -Math.round(lift))
+    drop.container.position.set(drop.position.x, drop.position.y)
     drop.container.zIndex = Math.round(drop.position.y + map.tileHeight)
-    drop.amountText.text = `${drop.amount}원`
-    drop.amountText.position.set(
-      -Math.round(drop.amountText.width / 2),
-      MONSTER_GOLD_DROP_ICON_RADIUS + 4
-    )
+    // 반짝임: 1.6초마다 잠깐 커졌다 사라진다(더미마다 시점이 다르게)
+    const twinkle = ((age + drop.position.x * 7) % 1600) / 1600
+    const twinkleScale = twinkle < 0.18 ? Math.sin((twinkle / 0.18) * Math.PI) : 0
+    drop.shine.visible = pop >= 1 && twinkleScale > 0.05
+    drop.shine.scale.set(twinkleScale)
+    drop.shine.position.set(4, -9 - Math.round(lift))
+    drop.amountText.alpha = pop >= 1 ? 1 : pop
   }
 
   const syncActiveMonsterGoldDrops = (now: number) => {
@@ -4884,6 +6515,7 @@ export const createPixiTiledMapView = async ({
     clearPlayerProtectSkillEffectSprite()
     clearPlayerSmashSkillEffectSprites()
     clearPlayerProjectiles()
+    clearMagicEffects()
     playerProtectSkillActiveUntilMilliseconds = 0
     playerProtectSkillReadyAtMilliseconds = now + PLAYER_RESPAWN_DELAY_MILLISECONDS
     playerDamageInvulnerableUntilMilliseconds = 0
@@ -4935,6 +6567,7 @@ export const createPixiTiledMapView = async ({
     clearPlayerProtectSkillEffectSprite()
     clearPlayerSmashSkillEffectSprites()
     clearPlayerProjectiles()
+    clearMagicEffects()
     playerProtectSkillActiveUntilMilliseconds = 0
     playerProtectSkillReadyAtMilliseconds = now
     playerDamageInvulnerableUntilMilliseconds = 0
@@ -5080,7 +6713,8 @@ export const createPixiTiledMapView = async ({
       setQuestLogWithObjectiveFeedback(
         recordMonsterDefeatQuestProgress(currentQuestLog, {
           sceneId,
-          appearanceType: character.appearanceType
+          appearanceType: character.appearanceType,
+          characterId
         })
       )
       character.blocksMovement = false
@@ -5129,10 +6763,18 @@ export const createPixiTiledMapView = async ({
           now
         )
       }
-      monsterRespawnAtById.set(
-        characterId,
-        now + MONSTER_PIG_RESPAWN_DELAY_MILLISECONDS
-      )
+      if (isBossCharacterId(characterId) && !isMonsterStillNeededByQuest(character)) {
+        // 보스는 다시 생기지 않는다 — 씬을 다시 들어와도 없도록 월드 저장에 남긴다.
+        // (그 보스를 잡아야 하는 퀘스트가 아직 남아 있으면 길게 기다렸다 다시 생긴다.)
+        onBossDefeated(characterId)
+      } else if (isBossCharacterId(characterId)) {
+        monsterRespawnAtById.set(characterId, now + BOSS_RETRY_RESPAWN_DELAY_MILLISECONDS)
+      } else {
+        monsterRespawnAtById.set(
+          characterId,
+          now + MONSTER_PIG_RESPAWN_DELAY_MILLISECONDS
+        )
+      }
       const renderNode = renderedCharacters.get(characterId)
 
       if (renderNode) {
@@ -5244,7 +6886,11 @@ export const createPixiTiledMapView = async ({
 
       const combatState = monsterCombatStates.get(monsterCharacter.id)
 
-      if (!combatState || isMonsterDefeated(combatState)) {
+      if (
+        !combatState ||
+        isMonsterDefeated(combatState) ||
+        isMonsterFrozen(monsterCharacter.id, now)
+      ) {
         continue
       }
 
@@ -5360,7 +7006,32 @@ export const createPixiTiledMapView = async ({
         : attackElapsedMilliseconds / PLAYER_ATTACK_DURATION_MILLISECONDS
     const facingMultiplier = attackFacing === 'left' ? -1 : 1
     const weaponFacingMultiplier = attackFacing === 'right' ? -1 : 1
+    // 마법 시전: 준비 동안 지팡이를 높이 들어 앞으로 겨누고, 여운 동안 천천히 내린다.
+    const castLift = (() => {
+      const cast = playerMagicCast
+      if (!cast) {
+        return 0
+      }
+      if (now < cast.releaseAtMilliseconds) {
+        const t = (now - cast.startedAtMilliseconds) / PLAYER_MAGIC_CAST_WINDUP_MILLISECONDS
+        return Math.sin(Math.min(1, Math.max(0, t)) * Math.PI * 0.5)
+      }
+      return Math.max(
+        0,
+        1 - (now - cast.releaseAtMilliseconds) / PLAYER_MAGIC_CAST_RECOVERY_MILLISECONDS
+      )
+    })()
     const createPose = (progress: number | undefined) => {
+      if (castLift > 0) {
+        return {
+          x: placement.x + facingMultiplier * 3 * castLift,
+          y: placement.y - 9 * castLift,
+          rotation: placement.rotation - facingMultiplier * 0.55 * castLift,
+          scaleX: (weaponWorldScale + 0.04 * castLift) * weaponFacingMultiplier,
+          scaleY: weaponWorldScale + 0.04 * castLift
+        }
+      }
+
       if (progress === undefined) {
         return {
           x: placement.x + (weaponAppearance?.idleOffsetX ?? 0),
@@ -5407,7 +7078,13 @@ export const createPixiTiledMapView = async ({
       sprite.alpha = alpha
     }
 
-    applyPose(playerWeaponSprite, createPose(attackProgress), 1)
+    // LPC 플레이어는 무기를 손에 쥔 그림이 시트에 들어 있다 — 따로 띄우던 무기 그림은 숨긴다.
+    const isLpcPlayer = Boolean(renderedCharacters.get(PLAYER_CHARACTER_ID)?.lpc)
+    if (isLpcPlayer) {
+      playerWeaponSprite.visible = false
+    } else {
+      applyPose(playerWeaponSprite, createPose(attackProgress), 1)
+    }
 
     if (
       attackProgress === undefined &&
@@ -5425,7 +7102,7 @@ export const createPixiTiledMapView = async ({
           ? undefined
           : attackProgress - (index + 1) * PLAYER_ATTACK_TRAIL_PROGRESS_STEP
 
-      if (trailProgress === undefined || trailProgress <= 0) {
+      if (isLpcPlayer || trailProgress === undefined || trailProgress <= 0) {
         trailSprite.visible = false
         continue
       }
@@ -6164,7 +7841,7 @@ export const createPixiTiledMapView = async ({
         stopPlayerFootsteps()
         triggeredActions.clear()
         triggeredSkillSlotIndexes.clear()
-        lastRuntimeErrorMessage = undefined
+            lastRuntimeErrorMessage = undefined
         return
       }
 
@@ -6175,6 +7852,7 @@ export const createPixiTiledMapView = async ({
         triggerPlayerSkillFromSlotIndex(skillSlotIndex, now)
       }
       triggeredSkillSlotIndexes.clear()
+
       let didPlayerMoveThisFrame = stepPlayerRoll(now)
 
       for (const character of [...characterStates]) {
@@ -6183,6 +7861,22 @@ export const createPixiTiledMapView = async ({
         }
 
         if (character.id === PLAYER_CHARACTER_ID && isPlayerRolling(now)) {
+          continue
+        }
+
+        // 시전 준비 중엔 제자리, 얼어붙은 몬스터는 이동·공격하지 않는다.
+        if (
+          character.id === PLAYER_CHARACTER_ID &&
+          (isPlayerCasting(now) || npcDialogueOverlay.isOpen())
+        ) {
+          continue
+        }
+
+        // 대화 중에는 몬스터도 멈춘다(플레이어가 묶인 채 맞지 않게).
+        if (
+          isMonsterCharacter(character) &&
+          (isMonsterFrozen(character.id, now) || npcDialogueOverlay.isOpen())
+        ) {
           continue
         }
 
@@ -6402,8 +8096,12 @@ export const createPixiTiledMapView = async ({
 
       resolvePlayerAttackDamage(now)
       resolvePlayerSmashSkillDamage(now)
+      updatePlayerMagicCast(now)
+      updateMonsterMagicStatuses(now)
       updatePlayerProjectiles(now, app.ticker.deltaMS)
-      resolveMonsterContactDamage(now)
+      if (!npcDialogueOverlay.isOpen()) {
+        resolveMonsterContactDamage(now)
+      }
       resolveMonsterGoldDropPickups()
       resolveMonsterEquipmentDropPickups()
       resolveCoinPilePickups()
@@ -6495,11 +8193,11 @@ export const createPixiTiledMapView = async ({
             const openShopOnComplete =
               event.characterId === BLACKSMITH_SHOP_NPC_ID
                 ? () => setBlacksmithShopOpen(true)
-                : event.characterId === POTION_SHOP_NPC_ID
+                : POTION_SHOP_NPC_IDS.has(event.characterId)
                   ? () => setPotionShopOpen(true)
                   : undefined
             npcDialogueOverlay.show({
-              portraitUrl: NPC_PORTRAITS[event.characterId] ?? '',
+              ...getNpcDialoguePortrait(event.characterId),
               name: portraitCharacter.displayText ?? '',
               lines: event.lines,
               onComplete: openShopOnComplete
@@ -6538,6 +8236,7 @@ export const createPixiTiledMapView = async ({
       syncActiveCharacterMessages()
       syncActiveCharacterDamageTexts(now)
       syncPlayerCharacterVisual(now)
+      syncCharacterLabelLayers()
       syncQuestNpcBadges()
       syncPlayerFootsteps(didPlayerMoveThisFrame)
       triggeredActions.clear()
@@ -6547,7 +8246,7 @@ export const createPixiTiledMapView = async ({
       gameEventQueue.clear()
       triggeredActions.clear()
       triggeredSkillSlotIndexes.clear()
-
+  
       const message = error instanceof Error ? error.message : String(error)
 
       if (message !== lastRuntimeErrorMessage) {
@@ -6665,6 +8364,8 @@ export const createPixiTiledMapView = async ({
       triggeredSkillSlotIndexes.add(skillSlotIndex)
       return
     }
+
+
 
     if (isInventoryToggleKey) {
       if (!event.repeat) {
@@ -6940,6 +8641,7 @@ export const createPixiTiledMapView = async ({
   syncViewportDisplayScale()
   centerCameraOnCharacter(getCharacterStateById(cameraTargetCharacterId))
   showSceneIntroBanner()
+  runSceneEnterAutoTurnIns()
   mapOverlay.syncFrame()
   playerHudOverlay.syncFrame()
   playerInventoryOverlay.syncFrame()
@@ -6983,6 +8685,15 @@ export const createPixiTiledMapView = async ({
     })
   }
   app.ticker.add(animateDecorationLights)
+  let flowingWaterTime = 0
+  const animateFlowingWater = (): void => {
+    if (flowingWaterSurfaces.length === 0) return
+    flowingWaterTime += app.ticker.deltaMS / 1000
+    for (const flowingWaterSurface of flowingWaterSurfaces) {
+      flowingWaterSurface.update(flowingWaterTime)
+    }
+  }
+  app.ticker.add(animateFlowingWater)
 
   const addBulbLights = async (item: PlacedItem, sprite: Sprite, revision: number): Promise<void> => {
     if (!item.imageUrl) return
@@ -7138,12 +8849,15 @@ export const createPixiTiledMapView = async ({
     const container = new Container()
     container.label = `character:${character.id}:container`
     container.sortableChildren = true
-    const sprite = new Sprite(resolved.texture)
+    // 에디터로 놓은 NPC 도 LPC 시트가 있으면(이번 씬에서 이미 불러 둔 외형) 같은 그림체로.
+    const npcSheets = getLpcNpcSheetsFor(character)
+    const sprite = new Sprite(npcSheets ? lpcPlaceholderTexture : resolved.texture)
     sprite.label = `character:${character.id}`
-    sprite.scale.set(resolved.renderScale)
+    sprite.scale.set(npcSheets ? 1 : resolved.renderScale)
     sprite.roundPixels = true
     sprite.zIndex = 10
     container.addChild(sprite)
+    const lpcNode = npcSheets ? createLpcCharacterNode(container, character, npcSheets) : undefined
     const displayLabel =
       character.displayText === undefined
         ? undefined
@@ -7157,10 +8871,12 @@ export const createPixiTiledMapView = async ({
     renderedCharacters.set(character.id, {
       container,
       sprite,
-      renderScale: resolved.renderScale,
+      renderScale: npcSheets ? 1 : resolved.renderScale,
+      lpc: lpcNode,
       displayLabel
     })
     depthSortedLayer.addChild(container)
+    attachCharacterLabelLayer(character.id)
   }
 
   const despawnPlacedNpc = (id: string): void => {
@@ -7168,6 +8884,8 @@ export const createPixiTiledMapView = async ({
     if (renderNode) {
       renderNode.container.parent?.removeChild(renderNode.container)
       renderNode.container.destroy({ children: true })
+      renderNode.labelContainer?.removeFromParent()
+      renderNode.labelContainer?.destroy({ children: true })
       renderedCharacters.delete(id)
     }
     characterStates = characterStates.filter((character) => character.id !== id)
@@ -7421,6 +9139,17 @@ export const createPixiTiledMapView = async ({
     app.canvas.removeEventListener('contextmenu', handleCanvasContextMenu)
     app.ticker.remove(updateCharacters)
     app.ticker.remove(animateDecorationLights)
+    app.ticker.remove(animateFlowingWater)
+    for (const flowingWaterSurface of flowingWaterSurfaces) {
+      flowingWaterSurface.destroy()
+    }
+    flowingWaterSurfaces.length = 0
+    for (const rippleTextures of waterRippleTexturesByKey.values()) {
+      for (const rippleTexture of rippleTextures) {
+        rippleTexture.destroy(true)
+      }
+    }
+    waterRippleTexturesByKey.clear()
     decorationRevision++
     app.ticker.remove(mapOverlay.syncFrame)
     app.ticker.remove(playerHudOverlay.syncFrame)
@@ -7440,6 +9169,7 @@ export const createPixiTiledMapView = async ({
     monsterRespawnAtById.clear()
     clearPlayerSmashSkillEffectSprites()
     clearPlayerProjectiles()
+    clearMagicEffects()
     for (const monsterGoldDrop of monsterGoldDrops.values()) {
       monsterGoldDrop.container.destroy({ children: true })
     }

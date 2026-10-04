@@ -51,12 +51,12 @@ describe('createInitialPlayerEquipment', () => {
     })
   })
 
-  it('uses the tiny dungeon weapon tile for the starter weapon', () => {
+  it('uses the LPC weapon icon for the starter weapon', () => {
     expect(getPlayerEquipmentItemDefinitionBySlotId('weapon')).toMatchObject({
       price: 120,
       icon: {
-        key: 'tiny-dungeon-weapon',
-        scale: 1.6
+        key: 'lpc-weapon:basic-sword',
+        scale: 1
       }
     })
   })
@@ -66,7 +66,7 @@ describe('createInitialPlayerEquipment', () => {
       label: '청동 검',
       price: 320,
       icon: {
-        key: 'town-crate-sword-right'
+        key: 'lpc-weapon:bronze-sword'
       }
     })
 
@@ -74,8 +74,8 @@ describe('createInitialPlayerEquipment', () => {
       slotId: 'weapon',
       label: '강철 검',
       icon: {
-        key: 'weapon-sword',
-        scale: 0.08
+        key: 'lpc-weapon:iron-sword',
+        scale: 1
       }
     })
 
@@ -83,7 +83,7 @@ describe('createInitialPlayerEquipment', () => {
       label: '철 옷',
       price: 260,
       icon: {
-        key: 'tiny-knight-open-helmet'
+        key: 'lpc-gear:iron-armor'
       }
     })
 
@@ -91,7 +91,7 @@ describe('createInitialPlayerEquipment', () => {
       slotId: 'armor',
       label: '사슬 갑옷',
       icon: {
-        key: 'tiny-knight-open-helmet'
+        key: 'lpc-gear:Chain_Armor'
       }
     })
 

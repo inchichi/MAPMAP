@@ -4,6 +4,12 @@ import {
   BLACKSMITH_PREPARATION_QUEST_ID,
   FIRST_SLIME_HUNT_OBJECTIVE_ID,
   FIRST_SLIME_HUNT_QUEST_ID,
+  FIELD_PIG_ERRAND_QUEST_ID,
+  SLUICE_KEEPER_ERRAND_QUEST_ID,
+  MANOR_SPORE_ERRAND_QUEST_ID,
+  WEAPON_PATH_QUEST_ID,
+  HIDDEN_CACHE_QUEST_ID,
+  FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS,
   FINAL_SUPPLIES_QUEST_ID,
   HARVEST_VILLAGE_VISIT_QUEST_ID,
   MINE_ORE_RUSH_QUEST_ID,
@@ -64,11 +70,16 @@ const completeQuestById = (questLog = createInitialQuestLog(), questId: string) 
   ).nextQuestLog
 
 describe('questLog', () => {
-  it('registers the quest catalog with stable q001-q010 ids', () => {
+  it('registers the quest catalog with stable q001-q015 ids', () => {
     expect(QUEST_DEFINITIONS.map((definition) => definition.id)).toEqual([
       ...BEGINNER_ARC_QUEST_IDS,
       MINE_ORE_RUSH_QUEST_ID,
-      HARVEST_VILLAGE_VISIT_QUEST_ID
+      HARVEST_VILLAGE_VISIT_QUEST_ID,
+      FIELD_PIG_ERRAND_QUEST_ID,
+      SLUICE_KEEPER_ERRAND_QUEST_ID,
+      MANOR_SPORE_ERRAND_QUEST_ID,
+      WEAPON_PATH_QUEST_ID,
+      HIDDEN_CACHE_QUEST_ID
     ])
     expect(QUEST_DEFINITIONS.every((definition) => definition.regionName === '티르코네일 마을')).toBe(true)
     expect(JSON.stringify(QUEST_DEFINITIONS)).not.toContain('준수')
@@ -107,7 +118,7 @@ describe('questLog', () => {
       questLog,
       FIRST_SLIME_HUNT_QUEST_ID,
       FIRST_SLIME_HUNT_OBJECTIVE_ID,
-      3
+      FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS
     )
     questLog = completeQuest(questLog, FIRST_SLIME_HUNT_QUEST_ID).nextQuestLog
 
@@ -126,7 +137,7 @@ describe('questLog', () => {
     expect(getVisibleQuestTrackers(questLog)).toMatchObject([
       {
         questId: FIRST_SLIME_HUNT_QUEST_ID,
-        text: '첫 사냥: 말캉이 처치 0/3'
+        text: `첫 사냥: 말캉이 처치 0/${FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS}`
       }
     ])
 
@@ -163,14 +174,12 @@ describe('questLog', () => {
     questLog = completeQuest(questLog, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
 
     questLog = startQuest(questLog, PIG_TROUBLE_QUEST_ID)
-    questLog = recordMonsterDefeatQuestProgress(questLog, {
-      sceneId: 'hunting-ground',
-      appearanceType: 'monster_pig'
-    })
-    questLog = recordMonsterDefeatQuestProgress(questLog, {
-      sceneId: 'hunting-ground',
-      appearanceType: 'monster_pig'
-    })
+    for (let defeat = 0; defeat < 5; defeat += 1) {
+      questLog = recordMonsterDefeatQuestProgress(questLog, {
+        sceneId: 'hunting-ground',
+        appearanceType: 'monster_pig'
+      })
+    }
     expect(getQuestProgress(questLog, PIG_TROUBLE_QUEST_ID).status).toBe(
       'ready-to-turn-in'
     )
@@ -214,6 +223,14 @@ describe('questLog', () => {
       sceneId: 'cave',
       appearanceType: 'monster_pig'
     })
+    // 보스만 잡아서는 끝나지 않는다 — 보스실 앞 바위돌이 4마리도 물리쳐야 한다.
+    expect(getQuestProgress(questLog, PIG_BOSS_THREAT_QUEST_ID).status).toBe('active')
+    for (let index = 0; index < 4; index += 1) {
+      questLog = recordMonsterDefeatQuestProgress(questLog, {
+        sceneId: 'cave',
+        appearanceType: 'monster_rock'
+      })
+    }
     expect(getQuestProgress(questLog, PIG_BOSS_THREAT_QUEST_ID).status).toBe(
       'ready-to-turn-in'
     )
@@ -272,7 +289,7 @@ describe('questLog', () => {
       questLog,
       FIRST_SLIME_HUNT_QUEST_ID,
       FIRST_SLIME_HUNT_OBJECTIVE_ID,
-      3
+      FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS
     )
 
     expect(getQuestNpcBadgeKindForNpc(questLog, WIZARD_NPC_ID)).toBe('finish')
@@ -311,5 +328,30 @@ describe('questLog', () => {
     expect(formatQuestText('잘했다, {playerName}.', { playerName: '루아' })).toBe(
       '잘했다, 루아.'
     )
+  })
+
+  it('counts the mine boss objective only for the named boss', () => {
+    let questLog = createInitialQuestLog()
+    questLog = startQuest(
+      { ...questLog, progressByQuestId: Object.fromEntries(
+        Object.entries(questLog.progressByQuestId).map(([id, progress]) => [
+          id,
+          id === WEAPON_PATH_QUEST_ID ? progress : { ...progress, status: 'completed' as const }
+        ])
+      ) },
+      WEAPON_PATH_QUEST_ID
+    )
+    questLog = recordMonsterDefeatQuestProgress(questLog, {
+      sceneId: 'crystal-mine',
+      appearanceType: 'monster_pig',
+      characterId: '꿀꿀이-1'
+    })
+    expect(getQuestProgress(questLog, WEAPON_PATH_QUEST_ID).objectives['defeat-pig-captain'] ?? 0).toBe(0)
+    questLog = recordMonsterDefeatQuestProgress(questLog, {
+      sceneId: 'crystal-mine',
+      appearanceType: 'monster_pig',
+      characterId: '꿀꿀이대장-보스'
+    })
+    expect(getQuestProgress(questLog, WEAPON_PATH_QUEST_ID).objectives['defeat-pig-captain']).toBe(1)
   })
 })

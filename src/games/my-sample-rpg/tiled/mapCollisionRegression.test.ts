@@ -91,10 +91,86 @@ describe('no invisible walls on visible floor', () => {
     expect(isWallTileAt(walls, 22, 21)).toBe(false)
   })
 
-  it('seals the hunting ground orphan pockets with visible rock', () => {
-    const walls = wallsOf('hunting-ground')
+  it('seals the hunting ground orphan pockets with visible props', () => {
+    // 고립 칸은 투명 블록(gid 302)이 아니라 눈에 보이는 덤불로 메운다.
+    // 고립 칸이 아예 없는지는 아래 'every open cell is reachable'이 확인한다.
+    const objectLayer = loadMap('hunting-ground').layers.find(
+      (layer) => layer.name === 'object'
+    )
 
-    expect(isWallTileAt(walls, 47, 14)).toBe(true)
+    expect(objectLayer?.tiles.filter((tile) => tile.gid === 302)).toEqual([])
+  })
+})
+
+describe('hunting ground layout', () => {
+  // 사냥터는 scripts/generate-hunting-ground.py 가 만든다. 다시 생성해도
+  // 포탈 도착 칸·몬스터 자리·예약 자리가 막히지 않는지 고정한다.
+  const map = loadMap('hunting-ground')
+  const walls = createWallTileLookup(map)
+  const characters = map.eventLayers.find((layer) => layer.name === 'characters')?.events ?? []
+  const monsters = characters.filter((event) =>
+    String(event.appearanceType).startsWith('monster_')
+  )
+  const tileOf = (event: { x: number; y: number }) => [event.x / 32, event.y / 32] as const
+
+  it('keeps both portals and their arrival tiles where other maps expect them', () => {
+    expect(portalNamed('hunting-ground', 'return_gate').position).toEqual({ x: 0, y: 10 })
+    expect(portalNamed('hunting-ground', 'cave_entrance').position).toEqual({ x: 49, y: 10 })
+
+    // town.tmx east_gate → (2,10), cave.tmx return_gate → (43,10), 포탈 없이 열면 맵 중앙
+    for (const [x, y] of [
+      [0, 10],
+      [0, 11],
+      [49, 10],
+      [49, 11],
+      [2, 10],
+      [43, 10],
+      [25, 25]
+    ]) {
+      expect(isWallTileAt(walls, x, y)).toBe(false)
+    }
+  })
+
+  it('has enough quest monsters with open ground around each spawn', () => {
+    const countOf = (type: string) =>
+      monsters.filter((event) => event.appearanceType === type).length
+
+    // q001 은 말캉이, q003 은 꿀꿀이를 이 씬에서 센다.
+    expect(countOf('monster_slime')).toBeGreaterThanOrEqual(6)
+    expect(countOf('monster_pig')).toBeGreaterThanOrEqual(5)
+    expect(monsters.length).toBeGreaterThanOrEqual(13)
+
+    for (const monster of monsters) {
+      const [x, y] = tileOf(monster)
+
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          expect(isWallTileAt(walls, x + dx, y + dy)).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('places the camp merchant, return stone and mine shortcut on open ground', () => {
+    const portals = map.eventLayers.find((layer) => layer.name === 'portals')?.events ?? []
+
+    expect(characters.some((event) => event.name === 'camp_merchant')).toBe(true)
+    expect(characters.some((event) => event.name === 'hidden_cache')).toBe(true)
+
+    for (const name of ['return_stone', 'mine_shortcut']) {
+      const portal = portals.find((event) => event.name === name)
+
+      expect(portal).toBeDefined()
+      expect(isWallTileAt(walls, portal!.x / 32, portal!.y / 32)).toBe(false)
+    }
+
+    // 지름길은 q009 를 마쳐야 열리고, 그 칸의 낙석은 q009 를 마치면 사라진다.
+    expect(portals.find((event) => event.name === 'mine_shortcut')?.properties['quest.requiresCompleted']).toBe(
+      'q009-mine-ore-rush'
+    )
+    expect(
+      characters.find((event) => event.name === 'gated_boulder')?.properties['quest.hiddenWhenCompleted']
+    ).toBe('q009-mine-ore-rush')
   })
 })
 

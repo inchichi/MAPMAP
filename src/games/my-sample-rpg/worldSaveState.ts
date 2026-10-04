@@ -13,6 +13,8 @@ export type WorldSaveState = {
   sceneId: string
   questProgressByQuestId: Record<string, QuestProgress>
   collectedCoinTileKeysBySceneId: Record<string, string[]>
+  // 쓰러뜨린 보스(다시 생기지 않는다). 버전 1 에 나중에 더한 필드 — 없으면 빈 객체.
+  defeatedBossIdsBySceneId: Record<string, string[]>
 }
 
 const QUEST_STATUSES: ReadonlySet<string> = new Set([
@@ -83,12 +85,14 @@ export const serializeWorldSaveState = (input: {
   sceneId: string
   questLog: QuestLogState
   collectedCoinTileKeysBySceneId: Record<string, string[]>
+  defeatedBossIdsBySceneId?: Record<string, string[]>
 }): string =>
   JSON.stringify({
     version: WORLD_SAVE_STATE_VERSION,
     sceneId: input.sceneId,
     questProgressByQuestId: input.questLog.progressByQuestId,
-    collectedCoinTileKeysBySceneId: input.collectedCoinTileKeysBySceneId
+    collectedCoinTileKeysBySceneId: input.collectedCoinTileKeysBySceneId,
+    defeatedBossIdsBySceneId: input.defeatedBossIdsBySceneId ?? {}
   } satisfies WorldSaveState)
 
 export const parseStoredWorldSaveState = (
@@ -134,6 +138,8 @@ export const parseStoredWorldSaveState = (
     questProgressByQuestId,
     collectedCoinTileKeysBySceneId: normalizeCollectedCoinTileKeys(
       parsed.collectedCoinTileKeysBySceneId
-    )
+    ),
+    // 씬별 문자열 목록이라 코인 키와 같은 정규화를 쓴다.
+    defeatedBossIdsBySceneId: normalizeCollectedCoinTileKeys(parsed.defeatedBossIdsBySceneId)
   }
 }

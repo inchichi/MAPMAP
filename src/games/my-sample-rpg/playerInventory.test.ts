@@ -11,17 +11,17 @@ import {
 describe('createInitialPlayerInventory', () => {
   it('creates starter consumables in the default inventory', () => {
     expect(createInitialPlayerInventory()).toEqual({
-      gold: 1000,
+      gold: 150,
       slots: [
         {
           id: 'health-potion',
           label: '체력 회복 포션',
-          quantity: 30
+          quantity: 5
         },
         {
           id: 'mana-potion',
           label: '마나 회복 포션',
-          quantity: 30
+          quantity: 3
         },
         {
           id: 'pickaxe',
@@ -35,7 +35,7 @@ describe('createInitialPlayerInventory', () => {
 
   it('supports custom slot counts', () => {
     expect(createInitialPlayerInventory({ slotCount: 4 })).toEqual({
-      gold: 1000,
+      gold: 150,
       slots: Array.from({ length: 4 }, () => undefined)
     })
   })
@@ -47,12 +47,12 @@ describe('createInitialPlayerInventory', () => {
         {
           id: 'health-potion',
           label: '체력 회복 포션',
-          quantity: 30
+          quantity: 5
         },
         {
           id: 'mana-potion',
           label: '마나 회복 포션',
-          quantity: 30
+          quantity: 3
         },
         {
           id: 'pickaxe',
@@ -142,7 +142,7 @@ describe('findFirstEmptyPlayerInventorySlotIndex', () => {
 
   it('returns undefined when the inventory is full', () => {
     const inventory = {
-      gold: 1000,
+      gold: 150,
       slots: [
         {
           id: 'potion',

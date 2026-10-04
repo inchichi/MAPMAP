@@ -12,17 +12,19 @@ export type PlayerInventory = {
 }
 
 export const DEFAULT_PLAYER_INVENTORY_SLOT_COUNT = 30
-export const DEFAULT_PLAYER_INVENTORY_GOLD = 1000
+// 시작 자원은 적게 — 몬스터 골드와 퀘스트 보상으로 장비·포션을 사 가며 성장하게 한다
+// (예전 1000골드·포션 60개는 상점과 사냥의 의미를 없앴다). docs/game-design-30min.md 4단계.
+export const DEFAULT_PLAYER_INVENTORY_GOLD = 150
 export const DEFAULT_PLAYER_INVENTORY_STARTER_ITEMS: PlayerInventoryItem[] = [
   {
     id: 'health-potion',
     label: '체력 회복 포션',
-    quantity: 30
+    quantity: 5
   },
   {
     id: 'mana-potion',
     label: '마나 회복 포션',
-    quantity: 30
+    quantity: 3
   },
   {
     // 광산 채굴(mine-ore)을 바로 써 볼 수 있게 기본 지급 — 광맥은 보유 수량으로 검사한다.

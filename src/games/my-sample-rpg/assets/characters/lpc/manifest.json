@@ -1,0 +1,339 @@
+{
+ "bodyFrame": 64,
+ "footY": 62,
+ "centerX": 32,
+ "rows": [
+  "up",
+  "left",
+  "down",
+  "right"
+ ],
+ "anims": {
+  "walk": {
+   "cell": 128,
+   "frames": 9
+  },
+  "slash": {
+   "cell": 192,
+   "frames": 6
+  },
+  "thrust": {
+   "cell": 192,
+   "frames": 8
+  },
+  "shoot": {
+   "cell": 128,
+   "frames": 13
+  },
+  "hurt": {
+   "cell": 128,
+   "frames": 6
+  }
+ },
+ "player": {
+  "base": {
+   "walk": "player-base-walk.png",
+   "slash": "player-base-slash.png",
+   "thrust": "player-base-thrust.png",
+   "shoot": "player-base-shoot.png",
+   "hurt": "player-base-hurt.png"
+  },
+  "hair": {
+   "walk": "player-hair-walk.png",
+   "slash": "player-hair-slash.png",
+   "thrust": "player-hair-thrust.png",
+   "shoot": "player-hair-shoot.png",
+   "hurt": "player-hair-hurt.png"
+  },
+  "gear": {
+   "basic-armor": {
+    "slot": "armor",
+    "hidesHair": false,
+    "sheets": {
+     "walk": "player-armor-basic-armor-walk.png",
+     "slash": "player-armor-basic-armor-slash.png",
+     "thrust": "player-armor-basic-armor-thrust.png",
+     "shoot": "player-armor-basic-armor-shoot.png",
+     "hurt": "player-armor-basic-armor-hurt.png"
+    }
+   },
+   "Leather_Armor": {
+    "slot": "armor",
+    "hidesHair": false,
+    "sheets": {
+     "walk": "player-armor-Leather_Armor-walk.png",
+     "slash": "player-armor-Leather_Armor-slash.png",
+     "thrust": "player-armor-Leather_Armor-thrust.png",
+     "shoot": "player-armor-Leather_Armor-shoot.png",
+     "hurt": "player-armor-Leather_Armor-hurt.png"
+    }
+   },
+   "Chain_Armor": {
+    "slot": "armor",
+    "hidesHair": false,
+    "sheets": {
+     "walk": "player-armor-Chain_Armor-walk.png",
+     "slash": "player-armor-Chain_Armor-slash.png",
+     "thrust": "player-armor-Chain_Armor-thrust.png",
+     "shoot": "player-armor-Chain_Armor-shoot.png",
+     "hurt": "player-armor-Chain_Armor-hurt.png"
+    }
+   },
+   "iron-armor": {
+    "slot": "armor",
+    "hidesHair": false,
+    "sheets": {
+     "walk": "player-armor-iron-armor-walk.png",
+     "slash": "player-armor-iron-armor-slash.png",
+     "thrust": "player-armor-iron-armor-thrust.png",
+     "shoot": "player-armor-iron-armor-shoot.png",
+     "hurt": "player-armor-iron-armor-hurt.png"
+    }
+   },
+   "Iron_Armor": {
+    "slot": "armor",
+    "hidesHair": false,
+    "sheets": {
+     "walk": "player-armor-Iron_Armor-walk.png",
+     "slash": "player-armor-Iron_Armor-slash.png",
+     "thrust": "player-armor-Iron_Armor-thrust.png",
+     "shoot": "player-armor-Iron_Armor-shoot.png",
+     "hurt": "player-armor-Iron_Armor-hurt.png"
+    }
+   },
+   "Leather_Helmet": {
+    "slot": "hat",
+    "hidesHair": false,
+    "sheets": {
+     "walk": "player-hat-Leather_Helmet-walk.png",
+     "slash": "player-hat-Leather_Helmet-slash.png",
+     "thrust": "player-hat-Leather_Helmet-thrust.png",
+     "shoot": "player-hat-Leather_Helmet-shoot.png",
+     "hurt": "player-hat-Leather_Helmet-hurt.png"
+    }
+   },
+   "Chain_Helmet": {
+    "slot": "hat",
+    "hidesHair": true,
+    "sheets": {
+     "walk": "player-hat-Chain_Helmet-walk.png",
+     "slash": "player-hat-Chain_Helmet-slash.png",
+     "thrust": "player-hat-Chain_Helmet-thrust.png",
+     "shoot": "player-hat-Chain_Helmet-shoot.png",
+     "hurt": "player-hat-Chain_Helmet-hurt.png"
+    }
+   },
+   "Iron_Helmet": {
+    "slot": "hat",
+    "hidesHair": true,
+    "sheets": {
+     "walk": "player-hat-Iron_Helmet-walk.png",
+     "slash": "player-hat-Iron_Helmet-slash.png",
+     "thrust": "player-hat-Iron_Helmet-thrust.png",
+     "shoot": "player-hat-Iron_Helmet-shoot.png",
+     "hurt": "player-hat-Iron_Helmet-hurt.png"
+    }
+   },
+   "basic-boots": {
+    "slot": "boots",
+    "hidesHair": false,
+    "sheets": {
+     "walk": "player-boots-basic-boots-walk.png",
+     "slash": "player-boots-basic-boots-slash.png",
+     "thrust": "player-boots-basic-boots-thrust.png",
+     "shoot": "player-boots-basic-boots-shoot.png",
+     "hurt": "player-boots-basic-boots-hurt.png"
+    }
+   },
+   "leather-boots": {
+    "slot": "boots",
+    "hidesHair": false,
+    "sheets": {
+     "walk": "player-boots-leather-boots-walk.png",
+     "slash": "player-boots-leather-boots-slash.png",
+     "thrust": "player-boots-leather-boots-thrust.png",
+     "shoot": "player-boots-leather-boots-shoot.png",
+     "hurt": "player-boots-leather-boots-hurt.png"
+    }
+   }
+  },
+  "weapons": {
+   "basic-sword": {
+    "attack": "slash",
+    "back": {
+     "walk": "player-weapon-basic-sword-back-walk.png",
+     "hurt": "player-weapon-basic-sword-back-hurt.png",
+     "slash": "player-weapon-basic-sword-back-slash.png"
+    },
+    "front": {
+     "walk": "player-weapon-basic-sword-front-walk.png",
+     "hurt": "player-weapon-basic-sword-front-hurt.png",
+     "slash": "player-weapon-basic-sword-front-slash.png"
+    }
+   },
+   "bronze-sword": {
+    "attack": "slash",
+    "back": {
+     "walk": "player-weapon-bronze-sword-back-walk.png",
+     "hurt": "player-weapon-bronze-sword-back-hurt.png",
+     "slash": "player-weapon-bronze-sword-back-slash.png"
+    },
+    "front": {
+     "walk": "player-weapon-bronze-sword-front-walk.png",
+     "hurt": "player-weapon-bronze-sword-front-hurt.png",
+     "slash": "player-weapon-bronze-sword-front-slash.png"
+    }
+   },
+   "iron-sword": {
+    "attack": "slash",
+    "back": {
+     "walk": "player-weapon-iron-sword-back-walk.png",
+     "hurt": "player-weapon-iron-sword-back-hurt.png",
+     "slash": "player-weapon-iron-sword-back-slash.png"
+    },
+    "front": {
+     "walk": "player-weapon-iron-sword-front-walk.png",
+     "hurt": "player-weapon-iron-sword-front-hurt.png",
+     "slash": "player-weapon-iron-sword-front-slash.png"
+    }
+   },
+   "battle-axe": {
+    "attack": "slash",
+    "back": {
+     "walk": "player-weapon-battle-axe-back-walk.png",
+     "slash": "player-weapon-battle-axe-back-slash.png"
+    },
+    "front": {
+     "walk": "player-weapon-battle-axe-front-walk.png",
+     "hurt": "player-weapon-battle-axe-front-hurt.png",
+     "slash": "player-weapon-battle-axe-front-slash.png"
+    }
+   },
+   "spiked-mace": {
+    "attack": "slash",
+    "back": {
+     "walk": "player-weapon-spiked-mace-back-walk.png",
+     "hurt": "player-weapon-spiked-mace-back-hurt.png",
+     "slash": "player-weapon-spiked-mace-back-slash.png"
+    },
+    "front": {
+     "walk": "player-weapon-spiked-mace-front-walk.png",
+     "hurt": "player-weapon-spiked-mace-front-hurt.png",
+     "slash": "player-weapon-spiked-mace-front-slash.png"
+    }
+   },
+   "quick-dagger": {
+    "attack": "slash",
+    "back": {
+     "walk": "player-weapon-quick-dagger-back-walk.png",
+     "slash": "player-weapon-quick-dagger-back-slash.png"
+    },
+    "front": {
+     "walk": "player-weapon-quick-dagger-front-walk.png",
+     "hurt": "player-weapon-quick-dagger-front-hurt.png",
+     "slash": "player-weapon-quick-dagger-front-slash.png"
+    }
+   },
+   "long-spear": {
+    "attack": "thrust",
+    "back": {
+     "walk": "player-weapon-long-spear-back-walk.png",
+     "hurt": "player-weapon-long-spear-back-hurt.png",
+     "thrust": "player-weapon-long-spear-back-thrust.png"
+    },
+    "front": {
+     "walk": "player-weapon-long-spear-front-walk.png",
+     "hurt": "player-weapon-long-spear-front-hurt.png",
+     "thrust": "player-weapon-long-spear-front-thrust.png"
+    }
+   },
+   "magic-staff": {
+    "attack": "thrust",
+    "back": {
+     "walk": "player-weapon-magic-staff-back-walk.png",
+     "hurt": "player-weapon-magic-staff-back-hurt.png",
+     "thrust": "player-weapon-magic-staff-back-thrust.png"
+    },
+    "front": {
+     "walk": "player-weapon-magic-staff-front-walk.png",
+     "hurt": "player-weapon-magic-staff-front-hurt.png",
+     "thrust": "player-weapon-magic-staff-front-thrust.png"
+    }
+   },
+   "hunting-bow": {
+    "attack": "shoot",
+    "back": {
+     "walk": "player-weapon-hunting-bow-back-walk.png",
+     "hurt": "player-weapon-hunting-bow-back-hurt.png",
+     "shoot": "player-weapon-hunting-bow-back-shoot.png"
+    },
+    "front": {
+     "walk": "player-weapon-hunting-bow-front-walk.png",
+     "hurt": "player-weapon-hunting-bow-front-hurt.png",
+     "shoot": "player-weapon-hunting-bow-front-shoot.png"
+    }
+   }
+  }
+ },
+ "npcs": {
+  "character_adventurer_brown_hair": "npc-character_adventurer_brown_hair-walk.png",
+  "character_bearded_apron_man": "npc-character_bearded_apron_man-walk.png",
+  "character_commoner_tan_tunic": "npc-character_commoner_tan_tunic-walk.png",
+  "character_villager_brown_tunic": "npc-character_villager_brown_tunic-walk.png",
+  "character_villager_flower_dress": "npc-character_villager_flower_dress-walk.png",
+  "character_elder_gray_hair": "npc-character_elder_gray_hair-walk.png",
+  "character_wizard_purple": "npc-character_wizard_purple-walk.png",
+  "character_ranger_green": "npc-character_ranger_green-walk.png",
+  "character_knight_gray_helmet": "npc-character_knight_gray_helmet-walk.png",
+  "character_knight_open_helmet": "npc-character_knight_open_helmet-walk.png",
+  "character_knight_closed_helmet": "npc-character_knight_closed_helmet-walk.png",
+  "id:blacksmith": "npc-id-blacksmith-walk.png",
+  "id:potion_merchant": "npc-id-potion_merchant-walk.png",
+  "id:lady": "npc-id-lady-walk.png",
+  "id:farmer": "npc-id-farmer-walk.png",
+  "id:mage": "npc-id-mage-walk.png",
+  "id:santa": "npc-id-santa-walk.png"
+ },
+ "gearIcons": {
+  "file": "gear-icons.png",
+  "size": 32,
+  "items": [
+   "basic-armor",
+   "Leather_Armor",
+   "Chain_Armor",
+   "iron-armor",
+   "Iron_Armor",
+   "Leather_Helmet",
+   "Chain_Helmet",
+   "Iron_Helmet",
+   "basic-boots",
+   "leather-boots"
+  ]
+ },
+ "projectiles": {
+  "arrow": "projectile-arrow.png"
+ },
+ "portraits": {
+  "file": "npc-portraits.png",
+  "size": 32,
+  "keys": [
+   "character_adventurer_brown_hair",
+   "character_bearded_apron_man",
+   "character_commoner_tan_tunic",
+   "character_villager_brown_tunic",
+   "character_villager_flower_dress",
+   "character_elder_gray_hair",
+   "character_wizard_purple",
+   "character_ranger_green",
+   "character_knight_gray_helmet",
+   "character_knight_open_helmet",
+   "character_knight_closed_helmet",
+   "id:blacksmith",
+   "id:potion_merchant",
+   "id:lady",
+   "id:farmer",
+   "id:mage",
+   "id:santa"
+  ]
+ }
+}

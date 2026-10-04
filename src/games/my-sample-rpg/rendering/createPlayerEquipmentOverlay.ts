@@ -3,7 +3,6 @@ import type {
   PlayerEquipmentIconKey,
   PlayerEquipmentSlotId
 } from '../playerEquipment'
-import { PLAYER_CHARACTER_APPEARANCE_TYPE } from '../characterState'
 import type { PlayerInventory } from '../playerInventory'
 import type { PlayerProfile } from '../playerProfile'
 import { PLAYER_MAX_LEVEL } from '../playerProfile'
@@ -21,6 +20,8 @@ import {
   TOWN_TILESET_IMAGE_HEIGHT,
   TOWN_TILESET_IMAGE_WIDTH
 } from './townTilesetImageSize'
+import { LPC_GEAR_ICON_FRAMES } from './lpcGearIcons'
+import { drawLpcPlayerPreview } from './lpcCharacterSprites'
 
 type CreatePlayerEquipmentOverlayInput = {
   mountElement: HTMLElement
@@ -127,27 +128,6 @@ const ICON_CIRCLE_FRAME = {
   width: 17,
   height: 17
 }
-const PLAYER_PORTRAIT_FRAME_BY_APPEARANCE_TYPE: Record<
-  string,
-  {
-    imageUrl: string
-    imageWidth: number
-    imageHeight: number
-    frame: { x: number; y: number; width: number; height: number }
-  }
-> = {
-  [PLAYER_CHARACTER_APPEARANCE_TYPE]: {
-    imageUrl: TINY_DUNGEON_TILESET_IMAGE_URL,
-    imageWidth: TINY_DUNGEON_TILESET_WIDTH,
-    imageHeight: TINY_DUNGEON_TILESET_HEIGHT,
-    frame: {
-      x: 32,
-      y: 128,
-      width: 16,
-      height: 16
-    }
-  }
-}
 const TINY_DUNGEON_WEAPON_FRAME = {
   x: 144,
   y: 144,
@@ -163,6 +143,7 @@ const EQUIPMENT_ICON_FRAME_BY_KEY: Record<
     frame: { x: number; y: number; width: number; height: number }
   }
 > = {
+  ...LPC_GEAR_ICON_FRAMES,
   'tiny-dungeon-weapon': {
     imageUrl: TINY_DUNGEON_TILESET_IMAGE_URL,
     imageWidth: TINY_DUNGEON_TILESET_WIDTH,
@@ -331,6 +312,8 @@ export const createPlayerEquipmentOverlay = ({
   const equipmentCenterCard = document.createElement('div')
   const equipmentCenterPreview = document.createElement('div')
   const equipmentCenterPortrait = document.createElement('span')
+  // 게임 속 LPC 모습(장비 레이어 그대로)을 그리는 캔버스 — 예전 작은 캐릭터 그림 대신
+  const equipmentCenterLpcCanvas = document.createElement('canvas')
   const equipmentCenterPortraitWeapon = document.createElement('span')
   const equipmentCenterPortraitAccessory = document.createElement('span')
   const equipmentCenterDetails = document.createElement('div')
@@ -527,11 +510,18 @@ export const createPlayerEquipmentOverlay = ({
   }
 
   equipmentLayout.append(equipmentCenterCard)
-  equipmentCenterPreview.append(
-    equipmentCenterPortrait,
-    equipmentCenterPortraitWeapon,
-    equipmentCenterPortraitAccessory
-  )
+  equipmentCenterLpcCanvas.className = 'player-inventory-overlay__equipment-center-lpc'
+  Object.assign(equipmentCenterLpcCanvas.style, {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    transform: 'translate(-50%, -54%)',
+    imageRendering: 'pixelated'
+  } as CSSStyleDeclaration)
+  equipmentCenterPortrait.hidden = true
+  equipmentCenterPortraitWeapon.hidden = true
+  equipmentCenterPortraitAccessory.hidden = true
+  equipmentCenterPreview.append(equipmentCenterLpcCanvas)
   equipmentCenterDetails.append(
     equipmentCenterName,
     equipmentCenterJob,
@@ -715,40 +705,6 @@ export const createPlayerEquipmentOverlay = ({
     )
   }
 
-  const renderPlayerPortrait = (scale: number) => {
-    setBackgroundFrame(
-      equipmentCenterPortrait,
-      PLAYER_PORTRAIT_FRAME_BY_APPEARANCE_TYPE[
-        PLAYER_CHARACTER_APPEARANCE_TYPE
-      ],
-      scale
-    )
-  }
-
-  const renderEquipmentPreviewIcon = (
-    element: HTMLElement,
-    itemId: string | undefined,
-    scale: number
-  ) => {
-    if (!itemId) {
-      clearFrame(element)
-      return
-    }
-
-    const definition = getPlayerEquipmentItemDefinitionById(itemId)
-
-    if (!definition) {
-      clearFrame(element)
-      return
-    }
-
-    setBackgroundFrame(
-      element,
-      EQUIPMENT_ICON_FRAME_BY_KEY[definition.icon.key],
-      scale * definition.icon.scale
-    )
-  }
-
   function hideTooltip() {
     hoveredEquipmentSlotIndex = undefined
     tooltipPanel.hidden = true
@@ -852,17 +808,6 @@ export const createPlayerEquipmentOverlay = ({
     syncTooltip()
   }
 
-  const setPreviewPosition = (
-    element: HTMLElement,
-    leftPercent: number,
-    topPercent: number,
-    rotation = 0
-  ) => {
-    element.style.left = `${leftPercent}%`
-    element.style.top = `${topPercent}%`
-    element.style.transform = `translate(-50%, -50%) rotate(${rotation}rad)`
-  }
-
   const syncLayout = () => {
     const isOpen = getIsOpen()
     const uiScale = getResponsiveUiScale()
@@ -945,23 +890,17 @@ export const createPlayerEquipmentOverlay = ({
       PANEL_LIGHT_FRAME.width * centerCardScale,
       PANEL_LIGHT_FRAME.height * centerCardScale
     )
-    equipmentCenterPreview.style.height = `${Math.round(
-      centerCardScale >= 1.45 ? 60 : 52
-    )}px`
-    renderPlayerPortrait(centerCardScale >= 1.45 ? 3.5 : 3)
-    setPreviewPosition(equipmentCenterPortrait, 50, 52)
-    renderEquipmentPreviewIcon(
-      equipmentCenterPortraitWeapon,
-      getEquippedItemIdBySlotId('weapon'),
-      centerCardScale >= 1.45 ? 1.6 : 1.35
-    )
-    renderEquipmentPreviewIcon(
-      equipmentCenterPortraitAccessory,
-      getEquippedItemIdBySlotId('accessory'),
-      centerCardScale >= 1.45 ? 1.25 : 1.05
-    )
-    setPreviewPosition(equipmentCenterPortraitWeapon, 32, 62, -0.55)
-    setPreviewPosition(equipmentCenterPortraitAccessory, 41, 54)
+    // 장비를 바꾸면 미리보기도 바로 바뀐다(게임 속 LPC 레이어와 같은 조합).
+    const previewSize = centerCardScale >= 1.45 ? 112 : 96
+    equipmentCenterPreview.style.height = `${previewSize}px`
+    equipmentCenterLpcCanvas.style.width = `${previewSize}px`
+    equipmentCenterLpcCanvas.style.height = `${previewSize}px`
+    drawLpcPlayerPreview(equipmentCenterLpcCanvas, {
+      weaponId: getEquippedItemIdBySlotId('weapon'),
+      armorId: getEquippedItemIdBySlotId('armor'),
+      hatId: getEquippedItemIdBySlotId('hat'),
+      bootsId: getEquippedItemIdBySlotId('boots')
+    })
 
     equipmentCenterName.textContent = profile.name
     equipmentCenterJob.textContent = getPlayerJobDisplayName(profile)

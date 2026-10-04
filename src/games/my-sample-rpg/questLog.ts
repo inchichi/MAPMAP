@@ -10,9 +10,18 @@ export const FINAL_SUPPLIES_QUEST_ID = 'q007-final-supplies'
 export const PIG_BOSS_THREAT_QUEST_ID = 'q008-pig-boss-threat'
 export const MINE_ORE_RUSH_QUEST_ID = 'q009-mine-ore-rush'
 export const HARVEST_VILLAGE_VISIT_QUEST_ID = 'q010-harvest-village-visit'
+// 딴따라마을 심부름(5단계) + 무기의 길(최종장)
+export const FIELD_PIG_ERRAND_QUEST_ID = 'q011-field-pigs'
+export const SLUICE_KEEPER_ERRAND_QUEST_ID = 'q012-sluice-keeper'
+export const MANOR_SPORE_ERRAND_QUEST_ID = 'q013-manor-spores'
+export const WEAPON_PATH_QUEST_ID = 'q014-weapon-path'
+// 사냥터 야영지 상인의 탐색 퀘스트(숨은 상자)
+export const HIDDEN_CACHE_QUEST_ID = 'q015-hidden-cache'
+export const CAMP_MERCHANT_NPC_ID = 'camp_merchant'
+export const HIDDEN_CACHE_NPC_ID = 'hidden_cache'
 
 export const FIRST_SLIME_HUNT_OBJECTIVE_ID = 'defeat-slimes'
-export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 3
+export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 6
 export const FIRST_SLIME_HUNT_REWARD_GOLD = 100
 export const FIRST_SLIME_HUNT_REWARD_EXPERIENCE = 216
 
@@ -49,6 +58,8 @@ export type QuestObjectiveTarget = {
   itemId?: string
   shopId?: string
   npcId?: string
+  // 몬스터 처치 목표를 특정 개체(TMX 오브젝트 이름, 예: 꿀꿀이대장-보스)로 좁힐 때
+  characterId?: string
 }
 
 export type QuestObjectiveDefinition = {
@@ -84,8 +95,13 @@ export type QuestDefinition = {
   guideText: string
   startDialogueLines: string[]
   activeDialogueLines: string[]
+  // 대화 목표의 상대 NPC(퀘스트를 준 사람이 아닌)가 말하는 대사. 없으면 activeDialogueLines.
+  talkTargetDialogueLines?: string[]
   completionDialogueLines: string[]
   arcCompletionMessage?: string
+  // 장소 도착(scene-enter)만 목표인 퀘스트: 도착하는 순간 완료하고, 준 사람이 다음 퀘스트를
+  // 이어서 맡긴다(마을까지 왕복하지 않게). 대사는 준 사람이 멀리서 전하는 말로 보여 준다.
+  autoTurnInOnSceneEnter?: boolean
   objectives: QuestObjectiveDefinition[]
   rewards: QuestRewards
 }
@@ -138,6 +154,8 @@ const SCENE_CRYSTAL_MINE = 'crystal-mine'
 const SCENE_HARVEST_VILLAGE = 'harvest-village'
 const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
+const MONSTER_MUSHROOM_APPEARANCE_TYPE = 'monster_mushroom'
+const MONSTER_ROCK_APPEARANCE_TYPE = 'monster_rock'
 const HEALTH_POTION_REWARD: QuestItemReward = {
   id: 'health-potion',
   label: '체력 회복 포션',
@@ -161,15 +179,15 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     prerequisiteQuestIds: [],
     requestText: '마을의 마법사가 퀘스트를 의뢰했다.',
     guideText:
-      '마을 오른쪽 "사냥터로 가는 길"로 포탈을 타 말캉이 3마리를 잡고 오자.',
+      '마을 오른쪽 "사냥터로 가는 길"로 포탈을 타 말캉이 6마리를 잡고 오자.',
     startDialogueLines: [
       '요즘 마을 밖 사냥터에 말캉이들이 자주 나타나고 있단다.',
       '아직 위험한 수준은 아니지만, 초보자인 네가 전투에 익숙해지기에는 딱 좋겠구나.',
-      '마을 오른쪽의 "사냥터로 가는 길"을 따라가서 말캉이 3마리를 처치하고 돌아오너라.'
+      '마을 오른쪽의 "사냥터로 가는 길"을 따라가서 말캉이 6마리를 처치하고 돌아오너라.'
     ],
     activeDialogueLines: [
       '아직 말캉이 기운이 남아 있구나.',
-      '사냥터에서 말캉이 3마리를 처치하고 돌아오너라.'
+      '사냥터에서 말캉이 6마리를 처치하고 돌아오너라.'
     ],
     completionDialogueLines: [
       '잘했다, {playerName}.',
@@ -258,15 +276,15 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     ],
     requestText:
       '마법사는 사냥터에 말캉이보다 더 거친 꿀꿀이들이 나타났다고 했다.',
-    guideText: '사냥터로 가서 꿀꿀이 2마리를 처치하자.',
+    guideText: '사냥터로 가서 꿀꿀이 5마리를 처치하자.',
     startDialogueLines: [
       '말캉이만 있는 줄 알았더니, 꿀꿀이들도 점점 사나워지고 있구나.',
       '꿀꿀이는 말캉이보다 조금 더 강하다. 방심하면 안 된다.',
-      '이번에는 사냥터에서 꿀꿀이 2마리를 처치하고 돌아오너라.'
+      '이번에는 사냥터에서 꿀꿀이 5마리를 처치하고 돌아오너라.'
     ],
     activeDialogueLines: [
       '꿀꿀이는 말캉이보다 조금 더 강하다.',
-      '사냥터에서 꿀꿀이 2마리를 처치하고 돌아오너라.'
+      '사냥터에서 꿀꿀이 5마리를 처치하고 돌아오너라.'
     ],
     completionDialogueLines: [
       '역시 이상하군.',
@@ -277,7 +295,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       {
         id: 'defeat-pigs',
         label: '꿀꿀이',
-        required: 2,
+        required: 5,
         type: 'monster-defeat',
         target: {
           sceneId: SCENE_HUNTING_GROUND,
@@ -351,6 +369,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     requestText:
       '사냥터 깊은 곳의 동굴 안쪽에서 이상한 기운이 느껴진다고 한다.',
     guideText: '사냥터의 "동굴입구" 표지판을 따라가 포탈에서 F를 눌러 동굴에 들어가 보자.',
+    autoTurnInOnSceneEnter: true,
     startDialogueLines: [
       '이제 사냥터의 원인을 확인할 때가 되었구나.',
       '사냥터에 있는 "동굴입구" 표지판을 찾아라.',
@@ -362,8 +381,9 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       '포탈 앞에서 F를 눌러 동굴 안으로 들어가 보거라.'
     ],
     completionDialogueLines: [
-      '동굴 안으로 들어갔었구나.',
-      '네 몸에 어두운 기운이 조금 묻어 있다.',
+      '(머릿속에 마법사의 목소리가 울린다)',
+      '들리느냐, {playerName}. 동굴 안에 들어섰구나.',
+      '여기서도 어두운 기운이 느껴진다.',
       '안쪽에 분명 평범한 몬스터보다 강한 존재가 있을 것이다.'
     ],
     objectives: [
@@ -398,7 +418,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       '동굴 안의 기운을 살펴보니, 말캉이의 형태를 한 큰 마력 덩어리가 느껴진다.',
       '평범한 말캉이라고 생각하면 다칠 수 있다.',
       '그건 말캉이-보스다. 체력도 높고 공격도 훨씬 강할 것이다.',
-      '준비가 되었다면 동굴로 들어가 말캉이-보스를 처치하고 돌아오너라.'
+      '조심해서 동굴 안쪽으로 들어가 말캉이-보스를 처치하고 돌아오너라.'
     ],
     activeDialogueLines: [
       '말캉이-보스는 동굴 안쪽에 있다.',
@@ -490,15 +510,16 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     requestText:
       '동굴 깊은 곳에서 꿀꿀이-보스가 마을 주변 몬스터들을 사납게 만들고 있었다.',
     guideText:
-      '동굴로 들어가 꿀꿀이-보스를 처치하고 티르코네일 마을로 돌아오자.',
+      '동굴 깊은 곳 보스실 앞을 지키는 바위돌이들을 물리치고, 꿀꿀이-보스를 처치한 뒤 마을로 돌아오자.',
     startDialogueLines: [
       '이제 원인을 알겠다.',
       '동굴 깊은 곳의 꿀꿀이-보스가 주변 몬스터들을 자극하고 있었던 것이다.',
       '지금 막지 않으면 사냥터를 넘어 마을까지 위험해질 수 있다.',
+      '보스실 앞은 녀석에게 홀린 바위돌이들이 지키고 있을 게다. 하나씩 끌어내 상대하거라.',
       '{playerName}, 네가 동굴로 들어가 꿀꿀이-보스를 처치해다오.'
     ],
     activeDialogueLines: [
-      '동굴 깊은 곳의 꿀꿀이-보스를 처치해야 한다.',
+      '보스실 앞 바위돌이들을 먼저 물리치고, 동굴 깊은 곳의 꿀꿀이-보스를 처치해야 한다.',
       '지금 막지 않으면 사냥터를 넘어 마을까지 위험해질 수 있다.'
     ],
     completionDialogueLines: [
@@ -506,11 +527,21 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       '동굴의 어두운 기운이 사라졌다. 네가 해낸 것이다.',
       '이제 티르코네일 마을은 당분간 안전할 것이다.',
       '하지만 이것은 네 모험의 시작일 뿐이다.',
-      '레벨 10이 되면 너는 전사, 궁수, 마법사, 도적 중 하나의 길을 선택할 수 있을 것이다.'
+      '정해진 길은 없다. 검을 들면 검의 길이, 활을 들면 활의 길이, 지팡이를 들면 마법의 길이 열린다.'
     ],
     arcCompletionMessage:
-      '티르코네일의 이상한 기운을 해결했다.\n마을 사람들은 {playerName}을 진짜 모험가로 인정하기 시작했다.\n레벨 10이 되면 전직을 통해 새로운 길을 선택할 수 있다.',
+      '티르코네일의 이상한 기운을 해결했다.\n마을 사람들은 {playerName}을 진짜 모험가로 인정하기 시작했다.\n어떤 무기를 드느냐에 따라 싸우는 법이 달라진다.',
     objectives: [
+      {
+        id: 'defeat-cave-guardians',
+        label: '보스실 앞 바위돌이',
+        required: 4,
+        type: 'monster-defeat',
+        target: {
+          sceneId: SCENE_CAVE,
+          appearanceType: MONSTER_ROCK_APPEARANCE_TYPE
+        }
+      },
       {
         id: 'defeat-pig-boss',
         label: '꿀꿀이-보스',
@@ -539,16 +570,18 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     requestText:
       '동굴 수정 골방의 옆굴이 옛 광산으로 이어진다는 소문이 있다. 수정 광석을 캐다 달라.',
     guideText:
-      '대장간에서 곡괭이를 산 뒤, 동굴 수정 골방 옆 계단으로 잊힌 수정 광산에 내려가 광맥을 캐자.',
+      '대장간에서 곡괭이를 산 뒤, 동굴 수정 골방 옆 계단으로 잊힌 수정 광산에 내려가 버섯돌이를 물리치며 광맥을 캐자.',
     startDialogueLines: [
       '동굴 안쪽 수정 골방 벽에 옛 광부들이 파 둔 계단이 있다더군.',
       '그 아래가 잊힌 수정 광산이야. 수정 광석이 아직 잔뜩 박혀 있다지.',
       '곡괭이는 내가 팔고 있으니 하나 챙겨 가라.',
-      '광석 세 덩이만 캐 와 주면 값은 섭섭잖게 쳐주마.'
+      '광석 여덟 덩이만 캐 와 주면 값은 섭섭잖게 쳐주마.',
+      '광맥 홀에는 버섯돌이들이 들끓는다더군. 캐다 보면 덤빌 테니 치워 가며 캐라. 꿀꿀이 대장도 버티고 있다니 조심하고.'
     ],
     activeDialogueLines: [
       '곡괭이 없이는 광맥이 꿈쩍도 안 할 거다.',
-      '광산의 파란 수정 광맥 앞에서 캐 보아라. 세 덩이면 된다.'
+      '광산의 파란 수정 광맥 앞에서 캐 보아라. 여덟 덩이면 된다.',
+      '광맥 홀의 버섯돌이들도 잊지 말고.'
     ],
     completionDialogueLines: [
       '오, 진짜 수정 광석이군! 백 년 묵은 광맥 물건이다.',
@@ -565,9 +598,19 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
         }
       },
       {
+        id: 'defeat-mine-mushrooms',
+        label: '광산 버섯돌이',
+        required: 3,
+        type: 'monster-defeat',
+        target: {
+          sceneId: SCENE_CRYSTAL_MINE,
+          appearanceType: MONSTER_MUSHROOM_APPEARANCE_TYPE
+        }
+      },
+      {
         id: 'gather-crystal-ore',
         label: '수정 광석 채굴',
-        required: 3,
+        required: 8,
         type: 'item-acquire',
         target: {
           itemId: 'crystal-ore'
@@ -640,6 +683,225 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
           label: '마나 회복 포션',
           quantity: 1
         }
+      ]
+    }
+  },
+  {
+    id: FIELD_PIG_ERRAND_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: 'farmer',
+    giverName: '파딘',
+    title: '들녘을 짓밟는 꿀꿀이',
+    trackerLabel: '들녘 꿀꿀이 쫓아내기',
+    prerequisiteQuestIds: [HARVEST_VILLAGE_VISIT_QUEST_ID],
+    requestText: '사냥터 버려진 돼지 농장의 꿀꿀이들이 밤마다 밀밭까지 내려온다. 쫓아내 달라.',
+    guideText: '사냥터 북쪽 버려진 돼지 농장에서 꿀꿀이 4마리를 처치하고 파딘에게 돌아가자.',
+    startDialogueLines: [
+      '어젯밤에도 밀이 한 이랑 통째로 짓밟혔어.',
+      '범인은 사냥터 북쪽, 버려진 돼지 농장에 눌러앉은 꿀꿀이들이야.',
+      '네 마리만 혼내 주면 한동안은 얌전하겠지.'
+    ],
+    activeDialogueLines: ['버려진 돼지 농장은 사냥터 야영지 바로 위쪽이야. 네 마리면 돼.'],
+    completionDialogueLines: [
+      '정말 해냈구나! 오늘 밤엔 다리 뻗고 자겠어.',
+      '갓 거둔 밀로 구운 빵이야. 포션이랑 같이 챙겨 가.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-field-pigs',
+        label: '꿀꿀이',
+        required: 4,
+        type: 'monster-defeat',
+        target: {
+          sceneId: SCENE_HUNTING_GROUND,
+          appearanceType: MONSTER_PIG_APPEARANCE_TYPE
+        }
+      }
+    ],
+    rewards: {
+      gold: 120,
+      experience: 260,
+      items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }]
+    }
+  },
+  {
+    id: SLUICE_KEEPER_ERRAND_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: 'rona',
+    giverName: '로나',
+    title: '수문지기의 안부',
+    trackerLabel: '수문지기 이멜 찾아가기',
+    prerequisiteQuestIds: [HARVEST_VILLAGE_VISIT_QUEST_ID],
+    requestText: '개울 상류 수문을 지키는 이멜이 며칠째 내려오지 않는다. 안부를 확인해 달라.',
+    guideText: '개울을 따라 북쪽 수문까지 올라가 이멜과 이야기한 뒤 로나에게 돌아가자.',
+    startDialogueLines: [
+      '이멜 아저씨가 사흘째 빨래터에 안 내려와.',
+      '수문 수위표에 분필로 뭘 잔뜩 적고 계시던데… 혹시 무슨 일이 생긴 건 아니겠지?',
+      '개울 따라 북쪽 수교 아래 수문에 가 보면 만날 수 있을 거야.'
+    ],
+    activeDialogueLines: ['수문은 개울 상류, 수교 바로 아래야. 이멜 아저씨를 꼭 만나 줘.'],
+    talkTargetDialogueLines: [
+      '로나가 보냈다고? 걱정 끼쳐서 미안하구먼.',
+      '요즘 수교 물이 조금씩 줄고 있어서 매일 분필로 수위를 재고 있었지.',
+      '동굴 쪽 소란이 가라앉으면 물도 돌아오겠지. 로나에게 잘 있다고 전해 주게.'
+    ],
+    completionDialogueLines: [
+      '물이 줄고 있었구나… 그래도 아저씨가 무사해서 다행이야.',
+      '고마워! 빨래터에서 쓰려고 아껴 둔 마나 포션이야.'
+    ],
+    objectives: [
+      {
+        id: 'talk-sluice-keeper',
+        label: '수문지기 이멜과 대화',
+        required: 1,
+        type: 'talk',
+        target: { npcId: 'mage' }
+      }
+    ],
+    rewards: {
+      gold: 80,
+      experience: 200,
+      items: [{ id: 'mana-potion', label: '마나 회복 포션', quantity: 2 }]
+    }
+  },
+  {
+    id: MANOR_SPORE_ERRAND_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: 'lady',
+    giverName: '세라핀 부인',
+    title: '저택 정원의 독 포자',
+    trackerLabel: '동굴 버섯돌이 처치',
+    prerequisiteQuestIds: [HARVEST_VILLAGE_VISIT_QUEST_ID, CAVE_ENTRANCE_INVESTIGATION_QUEST_ID],
+    requestText: '동굴에서 날아온 버섯 포자가 저택 정원을 시들게 한다. 근원인 버섯돌이를 없애 달라.',
+    guideText: '동굴 통로의 버섯돌이 3마리를 처치하고 세라핀 부인에게 돌아가자.',
+    startDialogueLines: [
+      '정원의 장미가 하룻밤 새 잿빛으로 시들었어요.',
+      '정원사 말로는 동굴 바람을 타고 온 버섯 포자 탓이래요.',
+      '동굴 통로에 사는 버섯돌이 세 마리만 없애 주시겠어요?'
+    ],
+    activeDialogueLines: ['버섯돌이는 동굴 서쪽 현관과 수정 골방 쪽에 있다고 해요.'],
+    completionDialogueLines: [
+      '정원에 다시 향기가 돌아요. 정말 고마워요.',
+      '촌장님께도 당신 이야기를 해 두었답니다. 이건 작은 사례예요.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-cave-mushrooms',
+        label: '버섯돌이',
+        required: 3,
+        type: 'monster-defeat',
+        target: {
+          sceneId: SCENE_CAVE,
+          appearanceType: MONSTER_MUSHROOM_APPEARANCE_TYPE
+        }
+      }
+    ],
+    rewards: {
+      gold: 220,
+      experience: 360,
+      items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 3 }]
+    }
+  },
+  {
+    id: WEAPON_PATH_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: WIZARD_NPC_ID,
+    giverName: '마법사',
+    title: '무기의 길',
+    trackerLabel: '무기의 길: 광산의 주인',
+    prerequisiteQuestIds: [PIG_BOSS_THREAT_QUEST_ID, MINE_ORE_RUSH_QUEST_ID],
+    requestText:
+      '검이든 지팡이든 활이든, 손에 쥔 무기로 길을 증명하라. 잊힌 광산의 주인 꿀꿀이 대장을 쓰러뜨려라.',
+    guideText: '잊힌 수정 광산에서 바위돌이 3마리를 처치하고, 용암 단조장의 꿀꿀이 대장을 쓰러뜨리자.',
+    startDialogueLines: [
+      '{playerName}, 이제 너는 어느 길도 정해지지 않은 모험가가 아니다.',
+      '검을 들면 검사, 지팡이를 들면 마법사, 활을 들면 사수 — 무기가 길을 연다.',
+      '마지막 시험이다. 잊힌 광산의 단조장을 지키는 꿀꿀이 대장을 쓰러뜨려라.',
+      '가는 길의 바위돌이 셋도 잊지 말고.'
+    ],
+    activeDialogueLines: ['광산 북쪽 용암 단조장, 그 깊은 곳에 꿀꿀이 대장이 있다.'],
+    completionDialogueLines: [
+      '해냈구나. 광산의 불이 잠잠해졌다는 소식이 벌써 마을까지 들려왔다.',
+      '이제 너는 어떤 무기를 들어도 제 길을 찾을 것이다.'
+    ],
+    arcCompletionMessage: '티르코네일과 딴따라마을에 평화가 돌아왔다. — 무기의 길 완결',
+    objectives: [
+      {
+        id: 'defeat-mine-rocks',
+        label: '광산 바위돌이',
+        required: 3,
+        type: 'monster-defeat',
+        target: {
+          sceneId: SCENE_CRYSTAL_MINE,
+          appearanceType: MONSTER_ROCK_APPEARANCE_TYPE
+        }
+      },
+      {
+        id: 'defeat-pig-captain',
+        label: '꿀꿀이 대장',
+        required: 1,
+        type: 'monster-defeat',
+        target: {
+          sceneId: SCENE_CRYSTAL_MINE,
+          appearanceType: MONSTER_PIG_APPEARANCE_TYPE,
+          characterId: '꿀꿀이대장-보스'
+        }
+      }
+    ],
+    rewards: {
+      gold: 400,
+      experience: 600,
+      items: []
+    }
+  },
+  {
+    // 사냥터 야영지의 떠돌이 상인이 주는 탐색 퀘스트: 남쪽 숲길 서쪽 굽이, 나무 틈 안쪽 빈터의 상자.
+    id: HIDDEN_CACHE_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: CAMP_MERCHANT_NPC_ID,
+    giverName: '떠돌이 상인 바렌',
+    title: '사냥꾼의 숨은 보급품',
+    trackerLabel: '숲속 숨은 상자 찾기',
+    prerequisiteQuestIds: [PIG_TROUBLE_QUEST_ID],
+    requestText:
+      '옛 사냥꾼들이 남쪽 숲길 어딘가에 보급 상자를 숨겨 두었다고 한다. 찾으면 안에 든 것을 나누자고 한다.',
+    guideText:
+      '야영지 남쪽 숲길을 따라가다 서쪽으로 크게 굽는 곳에서, 나무 사이 좁은 틈 너머 빈터를 찾아보자.',
+    startDialogueLines: [
+      '어이, 사냥꾼. 잠깐 얘기 좀 하지.',
+      '예전 이 야영지 사냥꾼들이 남쪽 숲길 어딘가에 보급 상자를 숨겨 뒀다더군.',
+      '길이 서쪽으로 크게 굽는 곳, 나무 사이에 사람 하나 지나갈 틈이 있다는 소문이야.',
+      '버섯돌이가 어슬렁거리니 조심하고. 찾으면 안에 든 건 반씩 나누자고.'
+    ],
+    activeDialogueLines: [
+      '숲길이 서쪽으로 굽는 데서 나무 틈을 잘 살펴봐.',
+      '틈 너머에 작은 빈터가 있을 거야.'
+    ],
+    talkTargetDialogueLines: [
+      '나무 틈 너머, 꽃 핀 빈터에 낡은 보급 상자가 놓여 있다.',
+      '녹슨 걸쇠를 비틀어 열자 기름 먹인 천에 싸인 물건들이 나왔다.',
+      '바렌에게 가져가 보자.'
+    ],
+    completionDialogueLines: [
+      '정말 찾았군! 소문이 사실이었어.',
+      '약속대로 나누지. 이 활은 네 몫이야. 무기만 바꿔 들어도 싸우는 법이 달라지지.',
+      '물약도 좀 챙겨 가. 다음에 또 들르라고.'
+    ],
+    objectives: [
+      {
+        id: 'open-hidden-cache',
+        label: '숲속 숨은 상자 열기',
+        required: 1,
+        type: 'talk',
+        target: { npcId: HIDDEN_CACHE_NPC_ID }
+      }
+    ],
+    rewards: {
+      gold: 150,
+      experience: 300,
+      items: [
+        { id: 'hunting-bow', label: '사냥용 활', quantity: 1 },
+        { id: 'health-potion', label: '체력 회복 포션', quantity: 3 }
       ]
     }
   }
@@ -859,12 +1121,15 @@ export const recordMonsterDefeatQuestProgress = (
   target: {
     sceneId: string
     appearanceType: string
+    characterId?: string
   }
 ): QuestLogState =>
   recordMatchingQuestObjectiveProgress(questLog, (objective) =>
     objective.type === 'monster-defeat' &&
     objective.target.sceneId === target.sceneId &&
-    objective.target.appearanceType === target.appearanceType
+    objective.target.appearanceType === target.appearanceType &&
+    (objective.target.characterId === undefined ||
+      objective.target.characterId === target.characterId)
   )
 
 export const recordItemUseQuestProgress = (

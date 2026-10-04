@@ -204,11 +204,14 @@ function quest_log_record_objective(quest_log, quest_id, objective_id, amount)
   return record_objective(quest_log, quest_id, objective_id, amount or 1)
 end
 
-function quest_log_record_monster_defeat(quest_log, scene_id, appearance_type)
+-- character_id 는 선택: 목표가 특정 개체(target.characterId)를 지정했으면 그 개체만 센다.
+function quest_log_record_monster_defeat(quest_log, scene_id, appearance_type, character_id)
   return record_matching_objective(quest_log, function(obj)
+    local wanted = obj.target.characterId
     return obj.type == 'monster-defeat'
       and obj.target.sceneId == scene_id
       and obj.target.appearanceType == appearance_type
+      and (wanted == nil or wanted == json_null or wanted == character_id)
   end)
 end
 

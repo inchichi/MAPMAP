@@ -42,7 +42,7 @@ describe('usePlayerInventoryConsumable', () => {
         }
       },
       inventory: {
-        gold: 1000,
+        gold: 150,
         slots: [
           undefined,
           undefined,
@@ -89,7 +89,7 @@ describe('usePlayerInventoryConsumable', () => {
         }
       },
       inventory: {
-        gold: 1000,
+        gold: 150,
         slots: [undefined, undefined]
       }
     })
@@ -156,7 +156,7 @@ describe('usePlayerQuickslotConsumable', () => {
         }
       },
       inventory: {
-        gold: 1000,
+        gold: 150,
         slots: [undefined, undefined, undefined]
       }
     })

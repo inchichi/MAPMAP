@@ -6,22 +6,13 @@ import { renderItemIconById } from './createBlacksmithShopOverlay'
 // 보여주는 팝업을 띄운다. 유저가 무엇을 잡고/얻어야 하는지 시각적으로 알 수 있게 한다.
 // 퀘스트 UI가 DOM이라 전부 DOM으로 구현한다(트래커·B창 공용).
 
-const MONSTER_SLIME_SHEET_URL = new URL(
-  '../assets/monsters/몬스터-말캉이.png',
-  import.meta.url
-).href
-const MONSTER_PIG_SHEET_URL = new URL(
-  '../assets/monsters/monster-pig-sheet.png',
-  import.meta.url
-).href
-const MONSTER_ROCK_SHEET_URL = new URL(
-  '../assets/monsters/pa2/rock-idle.png',
-  import.meta.url
-).href
-const MONSTER_MUSHROOM_SHEET_URL = new URL(
-  '../assets/monsters/pa2/mushroom-idle.png',
-  import.meta.url
-).href
+// 게임 속과 같은 LPC 몬스터 시트(assets/monsters/lpc)
+const lpcMonsterSheetUrl = (file: string) =>
+  new URL(`../assets/monsters/lpc/${file}`, import.meta.url).href
+const MONSTER_SLIME_SHEET_URL = lpcMonsterSheetUrl('slime.png')
+const MONSTER_PIG_SHEET_URL = lpcMonsterSheetUrl('pig-walk.png')
+const MONSTER_ROCK_SHEET_URL = lpcMonsterSheetUrl('golem-walk.png')
+const MONSTER_MUSHROOM_SHEET_URL = lpcMonsterSheetUrl('mushroom.png')
 
 // 몬스터 스프라이트 시트의 idle 밴드(상/하)와 프레임 수 — 첫 idle 프레임만 잘라 팝업에 보여준다.
 // (시트 프레임은 동적 검출이라 정확 크롭이 어려워 첫 프레임 베스트에포트.)
@@ -35,30 +26,30 @@ type MonsterPopupSprite = {
 const MONSTER_POPUP_SPRITES: Record<string, MonsterPopupSprite> = {
   monster_slime: {
     sheetUrl: MONSTER_SLIME_SHEET_URL,
-    idleTop: 45,
-    idleBottom: 140,
-    idleFrameCount: 4,
+    idleTop: 0,
+    idleBottom: 64,
+    idleFrameCount: 8,
     label: '말캉이'
   },
   monster_pig: {
     sheetUrl: MONSTER_PIG_SHEET_URL,
-    idleTop: 40,
-    idleBottom: 145,
+    idleTop: 128,
+    idleBottom: 256,
     idleFrameCount: 4,
-    label: '돼지'
+    label: '꿀꿀이'
   },
   monster_rock: {
     sheetUrl: MONSTER_ROCK_SHEET_URL,
-    idleTop: 0,
-    idleBottom: 34,
-    idleFrameCount: 14,
+    idleTop: 128,
+    idleBottom: 192,
+    idleFrameCount: 7,
     label: '바위돌이'
   },
   monster_mushroom: {
     sheetUrl: MONSTER_MUSHROOM_SHEET_URL,
     idleTop: 0,
-    idleBottom: 32,
-    idleFrameCount: 14,
+    idleBottom: 64,
+    idleFrameCount: 2,
     label: '버섯돌이'
   }
 }

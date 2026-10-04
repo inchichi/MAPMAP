@@ -78,4 +78,21 @@ describe('serializeWorldSaveState / parseStoredWorldSaveState', () => {
   it('rejects empty storage', () => {
     expect(parseStoredWorldSaveState(null)).toBeUndefined()
   })
+
+  it('round-trips defeated bosses and loads older saves without them', () => {
+    const raw = serializeWorldSaveState({
+      sceneId: 'cave',
+      questLog: createInitialQuestLog(),
+      collectedCoinTileKeysBySceneId: {},
+      defeatedBossIdsBySceneId: { cave: ['말캉이-보스'] }
+    })
+
+    expect(parseStoredWorldSaveState(raw)?.defeatedBossIdsBySceneId).toEqual({
+      cave: ['말캉이-보스']
+    })
+
+    const legacy = JSON.parse(raw)
+    delete legacy.defeatedBossIdsBySceneId
+    expect(parseStoredWorldSaveState(JSON.stringify(legacy))?.defeatedBossIdsBySceneId).toEqual({})
+  })
 })

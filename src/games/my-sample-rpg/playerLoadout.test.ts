@@ -87,7 +87,7 @@ describe('unequipPlayerEquipmentSlot', () => {
         ]
       },
       inventory: {
-        gold: 1000,
+        gold: 150,
         slots: [
           {
             id: 'basic-sword',
@@ -152,7 +152,7 @@ describe('equipPlayerInventorySlot', () => {
         ]
       },
       inventory: {
-        gold: 1000,
+        gold: 150,
         slots: [
           {
             id: 'basic-armor',

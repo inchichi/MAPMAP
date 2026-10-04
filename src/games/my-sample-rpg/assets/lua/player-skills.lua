@@ -13,7 +13,30 @@ local PROFILE_INDEX_BY_ID = {
   protect = 1,
   dash    = 2,
   focus   = 3,
+  ['ice-bolt']        = 4,
+  fireball            = 5,
+  ['chain-lightning'] = 6,
+  ['multi-shot']      = 7,
+  ['piercing-arrow']  = 8,
+  ['poison-arrow']    = 9,
 }
+
+-- 마법 스킬 레벨별 MP/위력 (TS PLAYER_MAGIC_SKILL_TABLE 미러). 5레벨 이후는 마지막 값에서
+-- 레벨당 MP +1, 위력 +step.
+local MAGIC_SKILL_TABLE = {
+  ['ice-bolt']        = { mana = { 4, 4, 5, 5, 6 },  power = { 3, 5, 7, 9, 11 },   step = 2 },
+  fireball            = { mana = { 6, 7, 8, 9, 10 }, power = { 8, 11, 14, 18, 22 }, step = 4 },
+  ['chain-lightning'] = { mana = { 7, 8, 9, 10, 11 }, power = { 6, 8, 10, 13, 16 }, step = 3 },
+  ['multi-shot']      = { mana = { 3, 3, 4, 4, 5 },  power = { 2, 3, 4, 5, 6 },     step = 1 },
+  ['piercing-arrow']  = { mana = { 4, 5, 5, 6, 7 },  power = { 6, 9, 12, 15, 18 },  step = 3 },
+  ['poison-arrow']    = { mana = { 3, 4, 4, 5, 5 },  power = { 2, 3, 4, 5, 6 },     step = 1 },
+}
+
+local function magic_table_value(values, skill_level, step)
+  local nl = math.max(1, math.floor(skill_level))
+  if nl <= #values then return values[nl] end
+  return values[#values] + (nl - #values) * step
+end
 
 local SMASH_MANA_COST_BY_LEVEL = {
   [1] = 4, [2] = 5, [3] = 6, [4] = 7, [5] = 8,
@@ -77,6 +100,10 @@ function player_skills_damage(profile, skill_id)
   if level == json_null then
     return 0
   end
+  local magic = MAGIC_SKILL_TABLE[skill_id]
+  if magic ~= nil then
+    return magic_table_value(magic.power, level, magic.step)
+  end
   if skill_id ~= PLAYER_SMASH_SKILL_ID then
     return 0
   end
@@ -102,6 +129,10 @@ function player_skills_mana_cost(profile, skill_id)
   end
   if skill_id == PLAYER_DASH_SKILL_ID then
     return 3
+  end
+  local magic = MAGIC_SKILL_TABLE[skill_id]
+  if magic ~= nil then
+    return magic_table_value(magic.mana, level, 1)
   end
   return 0
 end

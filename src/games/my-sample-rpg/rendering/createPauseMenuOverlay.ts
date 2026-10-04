@@ -1,4 +1,6 @@
 import { getResponsiveUiScale } from './getResponsiveUiScale'
+// 저작자 표시(CC-BY-SA 등 의무). scripts/build-credits.py 가 만든다.
+import creditsText from '../assets/credits.txt?raw'
 import {
   type PlayerControlBindingId,
   type PlayerControlBindings
@@ -38,8 +40,9 @@ const OVERLAY_MARGIN = 16
 // 캐주얼 게임 설정창 리디자인에 맞춘 폭(520px) — 높이는 화면에 맞춰 클램프된다.
 // 제목 32px·슬라이더·버튼이 커져서 메인 화면 높이도 함께 키웠다.
 const PANEL_WIDTH = 520
-const MAIN_PANEL_HEIGHT = 360
+const MAIN_PANEL_HEIGHT = 420
 const CONTROLS_PANEL_HEIGHT = 480
+const CREDITS_PANEL_HEIGHT = 520
 
 export const createPauseMenuOverlay = ({
   mountElement,
@@ -52,7 +55,7 @@ export const createPauseMenuOverlay = ({
   onRequestControlBindingCapture,
   onRequestControlBindingsReset
 }: CreatePauseMenuOverlayInput): PauseMenuOverlay => {
-  type PauseMenuScreen = 'main' | 'controls'
+  type PauseMenuScreen = 'main' | 'controls' | 'credits'
 
   const overlayRoot = document.createElement('div')
   const backdropButton = document.createElement('button')
@@ -70,6 +73,10 @@ export const createPauseMenuOverlay = ({
   const keyBindingGrid = document.createElement('div')
   const resetButton = document.createElement('button')
   const resumeButton = document.createElement('button')
+  const creditsButton = document.createElement('button')
+  const creditsScreen = document.createElement('div')
+  const creditsText_ = document.createElement('pre')
+  const creditsBackButton = document.createElement('button')
   const backButton = document.createElement('button')
   const bgmRow = createVolumeRow('🔊 BGM')
   const sfxRow = createVolumeRow('✨ 효과음')
@@ -151,6 +158,18 @@ export const createPauseMenuOverlay = ({
   resumeButton.className = 'pause-menu-overlay__resume'
   resumeButton.textContent = '계속하기'
 
+  creditsButton.type = 'button'
+  creditsButton.className = 'pause-menu-overlay__resume'
+  creditsButton.textContent = '크레딧'
+  creditsScreen.className =
+    'pause-menu-overlay__screen pause-menu-overlay__screen--credits'
+  creditsText_.className = 'pause-menu-overlay__credits-text'
+  creditsText_.textContent = creditsText
+  creditsBackButton.type = 'button'
+  creditsBackButton.className = 'pause-menu-overlay__resume'
+  creditsBackButton.textContent = '뒤로가기'
+  creditsScreen.append(creditsText_, creditsBackButton)
+
   backButton.type = 'button'
   backButton.className = 'pause-menu-overlay__resume'
   backButton.textContent = '뒤로가기'
@@ -162,9 +181,9 @@ export const createPauseMenuOverlay = ({
     keySectionActions,
     keyBindingGrid
   )
-  mainScreen.append(controlsButton, bgmRow.row, sfxRow.row, resumeButton)
+  mainScreen.append(controlsButton, bgmRow.row, sfxRow.row, creditsButton, resumeButton)
   controlsScreen.append(keySection)
-  screenHost.append(mainScreen, controlsScreen)
+  screenHost.append(mainScreen, controlsScreen, creditsScreen)
   panelBody.append(titleElement, screenHost)
   panel.append(panelBody)
   overlayRoot.append(backdropButton, panel)
@@ -193,7 +212,9 @@ export const createPauseMenuOverlay = ({
     const panelHeight =
       currentScreen === 'controls'
         ? CONTROLS_PANEL_HEIGHT
-        : MAIN_PANEL_HEIGHT
+        : currentScreen === 'credits'
+          ? CREDITS_PANEL_HEIGHT
+          : MAIN_PANEL_HEIGHT
 
     overlayRoot.hidden = !isOpen
     overlayRoot.style.display = isOpen ? '' : 'none'
@@ -213,9 +234,14 @@ export const createPauseMenuOverlay = ({
     panel.style.transformOrigin = 'center center'
     panel.style.transform = `translate(-50%, -50%) scale(${uiScale})`
     titleElement.textContent =
-      currentScreen === 'controls' ? '단축키 설정' : '⚙ 게임 설정'
+      currentScreen === 'controls'
+        ? '단축키 설정'
+        : currentScreen === 'credits'
+          ? '크레딧'
+          : '⚙ 게임 설정'
     mainScreen.hidden = currentScreen !== 'main'
     controlsScreen.hidden = currentScreen !== 'controls'
+    creditsScreen.hidden = currentScreen !== 'credits'
     for (const bindingRow of bindingRows) {
       const isListening =
         controlBindingCaptureTarget === bindingRow.definition.id
@@ -289,7 +315,21 @@ export const createPauseMenuOverlay = ({
     handleVolumeInput('sfxVolume', sfxRow.input)
   }
 
+  const handleCreditsClick = (event: MouseEvent) => {
+    event.preventDefault()
+    currentScreen = 'credits'
+    creditsText_.scrollTop = 0
+    syncFrame()
+  }
+  const handleCreditsBackClick = (event: MouseEvent) => {
+    event.preventDefault()
+    currentScreen = 'main'
+    syncFrame()
+  }
+
   controlsButton.addEventListener('click', handleControlsClick)
+  creditsButton.addEventListener('click', handleCreditsClick)
+  creditsBackButton.addEventListener('click', handleCreditsBackClick)
   resumeButton.addEventListener('click', handleResumeClick)
   resetButton.addEventListener('click', handleResetClick)
   backButton.addEventListener('click', handleBackClick)
@@ -303,6 +343,8 @@ export const createPauseMenuOverlay = ({
     syncFrame,
     destroy: () => {
       controlsButton.removeEventListener('click', handleControlsClick)
+      creditsButton.removeEventListener('click', handleCreditsClick)
+      creditsBackButton.removeEventListener('click', handleCreditsBackClick)
       resumeButton.removeEventListener('click', handleResumeClick)
       resetButton.removeEventListener('click', handleResetClick)
       backButton.removeEventListener('click', handleBackClick)

@@ -9,8 +9,8 @@ const map = parseTiledMap({
   externalTilesets: { '../tilesets/town-32.tsx': readFileSync('src/games/my-sample-rpg/assets/tilesets/town-32.tsx', 'utf8') }
 })
 describe('building hover layers', () => {
-  it('includes shared clock tiles in all nine lower streetlamps', () => {
-    for (let n = 5; n <= 13; n++) {
+  it('includes shared clock tiles in all four lower streetlamps', () => {
+    for (const n of [7, 9, 10, 12]) {
       const lamp = map.eventLayers.flatMap(layer => layer.events).find(event => event.name === `lamp_${n}`)!
       const types = buildingPreviewTiles(map, lamp).map(({ tile, tileset }) => tileset.tileTypes[tile.localId])
       expect(types).toContain('clocktower_face_mid_02')

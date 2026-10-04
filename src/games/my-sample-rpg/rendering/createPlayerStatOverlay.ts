@@ -39,7 +39,7 @@ const STAT_ROWS: StatRowConfig[] = [
   {
     id: 'intelligence',
     label: '지력',
-    description: '마법 공격력과 최대 마나가 올라갑니다'
+    description: '마법 공격력·최대 마나가 올라갑니다'
   },
   {
     id: 'luck',
@@ -51,8 +51,8 @@ const STAT_ROWS: StatRowConfig[] = [
 const OVERLAY_MARGIN = 16
 const PANEL_MIN_WIDTH = 280
 const PANEL_MAX_WIDTH = 340
-const PANEL_MIN_HEIGHT = 300
-const PANEL_MAX_HEIGHT = 380
+const PANEL_MIN_HEIGHT = 450
+const PANEL_MAX_HEIGHT = 500
 
 export const createPlayerStatOverlay = ({
   mountElement,
@@ -139,7 +139,7 @@ export const createPlayerStatOverlay = ({
       ? `레벨 ${profile.level} · MAX`
       : `레벨 ${profile.level}`
   infoHint.className = 'player-stat-overlay__info-hint'
-  infoHint.textContent = '전사=힘 · 궁수=민첩 · 마법사=지력 · 도적=행운'
+  infoHint.textContent = '검·활은 힘, 지팡이는 지력이 위력을 올립니다'
 
   statGrid.className = 'player-stat-overlay__stat-grid'
   footerElement.className = 'player-stat-overlay__footer'
@@ -306,7 +306,6 @@ export const createPlayerStatOverlay = ({
     panel.style.transformOrigin = 'left top'
     panel.style.transform = `scale(${uiScale})`
     panelBody.style.height = '100%'
-    panelBody.style.overflowY = 'auto'
 
     if (!hasPanelPosition) {
       panelPosition = defaultPosition
@@ -333,7 +332,7 @@ export const createPlayerStatOverlay = ({
 
     infoHint.textContent = recommendedStatLabel
       ? `${profile.job}의 주력 스텟은 ${recommendedStatLabel}입니다`
-      : '전사=힘 · 궁수=민첩 · 마법사=지력 · 도적=행운'
+      : '검·활은 힘, 지팡이는 지력이 위력을 올립니다'
 
     for (let index = 0; index < STAT_ROWS.length; index += 1) {
       const stat = STAT_ROWS[index]

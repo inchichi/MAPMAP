@@ -81,12 +81,12 @@ describe('parseTiledMap', () => {
       name: 'town-32',
       tileWidth: 32,
       tileHeight: 32,
-      tileCount: 1264,
+      tileCount: 1350,
       columns: 8,
       image: {
         source: 'town-32.png',
         width: 256,
-        height: 5056
+        height: 5408
       },
       tileTypes: {},
       tileProperties: {}
@@ -94,17 +94,17 @@ describe('parseTiledMap', () => {
     expect(map.layers[0].tiles[0]).toMatchObject({
       x: 0,
       y: 0,
-      gid: 55,
-      localId: 54,
+      gid: 457,
+      localId: 456,
       flipHorizontally: false,
       flipVertically: false,
       flipDiagonally: false
     })
     expect(map.layers[2].tiles[0]).toMatchObject({
-      x: 17,
+      x: 0,
       y: 3,
-      gid: 82,
-      localId: 81,
+      gid: 350,
+      localId: 349,
       flipHorizontally: false,
       flipVertically: false,
       flipDiagonally: false
@@ -192,91 +192,60 @@ describe('parseTiledMap', () => {
     })
     expect(map.eventLayers.map((layer) => layer.name)).toEqual([
       'characters',
-      'portals'
+      'portals',
+      'decorations'
     ])
-    expect(map.eventLayers[0].events).toHaveLength(5)
-    expect(map.eventLayers[0].events).toMatchObject([
-      {
-        id: 5,
-        name: '꿀꿀이-1',
-        className: 'character',
-        x: 224,
-        y: 160,
-        width: 32,
-        height: 32,
-        visible: true,
-        properties: {
-          blocksMovement: true,
-          'monster.level': 2,
-          type: 'monster_pig'
-        },
-        appearanceType: 'monster_pig'
+    // 몬스터 15마리 + 표지판 5개 + 야영지 상인·숨은 상자·갱도 낙석 (scripts/generate-hunting-ground.py 가 만든다)
+    expect(map.eventLayers[0].events).toHaveLength(23)
+    expect(
+      map.eventLayers[0].events.filter((event) =>
+        String(event.appearanceType).startsWith('monster_')
+      )
+    ).toHaveLength(15)
+    const characterById = (id: number) =>
+      map.eventLayers[0].events.find((event) => event.id === id)
+    expect(characterById(5)).toMatchObject({
+      name: '꿀꿀이-1',
+      className: 'character',
+      x: 640,
+      y: 256,
+      width: 32,
+      height: 32,
+      visible: true,
+      properties: {
+        blocksMovement: true,
+        'monster.level': 3,
+        type: 'monster_pig'
       },
-      {
-        id: 6,
-        name: '말캉이-1',
-        className: 'character',
-        x: 416,
-        y: 224,
-        width: 32,
-        height: 32,
-        visible: true,
-        properties: {
-          blocksMovement: true,
-          'monster.level': 1,
-          type: 'monster_slime'
-        },
-        appearanceType: 'monster_slime'
+      appearanceType: 'monster_pig'
+    })
+    expect(characterById(6)).toMatchObject({
+      name: '말캉이-1',
+      className: 'character',
+      x: 224,
+      y: 160,
+      properties: {
+        blocksMovement: true,
+        'monster.level': 1,
+        type: 'monster_slime'
       },
-      {
-        id: 8,
-        name: '꿀꿀이-2',
-        className: 'character',
-        x: 832,
-        y: 160,
-        width: 32,
-        height: 32,
-        visible: true,
-        properties: {
-          blocksMovement: true,
-          'monster.level': 2,
-          type: 'monster_pig'
-        },
-        appearanceType: 'monster_pig'
+      appearanceType: 'monster_slime'
+    })
+    expect(characterById(11)).toMatchObject({
+      name: 'cave_entrance_sign',
+      className: 'character',
+      x: 1440,
+      y: 384,
+      width: 32,
+      height: 32,
+      visible: true,
+      properties: {
+        blocksMovement: false,
+        type: 'sign_inn',
+        displayText: '동굴입구'
       },
-      {
-        id: 9,
-        name: '말캉이-2',
-        className: 'character',
-        x: 512,
-        y: 512,
-        width: 32,
-        height: 32,
-        visible: true,
-        properties: {
-          blocksMovement: true,
-          'monster.level': 1,
-          type: 'monster_slime'
-        },
-        appearanceType: 'monster_slime'
-      },
-      {
-        id: 11,
-        name: 'cave_entrance_sign',
-        className: 'character',
-        x: 1440,
-        y: 384,
-        width: 32,
-        height: 32,
-        visible: true,
-        properties: {
-          blocksMovement: false,
-          type: 'sign_inn',
-          displayText: '동굴입구'
-        },
-        appearanceType: 'sign_inn'
-      }
-    ])
+      appearanceType: 'sign_inn'
+    })
     expect(map.eventLayers[1].events[0]).toMatchObject({
       id: 4,
       name: 'return_gate',
@@ -335,8 +304,9 @@ describe('parseTiledMap', () => {
       'characters',
       'portals'
     ])
-    expect(map.eventLayers[0].events).toHaveLength(2)
-    expect(map.eventLayers[0].events).toMatchObject([
+    // 보스 두 마리 + 통로 일반 몬스터 다섯 마리 + 보스실 앞 무리 세 마리(q008)
+    expect(map.eventLayers[0].events).toHaveLength(10)
+    expect(map.eventLayers[0].events.slice(0, 2)).toMatchObject([
       {
         id: 5,
         name: '꿀꿀이-보스',
@@ -346,7 +316,7 @@ describe('parseTiledMap', () => {
         visible: true,
         properties: {
           blocksMovement: true,
-          'monster.level': 8,
+          'monster.level': 11,
           type: 'monster_pig'
         },
         appearanceType: 'monster_pig'
@@ -360,7 +330,7 @@ describe('parseTiledMap', () => {
         visible: true,
         properties: {
           blocksMovement: true,
-          'monster.level': 6,
+          'monster.level': 9,
           type: 'monster_slime'
         },
         appearanceType: 'monster_slime'

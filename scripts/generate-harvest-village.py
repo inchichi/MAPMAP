@@ -27,7 +27,7 @@ TOWN = 'src/games/my-sample-rpg/assets/maps/town.tmx'
 GIDS_PATH = 'scripts/lpc-cave-gids.json'
 W = H = 60
 
-G = json.load(open(GIDS_PATH))
+G = json.load(open(GIDS_PATH, encoding='utf-8'))
 rnd = random.Random(20260907)
 
 # ---- town-32 기본 gid ----
@@ -40,8 +40,21 @@ WATER_L, WATER, WATER_R = 309, 310, 311        # 석재 수로 물(수교 문법
 WATER_TL, WATER_T, WATER_TR = 316, 317, 320
 WATER_ALT = (318, 319, 324)
 STONE_BRICK = 45                               # 방죽 석벽
-LAMP_BASE, LAMP_TOP = (356, 357), (365, 366)   # 가로등 2x2
+# 가로등 2x3(town.tmx 와 같은 조립): 받침·기둥·등갓. 예전 (365,366) 등갓은
+# 다른 가로등의 조각이라 기둥이 받침과 어긋났다.
+LAMP_BASE, LAMP_MID, LAMP_TOP = (356, 357), (348, 349), (340, 341)
 FLOWER_BARREL = 493
+# 동굴 상자 키 이름은 실제 그림과 어긋나 있다(crate_mush=수정, crate_crystal=부서진
+# 상자). 마을에는 농산물이 담긴 상자 그림(1095)만 쓴다.
+CRATE = 1095
+# 나무 기둥에 박힌 녹색 팻말(서 있는 표지판). 'sign_blank'(1194)는 기둥 없는 걸이 간판이라
+# 잔디 위에 떠 보였다.
+SIGN_POST = 1193
+# 돌 받침 화분(받침 9 + 위에 얹는 덤불 1). 저택 뒤뜰·광장의 단정한 장식.
+URN_BASE, URN_BUSH = 9, 1
+WASH_TUB = 473   # 나무 빨래통
+# (LPC 'bench'(1147/1148) 는 옆에서 본 통나무 덩어리처럼 보여 쓰지 않는다)
+LOG_STACK, LOG_SINGLE = 1190, 1189
 TREE_CANOPY = [[326, 327, 328], [334, 335, 336], [342, 343, 344]]
 TREE_TRUNK = [350, 351, 352]
 ROCK_PILE = [527, 528]
@@ -73,7 +86,7 @@ def clear(layer, x, y):
 
 # ---------------------------------------------------------------- 템플릿 추출
 def extract_templates():
-    src = open(TOWN).read()
+    src = open(TOWN, encoding='utf-8').read()
     layers = {}
     for m in re.finditer(r'<layer id="\d+" name="([^"]+)"[^>]*>\s*<data encoding="csv">\s*([\d,\s]+?)</data>', src):
         vals = [int(v) for v in m.group(2).replace('\n', ',').split(',') if v.strip()]
@@ -85,11 +98,19 @@ def extract_templates():
         'stall_awning': (10, 12, 15, 17), 'fountain': (18, 12, 21, 16),
         'aqueduct': (0, 44, 50, 50),
     }
+    # 추출 상자에 함께 잘려 들어오는 town.tmx 주변 소품(건물 앞 나무·꽃바구니)은
+    # 템플릿에서 뺀다 — 그대로 찍으면 집 벽에 나무·화분이 붙는다.
+    tree_gids = {g for row in TREE_CANOPY for g in row} | set(TREE_TRUNK)
+    # 오두막 옆벽에 붙은 회색 바닥 띠 + 통·바구니(412/419/420)도 뺀다 — 잔디 위에 돌바닥 조각이
+    # 떠 보였다. 벽 그림자(shadow_upper)는 남겨 잔디에 드리우게 한다.
+    STRIP = {'house_red': tree_gids | {FLOWER_BARREL, 412, 419, 420}, 'stall_awning': tree_gids}
     out = {}
     for name, (x0, y0, x1, y1) in BOXES.items():
         tpl = {}
+        strip = STRIP.get(name, set())
         for lname, vals in layers.items():
-            grid = [[vals[y * TW + x] for x in range(x0, x1)] for y in range(y0, y1)]
+            grid = [[0 if vals[y * TW + x] in strip else vals[y * TW + x] for x in range(x0, x1)]
+                    for y in range(y0, y1)]
             if any(any(r) for r in grid):
                 tpl[lname] = grid
         hgt, wid = y1 - y0, x1 - x0
@@ -108,8 +129,9 @@ TPL = extract_templates()
 
 
 def stamp_template(name, ox, oy, skip_ground_bg=True):
-    """템플릿을 (ox,oy)에 찍는다. skip_ground_bg면 다른 레이어가 비어 있는 칸의
-    ground(주변 자갈 바닥)는 건너뛰어 지형이 비치게 한다."""
+    """템플릿을 (ox,oy)에 찍는다. skip_ground_bg면 바닥 소품(object/shadow_lower)이
+    없는 칸의 ground(주변 자갈 바닥)는 건너뛰어 지형이 비치게 한다 — 지붕 모서리나
+    그림자만 있는 칸에 회색 자갈 조각이 남지 않게."""
     t = TPL[name]
     for lname, grid in t['layers'].items():
         for dy, row in enumerate(grid):
@@ -119,7 +141,7 @@ def stamp_template(name, ox, oy, skip_ground_bg=True):
                 if lname == 'ground' and skip_ground_bg:
                     others = any(
                         t['layers'][l][dy][dx]
-                        for l in t['layers'] if l != 'ground')
+                        for l in ('object', 'shadow_lower') if l in t['layers'])
                     if not others:
                         continue
                 put(lname, ox + dx, oy + dy, gid)
@@ -142,19 +164,32 @@ def stamp_vprop(prefix, x, y, cols, rows_, solid_rows=1, layer_top='object_upper
             put('object' if r >= rows_ - solid_rows else layer_top, x + c, ty, gid)
 
 
-def put_town_tree(x, y):
+# 나무는 town 나무 한 그림체로 통일 — 수관 색만 바꾼 변형(deep/autumn,
+# scripts/append-tree-variants.py)을 섞는다. LPC 나무(tree_med_*, tree_round, tree_autumn)는
+# 외곽선·명암이 달라 town 타일과 섞이면 이질적이었다.
+TREE_VARIANTS = json.load(open('scripts/tree-variant-gids.json', encoding='utf-8'))
+
+
+def put_town_tree(x, y, kind='town'):
+    canopy, trunk = ((TREE_CANOPY, TREE_TRUNK) if kind == 'town'
+                     else (TREE_VARIANTS[kind]['canopy'], TREE_VARIANTS[kind]['trunk']))
     for dy in range(3):
         for dx in range(3):
-            put('object_upper', x + dx, y + dy, TREE_CANOPY[dy][dx])
+            put('object_upper', x + dx, y + dy, canopy[dy][dx])
     for dx in range(3):
-        put('object', x + dx, y + 3, TREE_TRUNK[dx])
+        put('object', x + dx, y + 3, trunk[dx])
+
+
+def put_urn(x, y):
+    put('object', x, y, URN_BASE)
+    put('object_upper', x, y - 1, URN_BUSH)
 
 
 def put_lamp(x, y):
-    put('object', x, y, LAMP_BASE[0])
-    put('object', x + 1, y, LAMP_BASE[1])
-    put('object_upper', x, y - 1, LAMP_TOP[0])
-    put('object_upper', x + 1, y - 1, LAMP_TOP[1])
+    for dx in range(2):
+        put('object', x + dx, y, LAMP_BASE[dx])
+        put('object_upper', x + dx, y - 1, LAMP_MID[dx])
+        put('object_upper', x + dx, y - 2, LAMP_TOP[dx])
 
 
 # ---------------------------------------------------------------- 지형: 잔디 밑칠
@@ -207,22 +242,38 @@ for (cx, cy, rr) in ((30, 30, 6), (26, 31, 4), (35, 31, 4)):
         for x in range(cx - rr, cx + rr + 1):
             if (x - cx) ** 2 + (y - cy) ** 2 <= rr * rr:
                 cobble_cells.add((x, y))
-# 저택 진입로(자갈)
-paint(cobble_cells, [(30, 36), (30, 40)], r=1)
+# (예전에는 광장에서 저택 '뒤편'(북쪽 지붕)으로 자갈길을 냈다 — 현관은 남쪽이라 막다른
+#  길이었다. 이제 광장은 35행에서 끝나고 저택 뒤는 화분 정원이다.)
 # 동쪽 들길(흙): 광장 → 밭 사잇길 → 동쪽 끝
 paint(dirt_cells, [(36, 30), (44, 30), (52, 31), (57, 31)], r=1)
 # 장터 지선(흙): 척추 → 장터 천막 앞 → 밭 A 서문
 paint(dirt_cells, [(31, 14), (38, 14), (41, 14)], r=1)
+dirt_cells.update({(42, 14), (42, 15)})   # 밭 A 서문까지 잇는다
 # 건초 골목(흙): 동쪽 들길 → 건초 마당
 paint(dirt_cells, [(40, 32), (40, 47), (42, 49)], r=1)
 # 서쪽 산책로(흙): 광장 → 갈림길 → 과수원/방죽못
-paint(dirt_cells, [(25, 33), (18, 37), (12, 37)], r=1)
-paint(dirt_cells, [(18, 37), (17, 44), (12, 47)], r=1)
+# 대각선으로 그리면 계단식 얼룩이 생겨서, 곧은 2칸 폭 길을 직각으로 잇는다.
+def lane(x0, y0, x1, y1):
+    """(x0,y0)~(x1,y1) 직사각형(양 끝 포함)을 흙길로 칠한다."""
+    for y in range(min(y0, y1), max(y0, y1) + 1):
+        for x in range(min(x0, x1), max(x0, x1) + 1):
+            dirt_cells.add((x, y))
+
+
+lane(12, 35, 25, 36)    # 광장 → 서쪽 갈림길 → 방죽못
+lane(16, 37, 17, 47)    # 과수원 고랑(두 나무 열 사이)
+lane(11, 43, 15, 44)    # 고랑 → 못가 벤치(두 나무 행 사이)
 # 저택 정면 산책로(흙): 건초 마당 곁을 지나 남쪽 정면 현관으로
 paint(dirt_cells, [(40, 47), (40, 53), (38, 56), (33, 57), (30, 57)], r=1)
 # 오두막 앞길(흙): 산책로 → 두 집 문앞(이웃끼리 다져진 지름길)
-paint(dirt_cells, [(20, 33), (17, 27), (14, 19)], r=1)
-paint(dirt_cells, [(14, 18), (22, 18)], r=0)
+lane(13, 18, 27, 19)    # 두 오두막 문앞 → 가로수길
+lane(14, 17, 14, 17)    # 서쪽 오두막 문턱
+lane(18, 20, 18, 34)    # 두 텃밭 사이 → 광장 서쪽 길
+# 좌판(북/남): 차양 밑과 앞을 다져진 흙바닥으로 — 잔디 위 회색 돌 조각 대신.
+STALLS = [(42, 24), (42, 34)]
+for sx, sy in STALLS:
+    lane(sx + 1, sy + 1, sx + 3, sy + 4)
+    lane(sx, sy + 4, sx + 3, sy + 4)   # 앞마당을 서쪽 길(39~41열)까지 잇는다
 # 관문 아래 통로(자갈)
 for y in range(0, 7):
     for x in range(28, 32):
@@ -294,7 +345,7 @@ autotile(COBBLE, COBBLE_EDGE_BASE)
 
 # 물 채움(오토타일 이후 — 물 위엔 전환 타일이 필요 없다)
 for (x, y) in water_cells:
-    put('ground', x, y, WATER_FILLS[0] if rnd.random() < 0.7 else rnd.choice(WATER_FILLS))
+    put('ground', x, y, WATER_FILLS[0] if rnd.random() < 0.4 else rnd.choice(WATER_FILLS[1:]))
 
 # ---------------------------------------------------------------- 수교(북벽) + 관문
 # 50폭 템플릿 + 동쪽 10칸은 중간부(10..19열)를 이어붙인다
@@ -321,11 +372,58 @@ for y in range(0, 6):
 
 # ---------------------------------------------------------------- 건물
 stamp_template('mansion_blue', 22, 40)
-stamp_template('house_red', 11, 9)
-stamp_template('house_red', 19, 10)
-stamp_template('market_tent', 33, 17)
-stamp_template('stall_awning', 42, 24)
-stamp_template('stall_awning', 42, 34)
+# 마을 시청과 같은 건물로 보이지 않게 지붕을 테라코타 변형 타일로 바꾼다
+# (scripts/append-tree-variants.py 가 만든 mansion-roof-terracotta 매핑).
+ROOF_TERRACOTTA = {int(k): v for k, v in TREE_VARIANTS['mansion-roof-terracotta'].items()}
+for lname in LAYER_NAMES:
+    for y in range(40, 40 + TPL['mansion_blue']['h']):
+        for x in range(22, 22 + TPL['mansion_blue']['w']):
+            g = get(lname, x, y)
+            if g in ROOF_TERRACOTTA:
+                put(lname, x, y, ROOF_TERRACOTTA[g])
+# 저택 현관: 굴 입구 같은 어두운 문(544/552)을 벽으로 메우고 오두막과 같은 나무 아치문을 단다
+put('object', 29, 54, 82)
+put('object', 29, 55, 90)
+for r in range(2):
+    for c in range(3):
+        put('deco', 28 + c, 54 + r, ((6, 7, 8), (14, 15, 16))[r][c])
+# 오두막 문: 돌 아치 + 유리창 나무 두짝문(2x2). 예전의 저택 현관 타일(544/552)은
+# 어두운 굴 입구처럼 보여 오두막에 어울리지 않았다.
+COTTAGE_DOOR = ((6, 7, 8), (14, 15, 16))   # 6/14 는 왼쪽 문틀 끝 몇 픽셀
+WINDOW_FLOWER = (5, 29)         # 창 위/꽃상자 달린 아래
+
+
+def stamp_cottage(ox, oy, layout):
+    """붉은 지붕 오두막(앞벽 4칸: ox+1..ox+4, 벽 줄: oy+4..oy+7). 문·창은 장식 레이어라
+    벽 충돌은 그대로다."""
+    stamp_template('house_red', ox, oy)
+    for dx in range(1, 5):
+        for dy in range(4, 8):
+            clear('deco', ox + dx, oy + dy)
+    door_x, windows = layout
+    for r in range(2):
+        for c in range(3):
+            put('deco', ox + door_x - 1 + c, oy + 6 + r, COTTAGE_DOOR[r][c])
+    for wx, (top, bottom) in windows:
+        put('deco', ox + wx, oy + 4, top)
+        put('deco', ox + wx, oy + 5, bottom)
+
+
+# 문 그림은 타일 반 칸만큼 치우쳐 있어 4칸 앞벽 정중앙에 올 수 없다. 그래서 문을 오른쪽,
+# 꽃창 하나를 왼쪽에 둔 비대칭 오두막으로 짠다(양끝 1·4열 창은 지붕 처마에 가려진다).
+COTTAGE_LAYOUT = (3, ((2, WINDOW_FLOWER),))
+stamp_cottage(11, 9, COTTAGE_LAYOUT)
+stamp_cottage(19, 10, COTTAGE_LAYOUT)
+stamp_template('market_tent', 34, 17)   # 33열이면 가로수길 가로등(33~34열)과 겹친다
+for sx, sy in STALLS:
+    # 템플릿의 자갈 바닥 조각은 버리고 위에서 깐 흙바닥(오토타일 결과)을 되살린다
+    saved = {(x, y): get('ground', x, y) for x in range(sx, sx + 6) for y in range(sy, sy + 6)}
+    stamp_template('stall_awning', sx, sy)
+    for (x, y), g in saved.items():
+        put('ground', x, y, g)
+    # 차양 밑 진열 상자 두 개(차양 끝단이 상자 윗부분을 살짝 덮는다)
+    put('object', sx + 1, sy + 2, CRATE)
+    put('object', sx + 3, sy + 2, CRATE)
 
 # ---------------------------------------------------------------- 울타리 밭
 def fence_rect(x0, y0, x1, y1, gates=()):
@@ -370,98 +468,88 @@ fence_rect(19, 21, 23, 25, gates=((21, 21), (22, 21)))
 field_rows(20, 23, 22, 24, 'plowed')
 
 # ---------------------------------------------------------------- 과수원 + 나무
-ORCHARD = [(12, 40), (16, 41), (20, 42), (12, 45), (16, 46), (20, 47), (12, 50), (16, 50)]
-for i, (x, y) in enumerate(ORCHARD):
-    if i % 3 == 2:
-        stamp_vprop('tree_round', x, y + 3, 2, 4)
-    else:
-        stamp_vprop('tree_med_a' if i % 3 == 0 else 'tree_med_b', x, y + 3, 3, 4)
-stamp_vprop('tree_autumn', 24, 13, 3, 4)     # 광장 북서 가을 나무 한 그루(포인트)
+# 과수원은 과일나무 2열 x 3행의 반듯한 격자 — 큰 나무 8그루를 몰아 심으면 숲처럼 뭉개진다.
+# 두 열 사이(16~17열)는 키안이 서는 고랑으로 비운다.
+ORCHARD = [(12, 39), (19, 39), (12, 45), (19, 45), (12, 51), (19, 51)]
+for x, y in ORCHARD:
+    put_town_tree(x, y)
+put_town_tree(17, 9, 'autumn')     # 두 오두막 사이 가을 나무 한 그루(포인트)
 
-# 외곽 나무 병풍(동/서/남) — 시야 밀봉
-for y in range(6, H - 3, 4):
-    put_town_tree(0, y) if y % 8 < 4 else stamp_vprop('tree_med_b', 0, y + 3, 3, 4)
-for y in range(8, H - 4, 4):
-    put_town_tree(W - 3, y)
-for x in range(2, W - 3, 4):
-    if 19 <= x <= 41:
-        continue   # 저택 정면 산책로 구간
-    put_town_tree(x, H - 4)
+# 외곽 나무 — 같은 나무를 4칸마다 세운 '벽' 대신 모서리·가장자리에 몇 그루씩 어긋나게
+# 모은 숲덤불로 테두리를 암시한다(통행 밀봉은 아래 투명 충돌 타일이 맡는다).
+EDGE_TREES = [
+    ('town', 0, 7), ('deep', 2, 13),                           # 서쪽: 수교 아래
+    ('town', 0, 27), ('deep', 2, 31),                          # 서쪽: 중간
+    ('town', 0, 49), ('deep', 3, 53), ('town', 1, 56),         # 남서 모서리
+    ('town', 57, 7), ('deep', 56, 23),                         # 동쪽
+    ('town', 57, 39), ('deep', 55, 49), ('town', 57, 53),      # 남동 모서리
+    ('deep', 50, 56),
+]
+for kind, x, y in EDGE_TREES:
+    put_town_tree(x, y, kind)
 
 # ---------------------------------------------------------------- 소품/드레싱
 # 우물 광장
 stamp_vprop('well_roof', 31, 29, 2, 2)
 put('object', 30, 29, FLOWER_BARREL)
 put('object', 34, 29, FLOWER_BARREL)
-stamp_vprop('bench', 27, 33, 2, 1)
-stamp_vprop('bench', 34, 33, 2, 1)
-for x, y in ((25, 28), (36, 28), (25, 34), (37, 34)):
+put_urn(27, 33)
+put_urn(35, 33)
+# 가로등은 관문 한 쌍 + 광장 남쪽 한 쌍 + 저택 앞 하나만 — 농촌 마을에 11개는 과했다.
+# (광장 북쪽 (36,28) 가로등은 브란(36,25)의 이름표와 겹쳤다.)
+for x, y in ((25, 34), (37, 34)):
     put_lamp(x, y)
-# 가로수길(척추) — 가로등+꽃 리듬(축선 액자: 이식안)
-for y in (9, 15, 21):
-    put_lamp(26, y)
-    put_lamp(33, y)
+# 가로수길(척추) — 관문 바로 앞 한 쌍만 두고 나머지는 꽃 리듬으로 잇는다
+put_lamp(26, 9)
+put_lamp(33, 9)
 for y in range(8, 25, 2):
-    put('shadow_lower', 27, y, vprop(f'flower_{"abcd"[(y // 2) % 4]}'))
-    put('shadow_lower', 32, y, vprop(f'flower_{"abcd"[(y // 2 + 2) % 4]}'))
+    for x, k in ((27, 0), (32, 0)):   # 양옆 같은 꽃 — 축선이 좌우 대칭으로 읽히게
+        if not get('object', x, y) and not get('object_upper', x, y):   # 가로등 밑은 비운다
+            put('shadow_lower', x, y, vprop(f'flower_{"abcd"[(y // 2 + k) % 4]}'))
 # 관문 앞 꽃무리 + 표지판
 for x, y in ((25, 6), (26, 7), (34, 6), (33, 7), (24, 7), (35, 7)):
     put('shadow_lower', x, y, vprop(f'flower_{"abcd"[(x + y) % 4]}'))
-put('object', 33, 7, vprop('sign_blank'))
+put('object', 36, 7, SIGN_POST)   # 가로등(33~34열)과 겹치지 않게
 # 수문(개울 상류) — 이멜의 분필 수위표(팻말)
-put('object', 10, 7, vprop('sign_blank'))
-# 빨래터(개울가, 이식안): 벤치 + 물가 부들 + 바구니(상자)
-stamp_vprop('bench', 9, 15, 2, 1)
-put('object', 10, 16, G['cave_prop_crate_mush'])
+put('object', 10, 7, SIGN_POST)
+# 빨래터(개울가): 빨래통 + 바구니(상자) + 물가 부들
+put('object', 10, 15, WASH_TUB)
+put('object', 10, 16, CRATE)
 for x, y in ((9, 12), (5, 17), (9, 26), (5, 30), (9, 34)):
     stamp_vprop('cattail', x, y, 1, 2)
-# 방죽못 벤치 두 개(노을 명당) + 꽃
-stamp_vprop('bench', 11, 43, 2, 1)
-stamp_vprop('bench', 11, 46, 2, 1)
-put('shadow_lower', 13, 43, vprop('flower_b'))
+# 방죽못가 꽃 한 무더기
+put('shadow_lower', 11, 44, vprop('flower_b'))
 # 과수원: 사과 상자(엎질러진 것 포함) + 지름길 풀
-put('object', 18, 44, G['cave_prop_crate_mush'])
-put('shadow_lower', 17, 45, vprop('flower_c'))
-put('shadow_lower', 15, 47, vprop('flower_c'))
+put('object', 15, 41, CRATE)   # 과수원 고랑 길가의 사과 상자
 # 건초 마당
 stamp_vprop('cart', 42, 49, 2, 2)
 stamp_vprop('haystack', 45, 49, 2, 2)
 stamp_vprop('haybale', 45, 52, 2, 2)
 stamp_vprop('hay_blocks', 48, 50, 2, 2)
-put('object', 44, 52, G['cave_prop_crate_bones'])
+put('object', 44, 52, CRATE)
 
 # 장터 넘침: 천막 동쪽 상자·자루 + 길에 버려진 상자 하나
-put('object', 41, 20, G['cave_prop_crate_mush'])
-put('object', 41, 21, G['cave_prop_crate_crystal'])
-put('object', 46, 29, G['cave_prop_crate_mush'])
-stamp_vprop('sign_inn', 38, 16, 1, 1)   # 천막 위 장터 간판
-# 저택 진입로 생울타리(한 칸은 기사들이 밟아 눕힌 풀: 이식안)
-for y in range(37, 40):
-    stamp_vprop('hedge_low_m', 28, y, 1, 1)
-    if y != 38:
-        stamp_vprop('hedge_low_m', 32, y, 1, 1)
-put('shadow_lower', 32, 38, vprop('flower_a'))
-# 저택 앞 화단 + 가로등
-put('object', 28, 39, FLOWER_BARREL)
-put('object', 32, 39, FLOWER_BARREL)
-put_lamp(27, 39)
+put('object', 41, 20, CRATE)
+put('object', 41, 21, CRATE)
+# 저택 뒤뜰: 저택 중심(30열)을 기준으로 좌우 대칭인 돌 화분 4개 + 사이사이 꽃.
+# 가운데(29~31열)는 세라핀(30,38)이 서는 자리라 비운다.
+for x in (24, 27, 33, 36):
+    put_urn(x, 39)
+for x in (25, 26, 34, 35):
+    put('shadow_lower', x, 39, vprop(f'flower_{"abcd"[x % 4]}'))
 # 밭 곳곳: 허수아비/통나무/바위
 stamp_vprop('scarecrow', 50, 13, 1, 2)
-stamp_vprop('logpile', 44, 21, 2, 2)
-put('object', 12, 30, ROCK_PILE[0])
-put('object', 47, 33, ROCK_PILE[1])
+# 장작더미는 건초 마당 수레 곁에 둔다(들판 한가운데 덩그러니 놓인 통나무·바위는 뺐다).
+put('object', 47, 52, LOG_STACK)    # 두란(43,50)의 이름표 자리는 비운다
+put('object', 48, 52, LOG_SINGLE)
 # 오두막 사이 다져진 길 옆 수풀/꽃
-for x, y in ((13, 17), (21, 17), (16, 26), (23, 27)):
+# (예전 (13,17)/(21,17)은 오두막 벽 바로 앞·위였다)
+for x, y in ((11, 17), (25, 16)):
     stamp_vprop('bush_round', x, y, 1, 1)
 for x, y in ((12, 16), (22, 16), (18, 8), (26, 8)):
     put('shadow_lower', x, y, vprop(f'flower_{"abcd"[(x * 3 + y) % 4]}'))
-# 잔디에 꽃 흩뿌림(소량)
-for y in range(H):
-    for x in range(W):
-        if get('ground', x, y) in (GRASS, GRASS_ALT) and not get('object', x, y) \
-                and not get('shadow_lower', x, y) and not get('object_upper', x, y) \
-                and rnd.random() < 0.012:
-            put('shadow_lower', x, y, vprop(f'flower_{"abcd"[(x * 7 + y) % 4]}'))
+# (예전에는 잔디 전체에 꽃을 무작위로 흩뿌렸다 — 지저분해 보여서 뺐다. 꽃은 오두막
+#  앞·가로수길·관문처럼 의도한 자리에만 둔다.)
 
 # ---------------------------------------------------------------- 외곽 밀봉
 for x in range(W):
@@ -513,7 +601,7 @@ for y in range(H):
         if (x, y) not in walls:
             problems.append(f'외곽 개방 ({x},{y})')
 
-MAX_GID = max(G.values())
+MAX_GID = 1350  # town-32 tilecount (나무·지붕 색 변형 포함)
 for name in LAYER_NAMES:
     bad = [g for g in L[name] if g and not (1 <= g <= MAX_GID)]
     if bad:
@@ -530,7 +618,7 @@ if problems:
 print('검증 통과')
 
 # ---------------------------------------------------------------- TMX 출력
-src = open(SRC).read()
+src = open(SRC, encoding='utf-8').read()
 head = src[:src.index(' <layer ')]
 tail = src[src.index(' <objectgroup '):]
 head = re.sub(r'nextlayerid="\d+"',
@@ -540,5 +628,5 @@ for i, name in enumerate(LAYER_NAMES, start=FIRST_LAYER_ID):
     rows = ',\n'.join(','.join(str(v) for v in L[name][y * W:(y + 1) * W]) for y in range(H))
     parts.append(f' <layer id="{i}" name="{name}" width="{W}" height="{H}">\n'
                  f'  <data encoding="csv">\n{rows}\n</data>\n </layer>\n')
-open(SRC, 'w').write(head + ''.join(parts) + tail)
+open(SRC, 'w', encoding='utf-8', newline='\n').write(head + ''.join(parts) + tail)
 print('wrote', SRC)

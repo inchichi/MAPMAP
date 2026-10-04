@@ -20,6 +20,9 @@ export type PlayerEquipmentIconKey =
   | 'weapon-bow'
   | 'ui-circle-beige'
   | 'ui-check-beige'
+  // LPC 장비 아이콘(rendering/lpcGearIcons.ts)
+  | `lpc-gear:${string}`
+  | `lpc-weapon:${string}`
 
 export type PlayerEquipmentIcon = {
   key: PlayerEquipmentIconKey
@@ -87,8 +90,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '초보용 근접 무기',
     price: 120,
     icon: {
-      key: 'tiny-dungeon-weapon',
-      scale: 1.6
+      key: 'lpc-weapon:basic-sword',
+      scale: 1
     }
   },
   {
@@ -100,8 +103,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '초보용 옷',
     price: 100,
     icon: {
-      key: 'tiny-knight-gray-helmet',
-      scale: 1.4
+      key: 'lpc-gear:basic-armor',
+      scale: 1
     }
   },
   {
@@ -113,8 +116,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '초보용 신발',
     price: 80,
     icon: {
-      key: 'ui-circle-beige',
-      scale: 1.2
+      key: 'lpc-gear:basic-boots',
+      scale: 1
     }
   },
   {
@@ -139,8 +142,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '대장장이가 만든 단단한 검',
     price: 320,
     icon: {
-      key: 'town-crate-sword-right',
-      scale: 1.5
+      key: 'lpc-weapon:bronze-sword',
+      scale: 1
     }
   },
   {
@@ -152,8 +155,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '균형이 좋은 근접 무기',
     price: 240,
     icon: {
-      key: 'weapon-sword',
-      scale: 0.08
+      key: 'lpc-weapon:iron-sword',
+      scale: 1
     }
   },
   {
@@ -166,8 +169,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '광맥에서 광석을 캐는 채굴 도구',
     price: 150,
     icon: {
-      key: 'weapon-axe',
-      scale: 0.08
+      key: 'lpc-weapon:pickaxe',
+      scale: 1
     }
   },
   {
@@ -179,8 +182,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '무거운 한손 도끼',
     price: 260,
     icon: {
-      key: 'weapon-axe',
-      scale: 0.08
+      key: 'lpc-weapon:battle-axe',
+      scale: 1
     }
   },
   {
@@ -192,8 +195,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '거리감을 유지하기 좋은 창',
     price: 280,
     icon: {
-      key: 'weapon-spear',
-      scale: 0.08
+      key: 'lpc-weapon:long-spear',
+      scale: 1
     }
   },
   {
@@ -205,8 +208,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '빠른 연속 공격용 무기',
     price: 180,
     icon: {
-      key: 'weapon-dagger',
-      scale: 0.08
+      key: 'lpc-weapon:quick-dagger',
+      scale: 1
     }
   },
   {
@@ -218,8 +221,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '강한 타격을 주는 둔기',
     price: 340,
     icon: {
-      key: 'weapon-mace',
-      scale: 0.08
+      key: 'lpc-weapon:spiked-mace',
+      scale: 1
     }
   },
   {
@@ -232,8 +235,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     price: 360,
     attackKind: 'magic',
     icon: {
-      key: 'weapon-staff',
-      scale: 0.08
+      key: 'lpc-weapon:magic-staff',
+      scale: 1
     }
   },
   {
@@ -246,8 +249,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     price: 300,
     attackKind: 'bow',
     icon: {
-      key: 'weapon-bow',
-      scale: 0.4
+      key: 'lpc-weapon:hunting-bow',
+      scale: 1
     }
   },
   {
@@ -259,8 +262,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '초보용을 넘어선 철제 옷',
     price: 260,
     icon: {
-      key: 'tiny-knight-open-helmet',
-      scale: 1.4
+      key: 'lpc-gear:iron-armor',
+      scale: 1
     }
   },
   {
@@ -272,8 +275,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '몬스터에게서 얻은 가죽 갑옷',
     price: 220,
     icon: {
-      key: 'tiny-knight-gray-helmet',
-      scale: 1.4
+      key: 'lpc-gear:Leather_Armor',
+      scale: 1
     }
   },
   {
@@ -285,8 +288,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '몬스터에게서 얻은 가죽 투구',
     price: 180,
     icon: {
-      key: 'tiny-knight-gray-helmet',
-      scale: 1.4
+      key: 'lpc-gear:Leather_Helmet',
+      scale: 1
     }
   },
   {
@@ -298,8 +301,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '몬스터에게서 얻은 사슬 갑옷',
     price: 300,
     icon: {
-      key: 'tiny-knight-open-helmet',
-      scale: 1.4
+      key: 'lpc-gear:Chain_Armor',
+      scale: 1
     }
   },
   {
@@ -311,8 +314,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '몬스터에게서 얻은 사슬 투구',
     price: 240,
     icon: {
-      key: 'tiny-knight-open-helmet',
-      scale: 1.4
+      key: 'lpc-gear:Chain_Helmet',
+      scale: 1
     }
   },
   {
@@ -324,8 +327,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '몬스터에게서 얻은 철 갑옷',
     price: 360,
     icon: {
-      key: 'tiny-knight-open-helmet',
-      scale: 1.4
+      key: 'lpc-gear:Iron_Armor',
+      scale: 1
     }
   },
   {
@@ -337,8 +340,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '몬스터에게서 얻은 철 투구',
     price: 300,
     icon: {
-      key: 'tiny-knight-open-helmet',
-      scale: 1.4
+      key: 'lpc-gear:Iron_Helmet',
+      scale: 1
     }
   },
   {
@@ -350,8 +353,8 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     description: '가볍고 단단한 가죽 신발',
     price: 180,
     icon: {
-      key: 'ui-circle-beige',
-      scale: 1.2
+      key: 'lpc-gear:leather-boots',
+      scale: 1
     }
   },
   {

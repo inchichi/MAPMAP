@@ -12,6 +12,12 @@ import {
   PLAYER_PROTECT_SKILL_ID,
   PLAYER_DASH_SKILL_ID,
   PLAYER_FOCUS_SKILL_ID,
+  PLAYER_ICE_BOLT_SKILL_ID,
+  PLAYER_FIREBALL_SKILL_ID,
+  PLAYER_CHAIN_LIGHTNING_SKILL_ID,
+  PLAYER_MULTI_SHOT_SKILL_ID,
+  PLAYER_PIERCING_ARROW_SKILL_ID,
+  PLAYER_POISON_ARROW_SKILL_ID,
   getPlayerSkillDisplayInfoById
 } from '../playerSkills'
 import { isPlayerSkillUnlockedInProfile } from '../lua/luaGameLogic'
@@ -85,6 +91,30 @@ export const createPlayerSkillOverlay = ({
     {
       profileSkillIndex: 3,
       skillId: PLAYER_FOCUS_SKILL_ID
+    },
+    {
+      profileSkillIndex: 4,
+      skillId: PLAYER_ICE_BOLT_SKILL_ID
+    },
+    {
+      profileSkillIndex: 5,
+      skillId: PLAYER_FIREBALL_SKILL_ID
+    },
+    {
+      profileSkillIndex: 6,
+      skillId: PLAYER_CHAIN_LIGHTNING_SKILL_ID
+    },
+    {
+      profileSkillIndex: 7,
+      skillId: PLAYER_MULTI_SHOT_SKILL_ID
+    },
+    {
+      profileSkillIndex: 8,
+      skillId: PLAYER_PIERCING_ARROW_SKILL_ID
+    },
+    {
+      profileSkillIndex: 9,
+      skillId: PLAYER_POISON_ARROW_SKILL_ID
     }
   ] as const
   let panelPosition = { left: 0, top: 0 }

@@ -14,6 +14,7 @@ import {
   getVisibleQuestDefinitions,
   setQuestTrackerVisible
 } from '../questLog'
+import lpcManifest from '../assets/characters/lpc/manifest.json'
 import { getResponsiveUiScale } from './getResponsiveUiScale'
 import { createQuestTargetLink } from './questObjectiveTargetView'
 
@@ -24,6 +25,8 @@ type CreateQuestLogOverlayInput = {
   getPlayerName: () => string
   onRequestOpenChange: (isOpen: boolean) => void
   onQuestLogChange: (nextQuestLog: QuestLogState) => void
+  // 완료한 퀘스트의 대사(수락 + 완료)를 대화창으로 다시 보여 준다.
+  onRequestReplayDialogue: (definition: QuestDefinition) => void
 }
 
 export type QuestLogOverlay = {
@@ -31,53 +34,36 @@ export type QuestLogOverlay = {
   destroy: () => void
 }
 
-const TINY_DUNGEON_TILESET_IMAGE_URL = new URL(
-  '../assets/tilesets/tiny-dungeon-16.png',
+// 퀘스트 의뢰인 초상화: LPC NPC 시트의 정면 머리·어깨(32x32)를 모은 한 장
+// (scripts/build-lpc-characters.py 의 npc-portraits.png). 키는 NPC 외형 또는 'id:<npc id>'.
+const LPC_PORTRAIT_ATLAS_URL = new URL(
+  '../assets/characters/lpc/npc-portraits.png',
   import.meta.url
 ).href
-const TINY_DUNGEON_TILESET_WIDTH = 192
-const TINY_DUNGEON_TILESET_HEIGHT = 176
+const LPC_PORTRAIT_SIZE = lpcManifest.portraits.size
+const LPC_PORTRAIT_KEYS: readonly string[] = lpcManifest.portraits.keys
 type QuestGiverPortraitFrame = {
   x: number
   y: number
   width: number
   height: number
 }
-const WIZARD_PORTRAIT_FRAME: QuestGiverPortraitFrame = {
-  x: 0,
-  y: 112,
-  width: 16,
-  height: 16
+// 의뢰인 NPC id → 초상화 키. 맵의 외형과 build-lpc-characters.py 의 NPC id 전용 외형을 따른다.
+export const QUEST_GIVER_PORTRAIT_KEY_BY_NPC_ID: Partial<Record<string, string>> = {
+  [WIZARD_NPC_ID]: 'character_wizard_purple',
+  [BLACKSMITH_NPC_ID]: 'id:blacksmith',
+  [POTION_MERCHANT_NPC_ID]: 'id:potion_merchant',
+  santa: 'id:santa',
+  villager_1: 'character_villager_brown_tunic',
+  elder: 'character_elder_gray_hair',
+  farmer: 'id:farmer',
+  rona: 'character_villager_flower_dress',
+  lady: 'id:lady',
+  mage: 'id:mage',
+  camp_merchant: 'character_ranger_green'
 }
-const VILLAGER_PORTRAIT_FRAME: QuestGiverPortraitFrame = {
-  x: 16,
-  y: 112,
-  width: 16,
-  height: 16
-}
-const BLACKSMITH_PORTRAIT_FRAME: QuestGiverPortraitFrame = {
-  x: 32,
-  y: 112,
-  width: 16,
-  height: 16
-}
-const POTION_MERCHANT_PORTRAIT_FRAME: QuestGiverPortraitFrame = {
-  x: 48,
-  y: 128,
-  width: 16,
-  height: 16
-}
-export const QUEST_GIVER_PORTRAIT_FRAME_BY_NPC_ID: Partial<Record<
-  string,
-  QuestGiverPortraitFrame
->> = {
-  [WIZARD_NPC_ID]: WIZARD_PORTRAIT_FRAME,
-  santa: VILLAGER_PORTRAIT_FRAME,
-  villager_1: VILLAGER_PORTRAIT_FRAME,
-  [BLACKSMITH_NPC_ID]: BLACKSMITH_PORTRAIT_FRAME,
-  [POTION_MERCHANT_NPC_ID]: POTION_MERCHANT_PORTRAIT_FRAME
-}
-const PORTRAIT_SCALE = 4
+// 32px 초상화를 2배(64px)로 — 예전 16px 초상화의 4배와 같은 화면 크기
+const PORTRAIT_SCALE = 2
 
 export const createQuestLogOverlay = ({
   mountElement,
@@ -85,7 +71,8 @@ export const createQuestLogOverlay = ({
   getQuestLog,
   getPlayerName,
   onRequestOpenChange,
-  onQuestLogChange
+  onQuestLogChange,
+  onRequestReplayDialogue
 }: CreateQuestLogOverlayInput): QuestLogOverlay => {
   const overlayRoot = document.createElement('div')
   const panel = document.createElement('div')
@@ -99,6 +86,7 @@ export const createQuestLogOverlay = ({
   const regionPane = document.createElement('div')
   const tabBar = document.createElement('div')
   const regionTab = document.createElement('button')
+  const completedTab = document.createElement('button')
   const questList = document.createElement('div')
   const emptyState = document.createElement('div')
   const detailPane = document.createElement('div')
@@ -114,12 +102,15 @@ export const createQuestLogOverlay = ({
   const actionRow = document.createElement('div')
   const trackerToggleButton = document.createElement('button')
   const abandonButton = document.createElement('button')
+  const replayButton = document.createElement('button')
   const confirmPanel = document.createElement('div')
   const confirmText = document.createElement('div')
   const confirmActionRow = document.createElement('div')
   const confirmAbandonButton = document.createElement('button')
   const cancelAbandonButton = document.createElement('button')
   let selectedQuestId: string | undefined
+  // 'active' = 진행 중 목록, 'completed' = 완료한 퀘스트(대사 다시 보기)
+  let listMode: 'active' | 'completed' = 'active'
   let isAbandonConfirmVisible = false
   let previousRenderSignature = ''
 
@@ -149,9 +140,11 @@ export const createQuestLogOverlay = ({
   regionPane.className = 'quest-log-overlay__region-pane'
   tabBar.className = 'quest-log-overlay__tab-bar'
   regionTab.type = 'button'
-  regionTab.className = 'quest-log-overlay__tab quest-log-overlay__tab--active'
-  regionTab.textContent = '티르코네일 마을'
-  regionTab.setAttribute('aria-pressed', 'true')
+  regionTab.className = 'quest-log-overlay__tab'
+  regionTab.textContent = '진행 중'
+  completedTab.type = 'button'
+  completedTab.className = 'quest-log-overlay__tab'
+  completedTab.textContent = '완료'
   questList.className = 'quest-log-overlay__quest-list'
   emptyState.className = 'quest-log-overlay__empty-state'
   emptyState.textContent = '진행 중인 퀘스트가 없습니다'
@@ -176,6 +169,9 @@ export const createQuestLogOverlay = ({
   abandonButton.type = 'button'
   abandonButton.className = 'quest-log-overlay__abandon'
   abandonButton.textContent = '포기하기'
+  replayButton.type = 'button'
+  replayButton.className = 'quest-log-overlay__tracker-toggle'
+  replayButton.textContent = '대화 다시 보기'
 
   confirmPanel.className = 'quest-log-overlay__confirm'
   confirmText.className = 'quest-log-overlay__confirm-text'
@@ -190,11 +186,11 @@ export const createQuestLogOverlay = ({
 
   titleGroup.append(title, summary)
   header.append(titleGroup, closeButton)
-  tabBar.append(regionTab)
+  tabBar.append(regionTab, completedTab)
   regionPane.append(tabBar, questList, emptyState)
   detailTitleGroup.append(detailTitle, detailMeta)
   detailHeader.append(portrait, detailTitleGroup)
-  actionRow.append(trackerToggleButton, abandonButton)
+  actionRow.append(trackerToggleButton, abandonButton, replayButton)
   confirmActionRow.append(confirmAbandonButton, cancelAbandonButton)
   confirmPanel.append(confirmText, confirmActionRow)
   detailPane.append(
@@ -223,7 +219,10 @@ export const createQuestLogOverlay = ({
     }
 
     const questLog = getQuestLog()
-    const visibleDefinitions = getActiveQuestDefinitions(questLog)
+    const visibleDefinitions =
+      listMode === 'active'
+        ? getActiveQuestDefinitions(questLog)
+        : getCompletedQuestDefinitions(questLog)
 
     if (
       selectedQuestId === undefined ||
@@ -244,6 +243,7 @@ export const createQuestLogOverlay = ({
       uiScale,
       playerName: getPlayerName(),
       selectedQuestId,
+      listMode,
       isAbandonConfirmVisible,
       quests: visibleDefinitions.map((definition) => {
         const quest = getQuestProgress(questLog, definition.id)
@@ -264,7 +264,19 @@ export const createQuestLogOverlay = ({
     previousRenderSignature = renderSignature
 
     panel.style.transform = `translate(-50%, -50%) scale(${uiScale})`
-    summary.textContent = `${visibleDefinitions.length}개 진행 중`
+    summary.textContent =
+      listMode === 'active'
+        ? `${visibleDefinitions.length}개 진행 중`
+        : `${visibleDefinitions.length}개 완료`
+    for (const [tab, mode] of [
+      [regionTab, 'active'],
+      [completedTab, 'completed']
+    ] as const) {
+      tab.classList.toggle('quest-log-overlay__tab--active', listMode === mode)
+      tab.setAttribute('aria-pressed', String(listMode === mode))
+    }
+    emptyState.textContent =
+      listMode === 'active' ? '진행 중인 퀘스트가 없습니다' : '아직 완료한 퀘스트가 없습니다'
     renderQuestList(visibleDefinitions)
     renderQuestDetail(selectedDefinition, selectedQuest)
   }
@@ -338,6 +350,11 @@ export const createQuestLogOverlay = ({
       questTextContext
     )
     guideText.textContent = formatQuestText(definition.guideText, questTextContext)
+    // 완료한 퀘스트는 알림·포기 대신 '대화 다시 보기'만.
+    const isCompleted = quest.status === 'completed'
+    trackerToggleButton.style.display = isCompleted ? 'none' : ''
+    abandonButton.style.display = isCompleted ? 'none' : ''
+    replayButton.style.display = isCompleted ? '' : 'none'
     trackerToggleButton.classList.toggle(
       'quest-log-overlay__tracker-toggle--active',
       quest.trackerVisible
@@ -350,7 +367,7 @@ export const createQuestLogOverlay = ({
         objectiveRow.className = 'quest-log-overlay__objective-row'
         objectiveRow.append(
           document.createTextNode(
-            `${objective.label}: ${quest.objectives[objective.id] ?? 0}/${objective.required}`
+            `${objective.label}: ${isCompleted ? objective.required : (quest.objectives[objective.id] ?? 0)}/${objective.required}`
           )
         )
         // 대상(몬스터/아이템)에 파란 밑줄 링크 — 클릭하면 이미지 팝업.
@@ -362,6 +379,29 @@ export const createQuestLogOverlay = ({
       })
     )
   }
+
+  const selectListMode = (mode: 'active' | 'completed') => (event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (listMode === mode) {
+      return
+    }
+    listMode = mode
+    selectedQuestId = undefined
+    isAbandonConfirmVisible = false
+    syncFrame()
+  }
+  regionTab.addEventListener('click', selectListMode('active'))
+  completedTab.addEventListener('click', selectListMode('completed'))
+
+  replayButton.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (selectedQuestId) {
+      onRequestReplayDialogue(getQuestDefinition(selectedQuestId))
+    }
+  })
 
   trackerToggleButton.addEventListener('click', (event) => {
     event.preventDefault()
@@ -434,19 +474,30 @@ const getActiveQuestDefinitions = (
     return quest?.status === 'active' || quest?.status === 'ready-to-turn-in'
   })
 
+const getCompletedQuestDefinitions = (
+  questLog: QuestLogState
+): QuestDefinition[] =>
+  getVisibleQuestDefinitions().filter(
+    (definition) => questLog.progressByQuestId[definition.id]?.status === 'completed'
+  )
+
 export const getQuestGiverPortraitFrame = (
   npcId: string
-): QuestGiverPortraitFrame =>
-  QUEST_GIVER_PORTRAIT_FRAME_BY_NPC_ID[npcId] ?? WIZARD_PORTRAIT_FRAME
+): QuestGiverPortraitFrame => {
+  const key = QUEST_GIVER_PORTRAIT_KEY_BY_NPC_ID[npcId] ?? 'character_wizard_purple'
+  const index = Math.max(0, LPC_PORTRAIT_KEYS.indexOf(key))
+  return { x: index * LPC_PORTRAIT_SIZE, y: 0, width: LPC_PORTRAIT_SIZE, height: LPC_PORTRAIT_SIZE }
+}
 
 const setPortraitFrame = (
   element: HTMLElement,
   frame: QuestGiverPortraitFrame
 ) => {
-  element.style.backgroundImage = `url(${TINY_DUNGEON_TILESET_IMAGE_URL})`
+  element.style.backgroundImage = `url(${LPC_PORTRAIT_ATLAS_URL})`
   element.style.backgroundRepeat = 'no-repeat'
   element.style.backgroundPosition = `-${frame.x * PORTRAIT_SCALE}px -${frame.y * PORTRAIT_SCALE}px`
-  element.style.backgroundSize = `${TINY_DUNGEON_TILESET_WIDTH * PORTRAIT_SCALE}px ${TINY_DUNGEON_TILESET_HEIGHT * PORTRAIT_SCALE}px`
+  element.style.backgroundSize = `${LPC_PORTRAIT_KEYS.length * LPC_PORTRAIT_SIZE * PORTRAIT_SCALE}px ${LPC_PORTRAIT_SIZE * PORTRAIT_SCALE}px`
+  element.style.imageRendering = 'pixelated'
   element.style.width = `${frame.width * PORTRAIT_SCALE}px`
   element.style.height = `${frame.height * PORTRAIT_SCALE}px`
 }

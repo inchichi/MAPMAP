@@ -22,10 +22,8 @@ local PLAYER_STAT_LABEL_BY_ID = {
   luck = '행운'
 }
 
+-- 직업 고정이 없는 게임이라(무기가 싸우는 법을 정한다) 레벨이 올라도 '전직 가능'을 붙이지 않는다.
 function player_profile_job_display_name(profile)
-  if profile.level >= PLAYER_JOB_PROMOTION_LEVEL then
-    return profile.job .. ' · 전직 가능'
-  end
   return profile.job
 end
 

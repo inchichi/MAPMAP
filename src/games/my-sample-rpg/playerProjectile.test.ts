@@ -7,6 +7,8 @@ import {
   getPlayerProjectileRotation,
   PLAYER_PROJECTILE_MAX_TRAVEL_PIXELS,
   PLAYER_PROJECTILE_SPEED_PIXELS_PER_SECOND,
+  selectPlayerMagicTarget,
+  steerPlayerProjectileToward,
   stepPlayerProjectile
 } from './playerProjectile'
 
@@ -76,5 +78,62 @@ describe('playerProjectile', () => {
     expect(getPlayerProjectileRotation({ x: 1, y: 0 })).toBe(0)
     expect(getPlayerProjectileRotation({ x: 0, y: 1 })).toBeCloseTo(Math.PI / 2)
     expect(getPlayerProjectileRotation({ x: -1, y: 0 })).toBeCloseTo(Math.PI)
+  })
+
+  it('targets the nearest monster inside the magic range', () => {
+    const target = selectPlayerMagicTarget({
+      originX: 0,
+      originY: 0,
+      facing: 'right',
+      candidates: [
+        { id: 'far', x: 200, y: 0 },
+        { id: 'near', x: 0, y: 80 },
+        { id: 'out', x: 400, y: 0 }
+      ]
+    })
+
+    expect(target?.id).toBe('near')
+  })
+
+  it('returns no target when every monster is out of range', () => {
+    expect(
+      selectPlayerMagicTarget({
+        originX: 0,
+        originY: 0,
+        facing: 'down',
+        candidates: [{ id: 'out', x: 0, y: 300 }]
+      })
+    ).toBeUndefined()
+  })
+
+  it('breaks distance ties toward the facing direction', () => {
+    const target = selectPlayerMagicTarget({
+      originX: 0,
+      originY: 0,
+      facing: 'left',
+      candidates: [
+        { id: 'a-behind', x: 64, y: 0 },
+        { id: 'z-ahead', x: -64, y: 0 }
+      ]
+    })
+
+    expect(target?.id).toBe('z-ahead')
+  })
+
+  it('turns an energy bolt toward its target by a bounded angle', () => {
+    const bolt = createPlayerProjectile({
+      kind: 'energy-bolt',
+      originX: 0,
+      originY: 0,
+      direction: { x: 1, y: 0 }
+    })
+
+    const partial = steerPlayerProjectileToward(bolt, 0, 100, 100, 7)
+    expect(Math.atan2(partial.direction.y, partial.direction.x)).toBeCloseTo(0.7)
+    expect(Math.hypot(partial.direction.x, partial.direction.y)).toBeCloseTo(1)
+
+    const full = steerPlayerProjectileToward(bolt, 0, 100, 1000, 7)
+    expect(full.direction.x).toBeCloseTo(0)
+    expect(full.direction.y).toBeCloseTo(1)
   })
 })

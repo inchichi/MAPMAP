@@ -108,15 +108,56 @@ export const createInitialPlayerProfile = (): PlayerProfile => ({
           description: '마나를 조금 회복합니다',
           level: 0,
           maxLevel: 5
+        },
+        {
+          hotkey: '5',
+          label: '아이스 볼트',
+          description: '적을 얼리는 얼음 화살',
+          level: 0,
+          maxLevel: 5
+        },
+        {
+          hotkey: '6',
+          label: '파이어볼',
+          description: '터지며 불태우는 불덩이',
+          level: 0,
+          maxLevel: 5
+        },
+        {
+          hotkey: '7',
+          label: '체인 라이트닝',
+          description: '적들 사이를 튀는 번개',
+          level: 0,
+          maxLevel: 5
+        },
+        {
+          hotkey: '8',
+          label: '멀티샷',
+          description: '여러 적에게 동시에 화살',
+          level: 0,
+          maxLevel: 5
+        },
+        {
+          hotkey: '9',
+          label: '관통 화살',
+          description: '적들을 꿰뚫는 화살',
+          level: 0,
+          maxLevel: 5
+        },
+        {
+          hotkey: '0',
+          label: '독화살',
+          description: '맞은 적을 중독',
+          level: 0,
+          maxLevel: 5
         }
       ]
     })
 
+// 직업 고정이 없는 게임이라(무기가 싸우는 법을 정한다) 레벨이 올라도 '전직 가능'을 붙이지 않는다.
 export const getPlayerJobDisplayName = ({
-  job,
-  level
-}: Pick<PlayerProfile, 'job' | 'level'>): string =>
-  level >= PLAYER_JOB_PROMOTION_LEVEL ? `${job} · 전직 가능` : job
+  job
+}: Pick<PlayerProfile, 'job' | 'level'>): string => job
 
 export const isPlayerJobPromotionAvailable = ({
   level

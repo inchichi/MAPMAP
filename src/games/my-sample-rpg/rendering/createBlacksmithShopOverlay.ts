@@ -20,6 +20,7 @@ import {
   TOWN_TILESET_IMAGE_HEIGHT,
   TOWN_TILESET_IMAGE_WIDTH
 } from './townTilesetImageSize'
+import { LPC_GEAR_ICON_FRAMES } from './lpcGearIcons'
 
 type CreateBlacksmithShopOverlayInput = {
   mountElement: HTMLElement
@@ -215,6 +216,7 @@ const EQUIPMENT_ICON_FRAME_BY_KEY: Record<
     frame: { x: number; y: number; width: number; height: number }
   }
 > = {
+  ...LPC_GEAR_ICON_FRAMES,
   'tiny-dungeon-weapon': {
     imageUrl: TINY_DUNGEON_TILESET_IMAGE_URL,
     imageWidth: TINY_DUNGEON_TILESET_WIDTH,

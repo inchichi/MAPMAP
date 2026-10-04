@@ -53,7 +53,7 @@ export type QuestLogLua = {
   ) => QuestLogState
   recordMonsterDefeatQuestProgress: (
     questLog: QuestLogState,
-    target: { sceneId: string; appearanceType: string }
+    target: { sceneId: string; appearanceType: string; characterId?: string }
   ) => QuestLogState
   recordItemUseQuestProgress: (
     questLog: QuestLogState,
@@ -170,13 +170,14 @@ export const createQuestLogLua = async (
 
     recordMonsterDefeatQuestProgress: (
       questLog: QuestLogState,
-      target: { sceneId: string; appearanceType: string }
+      target: { sceneId: string; appearanceType: string; characterId?: string }
     ): QuestLogState =>
       host.callJson<QuestLogState>(
         'quest_log_record_monster_defeat',
         questLog,
         target.sceneId,
-        target.appearanceType
+        target.appearanceType,
+        target.characterId ?? null
       ),
 
     recordItemUseQuestProgress: (

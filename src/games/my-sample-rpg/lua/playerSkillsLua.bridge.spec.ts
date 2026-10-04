@@ -27,7 +27,7 @@ const LUA_MODULE_WASM_URL = new URL(
   import.meta.url
 )
 
-const SKILL_IDS = ['smash', 'protect', 'unknown', '', 'dash']
+const SKILL_IDS = ['smash', 'protect', 'unknown', '', 'dash', 'ice-bolt', 'fireball', 'chain-lightning', 'multi-shot', 'piercing-arrow', 'poison-arrow']
 
 describe('playerSkillsLua (real wasm bridge)', () => {
   let lua: PlayerSkillsLua | undefined
@@ -77,7 +77,7 @@ describe('playerSkillsLua (real wasm bridge)', () => {
       const profile = {
         ...baseProfile,
         skills: baseProfile.skills.map((s, i) =>
-          i === 0 || i === 1 ? { ...s, level: lvl, maxLevel: MAX_LEVEL } : s
+          i === 0 || i === 1 || i >= 4 ? { ...s, level: lvl, maxLevel: MAX_LEVEL } : s
         )
       }
 

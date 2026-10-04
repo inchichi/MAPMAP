@@ -5,10 +5,10 @@
   name="town-32"
   tilewidth="32"
   tileheight="32"
-  tilecount="1264"
+  tilecount="1350"
   columns="8"
 >
-  <image source="town-32.png" width="256" height="5056"/>
+  <image source="town-32.png" width="256" height="5408"/>
   <tile id="0" type="planter_tree_canopy"/>
   <tile id="1" type="planter_tree_shadow"/>
   <tile id="2" type="planter_stone_bowl"/>
@@ -1252,4 +1252,90 @@
   <tile id="1255" type="town_prop_well_roof_r1c1"/>
   <tile id="1256" type="town_prop_wheat_tile"/>
   <tile id="1257" type="town_prop_fence_v"/>
+  <tile id="1264" type="tree_variant_deep_canopy_r0_c0"/>
+  <tile id="1265" type="tree_variant_deep_canopy_r0_c1"/>
+  <tile id="1266" type="tree_variant_deep_canopy_r0_c2"/>
+  <tile id="1267" type="tree_variant_deep_canopy_r1_c0"/>
+  <tile id="1268" type="tree_variant_deep_canopy_r1_c1"/>
+  <tile id="1269" type="tree_variant_deep_canopy_r1_c2"/>
+  <tile id="1270" type="tree_variant_deep_canopy_r2_c0"/>
+  <tile id="1271" type="tree_variant_deep_canopy_r2_c1"/>
+  <tile id="1272" type="tree_variant_deep_canopy_r2_c2"/>
+  <tile id="1273" type="tree_variant_deep_trunk_c0"/>
+  <tile id="1274" type="tree_variant_deep_trunk_c1"/>
+  <tile id="1275" type="tree_variant_deep_trunk_c2"/>
+  <tile id="1276" type="tree_variant_autumn_canopy_r0_c0"/>
+  <tile id="1277" type="tree_variant_autumn_canopy_r0_c1"/>
+  <tile id="1278" type="tree_variant_autumn_canopy_r0_c2"/>
+  <tile id="1279" type="tree_variant_autumn_canopy_r1_c0"/>
+  <tile id="1280" type="tree_variant_autumn_canopy_r1_c1"/>
+  <tile id="1281" type="tree_variant_autumn_canopy_r1_c2"/>
+  <tile id="1282" type="tree_variant_autumn_canopy_r2_c0"/>
+  <tile id="1283" type="tree_variant_autumn_canopy_r2_c1"/>
+  <tile id="1284" type="tree_variant_autumn_canopy_r2_c2"/>
+  <tile id="1285" type="tree_variant_autumn_trunk_c0"/>
+  <tile id="1286" type="tree_variant_autumn_trunk_c1"/>
+  <tile id="1287" type="tree_variant_autumn_trunk_c2"/>
+  <tile id="1288" type="mansion_roof_terracotta_from_4"/>
+  <tile id="1289" type="mansion_roof_terracotta_from_6"/>
+  <tile id="1290" type="mansion_roof_terracotta_from_12"/>
+  <tile id="1291" type="mansion_roof_terracotta_from_14"/>
+  <tile id="1292" type="mansion_roof_terracotta_from_19"/>
+  <tile id="1293" type="mansion_roof_terracotta_from_27"/>
+  <tile id="1294" type="mansion_roof_terracotta_from_130"/>
+  <tile id="1295" type="mansion_roof_terracotta_from_131"/>
+  <tile id="1296" type="mansion_roof_terracotta_from_132"/>
+  <tile id="1297" type="mansion_roof_terracotta_from_133"/>
+  <tile id="1298" type="mansion_roof_terracotta_from_134"/>
+  <tile id="1299" type="mansion_roof_terracotta_from_135"/>
+  <tile id="1300" type="mansion_roof_terracotta_from_138"/>
+  <tile id="1301" type="mansion_roof_terracotta_from_139"/>
+  <tile id="1302" type="mansion_roof_terracotta_from_140"/>
+  <tile id="1303" type="mansion_roof_terracotta_from_141"/>
+  <tile id="1304" type="mansion_roof_terracotta_from_142"/>
+  <tile id="1305" type="mansion_roof_terracotta_from_143"/>
+  <tile id="1306" type="mansion_roof_terracotta_from_146"/>
+  <tile id="1307" type="mansion_roof_terracotta_from_147"/>
+  <tile id="1308" type="mansion_roof_terracotta_from_148"/>
+  <tile id="1309" type="mansion_roof_terracotta_from_149"/>
+  <tile id="1310" type="mansion_roof_terracotta_from_150"/>
+  <tile id="1311" type="mansion_roof_terracotta_from_151"/>
+  <tile id="1312" type="mansion_roof_terracotta_from_154"/>
+  <tile id="1313" type="mansion_roof_terracotta_from_155"/>
+  <tile id="1314" type="mansion_roof_terracotta_from_156"/>
+  <tile id="1315" type="mansion_roof_terracotta_from_157"/>
+  <tile id="1316" type="mansion_roof_terracotta_from_158"/>
+  <tile id="1317" type="mansion_roof_terracotta_from_159"/>
+  <tile id="1318" type="mansion_roof_terracotta_from_162"/>
+  <tile id="1319" type="mansion_roof_terracotta_from_163"/>
+  <tile id="1320" type="mansion_roof_terracotta_from_164"/>
+  <tile id="1321" type="mansion_roof_terracotta_from_165"/>
+  <tile id="1322" type="mansion_roof_terracotta_from_166"/>
+  <tile id="1323" type="mansion_roof_terracotta_from_167"/>
+  <tile id="1324" type="mansion_roof_terracotta_from_169"/>
+  <tile id="1325" type="mansion_roof_terracotta_from_170"/>
+  <tile id="1326" type="mansion_roof_terracotta_from_176"/>
+  <tile id="1327" type="mansion_roof_terracotta_from_177"/>
+  <tile id="1328" type="mansion_roof_terracotta_from_178"/>
+  <tile id="1329" type="mansion_roof_terracotta_from_179"/>
+  <tile id="1330" type="mansion_roof_terracotta_from_184"/>
+  <tile id="1331" type="mansion_roof_terracotta_from_185"/>
+  <tile id="1332" type="mansion_roof_terracotta_from_186"/>
+  <tile id="1333" type="mansion_roof_terracotta_from_187"/>
+  <tile id="1334" type="mansion_roof_terracotta_from_192"/>
+  <tile id="1335" type="mansion_roof_terracotta_from_193"/>
+  <tile id="1336" type="mansion_roof_terracotta_from_194"/>
+  <tile id="1337" type="mansion_roof_terracotta_from_195"/>
+  <tile id="1338" type="mansion_roof_terracotta_from_200"/>
+  <tile id="1339" type="mansion_roof_terracotta_from_203"/>
+  <tile id="1340" type="mansion_roof_terracotta_from_267"/>
+  <tile id="1341" type="mansion_roof_terracotta_from_268"/>
+  <tile id="1342" type="mansion_roof_terracotta_from_269"/>
+  <tile id="1343" type="mansion_roof_terracotta_from_270"/>
+  <tile id="1344" type="mansion_roof_terracotta_from_274"/>
+  <tile id="1345" type="mansion_roof_terracotta_from_275"/>
+  <tile id="1346" type="mansion_roof_terracotta_from_278"/>
+  <tile id="1347" type="mansion_roof_terracotta_from_279"/>
+  <tile id="1348" type="mansion_roof_terracotta_from_282"/>
+  <tile id="1349" type="mansion_roof_terracotta_from_287"/>
 </tileset>

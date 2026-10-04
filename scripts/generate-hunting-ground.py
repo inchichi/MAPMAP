@@ -1,570 +1,862 @@
-"""사냥터(hunting-ground.tmx) 지형 생성기.
+"""사냥터(hunting-ground.tmx) 생성기 — 2026-10-04 재설계판.
 
-town.tmx의 레이어 규약을 그대로 따른다:
+docs/game-design-30min.md "맵 판정"의 사냥터 설계를 50x50 맵에 구현한다.
+(60x45 가로형이 목표였지만, 마을/동굴 TMX의 도착 칸(targetSpawnTile)이 이 맵 좌표
+(2,10)/(43,10)으로 고정돼 있고 두 포탈 위치도 그대로 둬야 해서 50x50을 유지한다.)
+
+구역 (서→동, 레벨이 오른쪽·위로 갈수록 오른다):
+  - 서쪽 초원 (Lv1~2)    : 마을 관문(return_gate, 서쪽 끝) 바로 앞, 넓게 트인 풀밭. 말캉이 6.
+  - 중앙 야영지 (안전지대): 모닥불·통나무 걸상·장작·상자·차양 좌판·표지판.
+                           좌판 밑(상인 자리)과 동쪽 돌바닥(귀환 표지석 자리)은 비워 둔다.
+  - 북쪽 버려진 돼지 농장 (Lv3~5): 부서진 울타리 우리 두 칸, 건초·여물통·허수아비. 꿀꿀이 5.
+  - 남쪽 숲길 (Lv3~4)    : 나무 군락 사이로 굽이치는 좁은 길, 버섯돌이 2, 숨은 공터의 상자.
+  - 북동 낭떠러지 동굴 입구 (Lv6): 바위 절벽 띠가 동굴 아치(cave_entrance 포탈)를 감싼다. 바위돌이 1.
+  - 남동 무너진 광산 입구 (Lv5): 바위벽의 갱도 입구가 낙석에 막혀 있다. 수정·광석 상자. 바위돌이 1.
+                           (q009 이후 열 지름길 포탈 자리 — 지금은 주석과 decorations 오브젝트만)
+
+레이어 규약은 town.tmx와 같다:
   ground / shadow_lower / object / shadow_upper / object_upper / deco / roof
-  - object = 충돌 레이어(createWallTileLookup)이자 캐릭터와 함께 y-정렬되는 레이어
-  - object 이후 레이어는 캐릭터 위에 그려진다(나무 수관이 플레이어를 가림)
+  - object = 충돌 레이어(createWallTileLookup)이자 캐릭터와 y-정렬되는 레이어
+  - object_upper 이후는 캐릭터 위에 그려진다(나무 수관이 플레이어를 가림)
+  - shadow_lower = 바닥 데칼(풀포기·꽃·키 큰 풀·돌 부스러기) — 충돌 없음
 
-기존 objectgroup(characters/portals)은 그대로 보존한다.
+objectgroup(characters / portals / decorations)도 이 스크립트가 통째로 쓴다.
+포탈 두 개(return_gate, cave_entrance)의 이름·위치·목적지는 바꾸지 않는다 — 마을/동굴 TMX가
+이 맵의 도착 칸을 숫자로 들고 있기 때문이다.
+
+실행: python3 scripts/generate-hunting-ground.py   (kong 저장소 루트에서)
 """
+import json
 import math
 import random
-import re
 from collections import deque
 
 SRC = 'src/games/my-sample-rpg/assets/maps/hunting-ground.tmx'
-TOWN = 'src/games/my-sample-rpg/assets/maps/town.tmx'
 W = H = 50
 
-# ---- 타일 gid ----
+# ---------------------------------------------------------------- 타일 gid (town-32, 전부 눈으로 확인함)
 GRASS = 517
 GRASS_ALT = 457
 DIRT = 507
 COBBLE = 515
-STONE_3x3 = [[532, 533, 534], [540, 541, 542], [548, 549, 550]]
 TUFTS = [458, 459, 460, 461, 462]
 TALLGRASS_3x3 = [[470, 471, 472], [478, 479, 480], [486, 487, 488]]
 TREE_CANOPY = [[326, 327, 328], [334, 335, 336], [342, 343, 344]]
 TREE_TRUNK = [350, 351, 352]
-TREE_SMALL = 325
-ROCKS = [527, 528]
+# 나무 변형만(같은 파일의 저택 지붕 매핑은 제외)
+TREE_VARIANTS = {k: v for k, v in json.load(open('scripts/tree-variant-gids.json', encoding='utf-8')).items() if 'trunk' in v}   # deep / autumn (town 나무 변형)
+ROCKS = [527, 528]                 # 회색 / 황갈색 돌무더기 (1칸)
 STUMPS = [463, 464]
-# 캐스트 그림자 타일(전부 alpha 128 단색). SHADOW_FILL은 꽉 찬 칸,
-# SHADOW_TAPER는 좌상단 절반만 덮는 대각 타일로 스트립 끝을 마감한다.
-SHADOW_FILL = 64
-SHADOW_TAPER = 63
-CRYSTAL = 494
-PIT_TOP, PIT_BOTTOM = 501, 544
-POST = [313, 329, 345, 305]
+TUB = 473                          # 나무 여물통
+BARREL = 433
+# 바위 언덕 3x3 (이끼 낀 바위 둔덕) — 가운데 열을 반복해 넓은 절벽 띠를 만든다
+MOUND = [[532, 533, 534], [540, 541, 542], [548, 549, 550]]
+# 바위벽(윗단에 풀 턱) 535/543/551, 갱도 입구 위·아래 544/552
+CLIFF_TOP, CLIFF_MID, CLIFF_BOT = 535, 543, 551
+SHAFT_TOP, SHAFT_BOT = 544, 552
+LPC = json.load(open('scripts/lpc-cave-gids.json', encoding='utf-8'))   # 이름 → gid (아래에서 쓰는 것은 그림을 확인함)
+BOULDER = LPC['cave_prop_boulder']                     # 1091 검은 큰 바위
+CAMPFIRE = LPC['cave_prop_brazier_00']                 # 1092 장작불
+OBELISK = (1114, 1115)                                 # 돌 오벨리스크 (위, 아래)
+CRATE_FOOD = 1095                                      # 농산물 상자 (이름표는 crate_bones)
+CRATE_CRYSTAL = 1097                                   # 수정 상자 (이름표는 crate_mush)
+CRYSTALS = (LPC['cave_prop_crystal_a'], LPC['cave_prop_crystal_c'])   # 1098 / 1099
+PEBBLES = (LPC['cave_prop_rubble_00'], LPC['cave_prop_rubble_02'])    # 1120 / 1122 — 투명 바탕 돌 부스러기
+# (rubble 01/03/04/05 는 불투명 네모 바탕이라 쓰지 않는다)
+LOG_SINGLE, LOG_STACK = 1189, 1190
+CART = [[1153, 1154], [1155, 1156]]
+BUSHES = [1150, 1151, 1152]
+FLOWERS = [LPC[f'town_prop_flower_{k}'] for k in 'abcd']
+FENCE_H = LPC['town_prop_fence_h_m']     # 1161 정면 피켓
+FENCE_V = LPC['town_prop_fence_v']       # 1258 측면 세로 레일
+FENCE_POST = LPC['town_prop_fence_post']  # 1163 부러진 기둥
+HAYSTACK = [[1176, 1177], [1178, 1179]]  # 둥근 건초더미 2x2
+HAY_BLOCKS = (1168, 1169)                # 네모 건초 (1칸짜리 두 종)
+SCARECROW = (1192, 1193)                 # 허수아비 머리(위) / 기둥(아래)
+AWNING = {'top': (393, 394, 395), 'valance': (401, 402, 403), 'posts': (409, 411), 'shade': 410}
 
 LAYER_NAMES = ['ground', 'shadow_lower', 'object', 'shadow_upper',
                'object_upper', 'deco', 'roof']
-FIRST_LAYER_ID = 10   # TMX는 layer/objectgroup이 id 공간을 공유 — 기존 2,3을 피한다
+FIRST_LAYER_ID = 10
 
-
-def read_layers(path):
-    s = open(path).read()
-    out = {}
-    for m in re.finditer(
-        r'<layer id="\d+" name="([^"]+)" width="(\d+)" height="(\d+)">\s*'
-        r'<data encoding="csv">\s*(.*?)\s*</data>', s, re.S
-    ):
-        out[m.group(1)] = [int(x) for x in m.group(4).replace('\n', '').split(',') if x.strip()]
-    return out
+rnd = random.Random(20261004)
 
 
 class Map:
     def __init__(self):
         self.L = {n: [0] * (W * H) for n in LAYER_NAMES}
-        self.keep_clear = set()
+        self.keep_clear = set()     # 오브젝트(충돌)를 놓지 않는 칸
+        self.no_canopy = set()      # 나무 수관이 덮으면 안 되는 칸(몬스터·표지판·랜드마크)
+
+    def inb(self, x, y):
+        return 0 <= x < W and 0 <= y < H
 
     def set(self, layer, x, y, gid):
-        if 0 <= x < W and 0 <= y < H and gid:
+        if self.inb(x, y) and gid:
             self.L[layer][y * W + x] = gid
 
     def clear(self, layer, x, y):
-        # set()은 gid=0을 무시하므로(빈 칸 덮어쓰기 방지) 지우기는 따로 둔다.
-        if 0 <= x < W and 0 <= y < H:
+        if self.inb(x, y):
             self.L[layer][y * W + x] = 0
 
     def get(self, layer, x, y):
-        return self.L[layer][y * W + x] if 0 <= x < W and 0 <= y < H else 0
+        return self.L[layer][y * W + x] if self.inb(x, y) else 0
 
-    def free(self, x, y, w=1, h=1):
-        for dy in range(h):
-            for dx in range(w):
-                cx, cy = x + dx, y + dy
-                if not (0 <= cx < W and 0 <= cy < H):
-                    return False
-                if (cx, cy) in self.keep_clear or self.get('object', cx, cy):
-                    return False
-        return True
+    def occupied(self, x, y):
+        return bool(self.get('object', x, y) or self.get('object_upper', x, y))
+
+    def free(self, x, y):
+        return self.inb(x, y) and (x, y) not in self.keep_clear and not self.occupied(x, y)
 
 
 m = Map()
-rnd = random.Random(20260831)
-
-# ---------------------------------------------------------------- 보호 구역
-KEEP_CLEAR_POINTS = [(7, 5), (13, 7), (26, 5), (16, 16), (45, 12), (2, 10)]
-for px, py in KEEP_CLEAR_POINTS:
-    for dy in range(-1, 2):
-        for dx in range(-1, 2):
-            m.keep_clear.add((px + dx, py + dy))
-for py in range(9, 13):
-    for px in range(0, 4):
-        m.keep_clear.add((px, py))
-    for px in range(46, 50):
-        m.keep_clear.add((px, py))
-
-# ---------------------------------------------------------------- 길
-# 부드러운 곡선(코사인 이징)으로 중심선을 잡고, 폭 3으로만 칠한다.
-# 열 사이 기울기가 1 이하라 ±1 폭만으로 자연히 이어진다 — 사각형 메움 금지(계단 방지).
-TRAIL_PTS = [(0, 11), (9, 11), (16, 9), (24, 8), (32, 10), (40, 12), (46, 11), (49, 11)]
 
 
-def ease(t):
-    return (1 - math.cos(math.pi * t)) / 2
+def disc(cx, cy, r):
+    return {(x, y) for y in range(int(cy - r) - 1, int(cy + r) + 2)
+            for x in range(int(cx - r) - 1, int(cx + r) + 2)
+            if m.inb(x, y) and (x - cx) ** 2 + (y - cy) ** 2 <= r * r}
 
 
-def trail_center(x):
-    for i in range(len(TRAIL_PTS) - 1):
-        x0, y0 = TRAIL_PTS[i]
-        x1, y1 = TRAIL_PTS[i + 1]
-        if x0 <= x <= x1:
-            t = 0 if x1 == x0 else (x - x0) / (x1 - x0)
-            return y0 + (y1 - y0) * ease(t)
-    return float(TRAIL_PTS[-1][1])
-
-
-trail = set()
-
-
-def walk(points):
-    """폴리라인을 한 칸씩 걸어 좌표 목록을 만든다 — 구간 사이가 끊기지 않는다."""
-    out = []
-    for i in range(len(points) - 1):
-        x0, y0 = points[i]
-        x1, y1 = points[i + 1]
-        steps = max(abs(x1 - x0), abs(y1 - y0))
-        for st in range(steps + 1):
-            t = st / steps if steps else 0.0
-            e = ease(t)
-            out.append((round(x0 + (x1 - x0) * e), round(y0 + (y1 - y0) * e)))
+def blob(circles):
+    out = set()
+    for c in circles:
+        out |= disc(*c)
     return out
 
 
-def paint(points, r=1):
-    """3x3 브러시로 칠한다 — 대각 구간에서도 항상 이어진다."""
-    for (x, y) in walk(points):
-        for dy in range(-r, r + 1):
-            for dx in range(-r, r + 1):
-                trail.add((x + dx, y + dy))
+def curve(points, radius):
+    """Catmull-Rom 곡선을 촘촘히 따라 원형 브러시로 칠한 칸 집합 (계단 없는 곡선 길)."""
+    pts = [points[0]] + list(points) + [points[-1]]
+    cells = set()
+    for i in range(1, len(pts) - 2):
+        p0, p1, p2, p3 = pts[i - 1], pts[i], pts[i + 1], pts[i + 2]
+        steps = max(4, int(math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * 5))
+        for st in range(steps + 1):
+            t = st / steps
+            t2, t3 = t * t, t * t * t
+            cx = 0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2
+                        + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3)
+            cy = 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2
+                        + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
+            cells |= disc(cx, cy, radius)
+    return cells
 
 
-# 본길: 서쪽 관문 → 동굴 입구
-paint(TRAIL_PTS, r=1)
-# 남쪽 지선: 본길 → 오두막 남쪽 → 수정 광맥
-paint([(11, 11), (12, 19), (15, 26), (21, 31), (28, 33), (33, 33)], r=1)
+def ring(cx, cy, r):
+    """(cx,cy) 둘레 r칸 사각 영역."""
+    return {(cx + dx, cy + dy) for dy in range(-r, r + 1) for dx in range(-r, r + 1) if m.inb(cx + dx, cy + dy)}
 
-for p in trail:
-    m.keep_clear.add(p)
+
+# ================================================================ 고정 좌표
+# 포탈·도착 칸은 다른 TMX가 숫자로 들고 있다 — 바꾸지 말 것.
+RETURN_GATE = (0, 10)          # 1x2 (0,10)~(0,11), 마을 동문으로
+TOWN_ARRIVAL = (2, 10)         # town.tmx east_gate.targetSpawnTile
+CAVE_GATE = (49, 10)           # 1x2 (49,10)~(49,11), 동굴로. 아치 그림은 (48~50, 10~12)에 걸린다
+CAVE_ARRIVAL = (43, 10)        # cave.tmx return_gate.targetSpawnTile
+MAP_CENTER = (W // 2, H // 2)  # 포탈 없이 씬을 열면(에디터 맵 전환) 여기 선다
+
+# ---------------------------------------------------------------- 몬스터 (이름, 종류, 레벨, 칸)
+# 이름 끝 '-n'은 표시 이름에서 잘린다(monsterDisplayName). q001/q003은 씬+종류로 센다.
+MONSTERS = [
+    # 서쪽 초원 — 말캉이 Lv1~2 (q001). 관문 도착 칸에서 5칸 이상, 서로 5칸 안팎 떨어뜨린다.
+    ('말캉이-1', 'monster_slime', 1, (7, 5)),
+    ('말캉이-2', 'monster_slime', 1, (14, 7)),
+    ('말캉이-3', 'monster_slime', 1, (6, 15)),
+    ('말캉이-4', 'monster_slime', 2, (10, 20)),
+    ('말캉이-5', 'monster_slime', 2, (5, 25)),
+    ('말캉이-6', 'monster_slime', 2, (13, 27)),
+    # 북쪽 버려진 돼지 농장 — 꿀꿀이 Lv3~5 (q003)
+    ('꿀꿀이-1', 'monster_pig', 3, (20, 8)),
+    ('꿀꿀이-2', 'monster_pig', 3, (22, 11)),
+    ('꿀꿀이-3', 'monster_pig', 4, (29, 8)),
+    ('꿀꿀이-4', 'monster_pig', 4, (31, 11)),
+    ('꿀꿀이-5', 'monster_pig', 5, (37, 4)),
+    # 남쪽 숲길 — 버섯돌이 Lv3~4
+    ('버섯돌이-1', 'monster_mushroom', 3, (17, 37)),
+    ('버섯돌이-2', 'monster_mushroom', 4, (27, 44)),
+    # 동쪽 — 바위돌이 (남동 광산 Lv5, 북동 동굴 앞 Lv6)
+    ('바위돌이-1', 'monster_rock', 5, (38, 39)),
+    ('바위돌이-2', 'monster_rock', 6, (39, 13)),
+]
+# 예전 TMX 오브젝트 id를 이어 쓴다(에디터·저장 상태가 id로 기억하는 경우 대비)
+LEGACY_IDS = {'꿀꿀이-1': 5, '말캉이-1': 6, '꿀꿀이-2': 8, '말캉이-2': 9}
+
+SIGNS = [
+    # (이름, 표시 문구, 칸) — 'sign_inn'은 렌더러가 기둥+이름판으로 그리는 표지판 타입
+    ('cave_entrance_sign', '동굴입구', (45, 12)),     # 기존 오브젝트(id 11) 그대로
+    ('camp_sign', '사냥꾼 야영지', (17, 24)),        # 서쪽 길 어귀(상인 이름표와 겹치지 않게)
+    ('farm_sign', '버려진 돼지 농장', (26, 16)),
+    ('mine_sign', '무너진 광산', (34, 37)),
+]
+
+# ---------------------------------------------------------------- 야영지 / 예약 자리
+CAMP = (25, 24)                # 모닥불 공터 중심(맵 중앙 (25,25) 바로 위)
+CAMPFIRE_AT = (25, 23)
+STALL_AT = (19, 19)            # 차양 좌판 좌상단 (3x3)
+# 상인 NPC 자리: 좌판 바로 앞(차양 밑에 세우면 머리가 차양 천에 가려 얼굴이 안 보인다).
+MERCHANT_SPOT = (STALL_AT[0] + 1, STALL_AT[1] + 3)
+# 미래 귀환 표지석 자리: 야영지 동남쪽 둥근 돌바닥 한가운데. 지금은 비워 둔다.
+RETURN_STONE_SPOT = (33, 27)
+# 남동 광산: 절벽 띠(MINE_CLIFF) 가운데 갱도 입구, 그 앞 칸이 지름길 포탈 자리(지금은 낙석 바위).
+MINE_CLIFF = (34, 32, 12)      # (x0, y0, 폭) — 3칸 높이
+MINE_SHAFT_X = 40
+MINE_PORTAL_SPOT = (MINE_SHAFT_X, MINE_CLIFF[1] + 3)
+# 북동 절벽: 동굴 아치 바로 위를 지나는 벼랑 띠, 아치 남쪽의 낮은 둔덕
+CAVE_CLIFF = (39, 7, 11)
+# 숨은 공터(사이드 퀘스트용 상자)
+NOOK = (9, 41)
+
+# ================================================================ 지형 영역
+# 길은 대각선 구간을 짧게 두고 완만한 곡선으로 잇는다(타일 대각선은 계단처럼 보인다).
+TRAIL_WEST = [(-1, 10.5), (5, 10.5), (9, 11), (12, 12.5), (14, 15), (15, 18),
+              (16.5, 20.5), (19, 22.2), (23, 23.2)]
+TRAIL_EAST = [(26, 23.5), (30, 23.2), (33.5, 22), (35.5, 19.5), (36.5, 16.5), (38, 13.5),
+              (40.5, 11.6), (44, 11), (50, 11)]
+FARM_LANE = [(28.5, 23), (28.5, 19.5), (28.3, 16.5), (28, 13)]
+FOREST_PATH = [(24.5, 26), (24.3, 29), (22.5, 31.5), (19.5, 33), (17.3, 35), (16.5, 38),
+               (17.5, 41), (20.5, 43), (24.5, 44.2), (29, 43.6), (32, 41.6), (34.5, 40), (38, 39.5)]
+trail = curve(TRAIL_WEST, 1.5) | curve(TRAIL_EAST, 1.5) | curve(FARM_LANE, 1.3)
+forest_path = curve(FOREST_PATH, 1.1)
+camp_dirt = blob([(25, 24, 3.7), (22.5, 23, 2.6), (27.5, 24.5, 2.5), (20.5, 21.8, 2.1)])
+# 농장 우리 안 진흙 웅덩이
+farm_mud = blob([(21, 9.5, 2.0), (23, 10.8, 1.5), (29.5, 9, 1.9), (31, 10.8, 1.5), (19.5, 11.5, 1.2)])
+# 바위 지대(자갈 바닥)
+rock_ne = blob([(44, 11, 3.2), (41.5, 11.5, 2.6), (47.5, 11, 2.2), (39.5, 13, 2.0)])
+rock_se = blob([(39.5, 37.5, 3.0), (42.5, 37, 2.6), (37, 38.5, 2.2), (40, 39.8, 2.4), (44, 38.5, 1.8)])
+stone_pad = disc(RETURN_STONE_SPOT[0], RETURN_STONE_SPOT[1], 2.5)
 
 # ---------------------------------------------------------------- ground
 for y in range(H):
     for x in range(W):
         m.set('ground', x, y, GRASS)
+# 잔디 얼룩: 성긴 값 노이즈로 큰 덩어리만(점점이 흩뿌리면 지저분하다)
+NOISE_STEP = 5
+_nz = [[rnd.random() for _ in range(W // NOISE_STEP + 5)] for _ in range(H // NOISE_STEP + 5)]
 
-for _ in range(110):
-    cx, cy = rnd.randrange(W), rnd.randrange(H)
-    r = rnd.randint(1, 3)
-    for y in range(cy - r, cy + r + 1):
-        for x in range(cx - r, cx + r + 1):
-            if (x - cx) ** 2 + (y - cy) ** 2 <= r * r and rnd.random() < 0.7:
-                m.set('ground', x, y, GRASS_ALT)
 
-for (x, y) in trail:
-    m.set('ground', x, y, DIRT)
+def noise(x, y, step=NOISE_STEP, grid=_nz):
+    gx, gy = x / step, y / step
+    x0, y0 = int(gx), int(gy)
+    tx, ty = gx - x0, gy - y0
+    tx, ty = tx * tx * (3 - 2 * tx), ty * ty * (3 - 2 * ty)
+    a = grid[y0][x0] * (1 - tx) + grid[y0][x0 + 1] * tx
+    b = grid[y0 + 1][x0] * (1 - tx) + grid[y0 + 1][x0 + 1] * tx
+    return a * (1 - ty) + b * ty
 
-# 동굴 앞 암반 지대 — 겹친 원들로 유기적인 윤곽을 만든다
-def blob(circles):
-    cells = set()
-    for (cx, cy, r) in circles:
-        rr = r * r
-        for y in range(int(cy - r) - 1, int(cy + r) + 2):
-            for x in range(int(cx - r) - 1, int(cx + r) + 2):
-                if 0 <= x < W and 0 <= y < H and (x - cx) ** 2 + (y - cy) ** 2 <= rr:
+
+for y in range(H):
+    for x in range(W):
+        if noise(x, y) > 0.62:
+            m.set('ground', x, y, GRASS_ALT)
+m.set('ground', 0, 0, GRASS_ALT)
+
+
+def band_cells(x0, y0, width):
+    return {(x0 + c, y0 + r) for r in range(3) for c in range(width)}
+
+
+cliff_cells = band_cells(*CAVE_CLIFF) | band_cells(*MINE_CLIFF)
+cobble_cells = (rock_ne | rock_se | stone_pad) - cliff_cells
+dirt_cells = (trail | forest_path | camp_dirt | farm_mud) - cobble_cells - cliff_cells
+
+
+def smooth(cells, rounds=4):
+    """오토타일이 못 그리는 모양(1칸 목, 홈)을 없앤다: 잔디에 3면이 둘러싸인 칸은 지우고,
+    재질에 3면이 둘러싸인 잔디 칸은 채운다."""
+    cells = set(cells)
+    for _ in range(rounds):
+        changed = False
+        for y in range(H):
+            for x in range(W):
+                n = sum((x + dx, y + dy) in cells or not m.inb(x + dx, y + dy)
+                        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                if (x, y) in cells:
+                    ns = ((x, y - 1) in cells or y == 0) or ((x, y + 1) in cells or y == H - 1)
+                    ew = ((x - 1, y) in cells or x == 0) or ((x + 1, y) in cells or x == W - 1)
+                    if n <= 1 or not ns or not ew:
+                        cells.discard((x, y))
+                        changed = True
+                elif n >= 3 and (x, y) not in cliff_cells:
                     cells.add((x, y))
+                    changed = True
+        if not changed:
+            break
     return cells
 
 
-# 바닥은 자갈로 깔고(3x3 큰 바위를 바닥에 반복하면 격자 이음매가 드러난다),
-# 이끼 낀 3x3 바위는 나중에 '놓인 바위'로 몇 덩이만 세운다.
-# 바닥은 자갈 한 겹만. heavy cobble 3x3(532~534/540~542/548~550)은 채우기 타일이 아니라
-# 낱개 바위 노두라서, 반복해 깔면 3줄마다 가로띠 + 3칸마다 세로 이음매가 드러난다.
-# → 바닥은 COBBLE로 깔고, 바위는 아래에서 간격을 두고 낱개로 세운다.
-rock = blob([(46, 8, 5.6), (45, 13, 5.0), (48, 11, 4.6), (43, 10, 3.4)])
-for (x, y) in rock:
-    if (x, y) not in trail:
-        m.set('ground', x, y, COBBLE)
+cobble_cells = smooth(cobble_cells)
+dirt_cells = smooth(dirt_cells - cobble_cells) - cobble_cells
+for (x, y) in dirt_cells:
+    m.set('ground', x, y, DIRT)
+for (x, y) in cobble_cells:
+    m.set('ground', x, y, COBBLE)
 
-# 남쪽 빈터의 수정 광맥
-VEIN_CENTER = (31, 31)
-vein = blob([(31, 31, 2.6), (33, 30, 2.0)])
-for (x, y) in blob([(31, 31, 4.0), (33, 30, 3.4)]):
-    if (x, y) not in trail:
-        m.set('ground', x, y, COBBLE)
+walk_cells = dirt_cells | cobble_cells
+m.keep_clear |= trail | forest_path
 
-# ---------------------------------------------------------------- 오두막 이식
-town = read_layers(TOWN)
-HX0, HX1, HY0, HY1 = 12, 18, 29, 39
-DEST_X, DEST_Y = 4, 15
-# ground와 shadow_upper는 옮기지 않는다.
-# ground: town의 자갈 광장 바닥이라 숲 지형과 안 맞는다.
-# shadow_upper: 오두막 오른쪽 세로 그림자 스트립(gid 64x3 + 63)이 딸려온다. 그건 자갈
-#   광장 위라서 성립하던 연출이고, 잔디 위에 얹으면 술통을 덮는 회색 막대로 보인다.
-#   또 이 맵의 나무/바위/술통은 전부 스프라이트에 접지 그림자가 내장돼 있어 별도
-#   그림자 레이어를 쓰지 않는다 — 오두막만 캐스트 그림자를 갖는 것도 일관성에 어긋난다.
-SKIP_LAYERS = {'ground', 'shadow_upper'}
-for name in LAYER_NAMES:
-    if name not in town or name in SKIP_LAYERS:
-        continue
-    for y in range(HY0, HY1 + 1):
-        for x in range(HX0, HX1 + 1):
-            g = town[name][y * W + x]
-            if g:
-                m.set(name, DEST_X + (x - HX0), DEST_Y + (y - HY0), g)
-# 오두막 앞마당
-for y in range(DEST_Y + 8, DEST_Y + 11):
-    for x in range(DEST_X, DEST_X + 6):
-        m.set('ground', x, y, DIRT)
-# 본길과 잇는 샛길
-for y in range(round(trail_center(7)), DEST_Y + 9):
-    for x in (7, 8):
-        m.set('ground', x, y, DIRT)
+# ---------------------------------------------------------------- 보호 구역
+for name, kind, lvl, (x, y) in MONSTERS:
+    m.keep_clear |= ring(x, y, 2)      # 싸울 자리: 5x5 비움
+    m.no_canopy |= ring(x, y, 1)
+for name, text, (x, y) in SIGNS:
+    m.keep_clear |= ring(x, y, 1)
+    m.no_canopy |= {(x, y), (x, y - 1), (x, y - 2)}
+for p in (TOWN_ARRIVAL, CAVE_ARRIVAL, MAP_CENTER):
+    m.keep_clear |= ring(p[0], p[1], 1)
+# 관문 앞 통로(세로 2칸 포탈 전체가 길 위에 오도록)
+for y in range(8, 14):
+    for x in range(0, 4):
         m.keep_clear.add((x, y))
-# 오두막이 놓인 칸은 벽이어야 하므로 보호 해제
-for y in range(DEST_Y, DEST_Y + 11):
-    for x in range(DEST_X, DEST_X + 7):
-        m.keep_clear.discard((x, y))
+# 동굴 아치 앞마당과 아치 자체(아치 그림이 덮는 칸에는 아무것도 놓지 않는다)
+for y in range(10, 13):
+    for x in range(42, 50):
+        m.keep_clear.add((x, y))
+for y in range(9, 14):
+    for x in range(46, 50):
+        m.no_canopy.add((x, y))
+m.keep_clear |= ring(CAMP[0], CAMP[1], 4) - {(STALL_AT[0] + dx, STALL_AT[1] + dy) for dx in range(3) for dy in range(3)}
+m.no_canopy |= ring(CAMP[0], CAMP[1], 5)
+m.keep_clear |= ring(*RETURN_STONE_SPOT, 2)
+m.no_canopy |= ring(*RETURN_STONE_SPOT, 2)
+m.keep_clear |= ring(*MINE_PORTAL_SPOT, 1) - {MINE_PORTAL_SPOT}
+# 광산 벼랑 위 턱(3행)은 양 끝으로 이어지는 빈 띠로 남긴다 — 나무 밑동이 막으면 갇힌 칸이 생긴다
+for y in range(MINE_CLIFF[1] - 3, MINE_CLIFF[1]):
+    for x in range(MINE_CLIFF[0] - 2, MINE_CLIFF[0] + MINE_CLIFF[2] + 2):
+        m.keep_clear.add((x, y))
 
-# 오두막 캐스트 그림자. 이 타일셋은 빛이 왼쪽에서 오므로(지붕 왼쪽 면이 밝고,
-# town.tmx의 건물 그림자도 전부 오른쪽으로 떨어진다) 오두막 오른쪽 한 칸에 세운다.
-# shadow_lower에 그린다 — object보다 먼저 그려지므로 술통/바구니와 캐릭터가 그림자
-# '위'에 서고, 충돌 판정(createWallTileLookup은 object 레이어만 본다)에도 영향이 없다.
-# 세로 범위는 지붕 오른쪽 처마부터 벽 기단까지, 끝은 대각 타일로 마감한다.
-SHADOW_X = DEST_X + 5
-for y in range(DEST_Y + 2, DEST_Y + 8):
-    m.set('shadow_lower', SHADOW_X, y, SHADOW_FILL)
-m.set('shadow_lower', SHADOW_X, DEST_Y + 8, SHADOW_TAPER)
 
-
-# ---------------------------------------------------------------- 배치 헬퍼
-def put_tree(x, y):
-    # 수관 3x3 + 밑동 3x1 = 3x4 전체가 맵 안에 있고, object/object_upper 모두 비어 있어야 한다.
-    # (밑동만 검사하면 뒤에 놓인 나무가 앞 나무의 수관을 덮어써 '잘린 나무'가 생긴다)
-    if x < 0 or y < 0 or x + 3 > W or y + 4 > H:
+# ================================================================ 배치 헬퍼
+def put(x, y, gid, layer='object', force=False):
+    if not force and not m.free(x, y):
         return False
-    for dy in range(4):
-        for dx in range(3):
-            if m.get('object_upper', x + dx, y + dy) or m.get('object', x + dx, y + dy):
-                return False
-    if not m.free(x, y + 3, 3, 1):
-        return False
-    for dy in range(3):
-        for dx in range(3):
-            m.set('object_upper', x + dx, y + dy, TREE_CANOPY[dy][dx])
-    for dx in range(3):
-        m.set('object', x + dx, y + 3, TREE_TRUNK[dx])
+    m.set(layer, x, y, gid)
     return True
 
 
-def put_single(x, y, gid):
-    if not m.free(x, y) or m.get('object_upper', x, y):
+def put_block(x, y, rows, solid_from=0, upper_layer='object_upper', force=False):
+    """멀티타일 소품. solid_from 행부터는 object(충돌), 그 위는 upper_layer."""
+    cells = [(x + c, y + r) for r in range(len(rows)) for c in range(len(rows[0])) if rows[r][c]]
+    if not force and any(not m.free(cx, cy) for cx, cy in cells):
         return False
-    m.set('object', x, y, gid)
+    for r, row in enumerate(rows):
+        for c, g in enumerate(row):
+            if g:
+                m.set('object' if r >= solid_from else upper_layer, x + c, y + r, g)
     return True
 
 
-def put_tallgrass(x, y):
-    """3x3 블록 2~4개를 겹쳐 불규칙한 수풀 덩이를 만든다(정사각형 티 제거)."""
-    blocks = [(x, y)]
-    for _ in range(rnd.randint(1, 3)):
-        blocks.append((x + rnd.randint(-2, 2), y + rnd.randint(-2, 2)))
-    cells = {}
-    for (bx, by) in blocks:
-        for dy in range(3):
-            for dx in range(3):
-                cx, cy = bx + dx, by + dy
-                if not (0 <= cx < W and 0 <= cy < H):
-                    return False
-                if (cx, cy) in trail or m.get('shadow_lower', cx, cy):
-                    return False
-                cells[(cx, cy)] = TALLGRASS_3x3[dy][dx]
-    for (cx, cy), gid in cells.items():
-        m.set('shadow_lower', cx, cy, gid)
-    return True
+def decal(x, y, gid):
+    if m.inb(x, y) and not m.get('shadow_lower', x, y):
+        m.set('shadow_lower', x, y, gid)
 
 
-def put_post(x, y):
-    if not m.free(x, y + 3):
-        return False
-    for i in range(4):
-        if m.get('object_upper', x, y + i) or m.get('object', x, y + i):
-            return False
-    for i, g in enumerate(POST):
-        m.set('object' if i == len(POST) - 1 else 'object_upper', x, y + i, g)
-    return True
+def cliff_band(x0, y0, width, shaft_x=None):
+    """바위 둔덕 타일(3x3)의 가운데 열을 늘린 벼랑 띠. 윗면이 곧은 절벽 얼굴이라 띠 위쪽(북쪽)은
+    높은 지대로 읽힌다 — 그 지대는 띠 양 끝으로 돌아 올라갈 수 있게 열어 둔다(고립 칸 방지)."""
+    for r in range(3):
+        for c in range(width):
+            col = 0 if c == 0 else 2 if c == width - 1 else 1
+            m.set('object', x0 + c, y0 + r, MOUND[r][col])
+    if shaft_x is not None:
+        m.set('object', shaft_x, y0 + 1, SHAFT_TOP)
+        m.set('object', shaft_x, y0 + 2, SHAFT_BOT)
 
 
-def forest(x0, y0, x1, y1, density=1.0, jitter=2):
-    """격자 티를 없앤 숲 — 위치를 흔들고 확률로 건너뛴다."""
-    placed = 0
-    y = y0
-    row = 0
-    while y <= y1:
-        x = x0 + (row % 2) * 2
-        while x <= x1:
-            if rnd.random() < density:
-                jx = x + rnd.randint(-jitter, jitter)
-                jy = y + rnd.randint(-1, 1)
-                if put_tree(jx, jy):
-                    placed += 1
-                elif rnd.random() < 0.5:
-                    put_single(jx + 1, jy + 3, TREE_SMALL)
-            x += 3 + rnd.randint(0, 1)
-        y += 4
-        row += 1
-    return placed
+# ================================================================ 북동: 낭떠러지 동굴 입구
+# 동굴 아치(cave_entrance 포탈 그림, 48~50열 10~12행)가 벼랑 띠 바로 밑에 붙고,
+# 남쪽은 큰 바위 무더기가 막아 아치 앞이 3칸 폭 바위 골목이 된다. 바닥은 자갈.
+cliff_band(*CAVE_CLIFF)
+for (x, y, g) in [
+        # 아치 남쪽 바위 무더기
+        (46, 13, BOULDER), (47, 13, ROCKS[0]), (48, 13, BOULDER), (49, 13, ROCKS[1]),
+        (47, 14, BOULDER), (49, 14, BOULDER), (45, 14, ROCKS[1]), (48, 15, ROCKS[0]),
+        # 벼랑 서쪽 끝을 무너진 돌로 흐린다
+        (38, 9, BOULDER), (38, 8, ROCKS[1]), (37, 9, ROCKS[0]),
+        # 벼랑 위 가장자리(고지대)
+        (41, 6, ROCKS[0]), (44, 6, BOULDER), (48, 6, ROCKS[1]),
+        # 골목 어귀
+        (42, 14, ROCKS[0]), (36, 12, BOULDER)]:
+    put(x, y, g)
+for (x, y) in [(41, 10), (46, 12), (40, 12), (43, 12), (47, 10)]:
+    decal(x, y, PEBBLES[(x * 3 + y) % 2])
 
+# ================================================================ 남동: 무너진 광산 입구
+mx0, my0, mw = MINE_CLIFF
+cliff_band(mx0, my0, mw, shaft_x=MINE_SHAFT_X)
+# 갱도 앞 낙석: 큰 바위가 입구를 막고 있다.
+# 광산 지름길: 갱도 앞 큰 바위는 타일이 아니라 오브젝트(gated_boulder)다. q009(수정 광산)를 마치면
+# 바위가 사라지고 같은 칸의 crystal-mine 행 포탈이 열린다(tiled/applyQuestGatedEvents.ts).
+put(MINE_SHAFT_X - 1, my0 + 3, ROCKS[0], force=True)
+for (x, y) in [(MINE_SHAFT_X + 1, my0 + 3), (MINE_SHAFT_X - 1, my0 + 4), (MINE_SHAFT_X + 1, my0 + 4),
+               (MINE_SHAFT_X, my0 + 4), (MINE_SHAFT_X - 2, my0 + 3)]:
+    decal(x, y, PEBBLES[(x + y) % 2])
+# 수정 노두와 광석 상자, 버려진 수레
+for i, (x, y) in enumerate([(36, 35), (44, 35), (45, 37), (42, 40), (35, 40)]):
+    put(x, y, CRYSTALS[i % 2])
+put(43, 35, CRATE_CRYSTAL)
+put(37, 35, CRATE_CRYSTAL)
+put_block(44, 39, CART, solid_from=0)
+put(41, 41, ROCKS[1])
+# 벼랑 위 가장자리(고지대)에 돌과 덤불 — 곧은 윗선을 흐린다
+for (x, y, g) in [(35, 31, ROCKS[0]), (39, 31, BUSHES[0]), (43, 31, ROCKS[1]), (45, 30, BUSHES[2])]:
+    put(x, y, g, force=True)
 
-# ---------------------------------------------------------------- 숲
-# 북쪽 — 수관이 화면 밖으로 이어지도록 y=-1부터
-forest(-1, -1, W - 1, 0, density=0.95, jitter=1)
-# 남쪽 깊은 숲
-forest(-1, 37, W - 1, 46, density=0.9, jitter=2)
-# 서쪽 관문 위/아래
-forest(-1, 3, 2, 6, density=0.9, jitter=1)
-forest(-1, 19, 2, 34, density=0.8, jitter=1)
-# 동쪽 동굴 위/아래
-forest(46, 1, 49, 5, density=0.85, jitter=1)
-forest(46, 17, 49, 34, density=0.8, jitter=1)
-# 안쪽 숲 덩어리 — 빈터를 남기며
-forest(18, 13, 32, 24, density=0.72, jitter=2)
-forest(34, 17, 45, 30, density=0.62, jitter=2)
-forest(3, 27, 16, 34, density=0.6, jitter=2)
-forest(30, 3, 40, 5, density=0.55, jitter=2)
-forest(22, 27, 28, 32, density=0.45, jitter=2)
+# ================================================================ 중앙 야영지
+fx, fy = CAMPFIRE_AT
+put(fx, fy, CAMPFIRE, force=True)                 # 모닥불(랜드마크)
+for (x, y) in [(fx - 1, fy), (fx + 1, fy)]:      # 불가 돌 부스러기
+    decal(x, y, PEBBLES[0])
+put(fx - 2, fy, LOG_SINGLE, force=True)           # 통나무 걸상 좌/우/뒤
+put(fx + 2, fy, LOG_SINGLE, force=True)
+put(fx, fy - 2, LOG_SINGLE, force=True)
+put(fx + 3, fy - 2, LOG_STACK, force=True)        # 장작더미
+put(fx + 4, fy - 2, CRATE_FOOD, force=True)
+put(fx + 4, fy + 2, CRATE_FOOD, force=True)       # 보급 상자
+put(fx + 3, fy + 3, BARREL, force=True)
+# 차양 좌판(상인 자리). 3x3: 윗행 차양(충돌) / 가운데 처마(위층, 통과) / 아랫행 기둥 둘 + 그늘
+sx, sy = STALL_AT
+for c, g in enumerate(AWNING['top']):
+    m.set('object', sx + c, sy, g)
+for c, g in enumerate(AWNING['valance']):
+    m.set('object_upper', sx + c, sy + 1, g)
+m.set('object', sx, sy + 2, AWNING['posts'][0])
+m.set('object', sx + 2, sy + 2, AWNING['posts'][1])
+# 기둥 사이 그늘(AWNING['shade'])은 두지 않는다 — 앞에 선 상인의 머리를 덮는다.
+# NOTE(상인/귀환 표지석): MERCHANT_SPOT(차양 밑)과 RETURN_STONE_SPOT(동남쪽 돌바닥)은 일부러 비워 둔다.
+#   상인 NPC와 귀환 표지석이 들어오면 characters 오브젝트로 그 칸에 세운다. decorations 오브젝트 참고.
+put(sx - 1, sy + 2, CRATE_FOOD, force=True)       # 좌판 옆 상자
+# 귀환 표지석: 돌바닥 가운데 오벨리스크(2칸), 그 앞 칸의 마법진이 마을 광장행 포탈
+rx, ry = RETURN_STONE_SPOT
+put(rx, ry, OBELISK[1], force=True)
+m.set('object_upper', rx, ry - 1, OBELISK[0])
+put(sx + 3, sy, BARREL, force=True)
+m.keep_clear |= {MERCHANT_SPOT, (MERCHANT_SPOT[0], MERCHANT_SPOT[1] + 1)}
 
-# ---------------------------------------------------------------- 수정 광맥
-for (x, y) in sorted(vein):
-    m.keep_clear.discard((x, y))
-    if rnd.random() < 0.55:          # 격자로 꽉 찬 느낌을 피한다
-        put_single(x, y, CRYSTAL)
-for (x, y) in [(29, 33), (35, 30), (31, 27)]:
-    put_single(x, y, ROCKS[rnd.randrange(2)])
-
-# ---------------------------------------------------------------- 사냥꾼 야영지
-cx, cy = 27, 12
-for y in range(cy - 1, cy + 3):
-    for x in range(cx - 1, cx + 4):
-        if (x, y) not in trail:
-            m.set('ground', x, y, DIRT)
-for (dx, dy, gid) in [(0, 0, 420), (1, 0, 353), (2, 0, 419),
-                      (0, 2, 333), (2, 2, 559), (1, 2, 493)]:
-    put_single(cx + dx, cy + dy, gid)
-put_post(cx + 3, cy - 3)
-put_post(44, 8)     # 동굴 앞 표지 기둥
-
-# ---------------------------------------------------------------- 이끼 바위(3x3 큰 덩이)
-def put_boulder(x, y):
-    if x < 0 or y < 0 or x + 3 > W or y + 3 > H:
-        return False
-    # 주변 1칸까지 비어 있어야 다른 바위와 붙어 슬래브로 보이지 않는다
-    for dy in range(-1, 4):
-        for dx in range(-1, 4):
-            if m.get('object', x + dx, y + dy) in STONE_3x3[0] + STONE_3x3[1] + STONE_3x3[2]:
-                return False
-    for dy in range(3):
-        for dx in range(3):
-            if not m.free(x + dx, y + dy) or m.get('object_upper', x + dx, y + dy):
-                return False
-    for dy in range(3):
-        for dx in range(3):
-            m.set('object', x + dx, y + dy, STONE_3x3[dy][dx])
-    return True
-
-
-# heavy cobble 3x3은 이 배율에서 그냥 갈색 덩어리로 보여 쓰지 않는다.
-# 암반 느낌은 '자갈 바닥 + 작은 바위 군집(g527/g528)'만으로 낸다 — 그쪽이 훨씬 잘 읽힌다.
-
-# ---------------------------------------------------------------- 바위 / 구덩이
-for _ in range(34):
-    put_single(rnd.randrange(W), rnd.randrange(H), ROCKS[rnd.randrange(2)])
-for _ in range(34):
-    put_single(rnd.randrange(41, 50), rnd.randrange(4, 19), ROCKS[rnd.randrange(2)])
-# 큰 구덩이는 배경과 안 어울려 쓰지 않는다(PIT_TOP/PIT_BOTTOM 미사용).
-
-# ---------------------------------------------------------------- 덤불 / 그루터기 / 작은 나무
-for _ in range(26):
-    put_single(rnd.randrange(W), rnd.randrange(H), STUMPS[rnd.randrange(2)])
-for _ in range(55):
-    put_single(rnd.randrange(W), rnd.randrange(H), TREE_SMALL)
-
-# ---------------------------------------------------------------- 산울타리(오두막 정원)
-# hedge 3x3은 top/mid/lower 한 세트라 겹치면 내부 경계선이 드러난다 — 낱개로만, 그것도 정원에만 쓴다.
-def put_hedge(x, y):
-    if x < 0 or y < 0 or x + 3 > W or y + 3 > H:
-        return False
-    for dy in range(3):
-        for dx in range(3):
-            if not m.free(x + dx, y + dy) or m.get('object_upper', x + dx, y + dy):
-                return False
-    for dy in range(3):
-        for dx in range(3):
-            m.set('object', x + dx, y + dy, TALLGRASS_3x3[dy][dx])
-    return True
-
-
-put_hedge(DEST_X - 3, DEST_Y + 7)
-put_hedge(DEST_X + 7, DEST_Y + 7)
-
-# ---------------------------------------------------------------- 풀 데칼
-for _ in range(1100):
-    x, y = rnd.randrange(W), rnd.randrange(H)
-    if (x, y) in trail or m.get('shadow_lower', x, y) or m.get('object', x, y):
+# ================================================================ 북쪽: 버려진 돼지 농장
+FARM = (17, 4, 33, 14)        # 울타리 사각형 (x0, y0, x1, y1)
+DIVIDER_X = 25
+fx0, fy0, fx1, fy1 = FARM
+gaps = set()
+gaps |= {(x, fy1) for x in (27, 28, 29)}           # 남문(야영지 길)
+gaps |= {(fx0, y) for y in (10, 11)}                # 서쪽 무너진 틈(초원에서)
+gaps |= {(fx1, y) for y in (6, 7)}                  # 동쪽 무너진 틈(동굴 쪽)
+gaps |= {(DIVIDER_X, y) for y in (8, 9)}            # 칸막이 통로
+gaps |= {(20, fy0), (21, fy0), (31, fy0)}           # 북쪽 울타리 빠진 데
+gaps |= {(21, fy1), (fx1, 12)}
+broken = {(19, fy1), (fx0, 6), (24, fy0), (fx1, 10), (DIVIDER_X, 12)}   # 기둥만 남은 칸
+fence = []
+for x in range(fx0, fx1 + 1):
+    fence += [(x, fy0, FENCE_H), (x, fy1, FENCE_H)]
+for y in range(fy0 + 1, fy1):
+    fence += [(fx0, y, FENCE_V), (fx1, y, FENCE_V)]
+for y in range(fy0 + 1, fy1):
+    fence.append((DIVIDER_X, y, FENCE_V))
+for (x, y, g) in fence:
+    if (x, y) in gaps:
         continue
-    m.set('shadow_lower', x, y, TUFTS[rnd.randrange(len(TUFTS))])
-# 길 가장자리에도 몇 포기 — 흙/잔디 경계를 흐린다
-for (x, y) in list(trail):
-    edge = any((x + dx, y + dy) not in trail for dx, dy in ((1,0),(-1,0),(0,1),(0,-1)))
-    if edge and rnd.random() < 0.35 and not m.get('object', x, y):
-        m.set('shadow_lower', x, y, TUFTS[rnd.randrange(len(TUFTS))])
+    m.set('object', x, y, FENCE_POST if (x, y) in broken else g)
+# 우리 안 소품: 여물통, 건초, 허수아비, 건초더미. 몬스터 칸에서 2칸(체비셰프) 이상 떨어뜨린다.
+monster_near = set()
+for _n, _k, _l, (mx_, my_) in MONSTERS:
+    monster_near |= ring(mx_, my_, 1)
 
-# ---------------------------------------------------------------- 기본 스폰 칸 비우기
-# 포털 스폰 없이 씬을 열면(에디터의 맵 전환 버튼) createInitialPlayerCharacter가 플레이어를
-# 맵 중앙에 놓는다. 그 칸이 object(=충돌) 레이어면 이동 판정이 '목적지 AABB'를 보기 때문에
-# 자기가 선 칸이 계속 걸려 사방 어디로도 못 움직인다 — 그래서 여기서 반드시 비워야 한다.
-#
-# keep_clear가 아니라 배치가 끝난 뒤 걷어내는 방식인 이유: keep_clear에 점을 더하면 put_* 의
-# 성공/실패가 바뀌어 rnd 소비 순서가 밀리고 숲 전체가 다시 섞인다. 사후 제거는 rnd를 건드리지
-# 않으므로 이 한 그루 말고는 결과가 그대로다.
-def clear_object_at(x, y):
-    """(x,y)를 덮은 오브젝트를 통째로 걷어낸다 — 큰 나무는 수관+밑동을 함께 지운다."""
-    if not m.get('object', x, y):
-        return
-    # 큰 나무: 밑동 3x1(object) 위에 수관 3x3(object_upper). 밑동만 지우면 공중 수관이 남는다.
-    for x0 in range(x - 2, x + 1):
-        y0 = y - 3
-        if y0 < 0 or x0 < 0 or x0 + 3 > W:
+
+def put_prop(x, y, rows):
+    cells = [(x + c, y + r) for r in range(len(rows)) for c in range(len(rows[0]))]
+    assert not any(c in monster_near or m.occupied(*c) for c in cells), (x, y)
+    put_block(x, y, rows, solid_from=len(rows) - 1, force=True)
+
+
+put_prop(18, 5, [[SCARECROW[0]], [SCARECROW[1]]])
+put_prop(23, 5, [[TUB]])
+put_prop(18, 12, HAYSTACK)
+put_prop(24, 13, [[TUB]])
+put_prop(26, 11, HAYSTACK)
+put_prop(32, 5, [[HAY_BLOCKS[0]]])
+put_prop(32, 13, [[HAY_BLOCKS[1]]])
+put_prop(27, 5, [[LOG_SINGLE]])
+# 농장 밖 서쪽 낡은 수레와 장작
+put_block(14, 2, CART, solid_from=0)
+put(16, 3, LOG_STACK)
+
+# ================================================================ 숨은 공터 (남서 숲속)
+# 숲길 서쪽 굽이에서 나무 사이 한 칸짜리 틈으로 들어가는 작은 빈터. 사이드 퀘스트용 상자.
+nx, ny = NOOK
+nook_cells = disc(nx, ny, 1.6)
+nook_gap = curve([(15, 39.5), (12.5, 40.5), (10, 41)], 0.6)
+m.keep_clear |= nook_cells | nook_gap
+m.no_canopy |= {(nx - 1, ny - 1), (nx, ny - 1)}
+# 숨은 상자는 오브젝트(hidden_cache, q015 대화 목표). 옆 통만 타일.
+put(nx, ny - 1, BARREL, force=True)
+for (x, y) in [(nx + 1, ny), (nx - 1, ny + 1)]:
+    decal(x, y, FLOWERS[(x + y) % 4])
+
+# ================================================================ 나무
+# 밀도 = 가장자리 숲 띠 + 숲 덩이(원) + 남쪽 깊은 숲, 공터(원)에선 0.
+# 나무는 town 나무와 수관 색만 바꾼 변형(deep/autumn)만 쓴다(LPC 나무는 그림체가 달라 금지).
+# 수관은 겹칠 수 있다: 뒤 나무는 object_upper, 그 앞에서 겹치는 나무는 deco 레이어에 그려
+# 앞 나무가 위에 오게 한다. 한 칸에 수관 둘까지만 — 셋째로 겹치면 심지 않는다.
+GROVES = [
+    # 서쪽 초원: 사냥 동선 사이의 작은 숲 덩이
+    (10, 1, 4.0), (2, 20, 3.5), (9, 31, 3.5), (17.5, 13.5, 2.4), (2, 3, 3.0), (20, 16.5, 2.0),
+    # 농장 북쪽·동쪽, 북동 고지대
+    (27, 1, 3.5), (36, 9, 2.5), (41, 3, 3.2), (47, 3, 3.5), (35, 14, 2.4), (46, 17, 3.0),
+    # 야영지 동쪽 풀밭
+    (34, 26, 3.6), (41, 21, 4.0), (47, 19, 3.5), (30, 31, 2.8),
+    # 남쪽 깊은 숲
+    (6, 37, 6.5), (12, 47, 6.5), (13, 33, 3.5), (12.5, 38, 2.6), (6, 44, 3.0), (22, 38, 5.0), (29, 38, 3.8), (23, 49, 5.5), (35, 47, 5.0),
+    (47, 28, 4.5), (47, 46, 4.5), (19, 28, 2.5), (40, 29, 2.6),
+]
+CLEARINGS = [
+    (8, 8, 6.5), (8, 21, 6.0), (11, 26, 3.5), (25, 9, 7.0), (25, 24, 6.0),
+    (44, 11, 5.0), (40, 38, 5.0), (31, 27, 3.0),
+]
+canopy_layer = {}   # (x, y) → [layer, ...] 이 칸에 수관을 그린 레이어들
+tree_rows = {}      # (x, y) 수관 칸 → 그 나무의 밑동 행(앞뒤 판정)
+
+
+def tree_density(x, y):
+    """(x,y) = 밑동 가운데 칸."""
+    if (x, y) in walk_cells:
+        return 0.0
+    d = min(x, y - 2, W - 1 - x, H - 1 - y)
+    base = 0.95 if d <= 1 else 0.55 if d <= 2 else 0.15 if d <= 3 else 0.0
+    for gx, gy, r in GROVES:
+        dist = math.hypot(x - gx, y - gy)
+        if dist < r:
+            base = max(base, 0.95 * (1 - dist / r) + 0.35)
+    for cx, cy, r in CLEARINGS:
+        if math.hypot(x - cx, y - cy) < r:
+            base *= 0.1 if d > 1 else 0.7
+    return min(1.0, base * (0.65 + 0.7 * noise(x + 7, y + 3)))
+
+
+def put_tree(x, y, kind='town'):
+    """(x,y) = 3x4 발자국의 좌상단. 위 3행 수관, 맨 아래 행 밑동(object)."""
+    if x < 0 or y < -1 or x + 3 > W or y + 4 > H:
+        return False
+    trunk_row = y + 3
+    for dx in range(3):
+        if not m.free(x + dx, trunk_row) or (x + dx, trunk_row) in canopy_layer:
+            return False
+    need_front = False
+    for r in range(3):
+        for c in range(3):
+            cell = (x + c, y + r)
+            if cell[1] < 0:
+                continue
+            if cell in m.no_canopy:
+                return False
+            if m.get('object', *cell) and m.get('object', *cell) not in TRUNK_GIDS:
+                return False        # 소품(울타리·바위 등) 위에는 수관을 걸지 않는다
+            if m.get('object_upper', *cell) and cell not in canopy_layer:
+                return False        # 차양·허수아비 머리 등
+            layers = canopy_layer.get(cell, [])
+            if len(layers) >= 2:
+                return False
+            if layers:
+                if tree_rows[cell] >= trunk_row:
+                    return False    # 겹치는 쪽은 항상 앞(아래) 나무여야 한다
+                need_front = True
+    # 너무 가깝게 포개지면(밑동 간격 2칸 미만) 덩어리져 보인다
+    for (ox, oy) in trunk_centers:
+        if abs(ox - (x + 1)) < 2 and abs(oy - trunk_row) < 2:
+            return False
+    layer = 'deco' if need_front else 'object_upper'
+    if need_front:
+        for r in range(3):
+            for c in range(3):
+                cell = (x + c, y + r)
+                if cell in canopy_layer and 'deco' in canopy_layer[cell]:
+                    return False
+    canopy, trunk = ((TREE_CANOPY, TREE_TRUNK) if kind == 'town'
+                     else (TREE_VARIANTS[kind]['canopy'], TREE_VARIANTS[kind]['trunk']))
+    for r in range(3):
+        for c in range(3):
+            cell = (x + c, y + r)
+            if not m.inb(*cell):
+                continue
+            m.set(layer, *cell, canopy[r][c])
+            canopy_layer.setdefault(cell, []).append(layer)
+            tree_rows[cell] = trunk_row
+    for c in range(3):
+        m.set('object', x + c, trunk_row, trunk[c])
+    trunk_centers.append((x + 1, trunk_row))
+    return True
+
+
+TRUNK_GIDS = set(TREE_TRUNK) | {g for v in TREE_VARIANTS.values() for g in v['trunk']}
+trunk_centers = []
+# 앞뒤 판정이 쉬우려면 뒤(위) 나무부터 심어야 한다 → 후보를 밀도로 고른 뒤 행 순서로 심는다.
+cands = []
+for y in range(2, H):
+    for x in range(W):
+        if rnd.random() < tree_density(x, y):
+            cands.append((y, rnd.random(), x))
+cands.sort()
+trees = 0
+for ty, _r, tx in cands:
+    kind = 'town' if rnd.random() < 0.55 else 'deep'
+    if put_tree(tx - 1, ty - 3, kind):
+        trees += 1
+print(f'나무 {trees}그루')
+# 가을 나무 — 숲길 굽이와 야영지 둘레의 눈요기(정해진 자리, 빈자리일 때만)
+for ax, ay in ((12, 33), (30, 33), (21, 15), (37, 24), (5, 6)):
+    put_tree(ax, ay, 'autumn')
+
+# ---------------------------------------------------------------- 덤불·그루터기·바위
+trunks = [(i % W, i // W) for i, g in enumerate(m.L['object']) if g in TRUNK_GIDS]
+for (x, y) in trunks:
+    if rnd.random() < 0.16:
+        bx, by = x + rnd.choice((-2, 2)), y + rnd.choice((0, 1))
+        if (bx, by) not in walk_cells and (bx, by) not in canopy_layer:
+            put(bx, by, BUSHES[rnd.randrange(3)])
+for (x, y) in [(10, 14), (3, 29), (31, 17), (23, 34), (36, 29), (12, 4), (44, 21)]:
+    put(x, y, STUMPS[(x + y) % 2])
+for (x, y) in [(15, 23), (3, 13), (19, 3), (32, 21), (20, 30), (9, 17)]:
+    put(x, y, ROCKS[(x + y) % 2])
+
+# ---------------------------------------------------------------- 풀포기·꽃 (바닥 데칼)
+near_tree = set()
+for (x, y) in trunks:
+    for dy in range(-2, 3):
+        for dx in range(-3, 4):
+            near_tree.add((x + dx, y + dy))
+for y in range(H):
+    for x in range(W):
+        if (x, y) in walk_cells or m.get('shadow_lower', x, y) or m.get('object', x, y):
             continue
-        if [m.get('object', x0 + dx, y) for dx in range(3)] != TREE_TRUNK:
-            continue
-        if any(m.get('object_upper', x0 + dx, y0 + dy) != TREE_CANOPY[dy][dx]
-               for dy in range(3) for dx in range(3)):
-            continue
-        for dy in range(3):
-            for dx in range(3):
-                m.clear('object_upper', x0 + dx, y0 + dy)
-        for dx in range(3):
-            m.clear('object', x0 + dx, y)
-        print(f'기본 스폰 칸 확보: ({x},{y}) 큰 나무 제거 (수관 좌상단 {x0},{y0})')
-        return
-    m.clear('object', x, y)
-    print(f'기본 스폰 칸 확보: ({x},{y}) 단일 오브젝트 제거')
+        if rnd.random() < 0.025 + (0.16 if (x, y) in near_tree else 0):
+            m.set('shadow_lower', x, y, TUFTS[rnd.randrange(5)])
+for (x, y) in dirt_cells:
+    edge = any((x + dx, y + dy) not in dirt_cells for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+    if edge and rnd.random() < 0.18 and not m.get('object', x, y):
+        decal(x, y, TUFTS[rnd.randrange(5)])
+for fx_, fy_ in ((4, 12), (11, 24), (8, 2), (34, 29), (21, 29), (41, 18), (36, 2), (13, 16)):
+    for _ in range(6):
+        x, y = fx_ + rnd.randint(-2, 2), fy_ + rnd.randint(-1, 1)
+        if (x, y) not in walk_cells and not m.occupied(x, y) and not m.get('shadow_lower', x, y) \
+                and (x, y) not in canopy_layer:
+            m.set('shadow_lower', x, y, FLOWERS[rnd.randrange(4)])
 
-
-clear_object_at(W // 2, H // 2)
-
-# ---------------------------------------------------------------- 오토타일(경계 정리)
-# 잔디↔흙 / 잔디↔자갈 경계를 전환 타일로 바꾼다. gid는 gen_tiles.py가 town-32에 덧붙인 것.
+# ================================================================ 오토타일 (잔디↔흙, 잔디↔자갈)
 DIRT_EDGE_BASE = 561    # mask 1..15 → 561..575, 대각 모서리 → 576..579
 COBBLE_EDGE_BASE = 580  # mask 1..15 → 580..594, 대각 모서리 → 595..598
 GRASSY = {GRASS, GRASS_ALT}
-
 snapshot = list(m.L['ground'])
 
 
 def ground_at(x, y):
-    return snapshot[y * W + x] if 0 <= x < W and 0 <= y < H else None
+    return snapshot[y * W + x] if m.inb(x, y) else None
 
 
-def autotile(target_gid, base):
-    """target_gid로 칠해진 칸의 잔디 경계를 전환 타일로 교체한다."""
-    changed = 0
+def autotile(target, base):
+    n = 0
     for y in range(H):
         for x in range(W):
-            if ground_at(x, y) != target_gid:
+            if ground_at(x, y) != target:
                 continue
             mask = 0
             for bit, (dx, dy) in enumerate(((0, -1), (1, 0), (0, 1), (-1, 0))):
-                n = ground_at(x + dx, y + dy)
-                if n in GRASSY:
+                if ground_at(x + dx, y + dy) in GRASSY:
                     mask |= 1 << bit
             if mask:
-                m.set('ground', x, y, base + (mask - 1))
-                changed += 1
+                m.set('ground', x, y, base + mask - 1)
+                n += 1
                 continue
-            # 변은 전부 같은 재질인데 대각선 하나만 잔디인 경우
             diags = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
             hit = [i for i, (dx, dy) in enumerate(diags) if ground_at(x + dx, y + dy) in GRASSY]
-            if len(hit) == 1:
+            if hit:
                 m.set('ground', x, y, base + 15 + hit[0])
-                changed += 1
-    return changed
+                n += 1
+    return n
 
 
-n_dirt = autotile(DIRT, DIRT_EDGE_BASE)
-n_cob = autotile(COBBLE, COBBLE_EDGE_BASE)
-print(f'오토타일: 흙 경계 {n_dirt}칸, 자갈 경계 {n_cob}칸')
-
-# ---------------------------------------------------------------- 고립 칸 메우기
-# 나무·바위를 흩뿌리다 보면 사방이 막힌 빈 칸이 남는다. 바닥은 멀쩡히 보이는데
-# 영영 들어갈 수 없어 "안 가지는 구멍"으로 읽히므로, 눈에 보이는 바위로 덮어
-# 막힌 이유를 드러낸다(반대로 뚫으면 나무 군집 한가운데가 열려 부자연스럽다).
+print(f'오토타일: 흙 {autotile(DIRT, DIRT_EDGE_BASE)}칸, 자갈 {autotile(COBBLE, COBBLE_EDGE_BASE)}칸')
 
 
-def flood_from(start_cell):
-    walls_now = {(i % W, i // W) for i, g in enumerate(m.L['object']) if g}
-    reached = {start_cell}
-    queue = deque([start_cell])
-    while queue:
-        x, y = queue.popleft()
+# ================================================================ 고립 칸 메우기 / 검증
+def flood(start):
+    walls = {(i % W, i // W) for i, g in enumerate(m.L['object']) if g}
+    seen = {start}
+    q = deque([start])
+    while q:
+        x, y = q.popleft()
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             n = (x + dx, y + dy)
-            if 0 <= n[0] < W and 0 <= n[1] < H and n not in reached and n not in walls_now:
-                reached.add(n)
-                queue.append(n)
-    return walls_now, reached
+            if m.inb(*n) and n not in seen and n not in walls:
+                seen.add(n)
+                q.append(n)
+    return walls, seen
 
 
-walls, seen = flood_from((2, 10))
-orphans = [(x, y) for y in range(H) for x in range(W)
-           if (x, y) not in walls and (x, y) not in seen]
-for x, y in orphans:
-    m.set('object', x, y, ROCKS[(x + y) % 2])
+walls, seen = flood(TOWN_ARRIVAL)
+orphans = [(x, y) for y in range(H) for x in range(W) if (x, y) not in walls and (x, y) not in seen]
+# 나무 사이에 갇힌 빈 칸은 덤불로 메운다(눈에 보이는 막힘 — 투명 충돌 금지).
+for (x, y) in orphans:
+    m.set('object', x, y, BUSHES[(x + y) % 3])
 if orphans:
-    print(f'고립 칸 {len(orphans)}개를 바위로 메움: {orphans[:12]}')
-    walls, seen = flood_from((2, 10))
+    print(f'고립 칸 {len(orphans)}개를 덤불로 메움: {orphans}')
+walls, seen = flood(TOWN_ARRIVAL)
 
-# ---------------------------------------------------------------- 검증
-
-CHECK = [('꿀꿀이-1', (7, 5)), ('말캉이-1', (13, 7)), ('꿀꿀이-2', (26, 5)),
-         ('말캉이-2', (16, 16)), ('표지판', (45, 12)),
-         ('귀환포탈', (0, 10)), ('귀환포탈2', (0, 11)),
-         ('동굴포탈', (49, 10)), ('동굴포탈2', (49, 11)),
-         ('맵중앙(기본스폰)', (W // 2, H // 2)),
-         ('야영지앞', (27, 13)), ('오두막앞', (6, 24)), ('수정광맥앞', (31, 34))]
 problems = []
-for name, pt in CHECK:
-    if pt in walls:
-        problems.append(f'{name}{pt} 벽에 막힘')
-    elif pt not in seen:
-        problems.append(f'{name}{pt} 도달 불가')
-
-print(f'벽 {len(walls)} / 도달가능 {len(seen)} / 전체 {W*H} '
-      f'(고립 {W*H - len(walls) - len(seen)}칸)')
-for name in LAYER_NAMES:
-    print(f'  {name:14s} {sum(1 for g in m.L[name] if g):5d}')
+checks = [(n, p) for n, _k, _l, p in MONSTERS] + [(n, p) for n, _t, p in SIGNS] + [
+    ('귀환포탈', (0, 10)), ('귀환포탈2', (0, 11)), ('동굴포탈', (49, 10)), ('동굴포탈2', (49, 11)),
+    ('마을 도착칸', TOWN_ARRIVAL), ('동굴 도착칸', CAVE_ARRIVAL), ('맵 중앙', MAP_CENTER),
+    ('상인 앞', (MERCHANT_SPOT[0], MERCHANT_SPOT[1] + 1)), ('귀환 마법진', (RETURN_STONE_SPOT[0], RETURN_STONE_SPOT[1] + 1)),
+    ('숨은 상자 앞', (nx, ny)),
+    ('광산 지름길 앞', (MINE_PORTAL_SPOT[0], MINE_PORTAL_SPOT[1] + 1)),
+]
+for name, p in checks:
+    if p in walls:
+        problems.append(f'{name}{p} 벽')
+    elif p not in seen:
+        problems.append(f'{name}{p} 도달 불가')
+for name, _k, _l, (x, y) in MONSTERS:
+    open_n = sum((x + dx, y + dy) not in walls for dx in range(-1, 2) for dy in range(-1, 2))
+    if open_n < 9:
+        problems.append(f'{name} 주변 3x3에 막힌 칸 {9 - open_n}')
+print(f'벽 {len(walls)} / 도달 {len(seen)} / 전체 {W * H}')
 if problems:
     print('!! 문제:')
     for p in problems:
         print('   -', p)
-else:
-    print('검증 통과: 몬스터/표지판/포탈/주요 지점 모두 도달 가능')
+    raise SystemExit(1)
+print('검증 통과')
 
-# ---------------------------------------------------------------- TMX 출력
-# 현재 TMX에서 헤더(<map>/<tileset>)와 objectgroup 부분만 그대로 살리고 타일 레이어만 교체한다.
-# 몇 번을 다시 돌려도 같은 결과가 나오도록(멱등) 레이어 id/nextlayerid를 매번 다시 쓴다.
-src = open(SRC).read()
-head = src[:src.index(' <layer ')]
-tail = src[src.index(' <objectgroup '):]
-head = re.sub(r'nextlayerid="\d+"',
-              f'nextlayerid="{FIRST_LAYER_ID + len(LAYER_NAMES)}"', head)
 
-parts = []
+# ================================================================ TMX 출력
+def xml_escape(s):
+    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+
+def obj(oid, name, otype, x, y, w, h, props):
+    lines = [f'  <object id="{oid}" name="{xml_escape(name)}" type="{otype}" x="{x}" y="{y}" width="{w}" height="{h}">',
+             '   <properties>']
+    for pname, ptype, pval in props:
+        t = f' type="{ptype}"' if ptype else ''
+        lines.append(f'    <property name="{pname}"{t} value="{xml_escape(str(pval))}"/>')
+    lines += ['   </properties>', '  </object>']
+    return '\n'.join(lines)
+
+
+next_id = 12
+chars = []
+for name, kind, lvl, (x, y) in MONSTERS:
+    oid = LEGACY_IDS.get(name)
+    if oid is None:
+        oid, next_id = next_id, next_id + 1
+    chars.append((oid, obj(oid, name, 'character', x * 32, y * 32, 32, 32, [
+        ('blocksMovement', 'bool', 'true'), ('monster.level', 'int', lvl), ('type', '', kind)])))
+for name, text, (x, y) in SIGNS:
+    if name == 'cave_entrance_sign':
+        oid = 11
+    else:
+        oid, next_id = next_id, next_id + 1
+    chars.append((oid, obj(oid, name, 'character', x * 32, y * 32, 32, 32, [
+        ('type', '', 'sign_inn'), ('blocksMovement', 'bool', 'false'), ('displayText', '', text)])))
+
+
+def list_prop(name, items):
+    rows = [f'    <property name="{name}" type="list">']
+    rows += [f'     <item value="{xml_escape(v)}"/>' for v in items]
+    rows.append('    </property>')
+    return rows
+
+
+def obj_with_lines(oid, name, tx, ty, props, lines):
+    # 칸 (tx, ty) 에 정확히 서는 캐릭터(x = 칸 중심, y = 칸 바닥) + vn-dialogue 대사
+    out_lines = [f'  <object id="{oid}" name="{name}" type="character" x="{tx * 32 + 16}" y="{ty * 32 + 32}" width="32" height="32">',
+                 '   <properties>']
+    if lines:
+        out_lines += list_prop('controller.dialogueLines', lines)
+        out_lines.append('    <property name="controller.scriptId" value="vn-dialogue"/>')
+    for pname, ptype, pval in props:
+        t = f' type="{ptype}"' if ptype else ''
+        out_lines.append(f'    <property name="{pname}"{t} value="{xml_escape(str(pval))}"/>')
+    out_lines += ['   </properties>', '  </object>']
+    return '\n'.join(out_lines)
+
+
+# 야영지 떠돌이 상인(물약 상점 + q015), 숨은 상자, 갱도 낙석
+for name, (tx, ty), props, lines in [
+    ('camp_merchant', MERCHANT_SPOT,
+     [('blocksMovement', 'bool', 'true'), ('displayText', '', '떠돌이 상인 바렌'), ('type', '', 'character_ranger_green')],
+     ['사냥터에서 물약 떨어지면 낭패지.', '마을까지 갈 것 없이 여기서 사 가.']),
+    ('hidden_cache', (nx - 1, ny - 1),
+     [('blocksMovement', 'bool', 'true'), ('type', '', 'cave_prop_crate_bones')],
+     ['낡은 보급 상자다. 녹슨 걸쇠가 달려 있다.']),
+    ('gated_boulder', MINE_PORTAL_SPOT,
+     [('blocksMovement', 'bool', 'true'), ('quest.hiddenWhenCompleted', '', 'q009-mine-ore-rush'),
+      ('type', '', 'cave_prop_boulder')],
+     ['무너진 바위가 갱도를 막고 있다.', '수정 광산 쪽 일이 정리되면 길이 열릴지도 모른다.']),
+]:
+    oid, next_id = next_id, next_id + 1
+    chars.append((oid, obj_with_lines(oid, name, tx, ty, props, lines)))
+oid, next_id = next_id, next_id + 1
+# 이름판이 오벨리스크를 가리지 않게 세 칸 옆에
+chars.append((oid, obj(oid, 'return_stone_sign', 'character', (RETURN_STONE_SPOT[0] + 3) * 32 + 16,
+                       RETURN_STONE_SPOT[1] * 32 + 32, 32, 32, [
+    ('type', '', 'sign_inn'), ('blocksMovement', 'bool', 'false'), ('displayText', '', '귀환석 · 마을 광장')])))
+chars.sort(key=lambda c: c[0])
+
+portals = [
+    obj(4, 'return_gate', 'portal', 0, 320, 32, 64, [
+        ('appearanceType', '', 'stairs_stone_step_base_00'), ('targetFacing', '', 'right'),
+        ('targetSceneId', '', 'town'), ('targetSpawnTileX', 'int', 46), ('targetSpawnTileY', 'int', 17)]),
+    obj(10, 'cave_entrance', 'portal', 1568, 320, 32, 64, [
+        ('appearanceType', '', 'cave_entrance'), ('targetFacing', '', 'left'),
+        ('targetSceneId', '', 'cave'), ('targetSpawnTileX', 'int', 2), ('targetSpawnTileY', 'int', 10)]),
+]
+pid = 100
+for name, (tx, ty), props in [
+    # 귀환 표지석 앞 마법진 → 마을 광장(시청 앞)
+    ('return_stone', (RETURN_STONE_SPOT[0], RETURN_STONE_SPOT[1] + 1), [
+        ('appearanceType', '', 'cave_prop_pentagram'), ('targetFacing', '', 'down'),
+        ('targetSceneId', '', 'town'), ('targetSpawnTileX', 'int', 27), ('targetSpawnTileY', 'int', 19)]),
+    # 무너진 광산 지름길 → 수정 광산 입구(동굴에서 내려오는 곳). q009 완료 후에만 있다.
+    ('mine_shortcut', MINE_PORTAL_SPOT, [
+        ('appearanceType', '', 'stairs_stone_step_base_00'), ('quest.requiresCompleted', '', 'q009-mine-ore-rush'),
+        ('targetFacing', '', 'up'), ('targetSceneId', '', 'crystal-mine'),
+        ('targetSpawnTileX', 'int', 29), ('targetSpawnTileY', 'int', 35)]),
+]:
+    pid += 1
+    portals.append(obj(pid, name, 'portal', tx * 32, ty * 32, 32, 32, props))
+
+
+# decorations: 지금은 비어 있지만 나중에 채울 자리 표시(에디터 주석용, 게임 로직은 읽지 않는다)
+decos = []
+for name, text, (x, y, w, h) in [
+    ('hunter_camp', '사냥꾼 야영지 (모닥불)', (CAMPFIRE_AT[0] - 2, CAMPFIRE_AT[1] - 2, 5, 4)),
+]:
+    oid, next_id = next_id, next_id + 1
+    decos.append(obj(oid, name, 'reserved', x * 32, y * 32, w * 32, h * 32, [('displayText', '', text)]))
+
+out = ['<?xml version="1.0" encoding="UTF-8"?>',
+       f'<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" '
+       f'width="{W}" height="{H}" tilewidth="32" tileheight="32" infinite="0" '
+       f'nextlayerid="{FIRST_LAYER_ID + len(LAYER_NAMES)}" nextobjectid="{next_id}">',
+       '<!-- scripts/generate-hunting-ground.py 가 생성한다. 손으로 고치지 말고 스크립트를 고친 뒤 다시 돌릴 것. -->',
+       ' <tileset firstgid="1" source="../tilesets/town-32.tsx"/>']
 for i, name in enumerate(LAYER_NAMES, start=FIRST_LAYER_ID):
     rows = ',\n'.join(','.join(str(v) for v in m.L[name][y * W:(y + 1) * W]) for y in range(H))
-    parts.append(f' <layer id="{i}" name="{name}" width="{W}" height="{H}">\n'
-                 f'  <data encoding="csv">\n{rows}\n</data>\n </layer>\n')
-open(SRC, 'w').write(head + ''.join(parts) + tail)
+    out.append(f' <layer id="{i}" name="{name}" width="{W}" height="{H}">\n  <data encoding="csv">\n{rows}\n</data>\n </layer>')
+out.append(' <objectgroup id="2" name="characters">')
+out.append('  <!-- 몬스터 15: 말캉이 6(서쪽 초원 Lv1~2, q001) / 꿀꿀이 5(북쪽 농장 Lv3~5, q003) / '
+           '버섯돌이 2(남쪽 숲길 Lv3~4) / 바위돌이 2(남동 광산 Lv5, 북동 동굴 앞 Lv6) -->')
+out.append('  <!-- 야영지 상인(camp_merchant, 물약 상점·q015), 숨은 상자(hidden_cache, q015), '
+           '갱도 낙석(gated_boulder, q009 완료 시 사라짐) -->')
+out += [c[1] for c in chars]
+out.append(' </objectgroup>')
+out.append(' <objectgroup id="3" name="portals">')
+out.append(f'  <!-- 이름·위치·목적지 고정: town.tmx/cave.tmx 가 도착 칸 {TOWN_ARRIVAL}/{CAVE_ARRIVAL} 을 들고 있다. '
+           f'귀환 마법진(return_stone)은 마을 광장행, 광산 지름길(mine_shortcut)은 q009 완료 후에만 있다. -->')
+out += portals
+out.append(' </objectgroup>')
+out.append(' <objectgroup id="4" name="decorations">')
+out += decos
+out.append(' </objectgroup>')
+out.append('</map>')
+open(SRC, 'w', encoding='utf-8', newline='\n').write('\n'.join(out) + '\n')
 print('wrote', SRC)

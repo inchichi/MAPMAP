@@ -39,6 +39,7 @@ import {
   createTiledNpcEventObject,
   normalizeStoredPlayerControlBindings
 } from './lua/luaGameLogic'
+import { applyQuestGatedEvents } from './tiled/applyQuestGatedEvents'
 import { createNpcCharactersFromEventLayers } from './tiled/createNpcCharactersFromEventLayers'
 import { parseTiledMap, parseTiledTileset } from './tiled/parseTiledMap'
 import { createInitialPlayerInventory } from './playerInventory'
@@ -113,6 +114,9 @@ import type {
 import './styles.css'
 
 type SceneId = 'town' | 'hunting-ground' | 'cave' | 'crystal-mine' | 'harvest-village'
+
+const isCharacterFacing = (value: unknown): value is CharacterMoveDirection =>
+  value === 'up' || value === 'down' || value === 'left' || value === 'right'
 
 type SceneSpawn = {
   x: number
@@ -263,6 +267,13 @@ const sceneMusicUrls: Record<SceneId, string> = {
 }
 const storedPlayerSaveState = readStoredPlayerSaveState()
 const playerProfile = storedPlayerSaveState?.profile ?? createInitialPlayerProfile()
+// 예전 저장본에는 나중에 추가된 스킬(마법 스킬 등)이 없다 — 빠진 뒤쪽 칸만 초기값으로 채운다.
+{
+  const initialSkills = createInitialPlayerProfile().skills
+  if (playerProfile.skills.length < initialSkills.length) {
+    playerProfile.skills.push(...initialSkills.slice(playerProfile.skills.length))
+  }
+}
 // 저장 시점에 사망(hp 0) 상태였다면 로드 후 갇히지 않도록 체력을 회복해 부활시킨다.
 if (playerProfile.hp.current <= 0) {
   playerProfile.hp.current = playerProfile.hp.max
@@ -303,6 +314,8 @@ let questLog = storedWorldState
 // 씬별로 이미 획득한 바닥 코인 타일 키 — 다시 방문해도 사라진 채 유지된다.
 let collectedCoinTileKeysBySceneId: Record<string, string[]> =
   storedWorldState?.collectedCoinTileKeysBySceneId ?? {}
+let defeatedBossIdsBySceneId: Record<string, string[]> =
+  storedWorldState?.defeatedBossIdsBySceneId ?? {}
 // 에디터가 생성·주입한 동적 퀘스트를 런타임 퀘스트 엔진에 등록하고, 진행도 항목을 채운다.
 // 부팅 전에 questLog를 갱신해야 bootstrapScene이 그걸 렌더러로 넘긴다(배지·추적·완료 전부 작동).
 const applyPendingQuests = (): void => {
@@ -348,11 +361,14 @@ const bootstrapScene = async (
   sceneId: SceneId,
   spawn?: SceneSpawn
 ): Promise<void> => {
-  const sceneMap = sceneMaps[sceneId]
+  const baseSceneMap = sceneMaps[sceneId]
 
-  if (!sceneMap) {
+  if (!baseSceneMap) {
     throw new Error(`Unknown scene "${sceneId}"`)
   }
+
+  // 퀘스트로 열리고 닫히는 오브젝트(광산 지름길 포탈·낙석 등)를 지금 진행도에 맞춘다.
+  const sceneMap = applyQuestGatedEvents(baseSceneMap, questLog)
 
   // 현재 씬을 기억한다 — 에디터가 퀘스트를 라이브로 주입하면 이 씬을 다시 부팅해 반영한다.
   activeSceneId = sceneId
@@ -438,6 +454,18 @@ const bootstrapScene = async (
       saveWorldState()
     },
     collectedCoinTileKeys: collectedCoinTileKeysBySceneId[sceneId] ?? [],
+    defeatedBossIds: defeatedBossIdsBySceneId[sceneId] ?? [],
+    onBossDefeated: (bossId) => {
+      const defeated = defeatedBossIdsBySceneId[sceneId] ?? []
+
+      if (!defeated.includes(bossId)) {
+        defeatedBossIdsBySceneId = {
+          ...defeatedBossIdsBySceneId,
+          [sceneId]: [...defeated, bossId]
+        }
+      }
+      saveWorldState()
+    },
     onCoinPileCollected: (tileKey) => {
       const collected = collectedCoinTileKeysBySceneId[sceneId] ?? []
 
@@ -1037,7 +1065,8 @@ function saveWorldState(): void {
       serializeWorldSaveState({
         sceneId: activeSceneId,
         questLog,
-        collectedCoinTileKeysBySceneId
+        collectedCoinTileKeysBySceneId,
+        defeatedBossIdsBySceneId
       })
     )
   } catch {
@@ -1185,6 +1214,7 @@ window.addEventListener('message', (event) => {
     mode?: unknown
     template?: unknown
     npc?: unknown
+    spawn?: { x?: unknown; y?: unknown; facing?: unknown }
   } | null
 
   if (!data) {
@@ -1253,7 +1283,16 @@ window.addEventListener('message', (event) => {
     sceneId === 'harvest-village'
   ) {
     questLog = recordSceneEnterQuestProgress(questLog, sceneId)
-    void bootstrapScene(sceneId).catch(renderFatalError)
+    // 선택: 도착 칸 지정({ x, y } 타일 좌표) — 에디터·자동 점검에서 원하는 자리에 바로 선다.
+    const spawn =
+      typeof data.spawn?.x === 'number' && typeof data.spawn?.y === 'number'
+        ? {
+            x: data.spawn.x,
+            y: data.spawn.y,
+            facing: isCharacterFacing(data.spawn.facing) ? data.spawn.facing : undefined
+          }
+        : undefined
+    void bootstrapScene(sceneId, spawn).catch(renderFatalError)
   }
 })
 

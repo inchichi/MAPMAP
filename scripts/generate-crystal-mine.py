@@ -76,7 +76,7 @@ GRID = ASCII_MAP.split('\n')
 assert len(GRID) == H and all(len(r) == W for r in GRID), \
     [(i, len(r)) for i, r in enumerate(GRID) if len(r) != W]
 
-G = json.load(open(GIDS_PATH))   # cave_* 이름 → gid
+G = json.load(open(GIDS_PATH, encoding='utf-8'))   # cave_* 이름 → gid
 
 # ---- 재질. 정준 순서(코너 동률 우선순위)는 벤더 시트의 상대 순서와 일치해야 한다 ----
 DB, DR, GD, GV = 'Dirt_Brown', 'Dirt_Roots', 'Grass_Dark', 'Gravel_1'
@@ -85,12 +85,20 @@ RG, RB = 'Rock_Gray', 'Rock_Black'
 PRIORITY = [DB, DR, GD, GV, WT, WD, LV, HB, RG, RB]
 PRI = {m: i for i, m in enumerate(PRIORITY)}
 WALLS_M = {RG, RB}
+SOLID_M = WALLS_M | {WT, WD, LV, HB}
 FALLBACK = {DR: DB, GD: DB, GV: DB, WD: WT, WT: DB, LV: GV, HB: RB, RG: RB}
 
 INVISIBLE_BLOCK = 302   # 완전 투명 타일 — 보이지 않는 충돌만 남긴다
 SHADE = 64              # town-32의 반투명 어둠
 ROCK_PILE = [527, 528]  # town-32 기본 바위 더미
-CRYSTAL_TOWN = 494      # town-32 파란 수정 덤불
+# (예전 CRYSTAL_TOWN=494 는 수정이 아니라 연파랑 꽃덤불이었다 — LPC 수정 소품으로 바꿨다)
+CRYSTALS = ('cave_prop_crystal_a', 'cave_prop_crystal_c')
+# 잔해 데칼 중 01/03/04/05 는 불투명한 네모 바탕이 있어 검은 사각 얼룩으로 보인다
+RUBBLE_OK = ('cave_prop_rubble_00', 'cave_prop_rubble_02')
+# 동굴 상자 키 이름은 그림과 어긋나 있다: crate_bones=농산물 상자, crate_crystal=부서진
+# 상자 잔해, crate_mush=수정 상자.
+CRATE_SUPPLIES = 'cave_prop_crate_bones'
+CRATE_CRYSTAL = 'cave_prop_crate_mush'
 
 LAYER_NAMES = ['ground', 'shadow_lower', 'object', 'shadow_upper',
                'object_upper', 'deco', 'roof']
@@ -128,20 +136,11 @@ MAT = [[CHAR_MAT[at(x, y)] for x in range(W)] for y in range(H)]
 
 # 수정 공동(서쪽 x<=13, y13-28) 둘레 두 겹 벽은 밝은 회색 암반 — 동굴 수정
 # 골방과 같은 문법으로 '수정이 자라는 바위'를 읽게 한다
-cavern_floor = [(x, y) for y in range(13, 29) for x in range(3, 14)
-                if at(x, y) == 'g']
-for y in range(H):
-    for x in range(W):
-        if MAT[y][x] == RB and any(abs(x - fx) <= 2 and abs(y - fy) <= 2
-                                   for fx, fy in cavern_floor):
-            MAT[y][x] = RG
+# (예전에는 둘레 두 겹을 밝은 회색 암반으로 바꿨는데, 어둠 속에 회색 바위 띠가
+#  떠 보여 뺐다)
 
 # 반딧불 버섯 못의 이끼 얼룩 — 물가에서 번진다(벽 앞치마가 가장자리를 정리)
-for cx, cy, r in ((29, 16, 2), (33, 25, 1), (27, 24, 1), (34, 17, 1), (28, 27, 1)):
-    for y in range(cy - r, cy + r + 1):
-        for x in range(cx - r, cx + r + 1):
-            if at(x, y) == '.' and MAT[y][x] == DB and rnd.random() < 0.85:
-                MAT[y][x] = GD
+# (짙은 초록 이끼 얼룩은 뺐다 — 광산 바닥에 초록 웅덩이처럼 떠 보였다. 발광 식물만 남긴다)
 
 # 갱도의 뿌리 얼룩 — 낡은 갱도 천장에서 뿌리가 내려온 바닥
 for cx, cy in ((10, 32), (17, 32), (24, 32), (13, 31)):
@@ -229,8 +228,15 @@ for y in range(H):
     for x in range(W):
         put('ground', x, y, G[combo_name(LAT[y][x], LAT[y][x + 1],
                                          LAT[y + 1][x], LAT[y + 1][x + 1])])
-        if is_wall(x, y) or at(x, y) in BLOCKED_CHARS:
+        if is_wall(x, y):
             put('object', x, y, INVISIBLE_BLOCK)
+        elif at(x, y) in BLOCKED_CHARS:
+            # 전환 타일 그림이 거의 흙(물/용암/암반 코너가 1개 이하)이면 막지 않는다 —
+            # 흙으로 보이는데 지나갈 수 없는 '투명 벽'을 없앤다
+            corners = (LAT[y][x], LAT[y][x + 1], LAT[y + 1][x], LAT[y + 1][x + 1])
+            touches_floor = any(is_floor(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            if sum(c in SOLID_M for c in corners) >= 2 or not touches_floor:
+                put('object', x, y, INVISIBLE_BLOCK)
 
 # ---------------------------------------------------------------- 소품
 def stamp(name_prefix, x, y, cols, rows_, solid_rows=1):
@@ -248,8 +254,9 @@ def stamp(name_prefix, x, y, cols, rows_, solid_rows=1):
 
 # 마그마 단조장 — 가고일 한 쌍이 룬 비석을 지키고, 그 곁에 금화가 쌓여 있다
 stamp('stele_rune', 18, 3, 3, 2, solid_rows=2)
-stamp('gargoyle', 13, 3, 2, 2)
-stamp('gargoyle', 24, 3, 2, 2)
+# 비석 좌우는 가고일 대신 장신 수정 기둥 — 수정 광산의 단조장답게
+for x in (13, 14, 24, 25):
+    stamp('crystal_tall', x, 3, 1, 2)
 for x, y, i in ((16, 2, 0), (17, 3, 1), (21, 3, 2), (22, 2, 3), (16, 3, 2), (22, 3, 0)):
     put('shadow_lower', x, y, G[f'cave_prop_gold_{i:02d}'])
 for i, (x, y) in enumerate(((10, 2), (28, 2), (16, 8), (22, 8))):
@@ -260,18 +267,15 @@ for gx in (17, 21):
     put('object', gx, 11, G['cave_prop_pillar_gold_r2c0'])
     put('object_upper', gx, 10, G['cave_prop_pillar_gold_r1c0'])
     put('object_upper', gx, 9, G['cave_prop_pillar_gold_r0c0'])
-for x in (18, 19, 20):
-    put('shadow_lower', x, 12, SHADE)
-    put('shadow_upper', x, 9, SHADE)
+# (관문 앞 반투명 검은 칸은 네모 덮개처럼 보여 뺐다)
 
 # 금화 부스러기 — 포탈에서 단조장까지 점점이(꿀꿀이 부하들이 흘린 흔적)
-for i, (x, y) in enumerate(((29, 34), (29, 32), (25, 32), (20, 29), (20, 25),
-                            (20, 21), (20, 17), (19, 12), (19, 8))):
+# (아홉 군데는 바닥이 금화 투성이로 어수선해 보여 네 군데로 줄였다)
+for i, (x, y) in enumerate(((29, 32), (20, 25), (20, 17), (19, 8))):
     if not L['shadow_lower'][y * W + x]:
         put('shadow_lower', x, y, G[f'cave_prop_gold_{i % 4:02d}'])
 
 # 숨은 성소 — 광부들이 산의 심장을 달래던 곳(동굴 아레나와 같은 두건 석상)
-put('shadow_lower', 34, 4, G['cave_prop_pentagram'])
 stamp('statue_hood', 34, 3, 1, 2)
 put('object', 32, 5, G['cave_prop_brazier_00'])
 put('object', 36, 5, G['cave_prop_brazier_01'])
@@ -281,10 +285,10 @@ put('deco', 35, 9, G['cave_prop_web_ne'])
 # 수정맥 대공동 — 큰 수정 군집은 전부 '캘 수 있는 광맥'(TMX objectgroup의
 # mine-ore 캐릭터)이라 여기선 배치하지 않는다. 장식은 town 수정 덤불과
 # 장신 수정 기둥만 — 광맥과 장식이 한눈에 구분되게.
-for x, y in ((6, 14), (10, 25), (3, 18), (12, 15)):
-    put('object', x, y, CRYSTAL_TOWN)
+for i, (x, y) in enumerate(((6, 14), (10, 25), (3, 18), (12, 15))):
+    put('object', x, y, G[CRYSTALS[i % 2]])
 stamp('crystal_tall', 4, 26, 1, 2)
-put('object', 3, 27, G['cave_prop_crate_crystal'])
+put('object', 3, 27, G[CRATE_CRYSTAL])   # 캐다 만 수정 상자
 for x, y, i in ((5, 25, 1), (4, 24, 3)):
     put('shadow_lower', x, y, G[f'cave_prop_gold_{i:02d}'])
 put('object', 6, 21, G['cave_prop_boulder'])
@@ -294,7 +298,7 @@ for i, (x, y) in enumerate(((11, 16), (4, 22), (9, 27))):
 # 반딧불 버섯 못 — 슬라임 서식지. 못 속 싱크홀이 동굴 심연 호수로 빠진다
 for x, y, k in ((27, 17, 'a'), (34, 16, 'b'), (27, 26, 'b'), (34, 24, 'a'), (30, 26, 'a')):
     put('object', x, y, G[f'cave_prop_glow_plant_{k}'])
-put('object', 33, 27, G['cave_prop_crate_mush'])
+put('object', 33, 27, G[CRATE_SUPPLIES])
 put('object', 26, 15, G['cave_prop_boulder'])
 for x, y in ((28, 26), (32, 24), (30, 28)):
     if not L['shadow_lower'][y * W + x]:
@@ -302,10 +306,10 @@ for x, y in ((28, 26), (32, 24), (30, 28)):
 
 # 갱도 — 해골 광부의 골방(서쪽 끝, 잔해 프레임 뒤)과 낡은 잔해들
 stamp('skeleton', 4, 32, 1, 2)
-put('object', 3, 33, G['cave_prop_crate_bones'])
+put('object', 3, 33, G[CRATE_SUPPLIES])
 put('shadow_lower', 5, 32, G['cave_prop_gold_01'])
 for x, y in ((7, 31), (7, 32), (7, 33)):
-    put('shadow_lower', x, y, G[f'cave_prop_rubble_{(x + y) % 6:02d}'])
+    put('shadow_lower', x, y, G[RUBBLE_OK[(x + y) % 2]])
 put('object', 15, 32, G['cave_prop_boulder'])
 put('object', 23, 33, G['cave_prop_boulder'])
 for i, (x, y) in enumerate(((12, 33), (20, 31), (26, 32))):
@@ -333,7 +337,7 @@ for y in range(H):
         m = MAT[y][x]
         if (m == DB and rnd.random() < 0.04) or (m == GV and rnd.random() < 0.06):
             if not L['shadow_lower'][y * W + x]:
-                put('shadow_lower', x, y, G[f'cave_prop_rubble_{rnd.randrange(6):02d}'])
+                put('shadow_lower', x, y, G[rnd.choice(RUBBLE_OK)])
 
 # 거미줄 — 구석과 성소 어귀
 for x, y, d in ((3, 31, 'nw'), (35, 14, 'ne'), (8, 13, 'nw'), (31, 31, 'se')):
@@ -390,7 +394,7 @@ for y in range(H):
         if (x, y) not in walls:
             problems.append(f'외곽 개방: ({x},{y})')
 
-MAX_GID = max(max(G.values()), SHADE, INVISIBLE_BLOCK, CRYSTAL_TOWN, *ROCK_PILE)
+MAX_GID = max(max(G.values()), SHADE, INVISIBLE_BLOCK, *ROCK_PILE)
 for name in LAYER_NAMES:
     bad = [g for g in L[name] if g and not (1 <= g <= MAX_GID)]
     if bad:
@@ -408,7 +412,7 @@ if problems:
 print('검증 통과: 스폰/포탈/성소/밀실/골방/비석/몬스터 자리 모두 도달 가능, 외곽 밀폐')
 
 # ---------------------------------------------------------------- TMX 출력
-src = open(SRC).read()
+src = open(SRC, encoding='utf-8').read()
 head = src[:src.index(' <layer ')]
 tail = src[src.index(' <objectgroup '):]
 head = re.sub(r'nextlayerid="\d+"',
@@ -419,5 +423,5 @@ for i, name in enumerate(LAYER_NAMES, start=FIRST_LAYER_ID):
     rows = ',\n'.join(','.join(str(v) for v in L[name][y * W:(y + 1) * W]) for y in range(H))
     parts.append(f' <layer id="{i}" name="{name}" width="{W}" height="{H}">\n'
                  f'  <data encoding="csv">\n{rows}\n</data>\n </layer>\n')
-open(SRC, 'w').write(head + ''.join(parts) + tail)
+open(SRC, 'w', encoding='utf-8', newline='\n').write(head + ''.join(parts) + tail)
 print('wrote', SRC)

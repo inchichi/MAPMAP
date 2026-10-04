@@ -75,7 +75,7 @@ P,,,,......B.,,,,,,L....##########
 GRID = ASCII_MAP.split('\n')
 assert len(GRID) == H and all(len(r) == W for r in GRID)
 
-G = json.load(open(GIDS_PATH))   # cave_* 이름 → gid
+G = json.load(open(GIDS_PATH, encoding='utf-8'))   # cave_* 이름 → gid
 
 # ---- 재질(=LPC 지형 이름). 코너 동률은 뒤쪽(높은 우선순위)이 이긴다 ----
 DB, DT, GD, MB, GV = 'Dirt_Brown', 'Dirt_Tan', 'Grass_Dark', 'Mud_Brown', 'Gravel_1'
@@ -92,7 +92,10 @@ FALLBACK = {SW: DT, ST: DT, MBr: MG, MG: DT, GD: DB, MB: DB, GV: DB,
 INVISIBLE_BLOCK = 302   # 완전 투명 타일 — 보이지 않는 충돌만 남긴다
 SHADE = 64              # town-32의 반투명 어둠
 ROCK_PILE = [527, 528]  # town-32 기본 바위 더미 — 사냥터와 같은 소품
-CRYSTAL_TOWN = 494      # town-32 파란 수정 덩어리(사냥터 남쪽 자갈밭과 동일)
+# (예전 CRYSTAL_TOWN=494 는 수정이 아니라 연파랑 꽃덤불 그림이었다 — LPC 수정 소품으로 바꿨다)
+CRYSTALS = ('cave_prop_crystal_a', 'cave_prop_crystal_c')
+# 잔해 데칼 중 01/03/04/05 는 불투명한 네모 바탕이 있어 바닥에 검은 사각 얼룩으로 보인다
+RUBBLE_OK = ('cave_prop_rubble_00', 'cave_prop_rubble_02')
 
 LAYER_NAMES = ['ground', 'shadow_lower', 'object', 'shadow_upper',
                'object_upper', 'deco', 'roof']
@@ -141,7 +144,7 @@ for y in range(H):
         ch = at(x, y)
         z = zone(x, y)
         if ch in '#%':
-            m = {'arena': RD}.get(z, RB)   # 그로토 벽은 아래서 바닥 근처만 밝힌다
+            m = RB   # 아레나 벽은 아래서 바닥 근처 두 겹만 잿빛(RD)으로 바꾼다
         elif ch == '~':
             m = WT                      # 깊이는 아래서 다시 나눈다
         elif ch in 's1':
@@ -153,7 +156,7 @@ for y in range(H):
         elif ch in 'm2':
             m = MBr
         elif ch == ',':
-            m = GD
+            m = DT   # 현관/제단 둘레: 예전 짙은 이끼(GD)는 초록 웅덩이처럼 보였다
         elif z == 'arena':
             m = MG
         elif z == 'grotto':
@@ -169,15 +172,19 @@ for y in range(24, 28):
         if is_wall(x, y):
             MAT[y][x] = RB
 
-# 그로토 벽은 바닥에 면한 두 겹만 밝은 회색 암반 — 수정 광맥이 박힌 골방 분위기,
-# 구석까지 온통 밝아지는 것은 막는다
-grotto_floor = [(x, y) for y in range(H) for x in range(W)
-                if zone(x, y) == 'grotto' and is_floor(x, y)]
+# 아레나 벽은 바닥에 면한 두 겹만 잿빛 암반 — 예전엔 아레나 존의 벽 전체가 잿빛이라
+# 맵 바깥 빈 암반이 보라빛 큰 석판처럼 떠 보였다.
+# (그로토 벽을 밝은 회색으로 바꾸던 처리는 뺐다 — 어둠 속에 회색 바위 띠가 떠 보였다)
+# 잿빛 테두리도 RD↔RB 경계가 어둠 속 선으로 떠 보여 끈다 — 아레나 벽도 검은 암반.
+USE_ARENA_RIM = False
+arena_floor = [(x, y) for y in range(H) for x in range(W)
+               if zone(x, y) == 'arena' and is_floor(x, y)]
 for y in range(H):
     for x in range(W):
-        if MAT[y][x] == RB and zone(x, y) == 'grotto' and any(
-                abs(x - fx) <= 2 and abs(y - fy) <= 2 for fx, fy in grotto_floor):
-            MAT[y][x] = RG
+        if USE_ARENA_RIM and MAT[y][x] == RB and zone(x, y) == 'arena' \
+                and not (14 <= x <= 20 and 24 <= y <= 27) \
+                and any(abs(x - fx) <= 2 and abs(y - fy) <= 2 for fx, fy in arena_floor):
+            MAT[y][x] = RD
 
 # 말캉이 서식 고리 — 제단 석판 둘레 두 겹은 늪으로(슬라임이 헤집은 땅).
 # 중앙 회랑의 이끼(,)가 통째로 초록 슬래브로 읽히는 것도 이 늪이 끊어준다
@@ -207,12 +214,7 @@ for y in range(H):
                  for dx in (-1, 0, 1) for dy in (-1, 0, 1) if (dx, dy) != (0, 0)):
             MAT[y][x] = WD
 
-# 본굴 바닥에 이끼가 스미는 얼룩 — 현관에서 통로 쪽으로 번지다 끊긴다
-for cx, cy, r in ((11, 10, 2), (15, 13, 1), (17, 15, 1), (20, 4, 1)):
-    for y in range(cy - r, cy + r + 1):
-        for x in range(cx - r, cx + r + 1):
-            if is_floor(x, y) and MAT[y][x] == DB and rnd.random() < 0.8:
-                MAT[y][x] = GD
+# (본굴 바닥 이끼 얼룩은 뺐다 — 짙은 초록 덩어리가 물웅덩이처럼 읽혔다)
 
 # 벽 앞치마: 벽 재질과 전환 타일이 없는 바닥 재질이 벽에 닿으면 그 존의
 # 기본 흙/돌로 바꾼다 — 암반은 맨땅과 만나는 게 자연스럽기도 하다
@@ -303,10 +305,19 @@ for y in range(H):
 # ---------------------------------------------------------------- object: 충돌
 # 벽은 ground에 그렸으므로 충돌은 전부 투명 블록. 물도 빠질 수 없는 심연이다 —
 # 이걸 막지 않으면 석회암 둑길도, 그 끝의 관문도 의미가 없어진다.
+# 단, 물 칸이라도 전환 타일 그림이 거의 흙(네 코너 중 물/암반이 1개 이하)이면 막지
+# 않는다 — 흙으로 보이는데 못 지나가는 '투명 벽'이 생기지 않게.
+SOLID_M = WALLS_M | {WT, WD, HB}
 for y in range(H):
     for x in range(W):
-        if is_wall(x, y) or at(x, y) in VOID_CHARS:
+        if is_wall(x, y):
             put('object', x, y, INVISIBLE_BLOCK)
+        elif at(x, y) in VOID_CHARS:
+            solid = sum(LAT[cy][cx] in SOLID_M for cy, cx in ((y, x), (y, x + 1), (y + 1, x), (y + 1, x + 1)))
+            # 바닥에 닿지 않는 흙 칸(호수 양끝 등)은 갈 수 없는 고립 칸이 되므로 그대로 막는다
+            touches_floor = any(is_floor(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            if solid >= 2 or not touches_floor:
+                put('object', x, y, INVISIBLE_BLOCK)
 
 # ---------------------------------------------------------------- 소품
 def stamp(name_prefix, x, y, cols, rows_, solid_rows=1):
@@ -333,8 +344,8 @@ stamp('skull_pile', 26, 28, 2, 1)                    # 최종 아레나의 해�
 stamp('crystal_tall', 27, 3, 1, 2)                   # 골방 어귀의 장신 수정 기둥
 
 # 수정 군집 — 골방(그로토)에 town 수정과 LPC 수정을 섞어 광맥처럼
-for x, y, g in ((26, 4, CRYSTAL_TOWN), (30, 4, G['cave_prop_crystal_a']),
-                (29, 6, CRYSTAL_TOWN), (26, 7, G['cave_prop_crystal_c'])):
+for x, y, g in ((26, 4, G[CRYSTALS[1]]), (30, 4, G['cave_prop_crystal_a']),
+                (29, 6, G[CRYSTALS[0]]), (26, 7, G['cave_prop_crystal_c'])):
     if is_floor(x, y):
         put('object', x, y, g)
 
@@ -353,7 +364,7 @@ for y in range(H):
             col_i += 1
         elif ch == 'c':                       # 발광 식물(그로토는 수정)
             if zone(x, y) == 'grotto':
-                put('object', x, y, CRYSTAL_TOWN)
+                put('object', x, y, G[CRYSTALS[(x + y) % 2]])
             else:
                 put('object', x, y, G['cave_prop_glow_plant_a' if (x + y) % 2 else 'cave_prop_glow_plant_b'])
 
@@ -391,7 +402,7 @@ for y in range(H):
         m = MAT[y][x]
         if m == DB and rnd.random() < 0.05 or m == GV and rnd.random() < 0.08:
             if not L['shadow_lower'][y * W + x]:
-                put('shadow_lower', x, y, G[f'cave_prop_rubble_{rnd.randrange(6):02d}'])
+                put('shadow_lower', x, y, G[rnd.choice(RUBBLE_OK)])
 
 # 점액 자국 — 굴에서 솥까지 기어 내려온 흔적
 for x, y in ((16, 3), (16, 4), (15, 6), (17, 10)):
@@ -404,10 +415,7 @@ for x, y, k in ((13, 28, 'skull'), (23, 31, 'bone_scatter'), (28, 28, 'bone_scat
     if is_floor(x, y) and not L['shadow_lower'][y * W + x]:
         put('shadow_lower', x, y, G[f'cave_prop_{k}'])
 
-# 관문 문턱 어둠 + 통과하는 순간 플레이어까지 어두워지는 한 줄
-for x in (16, 17, 18):
-    put('shadow_lower', x, 24, SHADE)
-    put('shadow_upper', x, 26, SHADE)
+# (관문 문턱에 반투명 검은 칸을 깔던 처리는 뺐다 — 네모 덮개처럼 보였다)
 
 # 최종 아레나 남단이 어둠에 잠긴다
 for x in range(11, 31):
@@ -479,7 +487,7 @@ for y in range(H):
         if (x, y) not in walls and (x, y) not in ((0, 10), (0, 11)):
             problems.append(f'외곽 개방: ({x},{y})')
 
-MAX_GID = max(max(G.values()), SHADE, INVISIBLE_BLOCK, CRYSTAL_TOWN, *ROCK_PILE)
+MAX_GID = max(max(G.values()), SHADE, INVISIBLE_BLOCK, *ROCK_PILE)
 for name in LAYER_NAMES:
     bad = [g for g in L[name] if g and not (1 <= g <= MAX_GID)]
     if bad:
@@ -497,7 +505,7 @@ if problems:
 print('검증 통과: 스폰/포탈/두 보스/둑길/관문 모두 도달 가능, 보스 5x5 개방, 외곽 밀폐')
 
 # ---------------------------------------------------------------- TMX 출력
-src = open(SRC).read()
+src = open(SRC, encoding='utf-8').read()
 head = src[:src.index(' <layer ')]
 tail = src[src.index(' <objectgroup '):]
 head = re.sub(r'nextlayerid="\d+"',
@@ -519,5 +527,5 @@ for i, name in enumerate(LAYER_NAMES, start=FIRST_LAYER_ID):
     rows = ',\n'.join(','.join(str(v) for v in L[name][y * W:(y + 1) * W]) for y in range(H))
     parts.append(f' <layer id="{i}" name="{name}" width="{W}" height="{H}">\n'
                  f'  <data encoding="csv">\n{rows}\n</data>\n </layer>\n')
-open(SRC, 'w').write(head + ''.join(parts) + tail)
+open(SRC, 'w', encoding='utf-8', newline='\n').write(head + ''.join(parts) + tail)
 print('wrote', SRC)

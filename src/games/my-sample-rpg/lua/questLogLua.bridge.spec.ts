@@ -23,6 +23,7 @@ import {
   formatQuestText,
   formatQuestTextLines,
   FIRST_SLIME_HUNT_QUEST_ID,
+  FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS,
   POTION_SURVIVAL_BASICS_QUEST_ID,
   PIG_TROUBLE_QUEST_ID,
   BLACKSMITH_PREPARATION_QUEST_ID,
@@ -108,10 +109,10 @@ describe('questLogLua (real wasm bridge)', () => {
       startQuest(tsAfterStart, FIRST_SLIME_HUNT_QUEST_ID)
     )
 
-    // record monster defeats — 3 required
+    // record monster defeats — FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS required
     log = tsAfterStart
     let luaLog = luaAfterStart
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       const target = { sceneId: 'hunting-ground', appearanceType: 'monster_slime' }
       const tsNext = recordMonsterDefeatQuestProgress(log, target)
       const luaNext = lua.recordMonsterDefeatQuestProgress(luaLog, target)
@@ -120,7 +121,7 @@ describe('questLogLua (real wasm bridge)', () => {
       luaLog = luaNext
     }
 
-    // after 3 kills → ready-to-turn-in
+    // after the required kills → ready-to-turn-in
     expect(log.progressByQuestId[FIRST_SLIME_HUNT_QUEST_ID].status).toBe(
       'ready-to-turn-in'
     )
@@ -140,7 +141,7 @@ describe('questLogLua (real wasm bridge)', () => {
     // unlock q002: complete q001 first
     let log = createInitialQuestLog()
     log = startQuest(log, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       log = recordMonsterDefeatQuestProgress(log, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_slime'
@@ -152,7 +153,7 @@ describe('questLogLua (real wasm bridge)', () => {
 
     let luaLog = lua.createInitialQuestLog()
     luaLog = lua.startQuest(luaLog, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_slime'
@@ -181,25 +182,25 @@ describe('questLogLua (real wasm bridge)', () => {
     const pigTarget = { sceneId: 'hunting-ground', appearanceType: 'monster_pig' }
 
     log = startQuest(log, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) log = recordMonsterDefeatQuestProgress(log, slimeTarget)
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) log = recordMonsterDefeatQuestProgress(log, slimeTarget)
     log = completeQuest(log, FIRST_SLIME_HUNT_QUEST_ID).nextQuestLog
     log = startQuest(log, POTION_SURVIVAL_BASICS_QUEST_ID)
     log = recordItemUseQuestProgress(log, 'health-potion')
     log = completeQuest(log, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     log = startQuest(log, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 2; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
+    for (let i = 0; i < 5; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
     log = completeQuest(log, PIG_TROUBLE_QUEST_ID).nextQuestLog
     log = startQuest(log, BLACKSMITH_PREPARATION_QUEST_ID)
 
     let luaLog = lua.createInitialQuestLog()
     luaLog = lua.startQuest(luaLog, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, slimeTarget)
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, slimeTarget)
     luaLog = lua.completeQuest(luaLog, FIRST_SLIME_HUNT_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, POTION_SURVIVAL_BASICS_QUEST_ID)
     luaLog = lua.recordItemUseQuestProgress(luaLog, 'health-potion')
     luaLog = lua.completeQuest(luaLog, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 2; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
+    for (let i = 0; i < 5; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
     luaLog = lua.completeQuest(luaLog, PIG_TROUBLE_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, BLACKSMITH_PREPARATION_QUEST_ID)
 
@@ -219,13 +220,13 @@ describe('questLogLua (real wasm bridge)', () => {
 
     let log = createInitialQuestLog()
     log = startQuest(log, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) log = recordMonsterDefeatQuestProgress(log, slimeTarget)
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) log = recordMonsterDefeatQuestProgress(log, slimeTarget)
     log = completeQuest(log, FIRST_SLIME_HUNT_QUEST_ID).nextQuestLog
     log = startQuest(log, POTION_SURVIVAL_BASICS_QUEST_ID)
     log = recordItemUseQuestProgress(log, 'health-potion')
     log = completeQuest(log, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     log = startQuest(log, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 2; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
+    for (let i = 0; i < 5; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
     log = completeQuest(log, PIG_TROUBLE_QUEST_ID).nextQuestLog
     log = startQuest(log, BLACKSMITH_PREPARATION_QUEST_ID)
     log = recordShopOpenQuestProgress(log, 'blacksmith')
@@ -234,13 +235,13 @@ describe('questLogLua (real wasm bridge)', () => {
 
     let luaLog = lua.createInitialQuestLog()
     luaLog = lua.startQuest(luaLog, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, slimeTarget)
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, slimeTarget)
     luaLog = lua.completeQuest(luaLog, FIRST_SLIME_HUNT_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, POTION_SURVIVAL_BASICS_QUEST_ID)
     luaLog = lua.recordItemUseQuestProgress(luaLog, 'health-potion')
     luaLog = lua.completeQuest(luaLog, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 2; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
+    for (let i = 0; i < 5; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
     luaLog = lua.completeQuest(luaLog, PIG_TROUBLE_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, BLACKSMITH_PREPARATION_QUEST_ID)
     luaLog = lua.recordShopOpenQuestProgress(luaLog, 'blacksmith')
@@ -266,13 +267,13 @@ describe('questLogLua (real wasm bridge)', () => {
 
     let log = createInitialQuestLog()
     log = startQuest(log, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) log = recordMonsterDefeatQuestProgress(log, slimeTarget)
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) log = recordMonsterDefeatQuestProgress(log, slimeTarget)
     log = completeQuest(log, FIRST_SLIME_HUNT_QUEST_ID).nextQuestLog
     log = startQuest(log, POTION_SURVIVAL_BASICS_QUEST_ID)
     log = recordItemUseQuestProgress(log, 'health-potion')
     log = completeQuest(log, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     log = startQuest(log, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 2; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
+    for (let i = 0; i < 5; i++) log = recordMonsterDefeatQuestProgress(log, pigTarget)
     log = completeQuest(log, PIG_TROUBLE_QUEST_ID).nextQuestLog
     log = startQuest(log, BLACKSMITH_PREPARATION_QUEST_ID)
     log = recordShopOpenQuestProgress(log, 'blacksmith')
@@ -287,13 +288,13 @@ describe('questLogLua (real wasm bridge)', () => {
 
     let luaLog = lua.createInitialQuestLog()
     luaLog = lua.startQuest(luaLog, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, slimeTarget)
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, slimeTarget)
     luaLog = lua.completeQuest(luaLog, FIRST_SLIME_HUNT_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, POTION_SURVIVAL_BASICS_QUEST_ID)
     luaLog = lua.recordItemUseQuestProgress(luaLog, 'health-potion')
     luaLog = lua.completeQuest(luaLog, POTION_SURVIVAL_BASICS_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, PIG_TROUBLE_QUEST_ID)
-    for (let i = 0; i < 2; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
+    for (let i = 0; i < 5; i++) luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, pigTarget)
     luaLog = lua.completeQuest(luaLog, PIG_TROUBLE_QUEST_ID).nextQuestLog
     luaLog = lua.startQuest(luaLog, BLACKSMITH_PREPARATION_QUEST_ID)
     luaLog = lua.recordShopOpenQuestProgress(luaLog, 'blacksmith')
@@ -318,7 +319,7 @@ describe('questLogLua (real wasm bridge)', () => {
     lua = await createLua()
     let log = createInitialQuestLog()
     log = startQuest(log, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       log = recordMonsterDefeatQuestProgress(log, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_slime'
@@ -326,7 +327,7 @@ describe('questLogLua (real wasm bridge)', () => {
     }
     let luaLog = lua.createInitialQuestLog()
     luaLog = lua.startQuest(luaLog, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       luaLog = lua.recordMonsterDefeatQuestProgress(luaLog, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_slime'
@@ -475,7 +476,7 @@ describe('questLogLua (real wasm bridge)', () => {
     // after q001 completed, q002 unlocked → potion_merchant shows 'new'
     let log2 = createInitialQuestLog()
     log2 = startQuest(log2, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       log2 = recordMonsterDefeatQuestProgress(log2, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_slime'
@@ -485,7 +486,7 @@ describe('questLogLua (real wasm bridge)', () => {
 
     let luaLog2 = lua.createInitialQuestLog()
     luaLog2 = lua.startQuest(luaLog2, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       luaLog2 = lua.recordMonsterDefeatQuestProgress(luaLog2, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_slime'
@@ -500,7 +501,7 @@ describe('questLogLua (real wasm bridge)', () => {
     // q001 ready-to-turn-in → wizard shows 'finish'
     let log3 = createInitialQuestLog()
     log3 = startQuest(log3, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       log3 = recordMonsterDefeatQuestProgress(log3, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_slime'
@@ -508,7 +509,7 @@ describe('questLogLua (real wasm bridge)', () => {
     }
     let luaLog3 = lua.createInitialQuestLog()
     luaLog3 = lua.startQuest(luaLog3, FIRST_SLIME_HUNT_QUEST_ID)
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       luaLog3 = lua.recordMonsterDefeatQuestProgress(luaLog3, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_slime'
@@ -544,7 +545,7 @@ describe('questLogLua (real wasm bridge)', () => {
     )
 
     // wizard with q001 ready-to-turn-in → complete interaction
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS; i++) {
       log2 = recordMonsterDefeatQuestProgress(log2, {
         sceneId: 'hunting-ground',
         appearanceType: 'monster_slime'

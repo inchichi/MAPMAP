@@ -42,6 +42,8 @@ const ensureStyleInjected = () => {
 
 type ShowNpcDialogueInput = {
   portraitUrl: string
+  // 작은 픽셀 아트 초상화(LPC 전신) — 흐려지지 않게 픽셀 그대로 키운다.
+  pixelArtPortrait?: boolean
   name: string
   lines: string[]
   // 마지막 줄에서 함께 뜨는 선택지 라벨. 있으면 그 줄에서는 넘겨서 닫을 수 없고,
@@ -342,6 +344,9 @@ export const createNpcDialogueOverlay = ({
     if (input.portraitUrl) {
       portrait.src = input.portraitUrl
       portrait.style.display = ''
+      portrait.style.imageRendering = input.pixelArtPortrait ? 'pixelated' : ''
+      portrait.style.height = input.pixelArtPortrait ? '62%' : '94%'
+      portrait.style.left = input.pixelArtPortrait ? '6%' : '1.5%'
     } else {
       portrait.removeAttribute('src')
       portrait.style.display = 'none'

@@ -91,9 +91,7 @@ describe('spendPlayerSkillPoint', () => {
           ...profile.skills[0],
           level: 1
         },
-        profile.skills[1],
-        profile.skills[2],
-        profile.skills[3]
+        ...profile.skills.slice(1)
       ]
     })
   })

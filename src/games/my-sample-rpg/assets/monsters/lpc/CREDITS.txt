@@ -1,0 +1,21 @@
+LPC 몬스터 그림 출처 (모두 OpenGameArt.org)
+
+slime.png — 말캉이
+  "[LPC] Monsters" (공격 동작), https://opengameart.org/content/lpc-monsters
+  원작: Charles Sanchez (CharlesGabriel), Liberated Pixel Cup base assets. 공격 동작: bluecarrot16 (Pierre Vigier 의뢰)
+  라이선스: CC-BY-SA 3.0 / GPL 3.0 (bluecarrot16 기여분은 OGA-BY 3.0)
+
+pig-walk.png, pig-eat.png — 꿀꿀이
+  "LPC style farm animals", https://opengameart.org/content/lpc-style-farm-animals
+  저작자: Daniel Eddeland (daneeklu)
+  라이선스: CC-BY 3.0 / GPL 2.0
+
+golem-walk.png, golem-attack.png, golem-die.png — 바위돌이
+  "LPC Golem", https://opengameart.org/content/lpc-golem
+  저작자: Stephen "Redshrike" Challener (그림), William.Thompsonj
+  라이선스: CC-BY 3.0 / CC-BY 4.0 / GPL 2.0 / GPL 3.0 / OGA-BY 3.0
+
+mushroom.png — 버섯돌이
+  "LPC Big Mushroom", https://opengameart.org/content/lpc-big-mushroom
+  저작자: Baŝto
+  라이선스: CC-BY-SA 3.0 / GPL 3.0

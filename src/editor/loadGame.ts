@@ -157,7 +157,13 @@ export const buildTileClusterEntities = (
     seen.set(base, duplicates + 1)
     return {
       id: duplicates === 0 ? base : `${base}#${duplicates}`,
-      name: (mapId === 'town' ? ({ wall: '성벽·벽돌 장식', banner: '성벽 깃발' } as Record<string, string>)[cluster.kind] ?? '' : '') + ' ' + tileClusterName(cluster),
+      // 마을의 벽·깃발 묶음은 앞에 종류 이름을 붙인다. 접두어가 없으면 공백도 붙이지 않는다.
+      name: [
+        mapId === 'town'
+          ? ({ wall: '성벽·벽돌 장식', banner: '성벽 깃발' } as Record<string, string>)[cluster.kind]
+          : undefined,
+        tileClusterName(cluster)
+      ].filter(Boolean).join(' '),
       kind: cluster.kind,
       mapId
     }
