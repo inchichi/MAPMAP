@@ -28,6 +28,11 @@ export const CURRENT_GAME_PROJECT_PROFILE: GameStructureProfile = {
       id: 'harvest-village',
       name: 'Harvest Village',
       file: 'src/games/my-sample-rpg/assets/maps/harvest-village.tmx'
+    },
+    {
+      id: 'upstream-waterway',
+      name: 'Upstream Waterway',
+      file: 'src/games/my-sample-rpg/assets/maps/upstream-waterway.tmx'
     }
   ],
   npcs: [

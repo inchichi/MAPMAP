@@ -64,7 +64,13 @@ export const QUEST_MONSTERS: { appearanceType: string; label: string }[] = [
 export const QUEST_MONSTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine']
 
 // town is the start scene and would complete immediately, so it is excluded.
-export const QUEST_SCENE_ENTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine', 'harvest-village']
+export const QUEST_SCENE_ENTER_SCENES = [
+  'hunting-ground',
+  'cave',
+  'crystal-mine',
+  'harvest-village',
+  'upstream-waterway'
+]
 
 export const QUEST_SHOPS: { shopId: string; label: string }[] = [
   { shopId: 'blacksmith', label: '대장간 상점' },

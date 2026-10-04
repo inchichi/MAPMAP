@@ -7,7 +7,8 @@ local SCENE_INTRO_MESSAGES = {
   ['hunting-ground'] = '슬라임 숲',
   ['cave'] = '동굴',
   ['crystal-mine'] = '잊힌 수정 광산',
-  ['harvest-village'] = '딴따라마을'
+  ['harvest-village'] = '딴따라마을',
+  ['upstream-waterway'] = '수로 상류길'
 }
 
 function scene_intro_message(scene_id)

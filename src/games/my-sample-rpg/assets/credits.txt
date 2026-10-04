@@ -441,6 +441,18 @@ OpenPixelProject.com
 CC0
 https://opengameart.org/content/opp2017-jungle-and-temple-set
 
+■ 맵 타일 (swamp)
+## Swamp (chapter 2)
+
+Dead trees in the sunken forest (swamp_deadtree_* tiles in town-32.png, cut by scripts/append-swamp-tiles.py):
+"[LPC] Trees" by bluecarrot16 and the authors listed in CREDITS-trees.txt. CC-BY-SA 3.0.
+https://opengameart.org/content/lpc-trees
+
+Rune stele (swamp_stele_* tiles): restored by mirroring the intact half of the LPC cavern & ruins stele
+(see CREDITS-cavern-ruins.txt). CC-BY-SA 3.0.
+
+Swamp grass, mud, swamp tree and bank tiles are recolors/derivatives of this project's town-32 tiles.
+
 ■ 맵 타일 (trees)
 ## Trees
 

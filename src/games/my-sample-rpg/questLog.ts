@@ -19,6 +19,10 @@ export const WEAPON_PATH_QUEST_ID = 'q014-weapon-path'
 export const HIDDEN_CACHE_QUEST_ID = 'q015-hidden-cache'
 export const CAMP_MERCHANT_NPC_ID = 'camp_merchant'
 export const HIDDEN_CACHE_NPC_ID = 'hidden_cache'
+// 2장 가라앉은 숲과 고대 유적(docs/chapter2-sunken-forest.md). 설계 번호 c2-01 = q016.
+export const VANISHING_WATER_QUEST_ID = 'q016-vanishing-water'
+export const SLUICE_KEEPER_NPC_ID = 'mage'
+export const SUNKEN_STELE_NPC_ID = 'sunken_stele'
 
 export const FIRST_SLIME_HUNT_OBJECTIVE_ID = 'defeat-slimes'
 export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 12
@@ -148,10 +152,12 @@ export type QuestTextFormatContext = {
 }
 
 const REGION_TIR_CHONAIL = '티르코네일 마을'
+const REGION_SUNKEN_FOREST = '가라앉은 숲'
 const SCENE_HUNTING_GROUND = 'hunting-ground'
 const SCENE_CAVE = 'cave'
 const SCENE_CRYSTAL_MINE = 'crystal-mine'
 const SCENE_HARVEST_VILLAGE = 'harvest-village'
+const SCENE_UPSTREAM_WATERWAY = 'upstream-waterway'
 const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
 const MONSTER_MUSHROOM_APPEARANCE_TYPE = 'monster_mushroom'
@@ -903,6 +909,61 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
         { id: 'hunting-bow', label: '사냥용 활', quantity: 1 },
         { id: 'health-potion', label: '체력 회복 포션', quantity: 3 }
       ]
+    }
+  },
+  {
+    // 2장 첫 퀘스트. q012 에서 이멜은 "동굴 쪽 소란이 가라앉으면 물도 돌아오겠지"라고 했다 —
+    // q014 로 소란을 잠재웠는데도 물이 돌아오지 않는 데서 시작한다. 수문 위 아치(upstream_gate)는
+    // q014 완료 후에만 열린다.
+    id: VANISHING_WATER_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: SLUICE_KEEPER_NPC_ID,
+    giverName: '이멜',
+    title: '사라지는 물',
+    trackerLabel: '물이 사라지는 곳 찾기',
+    prerequisiteQuestIds: [WEAPON_PATH_QUEST_ID],
+    requestText:
+      '동굴의 소란이 가라앉았는데도 수교 물이 돌아오지 않는다. 개울을 거슬러 올라가 물이 어디로 사라지는지 알아봐 달라.',
+    guideText:
+      '이멜이 지키는 수문 위 아치를 지나 수로 상류길로 올라가, 물이 사라지는 곳을 살펴본 뒤 이멜에게 돌아가자.',
+    startDialogueLines: [
+      '자네, 마침 잘 왔네.',
+      '동굴 소란이 가라앉았는데도 수교 물이 돌아오질 않아. 오히려 더 줄었지.',
+      '백 년치 수위표에도 이런 줄어듦은 없었네. 물이 어딘가로 새고 있는 게야.',
+      '수문 위 아치를 열어 두었으니, 개울을 거슬러 올라가 물이 어디로 가는지 봐 주게.'
+    ],
+    activeDialogueLines: ['아치 너머로 개울을 거슬러 올라가 보게. 물이 어디서 사라지는지 알아야 해.'],
+    talkTargetDialogueLines: [
+      '물이 땅속 구멍으로 소용돌이치며 빨려 들고 있다.',
+      '구멍 곁에 반쯤 잠긴 돌 비석이 있다. 이끼 사이로 낯선 글자가 희미하게 빛난다.',
+      '이멜에게 알려야겠다.'
+    ],
+    completionDialogueLines: [
+      '구멍이라고? 물이 땅으로 빨려 든단 말인가…',
+      '빛나는 비석 이야기도 마음에 걸리는구먼. 그런 글자는 백 년 기록 어디에도 없어.',
+      '그 물길 너머 숲 깊은 곳에 갈대골이라는 늪 마을이 있다네. 그쪽 사람들이라면 뭔가 알지도 모르지.',
+      '길이 물에 잠겼다니 건널 방법부터 찾아야겠군. 수고했네, 얼마 안 되지만 받아 두게.'
+    ],
+    objectives: [
+      {
+        id: 'enter-upstream-waterway',
+        label: '수로 상류길로 가기',
+        required: 1,
+        type: 'scene-enter',
+        target: { sceneId: SCENE_UPSTREAM_WATERWAY }
+      },
+      {
+        id: 'inspect-sunken-stele',
+        label: '물이 사라지는 곳 살펴보기',
+        required: 1,
+        type: 'talk',
+        target: { npcId: SUNKEN_STELE_NPC_ID }
+      }
+    ],
+    rewards: {
+      gold: 220,
+      experience: 450,
+      items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }]
     }
   }
 ]

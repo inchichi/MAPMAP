@@ -9,6 +9,7 @@ import {
   MANOR_SPORE_ERRAND_QUEST_ID,
   WEAPON_PATH_QUEST_ID,
   HIDDEN_CACHE_QUEST_ID,
+  VANISHING_WATER_QUEST_ID,
   FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS,
   FINAL_SUPPLIES_QUEST_ID,
   HARVEST_VILLAGE_VISIT_QUEST_ID,
@@ -25,6 +26,7 @@ import {
   getNextQuestInteractionForNpc,
   getQuestNpcBadgeKindForNpc,
   getQuestProgress,
+  isQuestUnlocked,
   getVisibleQuestTrackers,
   hideVisibleQuestTrackers,
   recordItemUseQuestProgress,
@@ -69,8 +71,39 @@ const completeQuestById = (questLog = createInitialQuestLog(), questId: string) 
     questId
   ).nextQuestLog
 
+const getQuestDefinitionRegion = (questId: string) =>
+  QUEST_DEFINITIONS.find((definition) => definition.id === questId)?.regionName
+
+describe('chapter 2 opening (q016 vanishing water)', () => {
+  const withWeaponPathCompleted = () => {
+    const questLog = createInitialQuestLog()
+    return {
+      progressByQuestId: {
+        ...questLog.progressByQuestId,
+        [WEAPON_PATH_QUEST_ID]: {
+          ...getQuestProgress(questLog, WEAPON_PATH_QUEST_ID),
+          status: 'completed' as const
+        }
+      }
+    }
+  }
+
+  it('unlocks only after the chapter 1 finale', () => {
+    expect(isQuestUnlocked(createInitialQuestLog(), VANISHING_WATER_QUEST_ID)).toBe(false)
+    expect(isQuestUnlocked(withWeaponPathCompleted(), VANISHING_WATER_QUEST_ID)).toBe(true)
+  })
+
+  it('is ready to turn in after entering the waterway and inspecting the stele', () => {
+    let questLog = startQuest(withWeaponPathCompleted(), VANISHING_WATER_QUEST_ID)
+    questLog = recordTalkQuestProgress(questLog, 'sunken_stele')
+    expect(getQuestProgress(questLog, VANISHING_WATER_QUEST_ID).status).toBe('active')
+    questLog = recordSceneEnterQuestProgress(questLog, 'upstream-waterway')
+    expect(getQuestProgress(questLog, VANISHING_WATER_QUEST_ID).status).toBe('ready-to-turn-in')
+  })
+})
+
 describe('questLog', () => {
-  it('registers the quest catalog with stable q001-q015 ids', () => {
+  it('registers the quest catalog with stable q001-q016 ids', () => {
     expect(QUEST_DEFINITIONS.map((definition) => definition.id)).toEqual([
       ...BEGINNER_ARC_QUEST_IDS,
       MINE_ORE_RUSH_QUEST_ID,
@@ -79,9 +112,16 @@ describe('questLog', () => {
       SLUICE_KEEPER_ERRAND_QUEST_ID,
       MANOR_SPORE_ERRAND_QUEST_ID,
       WEAPON_PATH_QUEST_ID,
-      HIDDEN_CACHE_QUEST_ID
+      HIDDEN_CACHE_QUEST_ID,
+      VANISHING_WATER_QUEST_ID
     ])
-    expect(QUEST_DEFINITIONS.every((definition) => definition.regionName === '티르코네일 마을')).toBe(true)
+    // 1장(q001~q015)은 티르코네일, 2장부터는 가라앉은 숲
+    expect(
+      QUEST_DEFINITIONS.filter((definition) => definition.id !== VANISHING_WATER_QUEST_ID).every(
+        (definition) => definition.regionName === '티르코네일 마을'
+      )
+    ).toBe(true)
+    expect(getQuestDefinitionRegion(VANISHING_WATER_QUEST_ID)).toBe('가라앉은 숲')
     expect(JSON.stringify(QUEST_DEFINITIONS)).not.toContain('준수')
   })
 

@@ -55,6 +55,27 @@ describe('portal footprints cover their whole approach corridor', () => {
     }
   })
 
+  it('opens the chapter 2 aqueduct arch above the sluice in both directions', () => {
+    const village = portalNamed('harvest-village', 'upstream_gate')
+    const villageWalls = wallsOf('harvest-village')
+    for (let tileX = 11; tileX <= 13; tileX += 1) {
+      expect(isWallTileAt(villageWalls, tileX, 4)).toBe(false)
+      expect(tileX).toBeGreaterThanOrEqual(village.position.x)
+      expect(tileX).toBeLessThan(village.position.x + village.collisionSize.width)
+    }
+    expect(village.targetSceneId).toBe('upstream-waterway')
+
+    const upstream = portalNamed('upstream-waterway', 'aqueduct_gate')
+    const upstreamWalls = wallsOf('upstream-waterway')
+    for (let tileX = 4; tileX <= 6; tileX += 1) {
+      expect(isWallTileAt(upstreamWalls, tileX, 23)).toBe(false)
+    }
+    expect(upstream.targetSceneId).toBe('harvest-village')
+    // 서로의 도착 칸은 벽이 아니다
+    expect(isWallTileAt(upstreamWalls, village.targetSpawn.x, village.targetSpawn.y)).toBe(false)
+    expect(isWallTileAt(villageWalls, upstream.targetSpawn.x, upstream.targetSpawn.y)).toBe(false)
+  })
+
   it('spans both walkable columns at the cave mine shaft', () => {
     const portal = portalNamed('cave', 'mine_shaft')
 
@@ -226,7 +247,8 @@ describe('every open cell is reachable', () => {
   it.each([
     ['hunting-ground', [2, 10] as [number, number]],
     ['cave', [2, 10] as [number, number]],
-    ['crystal-mine', [29, 35] as [number, number]]
+    ['crystal-mine', [29, 35] as [number, number]],
+    ['upstream-waterway', [5, 21] as [number, number]]
   ])('leaves no unreachable floor in %s', (name, start) => {
     expect(reachableFrom(name, start)).toEqual([])
   })

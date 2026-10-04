@@ -58,7 +58,8 @@ const QUEST_ORDER = [
   'q011-field-pigs',
   'q012-sluice-keeper',
   'q013-manor-spores',
-  'q014-weapon-path'
+  'q014-weapon-path',
+  'q016-vanishing-water'
 ]
 const MAIN_QUEST_IDS = new Set([
   'q001-first-slime-hunt',
@@ -70,7 +71,8 @@ const MAIN_QUEST_IDS = new Set([
   'q007-final-supplies',
   'q008-pig-boss-threat',
   'q009-mine-ore-rush',
-  'q014-weapon-path'
+  'q014-weapon-path',
+  'q016-vanishing-water'
 ])
 const SHOP_NPC_BY_ID: Record<string, string> = { blacksmith: 'blacksmith' }
 const BASIC_WEAPON_BONUS = 2
@@ -90,7 +92,7 @@ type Scene = {
   characters: { name: string; type: string; level: number; tile: Tile }[]
   portals: ReturnType<typeof createMapPortalsFromEventLayers>
 }
-const SCENE_IDS = ['town', 'hunting-ground', 'cave', 'crystal-mine', 'harvest-village']
+const SCENE_IDS = ['town', 'hunting-ground', 'cave', 'crystal-mine', 'harvest-village', 'upstream-waterway']
 const scenes: Record<string, Scene> = {}
 
 for (const sceneId of SCENE_IDS) {
@@ -200,7 +202,7 @@ const player = {
   gold: 150,
   weaponBonus: BASIC_WEAPON_BONUS
 }
-const lockedPortals = new Set(['mine_shortcut'])
+const lockedPortals = new Set(['mine_shortcut', 'upstream_gate'])
 const damagePerHit = () => 5 + (player.level - 1) * STRENGTH_PER_LEVEL + player.weaponBonus
 const gainExperience = (amount: number) => {
   player.experience += amount
@@ -318,6 +320,7 @@ for (const questId of QUEST_ORDER.filter((id) => !MAIN_ONLY || MAIN_QUEST_IDS.ha
   gainExperience(definition.rewards.experience)
   player.gold += definition.rewards.gold
   if (questId === 'q009-mine-ore-rush') lockedPortals.delete('mine_shortcut')
+  if (questId === 'q014-weapon-path') lockedPortals.delete('upstream_gate')
   // 마을에 들를 때 돈이 되면 강철 검을 산다
   if (player.weaponBonus < UPGRADE_WEAPON.bonus && player.at.sceneId === 'town' && player.gold >= UPGRADE_WEAPON.price) {
     player.gold -= UPGRADE_WEAPON.price

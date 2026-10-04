@@ -56,7 +56,13 @@ export const QUEST_MONSTERS: { appearanceType: string; label: string }[] = [
 export const QUEST_MONSTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine']
 
 // scene-enter 목표로 쓸 수 있는 씬. town은 시작 지점이라 즉시 완료돼 버리므로 제외한다.
-export const QUEST_SCENE_ENTER_SCENES = ['hunting-ground', 'cave', 'crystal-mine', 'harvest-village']
+export const QUEST_SCENE_ENTER_SCENES = [
+  'hunting-ground',
+  'cave',
+  'crystal-mine',
+  'harvest-village',
+  'upstream-waterway'
+]
 
 // 상점 열기 목표의 shopId(런타임이 실제로 발생시키는 값: blacksmith, potion).
 export const QUEST_SHOPS: { shopId: string; label: string }[] = [

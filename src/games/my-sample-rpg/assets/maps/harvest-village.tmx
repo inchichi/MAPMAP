@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="32" tileheight="32" infinite="0" nextlayerid="27" nextobjectid="25">
+<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="32" tileheight="32" infinite="0" nextlayerid="27" nextobjectid="26">
  <tileset firstgid="1" source="../tilesets/town-32.tsx"/>
  <layer id="20" name="ground" width="60" height="60">
   <data encoding="csv">
@@ -611,6 +611,17 @@
     <property name="targetSceneId" value="town"/>
     <property name="targetSpawnTileX" type="int" value="27"/>
     <property name="targetSpawnTileY" type="int" value="41"/>
+   </properties>
+  </object>
+  <!-- 2장 입구: 수문 위 수도교 아치 → 수로 상류길. q014(무기의 길) 완료 후에만 열린다(q016 사라지는 물). -->
+  <object id="25" name="upstream_gate" type="portal" x="352" y="128" width="96" height="32">
+   <properties>
+    <property name="appearanceType" value="stairs_stone_step_base_00"/>
+    <property name="quest.requiresCompleted" value="q014-weapon-path"/>
+    <property name="targetFacing" value="up"/>
+    <property name="targetSceneId" value="upstream-waterway"/>
+    <property name="targetSpawnTileX" type="int" value="5"/>
+    <property name="targetSpawnTileY" type="int" value="21"/>
    </properties>
   </object>
  </objectgroup>
