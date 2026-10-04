@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "manifest.schema.json",
+  "$defs": {
+    "Layers": {
+      "properties": {
+        "decoration": {
+          "title": "Decoration",
+          "type": "string"
+        },
+        "recolor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recolor"
+        }
+      },
+      "required": [
+        "decoration"
+      ],
+      "title": "Layers",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "anyOf": [
+    {
+      "required": [
+        "overlay"
+      ]
+    },
+    {
+      "required": [
+        "layers"
+      ]
+    }
+  ],
+  "description": "Runtime selection file (crypt-manifest.json). `overlay` is the legacy single layer.",
+  "properties": {
+    "id": {
+      "pattern": "^[a-f0-9]{32}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "mapId": {
+      "title": "Mapid",
+      "type": "string"
+    },
+    "width": {
+      "exclusiveMinimum": 0,
+      "title": "Width",
+      "type": "integer"
+    },
+    "height": {
+      "exclusiveMinimum": 0,
+      "title": "Height",
+      "type": "integer"
+    },
+    "night": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Night",
+      "type": "number"
+    },
+    "bulbs": {
+      "items": {
+        "items": {
+          "type": "integer"
+        },
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array"
+      },
+      "title": "Bulbs",
+      "type": "array"
+    },
+    "source_hashes": {
+      "additionalProperties": {
+        "pattern": "^[a-f0-9]{64}$",
+        "type": "string"
+      },
+      "title": "Source Hashes",
+      "type": "object"
+    },
+    "overlay": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Overlay"
+    },
+    "layers": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Layers"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "parent_run_id": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{32}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Run Id"
+    }
+  },
+  "required": [
+    "id",
+    "mapId",
+    "width",
+    "height",
+    "night",
+    "bulbs",
+    "source_hashes"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

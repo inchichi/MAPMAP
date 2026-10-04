@@ -1,0 +1,28 @@
+{
+  "version": "dsl-v1",
+  "parser": "manual",
+  "source_text": "크리스마스 밤 · 눈 쌓인 폐허 · 얼음 식물 · 따뜻한 전구",
+  "theme": "christmas",
+  "season": "winter",
+  "lighting": "night",
+  "weather": "snow",
+  "mood": [
+    "warm",
+    "festive"
+  ],
+  "keywords": [
+    "눈 쌓인 폐허",
+    "얼음 식물",
+    "따뜻한 전구"
+  ],
+  "night": true,
+  "twinkle": true,
+  "decorations": [
+    "snow",
+    "lights"
+  ],
+  "target_maps": [
+    "floor-1-ruins"
+  ],
+  "warnings": []
+}

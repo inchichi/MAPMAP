@@ -1,0 +1,200 @@
+[
+  {
+    "name": "tree_1",
+    "map_box": [
+      448,
+      384,
+      96,
+      128
+    ],
+    "scale": 2,
+    "offset": [
+      64,
+      32
+    ],
+    "cells": [
+      {
+        "layer": "object",
+        "tile_id": 349,
+        "type": "tree_large_trunk_00"
+      },
+      {
+        "layer": "object",
+        "tile_id": 350,
+        "type": "tree_large_trunk_01"
+      },
+      {
+        "layer": "object",
+        "tile_id": 351,
+        "type": "tree_large_trunk_02"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 325,
+        "type": "town_prop_325"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 326,
+        "type": "tree_large_canopy_00"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 327,
+        "type": "tree_large_canopy_01"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 333,
+        "type": "tree_large_shadow_00"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 334,
+        "type": "tree_large_canopy_02"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 335,
+        "type": "tree_large_canopy_03"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 341,
+        "type": "streetlamp_unlit_top_02"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 342,
+        "type": "tree_large_canopy_04"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 343,
+        "type": "tree_large_canopy_05"
+      }
+    ]
+  },
+  {
+    "name": "fountain_1",
+    "map_box": [
+      576,
+      416,
+      96,
+      96
+    ],
+    "scale": 2,
+    "offset": [
+      64,
+      64
+    ],
+    "cells": [
+      {
+        "layer": "object",
+        "tile_id": 69,
+        "type": "chimney_double_shadow"
+      },
+      {
+        "layer": "object",
+        "tile_id": 70,
+        "type": "fountain_small_base_left"
+      },
+      {
+        "layer": "object",
+        "tile_id": 71,
+        "type": "fountain_small_base_right"
+      },
+      {
+        "layer": "object",
+        "tile_id": 77,
+        "type": "chimney_single_shadow"
+      },
+      {
+        "layer": "object",
+        "tile_id": 78,
+        "type": "fountain_small_pedestal_left"
+      },
+      {
+        "layer": "object",
+        "tile_id": 79,
+        "type": "fountain_small_pedestal_right"
+      },
+      {
+        "layer": "object",
+        "tile_id": 85,
+        "type": "fountain_large_bottom_left"
+      },
+      {
+        "layer": "object",
+        "tile_id": 86,
+        "type": "fountain_large_bottom_center"
+      },
+      {
+        "layer": "object",
+        "tile_id": 87,
+        "type": "fountain_large_bottom_right"
+      }
+    ]
+  },
+  {
+    "name": "blacksmith_stall",
+    "map_box": [
+      352,
+      416,
+      96,
+      96
+    ],
+    "scale": 2,
+    "offset": [
+      64,
+      64
+    ],
+    "cells": [
+      {
+        "layer": "object",
+        "tile_id": 392,
+        "type": "market_canopy_band_top_00"
+      },
+      {
+        "layer": "object",
+        "tile_id": 393,
+        "type": "market_canopy_band_top_01"
+      },
+      {
+        "layer": "object",
+        "tile_id": 394,
+        "type": "market_canopy_band_top_02"
+      },
+      {
+        "layer": "object",
+        "tile_id": 408,
+        "type": "market_stall_back_top_00"
+      },
+      {
+        "layer": "object",
+        "tile_id": 410,
+        "type": "market_stall_back_top_02"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 400,
+        "type": "market_canopy_band_mid_00"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 401,
+        "type": "market_canopy_band_mid_01"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 402,
+        "type": "market_canopy_band_mid_02"
+      },
+      {
+        "layer": "object_upper",
+        "tile_id": 409,
+        "type": "market_stall_back_top_01"
+      }
+    ]
+  }
+]

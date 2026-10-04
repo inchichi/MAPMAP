@@ -1,0 +1,137 @@
+{
+  "version": "group-manifest-v1",
+  "mapId": "floor-1-ruins",
+  "tileset": "src/games/crypt-crawler/assets/tilesets/ninja-dungeon-16.tsx",
+  "tile_size": [
+    16,
+    16
+  ],
+  "groups": [
+    {
+      "group_id": "prop-15",
+      "kind": "tree",
+      "confidence": 0.9,
+      "source": "cc",
+      "layer": "prop",
+      "hash": "f79fe8293eaade2fb61cbd5c9ea212cecd9788bad934a4944da0e5b5b5131444",
+      "size": [
+        64,
+        48
+      ],
+      "instances": [
+        {
+          "x": 4288,
+          "y": 240
+        },
+        {
+          "x": 5824,
+          "y": 240
+        },
+        {
+          "x": 160,
+          "y": 336
+        }
+      ]
+    },
+    {
+      "group_id": "prop-29",
+      "kind": "pot",
+      "confidence": 0.6,
+      "source": "cc",
+      "layer": "prop",
+      "hash": "ddb4d5c963e56980f006aeaf52fb464ffc63de23b387d0c461a7dec69b9d0735",
+      "size": [
+        32,
+        32
+      ],
+      "instances": [
+        {
+          "x": 2576,
+          "y": 2048
+        }
+      ]
+    },
+    {
+      "group_id": "prop-04",
+      "kind": "plant",
+      "confidence": 0.8,
+      "source": "cc",
+      "layer": "prop",
+      "hash": "b4b77cc040812f850eaa5cf8b0deb6e3a6cb664896219ef49586459151baf3c4",
+      "size": [
+        16,
+        16
+      ],
+      "instances": [
+        {
+          "x": 944,
+          "y": 160
+        },
+        {
+          "x": 640,
+          "y": 352
+        },
+        {
+          "x": 5024,
+          "y": 400
+        }
+      ]
+    },
+    {
+      "group_id": "wall-354",
+      "kind": "wall",
+      "confidence": 1.0,
+      "source": "tile",
+      "layer": "wall",
+      "tile_ids": [
+        353
+      ],
+      "size": [
+        16,
+        16
+      ],
+      "instances": [
+        {
+          "x": 32,
+          "y": 32
+        },
+        {
+          "x": 1152,
+          "y": 128
+        },
+        {
+          "x": 1472,
+          "y": 128
+        }
+      ]
+    },
+    {
+      "group_id": "wall_deco-1775",
+      "kind": "banner",
+      "confidence": 1.0,
+      "source": "tile",
+      "layer": "wall_deco",
+      "tile_ids": [
+        1774
+      ],
+      "size": [
+        16,
+        16
+      ],
+      "instances": [
+        {
+          "x": 304,
+          "y": 32
+        },
+        {
+          "x": 1312,
+          "y": 32
+        },
+        {
+          "x": 2128,
+          "y": 32
+        }
+      ]
+    }
+  ]
+}

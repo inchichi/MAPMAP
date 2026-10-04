@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dsl.schema.json",
+  "$defs": {
+    "Color": {
+      "properties": {
+        "gain": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Gain",
+          "type": "array"
+        },
+        "bias": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "title": "Bias",
+          "type": "array"
+        }
+      },
+      "required": [
+        "gain",
+        "bias"
+      ],
+      "title": "Color",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "description": "Visual DSL: what the request asks for, before any asset is chosen.",
+  "properties": {
+    "version": {
+      "const": "dsl-v1",
+      "default": "dsl-v1",
+      "title": "Version",
+      "type": "string"
+    },
+    "parser": {
+      "description": "rules-v1 or llm:<model>",
+      "title": "Parser",
+      "type": "string"
+    },
+    "source_text": {
+      "default": "",
+      "title": "Source Text",
+      "type": "string"
+    },
+    "theme": {
+      "title": "Theme",
+      "type": "string"
+    },
+    "season": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Season"
+    },
+    "lighting": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lighting"
+    },
+    "weather": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Weather"
+    },
+    "mood": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Mood",
+      "type": "array"
+    },
+    "keywords": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Keywords",
+      "type": "array"
+    },
+    "night": {
+      "title": "Night",
+      "type": "boolean"
+    },
+    "twinkle": {
+      "default": false,
+      "title": "Twinkle",
+      "type": "boolean"
+    },
+    "decorations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Decorations",
+      "type": "array"
+    },
+    "color": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Color"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "target_maps": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Target Maps",
+      "type": "array"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "parser",
+    "theme",
+    "night",
+    "decorations",
+    "target_maps"
+  ],
+  "title": "Dsl",
+  "type": "object"
+}

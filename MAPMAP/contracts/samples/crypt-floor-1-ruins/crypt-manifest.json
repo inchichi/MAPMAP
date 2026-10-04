@@ -1,0 +1,38 @@
+{
+  "id": "66d2311cc35045f9a32af7129994b055",
+  "mapId": "floor-1-ruins",
+  "width": 6144,
+  "height": 6144,
+  "night": 0.3607843137254902,
+  "overlay": "/theme-runs/66d2311cc35045f9a32af7129994b055/decoration-map.png",
+  "bulbs": [
+    [
+      305,
+      36
+    ],
+    [
+      2138,
+      37
+    ],
+    [
+      4753,
+      36
+    ],
+    [
+      3082,
+      149
+    ],
+    [
+      897,
+      308
+    ]
+  ],
+  "source_hashes": {
+    "public/crypt-maps/floor-1-ruins.tmx": "9962eac5d73b6ca11cfd8e82b61d8cef08078054b4f0024c9b8de6fe49fbf3fb",
+    "src/games/crypt-crawler/assets/tilesets/ninja-dungeon-16.tsx": "30b237e008fe136286fb50910b1abed6f460f1866875c9b2a77ad570eb30b508",
+    "src/games/crypt-crawler/assets/tilesets/ninja-dungeon-16.png": "ee3b03bb1e05fe9fe23ddfb2f82ff1951d79022476a4c856aa6ddd5590529e55"
+  },
+  "instances": 1193,
+  "geometry_preserved": true,
+  "collision_preserved": true
+}

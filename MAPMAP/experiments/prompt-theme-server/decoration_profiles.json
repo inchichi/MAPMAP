@@ -1,0 +1,39 @@
+{
+  "version": "object-profiles-v1",
+  "objects": {
+    "town_hall": {
+      "label": "큰 건물 · 지붕/처마/중앙 화환",
+      "box": [544,32,512,480], "kind": "building", "mode": "attached",
+      "canvas": [512,480], "scale": 1, "offset": [0,0], "strength": 1.0,
+      "protected_rects": [[0,320,512,480],[36,204,60,235],[100,204,124,235],[36,268,60,300],[100,268,124,300],[388,204,412,235],[452,204,476,235],[388,268,412,300],[452,268,476,300],[192,268,220,305],[288,268,316,305]],
+      "snow_polygons": [[[0,224],[0,64],[64,0],[448,0],[512,64],[512,224],[440,160],[368,160],[352,256],[256,160],[160,256],[144,160],[72,160]]],
+      "eaves": [[[0,224],[72,160],[144,160]],[[160,256],[256,160],[352,256]],[[368,160],[440,160],[511,224]]],
+      "light_band": 24, "ornament_rect": [205,184,307,265],
+      "placement_prompt": "bulb strings along roof edges, snow caps on the roof, and requested wreaths above the door. Keep every door, window, building shape and position unchanged",
+      "supported": ["snow","lights","garland"]
+    },
+    "tree_1": {
+      "label": "큰 나무 · 잎/가지 (줄기 보호)",
+      "box": [448,384,96,128], "kind": "tree", "mode": "attached",
+      "canvas": [320,320], "scale": 2, "offset": [64,32], "strength": 0.5,
+      "foliage_rect": [0,0,96,108], "protected_rects": [[0,108,96,128]],
+      "placement_prompt": "bulb strings around the foliage and thin patches of settled snow resting on its branches. Preserve the trunk, position, size and shape",
+      "supported": ["snow","lights","garland"]
+    },
+    "fountain_1": {
+      "label": "왼쪽 분수 · 테두리/상단 (물 보호)",
+      "box": [576,416,96,96], "kind": "fountain", "mode": "attached",
+      "canvas": [320,320], "scale": 2, "offset": [64,64], "strength": 0.5,
+      "rim": [48,49.5,36.5,29], "rim_range": [0.78,1.2], "cap": [35,2,62,23], "protected_rects": [[0,84,96,96]],
+      "placement_prompt": "bulb strings around the basin and thin settled snow on its stone rim and top cap. Preserve the water, central pillar, position, size and shape",
+      "supported": ["snow","lights","garland"]
+    },
+    "blacksmith_stall": {
+      "label": "천막 · 상단 눈/끝단 전구줄",
+      "box": [352,416,96,96], "kind": "stall", "mode": "strips",
+      "canvas": [320,320], "scale": 2, "offset": [64,64], "strength": 1.0,
+      "snow_rect": [0,0,96,8], "wire_rect": [0,45,96,64], "protected_rects": [[0,65,96,96]],
+      "supported": ["snow","lights","garland"]
+    }
+  }
+}

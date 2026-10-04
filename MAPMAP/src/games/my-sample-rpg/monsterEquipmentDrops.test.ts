@@ -1,0 +1,39 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  MONSTER_EQUIPMENT_DROP_DEFINITIONS,
+  rollMonsterEquipmentDrop
+} from './monsterEquipmentDrops'
+
+describe('rollMonsterEquipmentDrop', () => {
+  it('returns one weapon or armor drop within the 20 percent drop chance', () => {
+    const randomValues = [0.19, 0.99]
+
+    expect(rollMonsterEquipmentDrop(() => randomValues.shift() ?? 0)).toEqual({
+      dropId: 'Iron_Helmet_drop',
+      itemId: 'Iron_Helmet',
+      label: '철 투구'
+    })
+  })
+
+  it('returns no equipment drop outside the 20 percent drop chance', () => {
+    expect(rollMonsterEquipmentDrop(() => 0.2)).toBeUndefined()
+  })
+
+  it('exposes all armor folder equipment drops', () => {
+    expect(MONSTER_EQUIPMENT_DROP_DEFINITIONS.map((drop) => drop.itemId)).toEqual([
+      'iron-sword',
+      'battle-axe',
+      'long-spear',
+      'quick-dagger',
+      'spiked-mace',
+      'magic-staff',
+      'Leather_Armor',
+      'Leather_Helmet',
+      'Chain_Armor',
+      'Chain_Helmet',
+      'Iron_Armor',
+      'Iron_Helmet'
+    ])
+  })
+})

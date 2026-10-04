@@ -1,0 +1,56 @@
+[
+  {
+    "asset": "prop-15",
+    "kind": "tree",
+    "action": "decorate",
+    "prompt": "Edit every pixel-art sprite in this sheet in place. Add small soft shaded white snow caps and tiny warm golden Christmas bulbs attached to the objects. Preserve the exact original objects, silhouette, proportions, supports and positions. Each sprite stays in its original cell. Keep empty gray background unchanged. No extra sprites, no architecture changes, no cast shadows, no text.",
+    "decorations": [
+      "snow",
+      "lights"
+    ],
+    "instances": 45,
+    "candidates": 1
+  },
+  {
+    "asset": "prop-29",
+    "kind": "pot",
+    "action": "decorate",
+    "prompt": "Edit every pixel-art sprite in this sheet in place. Add small soft shaded white snow caps and tiny warm golden Christmas bulbs attached to the objects. Preserve the exact original objects, silhouette, proportions, supports and positions. Each sprite stays in its original cell. Keep empty gray background unchanged. No extra sprites, no architecture changes, no cast shadows, no text.",
+    "decorations": [
+      "snow",
+      "lights"
+    ],
+    "instances": 1,
+    "candidates": 1
+  },
+  {
+    "asset": "prop-04",
+    "kind": "plant",
+    "action": "recolor",
+    "prompt": "Edit every pixel-art sprite in this sheet in place. Add small soft shaded white snow caps and tiny warm golden Christmas bulbs attached to the objects. Preserve the exact original objects, silhouette, proportions, supports and positions. Each sprite stays in its original cell. Keep empty gray background unchanged. No extra sprites, no architecture changes, no cast shadows, no text.",
+    "instances": 34,
+    "candidates": 1,
+    "reason": "눈 장식 미검출 → 서리 색 보정만 적용"
+  },
+  {
+    "asset": "wall-354",
+    "kind": "wall",
+    "action": "recolor",
+    "prompt": "Winter material edit of this pixel-art tile sheet. Pale white snow dusting on stone floors, frosty blue stone walls, ice-crystal flowers and grass, small warm golden lights on wall fixtures. Retain the original masonry cracks and tile patterns. Each sprite stays in its original cell. Keep empty gray background unchanged. No extra sprites, no architecture changes, no cast shadows, no text.",
+    "instances": 378,
+    "candidates": 1
+  },
+  {
+    "asset": "wall_deco-1775",
+    "kind": "banner",
+    "action": "decorate",
+    "prompt": "Keep this exact red hanging banner and its support posts unchanged. Add a connected strand of six glowing warm golden Christmas bulbs and a small green garland across the upper edge of the red fabric, with a thin soft snow cap. The bulbs must be clearly visible, golden round lights joined by a dark cable, attached to the banner. Pixel art. Same silhouette, same size, same position. Gray background stays empty. No text or extra objects.",
+    "decorations": [
+      "lights",
+      "garland",
+      "snow"
+    ],
+    "instances": 236,
+    "candidates": 1
+  }
+]

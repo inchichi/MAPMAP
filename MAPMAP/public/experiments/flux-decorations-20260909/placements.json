@@ -1,0 +1,54 @@
+[
+  {
+    "id": "flux-decoration-20260909-tree_1",
+    "kind": "object",
+    "col": 13,
+    "row": 11.5,
+    "label": "FLUX decorations only tree_1",
+    "imageUrl": "/experiments/flux-decorations-20260909/tree_1-decorations.png?v=aligned2",
+    "anchor": "top-left",
+    "displayScale": 1,
+    "renderLayer": "decoration",
+    "sourceGroup": "flux-decorations-20260909",
+    "visible": true
+  },
+  {
+    "id": "flux-decoration-20260909-fountain_1",
+    "kind": "object",
+    "col": 17,
+    "row": 12,
+    "label": "FLUX decorations only fountain_1",
+    "imageUrl": "/experiments/flux-decorations-20260909/fountain_1-decorations.png?v=aligned2",
+    "anchor": "top-left",
+    "displayScale": 1,
+    "renderLayer": "decoration",
+    "sourceGroup": "flux-decorations-20260909",
+    "visible": true
+  },
+  {
+    "id": "flux-decoration-20260909-blacksmith_stall",
+    "kind": "object",
+    "col": 10,
+    "row": 12,
+    "label": "FLUX decorations only blacksmith_stall",
+    "imageUrl": "/experiments/flux-decorations-20260909/blacksmith-stall-decorations-v3.png",
+    "anchor": "top-left",
+    "displayScale": 1,
+    "renderLayer": "decoration",
+    "sourceGroup": "flux-decorations-20260909",
+    "visible": true
+  },
+  {
+    "id": "flux-decoration-20260909-town_hall",
+    "kind": "object",
+    "col": 17,
+    "row": 1,
+    "label": "FLUX building decorations",
+    "imageUrl": "/experiments/flux-decorations-20260909/town-hall-decorations.png",
+    "anchor": "top-left",
+    "displayScale": 1,
+    "renderLayer": "decoration",
+    "sourceGroup": "flux-decorations-20260909",
+    "visible": true
+  }
+]

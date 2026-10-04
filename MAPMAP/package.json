@@ -1,0 +1,31 @@
+{
+  "name": "my-sample-rpg",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "theme:dev": "node scripts/start-prompt-theme.mjs",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "check": "tsc --noEmit && vitest run",
+    "lua:fetch": "node scripts/fetch-lua.mjs",
+    "lua:build": "node scripts/build-lua-wasm.mjs",
+    "lua:sync": "npm run lua:fetch && npm run lua:build",
+    "lua:bridge:test": "tsc --noEmit && vitest run --config vitest.lua-bridge.config.ts",
+    "lua:test": "node scripts/fetch-lua-tests.mjs && node scripts/test-lua-wasm.mjs"
+  },
+  "devDependencies": {
+    "@pixi/tilemap": "^5.0.2",
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/node": "^24.0.0",
+    "@xmldom/xmldom": "^0.8.11",
+    "pixi.js": "^8.14.0",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.0"
+  }
+}

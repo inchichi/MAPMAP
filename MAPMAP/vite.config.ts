@@ -1,0 +1,362 @@
+import {
+  appendFileSync,
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync
+} from 'node:fs'
+import { basename, extname, join, normalize } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { defineConfig, type Plugin } from 'vitest/config'
+import tailwindcss from '@tailwindcss/vite'
+
+const PUBLIC_DIR = fileURLToPath(new URL('./public', import.meta.url))
+
+// love.js 빌드를 에디터 패널(iframe)에 임베드할 때, 게임 캔버스가 네이티브 해상도(예: 1920×1080)
+// 그대로 떠서 좁은 패널 밖으로 잘린다. 빌드 파일은 그대로 두고, 서빙 시점에 이 스타일을 index.html에
+// 주입해 캔버스를 박스에 맞춰(레터박스) 줄이고, 제목/푸터 같은 chrome는 숨긴다.
+const LOVE_EMBED_STYLE = `
+<style id="editor-embed-fit">
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body > center, body > center > div { margin: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  h1, footer { display: none !important; }
+  #canvas, #loadingCanvas { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+</style>
+`
+
+// 에디터(부모 창) → love.js 게임 다리. 에디터가 보낸 postMessage를 받아 Emscripten 가상 FS에
+// 명령 파일로 써둔다. 게임-쪽 Lua(pollEditorCommands)가 매 프레임 그 파일을 읽어 처리한다.
+//
+// 이 love.js 빌드는 완전한 Module.FS를 노출하지 않아서(writeFile 없음), 패키저가 노출하는
+// Module.FS_createDataFile을 쓴다. 이건 덮어쓰기가 안 되므로 매번 고유 파일명(editorcmd-N.txt)을
+// 쓰고, Lua가 순번대로 읽는다. FS가 늦게 준비될 수 있어 큐에 담고 짧게 재시도한다.
+const LOVE_EMBED_BRIDGE_SCRIPT = `
+<script id="editor-bridge">
+(function () {
+  console.log('[editor-bridge] loaded');
+  var counter = 0;
+  var queue = [];
+  var reportedKeys = false;
+  function reportKeys() {
+    if (reportedKeys) return;
+    try {
+      var M = window.Module;
+      if (!M) return;
+      var keys = Object.keys(M).filter(function (k) { return /FS/.test(k); });
+      console.log('[editor-bridge] Module FS keys:', keys.join(', ') || '(none)');
+      reportedKeys = true;
+    } catch (e) {}
+  }
+  // love.js에서 LÖVE가 읽는 위치가 빌드마다 달라, 여러 후보 디렉터리에 같은 파일을 써둔다.
+  // (게임은 raw io(/tmp) 또는 love.filesystem(세이브 디렉터리) 중 되는 쪽으로 읽는다.)
+  var DIRS = [
+    '/tmp',
+    '/home/web_user/.local/share/LOVE/legend-of-lua',
+    '/home/web_user/.local/share/love/legend-of-lua',
+    '/save'
+  ];
+  // 큐의 맨 앞 명령을 고유 파일명으로 후보 경로들에 써본다. 한 곳이라도 성공하면 true.
+  function tryWrite(text) {
+    var M = window.Module;
+    if (!M || !M.FS_createDataFile) return false;
+    var name = 'editorcmd-' + (counter + 1) + '.txt';
+    // 한글 등 비ASCII가 Latin1로 잘려 깨진 UTF-8이 되면 게임의 love.graphics.print가 죽는다.
+    // UTF-8 바이트로 인코딩해 써서 Lua가 올바른 UTF-8을 읽게 한다.
+    var bytes = new TextEncoder().encode(text);
+    var wroteAnywhere = false;
+    var okDirs = [];
+    for (var i = 0; i < DIRS.length; i++) {
+      try {
+        M.FS_createDataFile(DIRS[i], name, bytes, true, true);
+        wroteAnywhere = true;
+        okDirs.push(DIRS[i]);
+      } catch (e) { /* 그 디렉터리가 없으면 무시 */ }
+    }
+    if (wroteAnywhere) {
+      counter++;
+      console.log('[editor-bridge] 명령 씀:', name, text, '→', okDirs.join(', '));
+      return true;
+    }
+    return false;
+  }
+  function flush() {
+    reportKeys();
+    while (queue.length > 0) {
+      if (!tryWrite(queue[0])) return; // FS 아직 없음 → 다음 틱에 재시도
+      queue.shift();
+    }
+  }
+  setInterval(flush, 200);
+  window.addEventListener('message', function (event) {
+    var data = event.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'editor:goto-map' && data.mapId) {
+      console.log('[editor-bridge] goto-map 큐:', data.mapId);
+      queue.push('goto-map:' + data.mapId);
+      flush();
+    } else if (
+      data.type === 'editor:apply' &&
+      data.payload &&
+      data.payload.kind === 'spawn_npc' &&
+      typeof data.payload.lua === 'string'
+    ) {
+      // NPC 생성 '적용' — 에디터가 직렬화한 한 줄 Lua 테이블을 그대로 게임에 넘긴다.
+      console.log('[editor-bridge] spawn-npc 큐:', data.payload.npc && data.payload.npc.name);
+      queue.push('spawn-npc:' + data.payload.lua);
+      flush();
+    } else if (
+      data.type === 'editor:apply' &&
+      data.payload &&
+      data.payload.kind === 'quest' &&
+      typeof data.payload.lua === 'string'
+    ) {
+      // 퀘스트 '적용' — 에디터가 직렬화한 Lua 테이블을 게임 quest-runtime이 등록·추적하도록 넘긴다.
+      console.log('[editor-bridge] quest 큐:', data.payload.quest && data.payload.quest.quest_id);
+      queue.push('quest:' + data.payload.lua);
+      flush();
+    } else if (
+      data.type === 'editor:apply' &&
+      data.payload &&
+      Array.isArray(data.payload.lines)
+    ) {
+      // 생성된 대사를 화면 오버레이로 라이브 반영. 대상이 있으면 이름을 앞에 붙인다.
+      var target = data.payload.target;
+      var prefix = target && target.name ? target.name + ' — ' : '';
+      console.log('[editor-bridge] apply 큐:', data.payload.lines.length + '줄');
+      queue.push('apply-lines:' + prefix + data.payload.lines.join('\\n'));
+      flush();
+    }
+  });
+})();
+</script>
+`
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript',
+  '.mjs': 'text/javascript',
+  '.wasm': 'application/wasm',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.data': 'application/octet-stream',
+  '.mem': 'application/octet-stream',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf'
+}
+
+// Vite dev 서버는 HTML/디렉터리 요청을 가로채 루트 index.html로 fallback한다. 그래서 public/ 안에
+// 둔 love.js 빌드(자체 index.html을 가짐)가 무시되고 my-sample-rpg가 떠버린다. 이 플러그인은
+// public/ 하위에서 love.js 빌드 폴더(index.html + love.js가 있는 곳)를 찾아, 그 경로 요청을
+// Vite의 HTML 처리보다 먼저 가로채 정적 파일 그대로 내보낸다(.wasm MIME 포함). dev 전용이며
+// 프로덕션(빌드 산출물 정적 서빙)에는 영향이 없다.
+// 로컬 LLM 호출의 전체 계보(프롬프트·출력·상태·지연)를 JSONL 로 축적한다.
+// 파인튜닝 착수 조건(수용 예제 300~500개) 판단과 실패 유형 분석의 유일한 데이터 원천이다.
+// notes/ 는 gitignore 라 로그가 저장소를 더럽히지 않는다. dev 전용.
+const LLM_PROXY_TARGET = 'http://100.115.43.82:8000'
+const LLM_LOG_PATH = fileURLToPath(new URL('./notes/llm-proxy-log.jsonl', import.meta.url))
+
+const logLlmCalls = (): Plugin => ({
+  name: 'log-llm-calls',
+  apply: 'serve',
+  configureServer(server) {
+    // 직접 등록 → Vite 내부 proxy 보다 먼저 실행된다(serveLoveJsBuilds 와 같은 기법).
+    server.middlewares.use((req, res, next) => {
+      const rawUrl = (req.url ?? '').split('?')[0]
+      if (req.method !== 'POST' || !rawUrl.startsWith('/api/llm/')) {
+        next()
+        return
+      }
+
+      const chunks: Buffer[] = []
+      req.on('data', (chunk) => chunks.push(chunk))
+      req.on('end', async () => {
+        const requestBody = Buffer.concat(chunks).toString('utf8')
+        const targetUrl = LLM_PROXY_TARGET + rawUrl.replace(/^\/api\/llm/, '')
+        const startedAt = Date.now()
+
+        const writeLog = (entry: Record<string, unknown>) => {
+          try {
+            mkdirSync(fileURLToPath(new URL('./notes', import.meta.url)), { recursive: true })
+            appendFileSync(
+              LLM_LOG_PATH,
+              JSON.stringify({ ts: new Date().toISOString(), url: rawUrl, ...entry }) + '\n'
+            )
+          } catch {
+            // 로깅 실패가 생성 자체를 막으면 안 된다.
+          }
+        }
+
+        try {
+          const upstream = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: requestBody
+          })
+          const responseBody = await upstream.text()
+          writeLog({
+            status: upstream.status,
+            ms: Date.now() - startedAt,
+            request: safeJsonParse(requestBody),
+            response: safeJsonParse(responseBody)
+          })
+          res.statusCode = upstream.status
+          res.setHeader('content-type', upstream.headers.get('content-type') ?? 'application/json')
+          res.end(responseBody)
+        } catch (error) {
+          writeLog({
+            status: 0,
+            ms: Date.now() - startedAt,
+            request: safeJsonParse(requestBody),
+            error: String(error)
+          })
+          res.statusCode = 502
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify({ error: { message: `LLM 서버 연결 실패: ${String(error)}` } }))
+        }
+      })
+    })
+  }
+})
+
+const safeJsonParse = (text: string): unknown => {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text.slice(0, 4000)
+  }
+}
+
+const serveLoveJsBuilds = (): Plugin => ({
+  name: 'serve-lovejs-builds',
+  apply: 'serve',
+  configureServer(server) {
+    const buildDirs = existsSync(PUBLIC_DIR)
+      ? readdirSync(PUBLIC_DIR).filter((name) => {
+          const dir = join(PUBLIC_DIR, name)
+          return (
+            statSync(dir).isDirectory() &&
+            existsSync(join(dir, 'index.html')) &&
+            existsSync(join(dir, 'love.js'))
+          )
+        })
+      : []
+
+    if (buildDirs.length > 0) {
+      server.config.logger.info(
+        `  ➜  love.js 빌드 서빙: ${buildDirs.map((name) => `/${name}/`).join(', ')}`
+      )
+    }
+
+    // 직접 등록(반환 함수 아님) → Vite 내부 미들웨어보다 먼저 실행된다.
+    server.middlewares.use((req, res, next) => {
+      const rawUrl = (req.url ?? '').split('?')[0]
+      const name = buildDirs.find(
+        (dir) => rawUrl === `/${dir}` || rawUrl.startsWith(`/${dir}/`)
+      )
+
+      if (!name) {
+        next()
+        return
+      }
+
+      // 슬래시 없는 디렉터리 요청은 상대경로 자산이 깨지므로 트레일링 슬래시로 보낸다.
+      if (rawUrl === `/${name}`) {
+        res.statusCode = 301
+        res.setHeader('Location', `/${name}/`)
+        res.end()
+        return
+      }
+
+      const relative = rawUrl.slice(name.length + 2) || 'index.html'
+      const baseDir = join(PUBLIC_DIR, name)
+      const filePath = normalize(join(baseDir, decodeURIComponent(relative)))
+
+      // 디렉터리 탈출 방지 + 존재/파일 확인. 없으면 빌드의 index.html로(SPA처럼).
+      const resolved =
+        filePath.startsWith(baseDir) &&
+        existsSync(filePath) &&
+        statSync(filePath).isFile()
+          ? filePath
+          : join(baseDir, 'index.html')
+
+      res.setHeader(
+        'Content-Type',
+        MIME_TYPES[extname(resolved)] ?? 'application/octet-stream'
+      )
+      // 재빌드 시 옛 game.data/스크립트가 캐시에서 떠 변경이 안 보이는 일을 줄인다(dev 한정).
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+
+      // index.html은 임베드용 스타일 + 에디터 다리 스크립트를 주입해 내보낸다(나머지는 스트리밍).
+      if (basename(resolved) === 'index.html') {
+        const html = readFileSync(resolved, 'utf8')
+          .replace('</head>', `${LOVE_EMBED_STYLE}</head>`)
+          .replace('</body>', `${LOVE_EMBED_BRIDGE_SCRIPT}</body>`)
+        res.end(html)
+        return
+      }
+
+      createReadStream(resolved).pipe(res)
+    })
+  }
+})
+
+export default defineConfig({
+  plugins: [tailwindcss(), serveLoveJsBuilds(), logLlmCalls()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        editor: fileURLToPath(new URL('./editor.html', import.meta.url)),
+        cryptCrawler: fileURLToPath(new URL('./crypt-crawler.html', import.meta.url))
+      }
+    }
+  },
+  server: {
+    proxy: {
+      '/api/prompt-theme': {
+        target: process.env.THEME_API_URL ?? 'http://127.0.0.1:8773',
+        rewrite: (path) => path.replace(/^\/api\/prompt-theme/, '')
+      },
+      '/theme-runs': {
+        target: process.env.THEME_API_URL ?? 'http://127.0.0.1:8773',
+        rewrite: (path) => path.replace(/^\/theme-runs/, '/artifacts')
+      },
+      '/api/openai': {
+        target: 'https://api.openai.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/openai/, '')
+      },
+      // 기존 게임/프레젠테이션용 Claude 호출을 서버사이드로 포워딩한다.
+      '/api/anthropic': {
+        target: 'https://api.anthropic.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/anthropic/, '')
+      },
+      '/api/llm': {
+        target: LLM_PROXY_TARGET,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/llm/, '')
+      },
+      // SDXL img2img 스타일 변환 로컬 Python 서비스 — style-service/server.py (포트는 그쪽 config.json).
+      '/api/style': {
+        target: 'http://127.0.0.1:8765',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/style/, '')
+      }
+    }
+  },
+  test: {
+    include: ['src/**/*.test.ts']
+  }
+})

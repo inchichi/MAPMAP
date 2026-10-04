@@ -1,0 +1,20 @@
+{
+  "f79fe8293eaade2fb61cbd5c9ea212cecd9788bad934a4944da0e5b5b5131444": {
+    "kind": "tree",
+    "by": "model:claude-opus-5",
+    "at": "2026-09-23T01:20:00+09:00",
+    "confidence": 0.9
+  },
+  "ddb4d5c963e56980f006aeaf52fb464ffc63de23b387d0c461a7dec69b9d0735": {
+    "kind": "pot",
+    "by": "model:claude-opus-5",
+    "at": "2026-09-23T01:20:00+09:00",
+    "confidence": 0.6
+  },
+  "b4b77cc040812f850eaa5cf8b0deb6e3a6cb664896219ef49586459151baf3c4": {
+    "kind": "plant",
+    "by": "model:claude-opus-5",
+    "at": "2026-09-23T01:20:00+09:00",
+    "confidence": 0.8
+  }
+}

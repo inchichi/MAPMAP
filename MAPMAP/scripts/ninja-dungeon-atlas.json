@@ -1,0 +1,107 @@
+{
+  "tile": 16,
+  "columns": 32,
+  "tilecount": 3168,
+  "imageWidth": 512,
+  "imageHeight": 1584,
+  "sheets": {
+    "dungeon": {
+      "source": "Backgrounds/Tilesets/TilesetDungeon.png",
+      "start": 0,
+      "columns": 12,
+      "rows": 4,
+      "count": 48
+    },
+    "wall": {
+      "source": "Backgrounds/Tilesets/Interior/TilesetWallSimple.png",
+      "start": 64,
+      "columns": 10,
+      "rows": 11,
+      "count": 110
+    },
+    "interior": {
+      "source": "Backgrounds/Tilesets/Interior/TilesetInterior.png",
+      "start": 192,
+      "columns": 16,
+      "rows": 20,
+      "count": 320
+    },
+    "interior_floor": {
+      "source": "Backgrounds/Tilesets/Interior/TilesetInteriorFloor.png",
+      "start": 512,
+      "columns": 22,
+      "rows": 17,
+      "count": 374
+    },
+    "elements": {
+      "source": "Backgrounds/Tilesets/Interior/Elements.png",
+      "start": 896,
+      "columns": 9,
+      "rows": 3,
+      "count": 27
+    },
+    "floor": {
+      "source": "Backgrounds/Tilesets/TilesetFloor.png",
+      "start": 928,
+      "columns": 22,
+      "rows": 26,
+      "count": 572
+    },
+    "floor_b": {
+      "source": "Backgrounds/Tilesets/TilesetFloorB.png",
+      "start": 1504,
+      "columns": 11,
+      "rows": 7,
+      "count": 77
+    },
+    "floor_detail": {
+      "source": "Backgrounds/Tilesets/TilesetFloorDetail.png",
+      "start": 1600,
+      "columns": 16,
+      "rows": 5,
+      "count": 80
+    },
+    "hole": {
+      "source": "Backgrounds/Tilesets/TilesetHole.png",
+      "start": 1696,
+      "columns": 11,
+      "rows": 5,
+      "count": 55
+    },
+    "element": {
+      "source": "Backgrounds/Tilesets/TilesetElement.png",
+      "start": 1760,
+      "columns": 16,
+      "rows": 15,
+      "count": 240
+    },
+    "relief": {
+      "source": "Backgrounds/Tilesets/TilesetRelief.png",
+      "start": 2016,
+      "columns": 20,
+      "rows": 12,
+      "count": 240
+    },
+    "relief_detail": {
+      "source": "Backgrounds/Tilesets/TilesetReliefDetail.png",
+      "start": 2272,
+      "columns": 12,
+      "rows": 12,
+      "count": 144
+    },
+    "ruins": {
+      "source": "Backgrounds/Tilesets/TilesetVillageAbandoned.png",
+      "start": 2432,
+      "columns": 20,
+      "rows": 12,
+      "count": 240
+    },
+    "water": {
+      "source": "Backgrounds/Tilesets/TilesetWater.png",
+      "start": 2688,
+      "columns": 28,
+      "rows": 17,
+      "count": 476
+    }
+  }
+}

@@ -1,0 +1,7 @@
+Pixel Adventure 2 — enemy sprites (Rock, Mushroom)
+by Pixel Frog (https://pixelfrog-assets.itch.io/pixel-adventure-2)
+License: CC0 per the itch.io page ("You can distribute, remix, adapt, and
+build upon the material in any medium or format, even for commercial
+purposes. Attribution is not required."). The OpenGameArt mirror
+(https://opengameart.org/content/pixel-adventure-2) is labeled CC-BY 4.0;
+this credit satisfies that attribution requirement.

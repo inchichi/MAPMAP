@@ -1,0 +1,19 @@
+{
+  "sdxlModel": "stabilityai/stable-diffusion-xl-base-1.0",
+  "sdxlDevice": "cuda",
+  "sdxlSteps": 30,
+  "sdxlGuidanceScale": 5.0,
+  "sdxlStrength": 0.45,
+  "sdxlSeed": 123456789,
+  "projectDir": "..",
+  "assetsSubdir": "src/games/my-sample-rpg/assets",
+  "externalProjects": {
+    "lol": {
+      "name": "Legend of Lua",
+      "root": "../../LOL",
+      "assetsSubdir": "sprites"
+    }
+  },
+  "host": "127.0.0.1",
+  "port": 8765
+}

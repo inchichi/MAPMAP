@@ -1,0 +1,35 @@
+[
+  {
+    "asset": "roof_blue_large",
+    "kind": "roof",
+    "action": "decorate",
+    "prompt": "Add thin soft white snow caps along the upper roof edges and a strand of small warm golden Christmas bulbs on a dark cable under the lower eave. Preserve the exact roof silhouette, tiles, colours and position. Keep the gray background empty. No new objects, no text, no cast shadows.",
+    "decorations": [
+      "snow",
+      "lights"
+    ],
+    "instances": 1,
+    "candidates": 1
+  },
+  {
+    "asset": "tree_large_canopy",
+    "kind": "tree",
+    "action": "decorate",
+    "prompt": "Add thin soft white snow on the top of the leaves and a few small warm golden Christmas bulbs. Preserve the exact tree silhouette, leaves, colours and position. Keep the gray background empty. No new objects, no text, no cast shadows.",
+    "decorations": [
+      "snow",
+      "lights"
+    ],
+    "instances": 3,
+    "candidates": 1
+  },
+  {
+    "asset": "fountain_large",
+    "kind": "fountain",
+    "action": "recolor",
+    "prompt": "",
+    "instances": 2,
+    "candidates": 1,
+    "reason": "frost colour only, no generation"
+  }
+]

@@ -1,0 +1,125 @@
+{
+  "version": "group-manifest-v1",
+  "mapId": "town",
+  "tileset": "src/games/my-sample-rpg/assets/tilesets/town-32.tsx",
+  "tile_size": [
+    32,
+    32
+  ],
+  "groups": [
+    {
+      "group_id": "fountain_large",
+      "kind": "fountain",
+      "confidence": 1.0,
+      "source": "tsx",
+      "layer": "object",
+      "tile_ids": [
+        24,
+        25,
+        26,
+        32,
+        33,
+        34,
+        85,
+        86,
+        87
+      ],
+      "instances": [
+        {
+          "x": 576,
+          "y": 480,
+          "w": 96,
+          "h": 32
+        },
+        {
+          "x": 928,
+          "y": 480,
+          "w": 96,
+          "h": 32
+        }
+      ]
+    },
+    {
+      "group_id": "roof_blue_large",
+      "kind": "roof",
+      "confidence": 1.0,
+      "source": "tsx",
+      "layer": "roof",
+      "tile_ids": [
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        149,
+        150,
+        151,
+        152,
+        153,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159
+      ],
+      "instances": [
+        {
+          "x": 608,
+          "y": 32,
+          "w": 384,
+          "h": 160
+        }
+      ]
+    },
+    {
+      "group_id": "tree_large_canopy",
+      "kind": "tree",
+      "confidence": 1.0,
+      "source": "tsx",
+      "layer": "object_upper",
+      "tile_ids": [
+        326,
+        327,
+        334,
+        335,
+        342,
+        343
+      ],
+      "instances": [
+        {
+          "x": 480,
+          "y": 384,
+          "w": 64,
+          "h": 96
+        },
+        {
+          "x": 512,
+          "y": 1120,
+          "w": 64,
+          "h": 96
+        },
+        {
+          "x": 32,
+          "y": 1280,
+          "w": 64,
+          "h": 96
+        }
+      ]
+    }
+  ]
+}

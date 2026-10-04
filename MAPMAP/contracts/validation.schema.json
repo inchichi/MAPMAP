@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "validation.schema.json",
+  "additionalProperties": true,
+  "properties": {
+    "source_hashes_unchanged": {
+      "title": "Source Hashes Unchanged",
+      "type": "boolean"
+    },
+    "alpha_preserved": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alpha Preserved"
+    },
+    "all_variant_alpha_preserved": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "All Variant Alpha Preserved"
+    },
+    "tiles_covered": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tiles Covered"
+    },
+    "changed_pixels": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Changed Pixels"
+    },
+    "out_of_bounds_pixels": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Out Of Bounds Pixels"
+    }
+  },
+  "required": [
+    "source_hashes_unchanged"
+  ],
+  "title": "Validation",
+  "type": "object"
+}

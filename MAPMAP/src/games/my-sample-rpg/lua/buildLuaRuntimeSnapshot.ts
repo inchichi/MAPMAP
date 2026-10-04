@@ -1,0 +1,69 @@
+import {
+  getAllQuestDefinitions,
+  getQuestProgress,
+  isQuestUnlocked,
+  type QuestLogState
+} from '../questLog'
+import type { PlayerEquipment } from '../playerEquipment'
+import type { PlayerInventory } from '../playerInventory'
+import type { PlayerProfile } from '../playerProfile'
+import type { LuaRuntimeSnapshot } from './createLuaCharacterControllerRuntime'
+
+// Phase 2 읽기 채널: 게임의 권위 있는 상태를 Lua 가 읽을 평면 키 스냅샷으로 변환한다.
+// 순수 함수라 단위 테스트가 쉽고, 렌더러는 매 변경 시 이 결과를 pushSnapshot 으로 밀어넣는다.
+// 키 규약은 createLuaCharacterControllerRuntime 의 engine.quest/inventory/player/scene 읽기와 1:1.
+export const buildLuaRuntimeSnapshot = ({
+  questLog,
+  inventory,
+  equipment,
+  profile,
+  sceneId
+}: {
+  questLog: QuestLogState
+  inventory: PlayerInventory
+  // 장착 중인 장비도 '보유'로 센다 — 곡괭이를 보조 장비 슬롯에 장착한 채로도
+  // 광맥의 get_item_count('pickaxe') 검사가 통과해야 한다. 미전달이면 인벤토리만 센다.
+  equipment?: PlayerEquipment
+  profile: PlayerProfile
+  sceneId: string
+}): LuaRuntimeSnapshot => {
+  const strings: Record<string, string> = {
+    'scene:id': sceneId,
+    'p:name': profile.name
+  }
+  const numbers: Record<string, number> = {
+    'p:level': profile.level,
+    'p:hp': profile.hp.current,
+    'p:max_hp': profile.hp.max,
+    'p:gold': inventory.gold
+  }
+  const booleans: Record<string, boolean> = {}
+
+  // 정적 + 에디터 생성(동적) 퀘스트를 모두 넣는다. 정적만 돌면 생성 퀘스트의 q:status 키가
+  // 아예 없어서 Lua가 폴백값만 받고, 생성 콘텐츠의 상태 분기가 조용히 죽는다.
+  for (const definition of getAllQuestDefinitions()) {
+    const progress = getQuestProgress(questLog, definition.id)
+    strings[`q:status:${definition.id}`] = progress.status
+    booleans[`q:unlocked:${definition.id}`] = isQuestUnlocked(questLog, definition.id)
+
+    for (const [objectiveId, count] of Object.entries(progress.objectives)) {
+      numbers[`q:obj:${definition.id}:${objectiveId}`] = count
+    }
+  }
+
+  for (const slot of inventory.slots) {
+    if (slot) {
+      const key = `inv:${slot.id}`
+      numbers[key] = (numbers[key] ?? 0) + slot.quantity
+    }
+  }
+
+  for (const slot of equipment?.slots ?? []) {
+    if (slot.item) {
+      const key = `inv:${slot.item.id}`
+      numbers[key] = (numbers[key] ?? 0) + 1
+    }
+  }
+
+  return { strings, numbers, booleans }
+}

@@ -1,0 +1,15 @@
+{
+  "size": 32,
+  "items": [
+    "basic-sword",
+    "bronze-sword",
+    "iron-sword",
+    "quick-dagger",
+    "battle-axe",
+    "spiked-mace",
+    "long-spear",
+    "pickaxe",
+    "magic-staff",
+    "hunting-bow"
+  ]
+}
