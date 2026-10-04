@@ -292,7 +292,11 @@
   "id:lady": "npc-id-lady-walk.png",
   "id:farmer": "npc-id-farmer-walk.png",
   "id:mage": "npc-id-mage-walk.png",
-  "id:santa": "npc-id-santa-walk.png"
+  "id:santa": "npc-id-santa-walk.png",
+  "id:miren": "npc-id-miren-walk.png",
+  "id:odi": "npc-id-odi-walk.png",
+  "id:tobin": "npc-id-tobin-walk.png",
+  "id:reed_guard": "npc-id-reed_guard-walk.png"
  },
  "gearIcons": {
   "file": "gear-icons.png",
@@ -333,7 +337,11 @@
    "id:lady",
    "id:farmer",
    "id:mage",
-   "id:santa"
+   "id:santa",
+   "id:miren",
+   "id:odi",
+   "id:tobin",
+   "id:reed_guard"
   ]
  }
 }

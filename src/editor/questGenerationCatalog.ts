@@ -69,7 +69,8 @@ export const QUEST_SCENE_ENTER_SCENES = [
   'cave',
   'crystal-mine',
   'harvest-village',
-  'upstream-waterway'
+  'upstream-waterway',
+  'reed-village'
 ]
 
 export const QUEST_SHOPS: { shopId: string; label: string }[] = [

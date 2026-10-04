@@ -167,6 +167,18 @@ local function get_definitions_for_npc(npc_id)
   return result
 end
 
+-- 이 NPC 에게 보고(완료)하는 퀘스트 — turnInNpcId 가 있으면 그 NPC, 없으면 준 사람(TS 와 같음).
+local function get_turn_in_definitions_for_npc(npc_id)
+  local result = {}
+  for i = 1, #_definitions do
+    local turn_in_npc = _definitions[i].turnInNpcId or _definitions[i].giverNpcId
+    if turn_in_npc == npc_id then
+      result[#result + 1] = _definitions[i]
+    end
+  end
+  return result
+end
+
 -- ── 공개 함수 ─────────────────────────────────────────────────
 
 function quest_log_create_initial()
@@ -334,6 +346,9 @@ function quest_log_get_visible_trackers(quest_log)
         local text
         if def.turnInTrackerText then
           text = def.turnInTrackerText
+        elseif def.turnInNpcId then
+          -- '<보고받는 사람>에게 가기'
+          text = def.title .. ': ' .. (def.turnInName or def.turnInNpcId) .. '\xEC\x97\x90\xEA\xB2\x8C \xEA\xB0\x80\xEA\xB8\xB0'
         else
           text = def.title .. ': ' .. def.giverName .. '\xEC\x97\x90\xEA\xB2\x8C \xEB\x8F\x8C\xEC\x95\x84\xEA\xB0\x80\xEA\xB8\xB0'
         end
@@ -361,9 +376,10 @@ end
 
 function quest_log_get_npc_badge_for_npc(quest_log, npc_id)
   local defs = get_definitions_for_npc(npc_id)
-  -- finish takes priority
-  for i = 1, #defs do
-    if get_progress(quest_log, defs[i].id).status == 'ready-to-turn-in' then
+  -- finish takes priority (보고받는 NPC 기준)
+  local turn_in_defs = get_turn_in_definitions_for_npc(npc_id)
+  for i = 1, #turn_in_defs do
+    if get_progress(quest_log, turn_in_defs[i].id).status == 'ready-to-turn-in' then
       return 'finish'
     end
   end
@@ -379,10 +395,11 @@ end
 
 function quest_log_get_next_interaction_for_npc(quest_log, npc_id)
   local defs = get_definitions_for_npc(npc_id)
-  -- ready-to-turn-in → complete
-  for i = 1, #defs do
-    if get_progress(quest_log, defs[i].id).status == 'ready-to-turn-in' then
-      local def = defs[i]
+  -- ready-to-turn-in → complete (보고받는 NPC 기준)
+  local turn_in_defs = get_turn_in_definitions_for_npc(npc_id)
+  for i = 1, #turn_in_defs do
+    if get_progress(quest_log, turn_in_defs[i].id).status == 'ready-to-turn-in' then
+      local def = turn_in_defs[i]
       return {
         questId    = def.id,
         action     = 'complete',

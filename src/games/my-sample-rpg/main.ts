@@ -3,6 +3,7 @@ import caveMapXml from './assets/maps/cave.tmx?raw'
 import crystalMineMapXml from './assets/maps/crystal-mine.tmx?raw'
 import harvestVillageMapXml from './assets/maps/harvest-village.tmx?raw'
 import upstreamWaterwayMapXml from './assets/maps/upstream-waterway.tmx?raw'
+import reedVillageMapXml from './assets/maps/reed-village.tmx?raw'
 import townMapXml from './assets/maps/town.tmx?raw'
 import replyWithMessageControllerLua from './assets/lua/reply-with-message.lua?raw'
 import wanderNearHomeControllerLua from './assets/lua/wander-near-home.lua?raw'
@@ -124,6 +125,7 @@ type SceneId =
   | 'crystal-mine'
   | 'harvest-village'
   | 'upstream-waterway'
+  | 'reed-village'
 
 const isCharacterFacing = (value: unknown): value is CharacterMoveDirection =>
   value === 'up' || value === 'down' || value === 'left' || value === 'right'
@@ -243,6 +245,12 @@ const parsedUpstreamWaterwayMap = parseTiledMap({
     '../tilesets/town-32.tsx': townTilesetXml
   }
 })
+const parsedReedVillageMap = parseTiledMap({
+  mapXml: reedVillageMapXml,
+  externalTilesets: {
+    '../tilesets/town-32.tsx': townTilesetXml
+  }
+})
 const tinyDungeonTileset = parseTiledTileset({
   firstGid: 1,
   source: '../tilesets/tiny-dungeon-16.tsx',
@@ -273,7 +281,8 @@ const sceneMaps: Record<SceneId, typeof parsedTownMap> = {
   cave: parsedCaveMap,
   'crystal-mine': parsedCrystalMineMap,
   'harvest-village': parsedHarvestVillageMap,
-  'upstream-waterway': parsedUpstreamWaterwayMap
+  'upstream-waterway': parsedUpstreamWaterwayMap,
+  'reed-village': parsedReedVillageMap
 }
 const sceneMusicUrls: Record<SceneId, string> = {
   town: townMusicUrl,
@@ -282,7 +291,8 @@ const sceneMusicUrls: Record<SceneId, string> = {
   'crystal-mine': huntingGroundMusicUrl,
   'harvest-village': townMusicUrl,
   // 2장 전용 곡이 생기기 전까지는 잔잔한 마을 곡(몬스터가 없는 탐색 길)
-  'upstream-waterway': townMusicUrl
+  'upstream-waterway': townMusicUrl,
+  'reed-village': townMusicUrl
 }
 const storedPlayerSaveState = readStoredPlayerSaveState()
 const playerProfile = storedPlayerSaveState?.profile ?? createInitialPlayerProfile()
@@ -1306,7 +1316,8 @@ window.addEventListener('message', (event) => {
     sceneId === 'cave' ||
     sceneId === 'crystal-mine' ||
     sceneId === 'harvest-village' ||
-    sceneId === 'upstream-waterway'
+    sceneId === 'upstream-waterway' ||
+    sceneId === 'reed-village'
   ) {
     questLog = recordSceneEnterQuestProgress(questLog, sceneId)
     // 선택: 도착 칸 지정({ x, y } 타일 좌표) — 에디터·자동 점검에서 원하는 자리에 바로 선다.

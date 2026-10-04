@@ -61,7 +61,8 @@ export const QUEST_SCENE_ENTER_SCENES = [
   'cave',
   'crystal-mine',
   'harvest-village',
-  'upstream-waterway'
+  'upstream-waterway',
+  'reed-village'
 ]
 
 // 상점 열기 목표의 shopId(런타임이 실제로 발생시키는 값: blacksmith, potion).

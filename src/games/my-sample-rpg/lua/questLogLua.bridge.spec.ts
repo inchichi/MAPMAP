@@ -521,6 +521,28 @@ describe('questLogLua (real wasm bridge)', () => {
     )
   })
 
+  it('turns a quest in to another npc (turnInNpcId) the same way as TS', async () => {
+    lua = await createLua()
+    // q017 갈대골: 이멜(mage)이 맡기고 촌장 미렌(miren)에게 보고한다
+    const base = createInitialQuestLog()
+    const forced = {
+      progressByQuestId: {
+        ...base.progressByQuestId,
+        'q014-weapon-path': { ...base.progressByQuestId['q014-weapon-path'], status: 'completed' as const },
+        'q016-vanishing-water': { ...base.progressByQuestId['q016-vanishing-water'], status: 'completed' as const }
+      }
+    }
+    const tsReady = recordSceneEnterQuestProgress(startQuest(forced, 'q017-reed-village'), 'reed-village')
+    const luaReady = lua.recordSceneEnterQuestProgress(lua.startQuest(forced, 'q017-reed-village'), 'reed-village')
+    expect(luaReady).toEqual(tsReady)
+    for (const npcId of ['miren', 'mage']) {
+      expect(lua.getNextQuestInteractionForNpc(luaReady, npcId)).toEqual(getNextQuestInteractionForNpc(tsReady, npcId))
+      expect(lua.getQuestNpcBadgeKindForNpc(luaReady, npcId)).toBe(getQuestNpcBadgeKindForNpc(tsReady, npcId))
+    }
+    expect(lua.getNextQuestInteractionForNpc(luaReady, 'miren')?.action).toBe('complete')
+    expect(lua.getVisibleQuestTrackers(luaReady)).toEqual(getVisibleQuestTrackers(tsReady))
+  })
+
   it('getNextQuestInteractionForNpc matches TS', async () => {
     lua = await createLua()
     const log = createInitialQuestLog()

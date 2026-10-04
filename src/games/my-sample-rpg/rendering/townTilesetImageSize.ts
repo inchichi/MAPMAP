@@ -8,4 +8,4 @@
 // 그래서 크기는 여기 한 곳에만 두고, append-cave-tiles.py 가 시트를 다시 쓸 때
 // 이 파일의 숫자도 함께 갱신한다. 손으로 고치지 말 것.
 export const TOWN_TILESET_IMAGE_WIDTH = 256
-export const TOWN_TILESET_IMAGE_HEIGHT = 6976
+export const TOWN_TILESET_IMAGE_HEIGHT = 7168

@@ -5,10 +5,10 @@
   name="town-32"
   tilewidth="32"
   tileheight="32"
-  tilecount="1743"
+  tilecount="1785"
   columns="8"
 >
-  <image source="town-32.png" width="256" height="6976"/>
+  <image source="town-32.png" width="256" height="7168"/>
   <tile id="0" type="planter_tree_canopy"/>
   <tile id="1" type="planter_tree_shadow"/>
   <tile id="2" type="planter_stone_bowl"/>
@@ -1729,4 +1729,46 @@
   <tile id="1740" type="swamp_deadtree_6_r3c2"/>
   <tile id="1741" type="swamp_deadtree_6_r3c3"/>
   <tile id="1742" type="swamp_deadtree_6_r3c4"/>
+  <tile id="1743" type="swamp_house_from_4"/>
+  <tile id="1744" type="swamp_house_from_5"/>
+  <tile id="1745" type="swamp_house_from_6"/>
+  <tile id="1746" type="swamp_house_from_7"/>
+  <tile id="1747" type="swamp_house_from_13"/>
+  <tile id="1748" type="swamp_house_from_14"/>
+  <tile id="1749" type="swamp_house_from_15"/>
+  <tile id="1750" type="swamp_house_from_28"/>
+  <tile id="1751" type="swamp_house_from_80"/>
+  <tile id="1752" type="swamp_house_from_81"/>
+  <tile id="1753" type="swamp_house_from_82"/>
+  <tile id="1754" type="swamp_house_from_96"/>
+  <tile id="1755" type="swamp_house_from_97"/>
+  <tile id="1756" type="swamp_house_from_98"/>
+  <tile id="1757" type="swamp_house_from_104"/>
+  <tile id="1758" type="swamp_house_from_105"/>
+  <tile id="1759" type="swamp_house_from_106"/>
+  <tile id="1760" type="swamp_house_from_173"/>
+  <tile id="1761" type="swamp_house_from_174"/>
+  <tile id="1762" type="swamp_house_from_180"/>
+  <tile id="1763" type="swamp_house_from_181"/>
+  <tile id="1764" type="swamp_house_from_182"/>
+  <tile id="1765" type="swamp_house_from_183"/>
+  <tile id="1766" type="swamp_house_from_188"/>
+  <tile id="1767" type="swamp_house_from_189"/>
+  <tile id="1768" type="swamp_house_from_190"/>
+  <tile id="1769" type="swamp_house_from_191"/>
+  <tile id="1770" type="swamp_house_from_196"/>
+  <tile id="1771" type="swamp_house_from_197"/>
+  <tile id="1772" type="swamp_house_from_198"/>
+  <tile id="1773" type="swamp_house_from_199"/>
+  <tile id="1774" type="swamp_house_from_204"/>
+  <tile id="1775" type="swamp_house_from_207"/>
+  <tile id="1776" type="swamp_house_from_514"/>
+  <tile id="1777" type="swamp_house_from_579"/>
+  <tile id="1778" type="swamp_house_from_586"/>
+  <tile id="1779" type="swamp_house_from_587"/>
+  <tile id="1780" type="swamp_house_from_594"/>
+  <tile id="1781" type="swamp_deck_h"/>
+  <tile id="1782" type="swamp_deck_v"/>
+  <tile id="1783" type="swamp_deck_shadow"/>
+  <tile id="1784" type="swamp_raft"/>
 </tileset>

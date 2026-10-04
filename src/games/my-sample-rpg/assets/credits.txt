@@ -453,6 +453,14 @@ Rune stele (swamp_stele_* tiles): restored by mirroring the intact half of the L
 
 Swamp grass, mud, swamp tree and bank tiles are recolors/derivatives of this project's town-32 tiles.
 
+Boardwalk decks and the ferry raft (swamp_deck_*, swamp_raft tiles):
+"LPC style wood bridges and steel flooring" by Xenodora. CC-BY-SA 3.0 / GPL 3.0 / GPL 2.0.
+https://opengameart.org/content/lpc-style-wood-bridges-and-steel-flooring
+
+Reed village thatched houses (swamp_house_* tiles) are recolors of this project's town-32 cottage tiles.
+Chapter 2 NPC looks (id:miren, id:odi, id:tobin, id:reed_guard) are clothing recolors of the existing
+LPC NPC sheets (see assets/characters/lpc/CREDITS.csv), made by scripts/add-npc-variants.py.
+
 ■ 맵 타일 (trees)
 ## Trees
 
@@ -588,6 +596,12 @@ mushroom.png — 버섯돌이
   "LPC Big Mushroom", https://opengameart.org/content/lpc-big-mushroom
   저작자: Baŝto
   라이선스: CC-BY-SA 3.0 / GPL 3.0
+
+snake.png — 늪뱀 (2장)
+man_eater_flower.png — 식인 꽃 (2장)
+  "[LPC] Monsters" (공격 동작), https://opengameart.org/content/lpc-monsters
+  원작: Charles Sanchez (CharlesGabriel), Liberated Pixel Cup base assets. 공격 동작: bluecarrot16
+  라이선스: CC-BY-SA 3.0 / GPL 3.0 (bluecarrot16 기여분은 OGA-BY 3.0)
 
 ■ ninja-adventure
 # Ninja Adventure Asset Pack

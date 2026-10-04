@@ -10,6 +10,7 @@ import {
   WEAPON_PATH_QUEST_ID,
   HIDDEN_CACHE_QUEST_ID,
   VANISHING_WATER_QUEST_ID,
+  REED_VILLAGE_QUEST_ID,
   FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS,
   FINAL_SUPPLIES_QUEST_ID,
   HARVEST_VILLAGE_VISIT_QUEST_ID,
@@ -102,8 +103,45 @@ describe('chapter 2 opening (q016 vanishing water)', () => {
   })
 })
 
+describe('chapter 2 reed village (q017, turned in to another npc)', () => {
+  const afterVanishingWater = () => {
+    const questLog = createInitialQuestLog()
+    return {
+      progressByQuestId: {
+        ...questLog.progressByQuestId,
+        [WEAPON_PATH_QUEST_ID]: { ...getQuestProgress(questLog, WEAPON_PATH_QUEST_ID), status: 'completed' as const },
+        [VANISHING_WATER_QUEST_ID]: {
+          ...getQuestProgress(questLog, VANISHING_WATER_QUEST_ID),
+          status: 'completed' as const
+        }
+      }
+    }
+  }
+
+  it('is offered by Imel and reported to chief Miren, not back to Imel', () => {
+    expect(getNextQuestInteractionForNpc(afterVanishingWater(), 'mage')).toMatchObject({
+      questId: REED_VILLAGE_QUEST_ID,
+      action: 'start'
+    })
+    let questLog = startQuest(afterVanishingWater(), REED_VILLAGE_QUEST_ID)
+    questLog = recordSceneEnterQuestProgress(questLog, 'reed-village')
+    expect(getQuestProgress(questLog, REED_VILLAGE_QUEST_ID).status).toBe('ready-to-turn-in')
+
+    expect(getNextQuestInteractionForNpc(questLog, 'miren')).toMatchObject({
+      questId: REED_VILLAGE_QUEST_ID,
+      action: 'complete'
+    })
+    expect(getQuestNpcBadgeKindForNpc(questLog, 'miren')).toBe('finish')
+    expect(getNextQuestInteractionForNpc(questLog, 'mage')?.action).not.toBe('complete')
+    expect(getQuestNpcBadgeKindForNpc(questLog, 'mage')).not.toBe('finish')
+    expect(getVisibleQuestTrackers(questLog).map((tracker) => tracker.text)).toContain(
+      '갈대골: 촌장 미렌에게 가기'
+    )
+  })
+})
+
 describe('questLog', () => {
-  it('registers the quest catalog with stable q001-q016 ids', () => {
+  it('registers the quest catalog with stable q001-q017 ids', () => {
     expect(QUEST_DEFINITIONS.map((definition) => definition.id)).toEqual([
       ...BEGINNER_ARC_QUEST_IDS,
       MINE_ORE_RUSH_QUEST_ID,
@@ -113,11 +151,12 @@ describe('questLog', () => {
       MANOR_SPORE_ERRAND_QUEST_ID,
       WEAPON_PATH_QUEST_ID,
       HIDDEN_CACHE_QUEST_ID,
-      VANISHING_WATER_QUEST_ID
+      VANISHING_WATER_QUEST_ID,
+      REED_VILLAGE_QUEST_ID
     ])
     // 1장(q001~q015)은 티르코네일, 2장부터는 가라앉은 숲
     expect(
-      QUEST_DEFINITIONS.filter((definition) => definition.id !== VANISHING_WATER_QUEST_ID).every(
+      QUEST_DEFINITIONS.filter((definition) => !definition.id.match(/^q01[67]/)).every(
         (definition) => definition.regionName === '티르코네일 마을'
       )
     ).toBe(true)

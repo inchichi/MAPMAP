@@ -23,6 +23,9 @@ export const HIDDEN_CACHE_NPC_ID = 'hidden_cache'
 export const VANISHING_WATER_QUEST_ID = 'q016-vanishing-water'
 export const SLUICE_KEEPER_NPC_ID = 'mage'
 export const SUNKEN_STELE_NPC_ID = 'sunken_stele'
+// c2-02 = q017. 갈대골 촌장 미렌에게 보고한다(이멜이 보낸다).
+export const REED_VILLAGE_QUEST_ID = 'q017-reed-village'
+export const REED_VILLAGE_CHIEF_NPC_ID = 'miren'
 
 export const FIRST_SLIME_HUNT_OBJECTIVE_ID = 'defeat-slimes'
 export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 12
@@ -94,6 +97,10 @@ export type QuestDefinition = {
   title: string
   trackerLabel: string
   turnInTrackerText?: string
+  // 보고(완료)를 준 사람이 아닌 다른 NPC 에게 한다 — 장이 넘어가며 의뢰인이 바뀔 때(예: 이멜이 보내 미렌에게
+  // 보고). 수락과 진행 중 대화는 준 사람(giverNpcId)이, 완료 대사는 이 NPC 가 말한다.
+  turnInNpcId?: string
+  turnInName?: string
   prerequisiteQuestIds: string[]
   requestText: string
   guideText: string
@@ -158,6 +165,7 @@ const SCENE_CAVE = 'cave'
 const SCENE_CRYSTAL_MINE = 'crystal-mine'
 const SCENE_HARVEST_VILLAGE = 'harvest-village'
 const SCENE_UPSTREAM_WATERWAY = 'upstream-waterway'
+const SCENE_REED_VILLAGE = 'reed-village'
 const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
 const MONSTER_MUSHROOM_APPEARANCE_TYPE = 'monster_mushroom'
@@ -965,6 +973,49 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       experience: 450,
       items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }]
     }
+  },
+  {
+    // 늪 마을 갈대골로 건너간다. 이멜이 소식을 전하고, 도착하면 촌장 미렌에게 보고한다(turnInNpcId).
+    // 상류길 전망 둑의 나룻배(reed_ferry)는 q016 완료 후에 닿아 있다.
+    id: REED_VILLAGE_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: SLUICE_KEEPER_NPC_ID,
+    giverName: '이멜',
+    turnInNpcId: REED_VILLAGE_CHIEF_NPC_ID,
+    turnInName: '촌장 미렌',
+    title: '갈대골',
+    trackerLabel: '나룻배 타고 갈대골로',
+    prerequisiteQuestIds: [VANISHING_WATER_QUEST_ID],
+    requestText:
+      '갈대골 사공 토빈이 수로를 거슬러 왔다. 늪 물이 불어 마을이 잠기고 있다며, 촌장 미렌이 만나고 싶어 한다.',
+    guideText: '수로 상류길 동쪽 전망 둑 끝의 나룻배를 타고 갈대골로 건너가, 촌장 미렌을 만나자.',
+    startDialogueLines: [
+      '마침 잘 왔네. 아까 늪 쪽에서 낯선 나룻배 하나가 수로를 거슬러 올라왔다네.',
+      '갈대골 사공 토빈이라더군. 늪 물이 하루가 다르게 불어나 마을이 잠기고 있다는 게야.',
+      '여기선 물이 땅으로 빨려 드는데, 저쪽에선 물이 불어난다… 우연은 아니겠지.',
+      '촌장 미렌이 자네를 꼭 만나고 싶어 한다네. 토빈이 전망 둑에 배를 대어 두었으니 타고 건너가 보게.'
+    ],
+    activeDialogueLines: ['전망 둑 끝에서 토빈의 나룻배를 타게. 촌장 미렌이 기다린다네.'],
+    completionDialogueLines: [
+      '자네가 이멜이 말한 그 사람이군. 먼 길 와 주어 고맙네.',
+      '숲이 가라앉기 시작한 건 석 달 전, 숲속 유적에서 종이 처음 울린 밤부터였네.',
+      '그 뒤로 늪 물이 불어 갈대밭이 반이나 잠기고, 숲에 들어간 사냥꾼들은 하나둘 돌아오지 않았지.',
+      '오늘은 우선 쉬게. 마을 사람들에게 숲 이야기를 들어 두면 도움이 될 걸세.'
+    ],
+    objectives: [
+      {
+        id: 'reach-reed-village',
+        label: '갈대골에 도착',
+        required: 1,
+        type: 'scene-enter',
+        target: { sceneId: SCENE_REED_VILLAGE }
+      }
+    ],
+    rewards: {
+      gold: 250,
+      experience: 500,
+      items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }]
+    }
   }
 ]
 
@@ -1339,7 +1390,9 @@ export const getVisibleQuestTrackers = (
             questId: definition.id,
             text:
               definition.turnInTrackerText ??
-              `${definition.title}: ${definition.giverName}에게 돌아가기`
+              (definition.turnInNpcId
+                ? `${definition.title}: ${definition.turnInName ?? definition.turnInNpcId}에게 가기`
+                : `${definition.title}: ${definition.giverName}에게 돌아가기`)
           }
         ]
       case 'not-started':
@@ -1377,7 +1430,7 @@ export const getQuestNpcBadgeKindForNpc = (
   const definitions = getQuestDefinitionsForNpc(npcId)
 
   if (
-    definitions.some(
+    getQuestDefinitionsToTurnInAtNpc(npcId).some(
       (definition) =>
         questProgressOrUndefined(questLog, definition.id)?.status ===
         'ready-to-turn-in'
@@ -1419,7 +1472,7 @@ export const getNextQuestInteractionForNpc = (
   npcId: string
 ): NpcQuestInteraction | undefined => {
   const definitions = getQuestDefinitionsForNpc(npcId)
-  const readyDefinition = definitions.find(
+  const readyDefinition = getQuestDefinitionsToTurnInAtNpc(npcId).find(
     (definition) =>
       questProgressOrUndefined(questLog, definition.id)?.status ===
       'ready-to-turn-in'
@@ -1473,6 +1526,18 @@ export const formatQuestTextLines = (
 const getQuestDefinitionsForNpc = (npcId: string): QuestDefinition[] => {
   const definitions = getVisibleQuestDefinitions().filter(
     (definition) => definition.giverNpcId === npcId
+  )
+
+  return [
+    ...definitions.filter((definition) => !isStaticQuestDefinition(definition)),
+    ...definitions.filter((definition) => isStaticQuestDefinition(definition))
+  ]
+}
+
+// 이 NPC 에게 보고(완료)하는 퀘스트 — turnInNpcId 가 있으면 그 NPC, 없으면 준 사람.
+const getQuestDefinitionsToTurnInAtNpc = (npcId: string): QuestDefinition[] => {
+  const definitions = getVisibleQuestDefinitions().filter(
+    (definition) => (definition.turnInNpcId ?? definition.giverNpcId) === npcId
   )
 
   return [

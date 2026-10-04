@@ -33,6 +33,11 @@ export const CURRENT_GAME_PROJECT_PROFILE: GameStructureProfile = {
       id: 'upstream-waterway',
       name: 'Upstream Waterway',
       file: 'src/games/my-sample-rpg/assets/maps/upstream-waterway.tmx'
+    },
+    {
+      id: 'reed-village',
+      name: 'Reed Village',
+      file: 'src/games/my-sample-rpg/assets/maps/reed-village.tmx'
     }
   ],
   npcs: [

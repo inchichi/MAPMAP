@@ -95,7 +95,7 @@ describe('generateQuestJson', () => {
     expect(schema.properties?.giver_npc_id?.enum).toEqual(
       profile.npcs.map((npc) => npc.id)
     )
-    expect(schema.properties?.region?.enum).toEqual(['Town', 'Hunting Ground', 'Cave', 'Crystal Mine', 'Harvest Village', 'Upstream Waterway'])
+    expect(schema.properties?.region?.enum).toEqual(['Town', 'Hunting Ground', 'Cave', 'Crystal Mine', 'Harvest Village', 'Upstream Waterway', 'Reed Village'])
 
     const objectiveBranches = schema.properties?.objectives?.items?.oneOf ?? []
     const monsterBranch = objectiveBranches.find(
@@ -135,7 +135,8 @@ describe('generateQuestJson', () => {
       'cave',
       'crystal-mine',
       'harvest-village',
-      'upstream-waterway'
+      'upstream-waterway',
+      'reed-village'
     ])
     expect(sceneEnterBranch?.properties?.target?.properties?.sceneId?.enum).not.toContain('town')
     expect(talkBranch?.properties?.target?.properties?.npcId?.enum).toEqual(

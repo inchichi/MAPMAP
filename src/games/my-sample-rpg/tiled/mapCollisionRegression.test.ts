@@ -76,6 +76,18 @@ describe('portal footprints cover their whole approach corridor', () => {
     expect(isWallTileAt(villageWalls, upstream.targetSpawn.x, upstream.targetSpawn.y)).toBe(false)
   })
 
+  it('ferries between the upstream lookout and the reed village pier', () => {
+    const ferry = portalNamed('upstream-waterway', 'reed_ferry')
+    const dock = portalNamed('reed-village', 'ferry_dock')
+    expect(ferry.targetSceneId).toBe('reed-village')
+    expect(dock.targetSceneId).toBe('upstream-waterway')
+    // 나룻배 칸과 서로의 도착 칸은 걸을 수 있는 칸(잔교·나루 데크)이다
+    expect(isWallTileAt(wallsOf('upstream-waterway'), ferry.position.x, ferry.position.y)).toBe(false)
+    expect(isWallTileAt(wallsOf('reed-village'), dock.position.x, dock.position.y)).toBe(false)
+    expect(isWallTileAt(wallsOf('reed-village'), ferry.targetSpawn.x, ferry.targetSpawn.y)).toBe(false)
+    expect(isWallTileAt(wallsOf('upstream-waterway'), dock.targetSpawn.x, dock.targetSpawn.y)).toBe(false)
+  })
+
   it('spans both walkable columns at the cave mine shaft', () => {
     const portal = portalNamed('cave', 'mine_shaft')
 
@@ -248,7 +260,8 @@ describe('every open cell is reachable', () => {
     ['hunting-ground', [2, 10] as [number, number]],
     ['cave', [2, 10] as [number, number]],
     ['crystal-mine', [29, 35] as [number, number]],
-    ['upstream-waterway', [5, 21] as [number, number]]
+    ['upstream-waterway', [5, 21] as [number, number]],
+    ['reed-village', [3, 17] as [number, number]]
   ])('leaves no unreachable floor in %s', (name, start) => {
     expect(reachableFrom(name, start)).toEqual([])
   })

@@ -37,6 +37,11 @@ TSX = 'src/games/my-sample-rpg/assets/tilesets/town-32.tsx'
 PNG = 'src/games/my-sample-rpg/assets/tilesets/town-32.png'
 SIZE_TS = 'src/games/my-sample-rpg/rendering/townTilesetImageSize.ts'
 OUT_GIDS = 'scripts/swamp-tile-gids.json'
+BRIDGE_PNG = os.environ.get(
+    'LPC_WOOD_BRIDGE', '../art-src/ch2/5-lpc-wood-bridges/bridge-wood-square_0.png')
+TOWN_TMX = 'src/games/my-sample-rpg/assets/maps/town.tmx'
+HOUSE_BOX = (12, 30, 19, 40)        # town.tmx 의 붉은 지붕 오두막(딴따라마을이 찍는 것과 같은 집)
+HOUSE_PROPS = {412, 419, 420, 433, 326, 327, 328, 334, 335, 336, 342, 343, 344, 350, 351, 352}
 DEAD_TREES_PNG = os.environ.get(
     'LPC_DEAD_TREES', '../art-src/ch2/3-lpc-trees/lpc-trees/trees-dead.png')
 
@@ -384,6 +389,68 @@ def main():
         g_rows = [[add(f'swamp_deadtree_{i}_r{r}c{c}', t) for c, t in enumerate(row)]
                   for r, row in enumerate(grid)]
         gids['dead_trees'].append({'source_box': list(box), 'grid': g_rows, 'foot_col': foot_col})
+
+    # 아래 타일은 갈대골(2장 두 번째 맵)에서 더했다. 앞 타일의 gid 가 밀리지 않게 늘 맨 뒤에 붙인다.
+    # ---- 갈대골 초가: town 오두막의 붉은 기와 → 짚 지붕, 흰 벽돌 → 흙벽. 문·창·꽃상자는 그대로.
+    town = open(TOWN_TMX, encoding='utf-8').read()
+    town_layers = [[int(v) for v in mm.group(1).replace(chr(10), ',').split(',') if v.strip()]
+                   for mm in re.finditer(r'<data encoding="csv">\s*([\d,\s]+?)</data>', town)]
+    x0, y0, x1, y1 = HOUSE_BOX
+    house_gids = sorted({layer[y * 50 + x] for layer in town_layers for y in range(y0, y1)
+                         for x in range(x0, x1) if layer[y * 50 + x] and layer[y * 50 + x] not in HOUSE_PROPS})
+
+    def thatch(img):
+        out = img.copy()
+        px = out.load()
+        for yy in range(TILE):
+            for xx in range(TILE):
+                r, g, b, a = px[xx, yy]
+                if a == 0:
+                    continue
+                h, s_, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+                if (h >= 0.94 or h <= 0.045) and s_ >= 0.35:          # 붉은 기와 → 짚
+                    h, s_, v = 0.11, s_ * 0.62, min(1.0, v * 1.02)
+                elif s_ <= 0.12 and v >= 0.62:                         # 흰 벽돌 → 흙벽
+                    h, s_, v = 0.085, 0.24, v * 0.86
+                else:
+                    continue
+                nr, ng, nb = colorsys.hsv_to_rgb(h, s_, v)
+                px[xx, yy] = (round(nr * 255), round(ng * 255), round(nb * 255), a)
+        return out
+
+    house_map = {}
+    for g in house_gids:
+        before = tile_of(g)
+        after = thatch(before)
+        if list(after.getdata()) != list(before.getdata()):
+            house_map[g] = add(f'swamp_house_from_{g - 1}', after)
+    gids['house_thatch'] = {'box': list(HOUSE_BOX), 'props': sorted(HOUSE_PROPS), 'map': house_map}
+
+    # ---- 나무 데크(늪 위 길): [LPC] 판자 다리(Xenodora, CC-BY-SA 3.0). 가로·세로 판자를 32px 로
+    # 잘라 이어 붙일 수 있게 하고, 데크 남쪽 물 칸에 드리우는 그림자 띠를 따로 둔다.
+    bridge = Image.open(BRIDGE_PNG).convert('RGBA')
+    gids['deck_h'] = add('swamp_deck_h', bridge.crop((160, 96, 192, 128)))
+    gids['deck_v'] = add('swamp_deck_v', bridge.crop((96, 32, 128, 64)))
+    shadow = Image.new('RGBA', (TILE, TILE), (0, 0, 0, 0))
+    sp = shadow.load()
+    for yy in range(10):
+        for xx in range(TILE):
+            sp[xx, yy] = (14, 22, 18, round(120 * (1 - yy / 10)))
+    gids['deck_shadow'] = add('swamp_deck_shadow', shadow)
+    # 나룻배(1칸, 나루 포탈 그림): 세로 판자를 둥근 뗏목 모양으로 오리고 판자 틈은 짙은 나무색으로.
+    raft = Image.new('RGBA', (TILE, TILE), (0, 0, 0, 0))
+    planks = bridge.crop((96, 32, 128, 64))
+    rp, pp = raft.load(), planks.load()
+    for yy in range(TILE):
+        for xx in range(TILE):
+            dx, dy = (xx - 15.5) / 14.5, (yy - 18) / 10.5
+            d = dx * dx + dy * dy
+            if d <= 1:
+                r, g, b, a = pp[xx, yy]
+                rp[xx, yy] = (r, g, b, 255) if a > 0 else (72, 44, 24, 255)
+            elif d <= 1.2:
+                rp[xx, yy] = (40, 26, 16, 255)
+    gids['raft'] = add('swamp_raft', raft)
 
     total_slots = BASE_SLOTS + len(new_tiles)
     rows_total = -(-total_slots // COLUMNS)
