@@ -18,6 +18,7 @@ import {
   usePlayerInventoryConsumable
 } from '../lua/luaGameLogic'
 import { getResponsiveUiScale } from './getResponsiveUiScale'
+import { getPotionShopItemDefinitionById } from '../potionShop'
 import {
   TOWN_TILESET_IMAGE_HEIGHT,
   TOWN_TILESET_IMAGE_WIDTH
@@ -126,6 +127,18 @@ const TINY_DUNGEON_CONSUMABLE_ICON_FRAMES = {
     imageHeight: TINY_DUNGEON_TILESET_HEIGHT,
     frame: {
       x: 128,
+      y: 144,
+      width: 16,
+      height: 16
+    }
+  },
+  // 해독 향(2장) — 초록 약병
+  'antidote-incense': {
+    imageUrl: TINY_DUNGEON_TILESET_IMAGE_URL,
+    imageWidth: TINY_DUNGEON_TILESET_WIDTH,
+    imageHeight: TINY_DUNGEON_TILESET_HEIGHT,
+    frame: {
+      x: 96,
       y: 144,
       width: 16,
       height: 16
@@ -775,6 +788,8 @@ export const createPlayerInventoryOverlay = ({
         return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['health-potion']
       case 'mana-potion':
         return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['mana-potion']
+      case 'antidote-incense':
+        return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['antidote-incense']
       case 'crystal-ore':
         return CRYSTAL_ORE_ICON_FRAME
       default:
@@ -912,6 +927,7 @@ export const createPlayerInventoryOverlay = ({
     detailsMeta.textContent = `${selectedCategoryLabel}${selectedSlot.quantity > 1 ? ` · x${selectedSlot.quantity}` : ''}${selectedQuickslotIndex !== undefined && isLikelyConsumableInventoryItem(selectedSlot) ? ` · 퀵슬롯 ${selectedQuickslotIndex + 1}` : ''}`
     detailsDescription.textContent =
       selectedDefinition?.description ??
+      getPotionShopItemDefinitionById(selectedSlot.id)?.description ??
       (isLikelyConsumableInventoryItem(selectedSlot)
         ? '회복 아이템입니다.'
         : '기타 아이템입니다.')

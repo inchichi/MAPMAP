@@ -40,6 +40,7 @@ RIDGES = [
     (catmull([(11.5, 23.5), (14.5, 27.0), (18.0, 30.0), (22.0, 31.5)]), 1.3),       # 남쪽 둑길
     (catmull([(40.0, 8.0), (41.5, 14.0), (41.0, 21.5), (42.0, 28.0), (40.5, 36.0)]), 1.8),  # 동쪽 둔덕
     (catmull([(41.0, 21.5), (47.0, 21.5), (53.0, 19.0), (61.0, 18.0)]), 1.6),       # 안개 속으로 이어지는 길
+    (catmull([(48.5, 21.5), (50.5, 24.5), (53.0, 27.0)]), 1.3),                       # 안개 속 남쪽 섬(렌)으로 내려가는 둑
 ]
 ISLANDS = [(6.5, 22.0, 5.0, 4.6), (27.0, 9.5, 5.2, 4.0), (25.5, 32.0, 6.0, 4.8), (52.0, 14.0, 4.5, 4.0),
            (54.0, 30.0, 5.0, 4.5), (33.5, 20.5, 2.6, 2.0), (12.0, 40.5, 4.2, 2.6), (37.0, 41.5, 4.8, 2.4),
@@ -63,7 +64,14 @@ MONSTERS = [
     ('식인 꽃-1', 'monster_flower', 20, (20, 12)),
     ('식인 꽃-2', 'monster_flower', 20, (40, 33)),
     ('식인 꽃-3', 'monster_flower', 20, (29, 7)),
+    # 독안개 속(c2-04) — 더 세다
+    ('늪개구리 전사-7', 'monster_frog', 23, (50, 19)),
+    ('늪개구리 전사-8', 'monster_frog', 22, (52, 14)),
+    ('늪개구리 전사-9', 'monster_frog', 23, (51, 25)),
+    ('늪뱀-4', 'monster_snake', 22, (52, 26)),             # 렌의 섬으로 내려가는 둑목
+    ('식인 꽃-4', 'monster_flower', 23, (46, 22)),
 ]
+LOST_HUNTER = (54, 31)                   # 안개 속 남쪽 섬에 쓰러진 사냥꾼 렌(q020 조사 목표)
 
 m = SwampMap(W, H, seed=20261006)
 
@@ -98,6 +106,9 @@ m.reserve_monster_room(MONSTERS)
 m.reserved = set(m.walk)
 m.keep_monsters_visible(MONSTERS)
 m.no_canopy |= {(HUNTER_TRACE[0] + dx, HUNTER_TRACE[1] + dy) for dx in (-1, 0, 1) for dy in (-2, -1, 0)}
+m.no_canopy |= {(LOST_HUNTER[0] + dx, LOST_HUNTER[1] + dy) for dx in (-1, 0, 1) for dy in (-2, -1, 0)}
+m.walk |= {(LOST_HUNTER[0] + dx, LOST_HUNTER[1] + dy) for dx in (-1, 0, 1) for dy in (0, 1)}
+m.reserved |= m.walk
 
 # 사냥꾼 야영지: 꺼진 모닥불, 장작, 상자(흔적 오브젝트가 그린다)
 m.set('object', CAMP[0], CAMP[1], CAMPFIRE)
@@ -155,7 +166,7 @@ if '--ascii' in sys.argv:
 
 m.validate(ARRIVAL, [(n, p) for n, _k, _l, p in MONSTERS] + [
     ('도착 칸', ARRIVAL), ('사냥꾼 흔적 앞', (HUNTER_TRACE[0], HUNTER_TRACE[1] + 1)),
-    ('소굴', LAIR), ('장막 앞', (FOG_WALLS[1][0] - 1, FOG_WALLS[1][1]))] +
+    ('소굴', LAIR), ('장막 앞', (FOG_WALLS[1][0] - 1, FOG_WALLS[1][1])), ('렌 앞', (LOST_HUNTER[0], LOST_HUNTER[1] + 1))] +
     [(f'입구 {p}', p) for p in entrance_cells], open_edge_cells=entrance_cells)
 
 # ---------------------------------------------------------------- TMX 출력
@@ -173,8 +184,19 @@ chars = [monster(20 + i, name, x, y, kind, lvl) for i, (name, kind, lvl, (x, y))
         ('controller.dialogueLines', 'list', ['독안개가 벽처럼 짙게 깔려 있다.',
                                                '한 걸음만 들어서도 숨이 막혀 온다. 이대로는 지나갈 수 없다.']),
         ('controller.scriptId', '', 'vn-dialogue'),
+        # 오디에게 해독 향을 받으면(q019) 장막이 걷힌다 — 그 뒤로는 향을 피우고 들어간다
+        ('quest.hiddenWhenCompleted', '', 'q019-antidote-incense'),
         ('type', '', 'swamp_fog_wall')])
     for i, (x, y) in enumerate(FOG_WALLS)
+] + [
+    # 쓰러진 사냥꾼 렌 — 찾아서 말을 걸면 q020 목표. 보고하면 갈대골로 돌아간다(여기서는 사라진다).
+    character(8, 'lost_hunter_ren', LOST_HUNTER[0], LOST_HUNTER[1], [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['…물… 물 좀…', '안개 속에서 종소리가… 계속 들려…']),
+        ('controller.scriptId', '', 'vn-dialogue'),
+        ('displayText', '', '사냥꾼 렌'),
+        ('quest.hiddenWhenCompleted', '', 'q020-beyond-the-fog'),
+        ('type', '', 'character_ranger_green')]),
 ]
 portals = [
     portal(10, 'reed_gate', ENTRANCE[0], ENTRANCE[1], ENTRANCE[2], ENTRANCE[3], [
@@ -183,7 +205,7 @@ portals = [
         ('targetSpawnTileX', 'int', REED_GATE_SPAWN[0]), ('targetSpawnTileY', 'int', REED_GATE_SPAWN[1])]),
 ]
 m.write_tmx(OUT, 'scripts/generate-sunken-forest.py', chars,
-            '사냥꾼 흔적(hunter_trace, q018 조사 목표), 독안개 장막(fog_wall, c2-04 까지 닫힘) / 늪개구리 전사 6(Lv20~21), '
-            '늪뱀 3, 식인 꽃 3',
+            '사냥꾼 흔적(hunter_trace, q018), 독안개 장막(fog_wall, q019 후 걷힘), 사냥꾼 렌(lost_hunter_ren, q020) / '
+            '늪개구리 전사 6(Lv20~21) + 안개 속 3(Lv22~23), 늪뱀 3 + 1, 식인 꽃 3 + 1',
             portals, f'서쪽 끝 → 갈대골 문 안쪽 {REED_GATE_SPAWN}. 갈대골 쪽 포탈(forest_gate)은 이 맵의 도착 칸 {ARRIVAL} 을 들고 있다.',
             next_object_id=60)

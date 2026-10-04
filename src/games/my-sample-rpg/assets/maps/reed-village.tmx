@@ -312,7 +312,7 @@
    <properties>
     <property name="blocksMovement" type="bool" value="true"/>
     <property name="controller.dialogueLines" type="list">
-     <item value="늪 약초는 독이 되기도 하고 약이 되기도 해요."/>
+     <item value="늪 약초는 독이 되기도 하고 약이 되기도 해요. 필요한 게 있으면 골라 보세요."/>
      <item value="독안개 냄새가 요즘 부쩍 짙어졌어요."/>
     </property>
     <property name="controller.scriptId" value="vn-dialogue"/>
@@ -375,6 +375,19 @@
     <property name="type" value="sign_inn"/>
     <property name="blocksMovement" type="bool" value="false"/>
     <property name="displayText" value="가라앉은 숲 →"/>
+   </properties>
+  </object>
+  <object id="25" name="ren" type="character" x="560" y="672" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="살려 줘서 고마워. 이 은혜는 꼭 갚을게."/>
+     <item value="동쪽 유적에서 울리던 종소리… 아직도 귀에 맴돌아."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="사냥꾼 렌"/>
+    <property name="quest.requiresCompleted" value="q020-beyond-the-fog"/>
+    <property name="type" value="character_ranger_green"/>
    </properties>
   </object>
   <object id="30" name="forest_gate_0" type="character" x="1392" y="864" width="32" height="32">

@@ -95,6 +95,33 @@ describe('usePlayerInventoryConsumable', () => {
     })
   })
 
+  it('burns one antidote incense without touching the profile', () => {
+    const profile = createInitialPlayerProfile()
+    const inventory = setPlayerInventorySlot({
+      inventory: createInitialPlayerInventory({ slotCount: 1 }),
+      slotIndex: 0,
+      item: {
+        id: 'antidote-incense',
+        label: '해독 향',
+        quantity: 3
+      }
+    })
+
+    expect(
+      usePlayerInventoryConsumable({
+        profile,
+        inventory,
+        slotIndex: 0
+      })
+    ).toEqual({
+      profile,
+      inventory: {
+        gold: 150,
+        slots: [{ id: 'antidote-incense', label: '해독 향', quantity: 2 }]
+      }
+    })
+  })
+
   it('ignores non-consumable items', () => {
     const inventory = setPlayerInventorySlot({
       inventory: createInitialPlayerInventory({ slotCount: 1 }),

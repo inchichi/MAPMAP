@@ -143,6 +143,18 @@ const POTION_ICON_FRAME_BY_ID = {
       width: 16,
       height: 16
     }
+  },
+  // 해독 향(2장) — 초록 약병
+  'antidote-incense': {
+    imageUrl: TINY_DUNGEON_TILESET_IMAGE_URL,
+    imageWidth: TINY_DUNGEON_TILESET_WIDTH,
+    imageHeight: TINY_DUNGEON_TILESET_HEIGHT,
+    frame: {
+      x: 96,
+      y: 144,
+      width: 16,
+      height: 16
+    }
   }
 } as const
 const ICON_CHECK_FRAME = {

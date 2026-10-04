@@ -12,6 +12,7 @@ import {
   DEFAULT_POTION_INVENTORY_SLOT_COUNT,
   DEFAULT_POTION_STOCK_QUANTITY,
   POTION_ITEM_DEFINITIONS,
+  POTION_MERCHANT_STOCK_ITEM_IDS,
   POTION_SALE_RATIO,
   type PotionShopInventory,
   type PotionShopItemDefinition,
@@ -51,6 +52,7 @@ export type PlayerPotionShopLua = {
   createInitialPotionInventory: (input?: {
     slotCount?: number
     gold?: number
+    stockItemIds?: readonly PotionShopItemDefinition['id'][]
   }) => PotionShopInventory
   getPotionShopItemDefinitionById: (
     itemId: string
@@ -106,14 +108,20 @@ export const createPlayerPotionShopLua = async (
   return {
     createInitialPotionInventory: ({
       slotCount = DEFAULT_POTION_INVENTORY_SLOT_COUNT,
-      gold = DEFAULT_POTION_INVENTORY_GOLD
-    }: { slotCount?: number; gold?: number } = {}): PotionShopInventory =>
+      gold = DEFAULT_POTION_INVENTORY_GOLD,
+      stockItemIds = POTION_MERCHANT_STOCK_ITEM_IDS
+    }: {
+      slotCount?: number
+      gold?: number
+      stockItemIds?: readonly PotionShopItemDefinition['id'][]
+    } = {}): PotionShopInventory =>
       normalizeInventory(
         host.callJson<RawInventory>(
           'potion_shop_create_initial',
           slotCount,
           gold,
-          POTION_ITEM_DEFINITIONS,
+          // Lua 는 받은 정의를 순서대로 모두 진열한다 — 진열할 것만 골라 넘긴다
+          stockItemIds.map((id) => POTION_ITEM_DEFINITIONS.find((definition) => definition.id === id)),
           DEFAULT_POTION_STOCK_QUANTITY
         )
       ),

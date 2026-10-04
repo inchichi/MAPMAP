@@ -44,6 +44,11 @@ const MANA_POTION: PlayerInventoryItem = {
   label: '마나 회복 포션',
   quantity: 1
 }
+const ANTIDOTE_INCENSE: PlayerInventoryItem = {
+  id: 'antidote-incense',
+  label: '해독 향',
+  quantity: 1
+}
 const UNKNOWN_ITEM: PlayerInventoryItem = {
   id: 'mystery-rock',
   label: '수수께끼 돌',
@@ -155,6 +160,16 @@ describe('playerConsumablesLua (real wasm)', () => {
         slotIndex: 0
       })
     )
+
+    // ── usePlayerInventoryConsumable: antidote-incense (profile unchanged, last one → clear slot) ──
+    const invWithIncense = setPlayerInventorySlot({
+      inventory: createInitialPlayerInventory({ slotCount: 2 }),
+      slotIndex: 1,
+      item: ANTIDOTE_INCENSE
+    })
+    expect(
+      lua.usePlayerInventoryConsumable({ profile, inventory: invWithIncense, slotIndex: 1 })
+    ).toEqual(usePlayerInventoryConsumable({ profile, inventory: invWithIncense, slotIndex: 1 }))
 
     // ── usePlayerInventoryConsumable: unknown item → undefined ──
     const invWithUnknown = setPlayerInventorySlot({

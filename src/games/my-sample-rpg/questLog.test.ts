@@ -12,6 +12,8 @@ import {
   VANISHING_WATER_QUEST_ID,
   REED_VILLAGE_QUEST_ID,
   DROWNED_PATH_QUEST_ID,
+  ANTIDOTE_INCENSE_QUEST_ID,
+  BEYOND_THE_FOG_QUEST_ID,
   FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS,
   FINAL_SUPPLIES_QUEST_ID,
   HARVEST_VILLAGE_VISIT_QUEST_ID,
@@ -141,8 +143,80 @@ describe('chapter 2 reed village (q017, turned in to another npc)', () => {
   })
 })
 
+describe('chapter 2 poison fog (q019 antidote incense, q020 beyond the fog)', () => {
+  const completedThrough = (questIds: string[]) => {
+    const questLog = createInitialQuestLog()
+    return {
+      progressByQuestId: {
+        ...questLog.progressByQuestId,
+        ...Object.fromEntries(
+          questIds.map((questId) => [
+            questId,
+            { ...getQuestProgress(questLog, questId), status: 'completed' as const }
+          ])
+        )
+      }
+    }
+  }
+  const CHAPTER_2_UNTIL_DROWNED_PATH = [
+    WEAPON_PATH_QUEST_ID,
+    VANISHING_WATER_QUEST_ID,
+    REED_VILLAGE_QUEST_ID,
+    DROWNED_PATH_QUEST_ID
+  ]
+
+  it('lets herbalist Odi offer the incense quest after the drowned path', () => {
+    expect(isQuestUnlocked(completedThrough(CHAPTER_2_UNTIL_DROWNED_PATH.slice(0, 3)), ANTIDOTE_INCENSE_QUEST_ID)).toBe(
+      false
+    )
+    const questLog = completedThrough(CHAPTER_2_UNTIL_DROWNED_PATH)
+    expect(getNextQuestInteractionForNpc(questLog, 'odi')).toMatchObject({
+      questId: ANTIDOTE_INCENSE_QUEST_ID,
+      action: 'start'
+    })
+  })
+
+  it('needs three man-eater flowers in the sunken forest and pays out incense', () => {
+    let questLog = startQuest(completedThrough(CHAPTER_2_UNTIL_DROWNED_PATH), ANTIDOTE_INCENSE_QUEST_ID)
+    for (let i = 0; i < 2; i += 1) {
+      questLog = recordMonsterDefeatQuestProgress(questLog, {
+        sceneId: 'sunken-forest',
+        appearanceType: 'monster_flower'
+      })
+    }
+    questLog = recordMonsterDefeatQuestProgress(questLog, {
+      sceneId: 'sunken-forest',
+      appearanceType: 'monster_frog'
+    })
+    expect(getQuestProgress(questLog, ANTIDOTE_INCENSE_QUEST_ID).status).toBe('active')
+    questLog = recordMonsterDefeatQuestProgress(questLog, {
+      sceneId: 'sunken-forest',
+      appearanceType: 'monster_flower'
+    })
+    expect(getQuestProgress(questLog, ANTIDOTE_INCENSE_QUEST_ID).status).toBe('ready-to-turn-in')
+
+    const result = completeQuest(questLog, ANTIDOTE_INCENSE_QUEST_ID)
+    expect(result.itemRewards).toEqual([{ id: 'antidote-incense', label: '해독 향', quantity: 3 }])
+    expect(isQuestUnlocked(result.nextQuestLog, BEYOND_THE_FOG_QUEST_ID)).toBe(true)
+  })
+
+  it('finds Ren in the fog and reports to chief Miren', () => {
+    let questLog = startQuest(
+      completedThrough([...CHAPTER_2_UNTIL_DROWNED_PATH, ANTIDOTE_INCENSE_QUEST_ID]),
+      BEYOND_THE_FOG_QUEST_ID
+    )
+    questLog = recordTalkQuestProgress(questLog, 'lost_hunter_ren')
+    expect(getQuestProgress(questLog, BEYOND_THE_FOG_QUEST_ID).status).toBe('ready-to-turn-in')
+    expect(getNextQuestInteractionForNpc(questLog, 'miren')).toMatchObject({
+      questId: BEYOND_THE_FOG_QUEST_ID,
+      action: 'complete'
+    })
+    expect(getQuestNpcBadgeKindForNpc(questLog, 'odi')).not.toBe('finish')
+  })
+})
+
 describe('questLog', () => {
-  it('registers the quest catalog with stable q001-q018 ids', () => {
+  it('registers the quest catalog with stable q001-q020 ids', () => {
     expect(QUEST_DEFINITIONS.map((definition) => definition.id)).toEqual([
       ...BEGINNER_ARC_QUEST_IDS,
       MINE_ORE_RUSH_QUEST_ID,
@@ -154,11 +228,13 @@ describe('questLog', () => {
       HIDDEN_CACHE_QUEST_ID,
       VANISHING_WATER_QUEST_ID,
       REED_VILLAGE_QUEST_ID,
-      DROWNED_PATH_QUEST_ID
+      DROWNED_PATH_QUEST_ID,
+      ANTIDOTE_INCENSE_QUEST_ID,
+      BEYOND_THE_FOG_QUEST_ID
     ])
     // 1장(q001~q015)은 티르코네일, 2장부터는 가라앉은 숲
     expect(
-      QUEST_DEFINITIONS.filter((definition) => !definition.id.match(/^q01[678]/)).every(
+      QUEST_DEFINITIONS.filter((definition) => !definition.id.match(/^q01[6-9]|^q020/)).every(
         (definition) => definition.regionName === '티르코네일 마을'
       )
     ).toBe(true)

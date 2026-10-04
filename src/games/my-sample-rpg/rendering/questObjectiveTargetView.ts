@@ -35,7 +35,8 @@ const getMonsterPopupSprite = (appearanceType: string): MonsterPopupSprite | und
 
 const POTION_LABELS: Record<string, string> = {
   'health-potion': '체력 회복 포션',
-  'mana-potion': '마나 회복 포션'
+  'mana-potion': '마나 회복 포션',
+  'antidote-incense': '해독 향'
 }
 
 const MATERIAL_LABELS: Record<string, string> = {

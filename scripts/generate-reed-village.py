@@ -163,7 +163,7 @@ NPCS = [
      ['갈대골은 가난해도 서로 돕고 사는 마을이라네.', '숲 쪽 일이라면 언제든 내게 묻게.']),
     ('odi', (house_door_front(HERB_HUT)[0] + 2, house_door_front(HERB_HUT)[1]), '약초꾼 오디',
      'character_villager_flower_dress',
-     ['늪 약초는 독이 되기도 하고 약이 되기도 해요.', '독안개 냄새가 요즘 부쩍 짙어졌어요.']),
+     ['늪 약초는 독이 되기도 하고 약이 되기도 해요. 필요한 게 있으면 골라 보세요.', '독안개 냄새가 요즘 부쩍 짙어졌어요.']),
     ('reed_guard', (40, 25), '문지기 하르', 'character_villager_brown_tunic',
      ['저 문 너머가 가라앉은 숲이다. 숲길은 위험하다.', '촌장님 말씀을 듣고 가라. 개구리 녀석들이 떼로 다닌다.']),
     ('reed_weaver', (24, 22), '갈대 엮는 네아', 'character_villager_flower_dress',
@@ -212,6 +212,16 @@ chars += [
     sign(20, 'reed_village_sign', ARRIVAL[0] + 1, ARRIVAL[1] - 2, '갈대골'),
     sign(21, 'herb_hut_sign', HERB_HUT[0] + 5, HERB_HUT[1] + 7, '약초 오두막'),
     sign(22, 'forest_gate_sign', EAST_GATE[0][0] - 2, EAST_GATE[0][1] - 2, '가라앉은 숲 →'),
+] + [
+    # 안개에서 돌아온 사냥꾼 렌(q020 보고 뒤) — 촌장 집 옆에서 쉬고 있다
+    character(25, 'ren', house_door_front(CHIEF_HOUSE)[0] - 2, house_door_front(CHIEF_HOUSE)[1], [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['살려 줘서 고마워. 이 은혜는 꼭 갚을게.',
+                                               '동쪽 유적에서 울리던 종소리… 아직도 귀에 맴돌아.']),
+        ('controller.scriptId', '', 'vn-dialogue'),
+        ('displayText', '', '사냥꾼 렌'),
+        ('quest.requiresCompleted', '', 'q020-beyond-the-fog'),
+        ('type', '', 'character_ranger_green')]),
 ] + [
     character(30 + i, f'forest_gate_{i}', x, y, [
         ('blocksMovement', 'bool', 'true'),

@@ -61,7 +61,9 @@ const QUEST_ORDER = [
   'q014-weapon-path',
   'q016-vanishing-water',
   'q017-reed-village',
-  'q018-drowned-path'
+  'q018-drowned-path',
+  'q019-antidote-incense',
+  'q020-beyond-the-fog'
 ]
 const MAIN_QUEST_IDS = new Set([
   'q001-first-slime-hunt',
@@ -76,7 +78,9 @@ const MAIN_QUEST_IDS = new Set([
   'q014-weapon-path',
   'q016-vanishing-water',
   'q017-reed-village',
-  'q018-drowned-path'
+  'q018-drowned-path',
+  'q019-antidote-incense',
+  'q020-beyond-the-fog'
 ])
 const SHOP_NPC_BY_ID: Record<string, string> = { blacksmith: 'blacksmith' }
 const BASIC_WEAPON_BONUS = 2

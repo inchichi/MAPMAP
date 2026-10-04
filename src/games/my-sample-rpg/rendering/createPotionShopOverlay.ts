@@ -1,3 +1,4 @@
+import { setNpcPortrait } from './createQuestLogOverlay'
 import {
   type PlayerEquipmentIconKey,
   type PlayerEquipmentItemDefinition
@@ -21,6 +22,12 @@ import { LPC_GEAR_ICON_FRAMES } from './lpcGearIcons'
 
 type CreatePotionShopOverlayInput = {
   mountElement: HTMLElement
+  // 같은 화면을 다른 상인에게도 쓴다(2장 약초꾼 오디). 없으면 물약상인.
+  merchantName?: string
+  title?: string
+  merchantPortraitFrame?: { x: number; y: number; width: number; height: number }
+  // 주면 tiny-dungeon 그림 대신 대화창과 같은 LPC 얼굴(npc id)을 쓴다
+  merchantPortraitNpcId?: string
   getPlayerName: () => string
   getPlayerInventory: () => PlayerInventory
   getMerchantInventory: () => PlayerInventory
@@ -129,6 +136,18 @@ const POTION_ICON_FRAME_BY_ID = {
     imageHeight: TINY_DUNGEON_TILESET_HEIGHT,
     frame: {
       x: 128,
+      y: 144,
+      width: 16,
+      height: 16
+    }
+  },
+  // 해독 향(2장) — 초록 약병
+  'antidote-incense': {
+    imageUrl: TINY_DUNGEON_TILESET_IMAGE_URL,
+    imageWidth: TINY_DUNGEON_TILESET_WIDTH,
+    imageHeight: TINY_DUNGEON_TILESET_HEIGHT,
+    frame: {
+      x: 96,
       y: 144,
       width: 16,
       height: 16
@@ -310,6 +329,10 @@ const PORTRAIT_SCALE = 3
 
 export const createPotionShopOverlay = ({
   mountElement,
+  merchantName: merchantDisplayName = '물약상인',
+  title = '물약 상점',
+  merchantPortraitFrame = POTION_MERCHANT_PORTRAIT_FRAME,
+  merchantPortraitNpcId,
   getPlayerName,
   getPlayerInventory,
   getMerchantInventory,
@@ -399,7 +422,7 @@ export const createPotionShopOverlay = ({
   merchantPortrait.className = 'blacksmith-shop-overlay__portrait'
   merchantCardText.className = 'blacksmith-shop-overlay__portrait-text'
   merchantName.className = 'blacksmith-shop-overlay__portrait-name'
-  merchantName.textContent = '물약상인'
+  merchantName.textContent = merchantDisplayName
   merchantGold.className = 'blacksmith-shop-overlay__portrait-gold'
   merchantGold.hidden = true
   merchantCardText.append(merchantName, merchantGold)
@@ -408,7 +431,7 @@ export const createPotionShopOverlay = ({
   centerCard.className = 'blacksmith-shop-overlay__center-card'
   titleElement.id = 'potion-shop-title'
   titleElement.className = 'blacksmith-shop-overlay__title'
-  titleElement.textContent = '물약 상점'
+  titleElement.textContent = title
   subtitleElement.className = 'blacksmith-shop-overlay__subtitle'
   subtitleElement.hidden = true
 
@@ -477,7 +500,12 @@ export const createPotionShopOverlay = ({
   footerElement.className = 'blacksmith-shop-overlay__footer'
   footerElement.hidden = true
 
-  setPortraitFrame(merchantPortrait, POTION_MERCHANT_PORTRAIT_FRAME, PORTRAIT_SCALE)
+  if (merchantPortraitNpcId) {
+    // LPC 얼굴은 32px — tiny-dungeon 16px × 3 과 같은 48px 로 맞춘다
+    setNpcPortrait(merchantPortrait, merchantPortraitNpcId, (16 * PORTRAIT_SCALE) / 32)
+  } else {
+    setPortraitFrame(merchantPortrait, merchantPortraitFrame, PORTRAIT_SCALE)
+  }
   setPortraitFrame(playerPortrait, PLAYER_PORTRAIT_FRAME, PORTRAIT_SCALE)
 
   header.append(merchantCard, centerCard, playerCard)
@@ -529,7 +557,7 @@ export const createPotionShopOverlay = ({
     closeButton.hidden = false
     panel.hidden = false
 
-    titleElement.textContent = '물약 상점'
+    titleElement.textContent = title
     statusElement.hidden = statusMessage === undefined
     statusElement.textContent = statusMessage ?? ''
 

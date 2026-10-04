@@ -829,6 +829,7 @@ export const clearPlayerEquipmentSlot = (input: {
 export const createInitialPotionInventory = (input?: {
   slotCount?: number
   gold?: number
+  stockItemIds?: readonly PotionShopItemDefinition['id'][]
 }): PotionShopInventory =>
   potionShop
     ? potionShop.createInitialPotionInventory(input)

@@ -296,7 +296,9 @@
   "id:miren": "npc-id-miren-walk.png",
   "id:odi": "npc-id-odi-walk.png",
   "id:tobin": "npc-id-tobin-walk.png",
-  "id:reed_guard": "npc-id-reed_guard-walk.png"
+  "id:reed_guard": "npc-id-reed_guard-walk.png",
+  "id:ren": "npc-id-ren-walk.png",
+  "id:lost_hunter_ren": "npc-id-lost_hunter_ren-walk.png"
  },
  "gearIcons": {
   "file": "gear-icons.png",
@@ -341,7 +343,9 @@
    "id:miren",
    "id:odi",
    "id:tobin",
-   "id:reed_guard"
+   "id:reed_guard",
+   "id:ren",
+   "id:lost_hunter_ren"
   ]
  }
 }

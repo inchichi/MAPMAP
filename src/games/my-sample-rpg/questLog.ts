@@ -29,6 +29,11 @@ export const REED_VILLAGE_CHIEF_NPC_ID = 'miren'
 // c2-03 = q018. 가라앉은 숲 어귀 — 늪개구리 전사를 몰아내고 사라진 사냥꾼들의 흔적을 찾는다.
 export const DROWNED_PATH_QUEST_ID = 'q018-drowned-path'
 export const HUNTER_TRACE_NPC_ID = 'hunter_trace'
+// c2-04 = q019(해독 향) + q020(독안개 너머). 약초꾼 오디의 해독 향으로 독안개를 건너 사냥꾼 렌을 찾는다.
+export const ANTIDOTE_INCENSE_QUEST_ID = 'q019-antidote-incense'
+export const BEYOND_THE_FOG_QUEST_ID = 'q020-beyond-the-fog'
+export const HERBALIST_NPC_ID = 'odi'
+export const LOST_HUNTER_NPC_ID = 'lost_hunter_ren'
 
 export const FIRST_SLIME_HUNT_OBJECTIVE_ID = 'defeat-slimes'
 export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 12
@@ -1072,6 +1077,92 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       gold: 320,
       experience: 700,
       items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 3 }]
+    }
+  },
+  {
+    // 해독 향 재료는 식인 꽃의 꽃가루주머니(독을 먹고 자라 꽃가루가 독을 잡아먹는다). 마치면 숲의
+    // 독안개 장막이 걷히고(quest.hiddenWhenCompleted) 오디의 약초 상점에서 향을 살 수 있다.
+    id: ANTIDOTE_INCENSE_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: HERBALIST_NPC_ID,
+    giverName: '약초꾼 오디',
+    title: '해독 향',
+    trackerLabel: '식인 꽃 처치',
+    prerequisiteQuestIds: [DROWNED_PATH_QUEST_ID],
+    requestText: '독안개를 견딜 해독 향을 만들려면 식인 꽃의 꽃가루주머니가 필요하다. 가라앉은 숲의 식인 꽃을 쓰러뜨려 달라.',
+    guideText: '가라앉은 숲 물가에 뿌리박은 식인 꽃 셋을 쓰러뜨리고 약초꾼 오디에게 돌아가자.',
+    startDialogueLines: [
+      '촌장님께 들었어요. 동쪽 독안개를 건너야 한다고요?',
+      '맨몸으로 들어가면 몇 걸음 못 가서 쓰러져요. 해독 향을 피워야 해요.',
+      '향을 만들려면 식인 꽃의 꽃가루주머니가 필요해요. 그 꽃은 독을 먹고 자라서, 꽃가루가 독을 잡아먹거든요.',
+      '숲에서 식인 꽃 세 송이만 쓰러뜨려 주세요. 가까이 가면 무니까 조심하고요.'
+    ],
+    activeDialogueLines: ['식인 꽃은 물가에 뿌리를 박고 움직이지 않아요. 멀리서 찌르거나 쏘면 덜 다쳐요.'],
+    completionDialogueLines: [
+      '이 정도면 충분해요! 잠깐만요…',
+      '자, 해독 향이에요. 피우면 한동안 독안개를 막아 줘요. 다 떨어지면 제 상점에서 사 가세요.',
+      '향이 꺼지기 전에 안개를 빠져나와야 해요. 숨이 막히기 시작하면 바로 피우거나 돌아오고요.',
+      '하르에게도 말해 둘게요. 숲 속 안개 장막도 이제 지나갈 수 있을 거예요.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-man-eater-flowers',
+        label: '식인 꽃',
+        required: 3,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_SUNKEN_FOREST, appearanceType: 'monster_flower' }
+      }
+    ],
+    rewards: {
+      gold: 200,
+      experience: 650,
+      items: [{ id: 'antidote-incense', label: '해독 향', quantity: 3 }]
+    }
+  },
+  {
+    // 해독 향을 피우고 독안개 속으로 — 남쪽 섬에 쓰러진 사냥꾼 렌을 찾아 미렌에게 알린다. 렌은 나머지
+    // 사냥꾼들이 동쪽 유적(잠긴 신전)으로 끌려갔다고 전한다 → c2-05 숲의 주인, c2-06 신전.
+    id: BEYOND_THE_FOG_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: HERBALIST_NPC_ID,
+    giverName: '약초꾼 오디',
+    turnInNpcId: REED_VILLAGE_CHIEF_NPC_ID,
+    turnInName: '촌장 미렌',
+    title: '독안개 너머',
+    trackerLabel: '안개 속에서 렌 찾기',
+    prerequisiteQuestIds: [ANTIDOTE_INCENSE_QUEST_ID],
+    requestText: '해독 향을 피우고 독안개 속으로 들어가 사라진 사냥꾼 렌을 찾아 달라.',
+    guideText: '해독 향을 피우고(가방에서 쓰거나 퀵슬롯에 올려 두자) 숲 동쪽 독안개 속 남쪽 섬으로 가 렌을 찾자. 찾으면 촌장 미렌에게 알리자.',
+    startDialogueLines: [
+      '렌은 제 소꿉친구예요. 꼭… 꼭 찾아 주세요.',
+      '안개에 들어가기 전에 해독 향을 피우는 거 잊지 마세요. 가방에서 쓰거나 퀵슬롯에 올려 두면 돼요.',
+      '안개 깊은 곳, 남쪽 섬 쪽에서 종소리가 들린다고들 해요. 렌도 그 소리를 따라갔을 거예요.'
+    ],
+    activeDialogueLines: ['해독 향을 피우고 안개 속 남쪽 섬으로 가 보세요. 향이 꺼지기 전에요!'],
+    talkTargetDialogueLines: [
+      '…누, 누구야? 갈대골에서 왔다고?',
+      '종소리를 따라왔는데… 안개에 정신을 잃었어. 다른 사냥꾼들은 개구리 놈들한테 끌려갔어. 동쪽 유적 쪽으로.',
+      '나는 괜찮아, 혼자 걸을 수 있어. 촌장님께 알려 줘. 유적에서… 종이 울리고 있다고.'
+    ],
+    completionDialogueLines: [
+      '렌이 살아 있다니! 고맙네, 정말 고맙네.',
+      '나머지 사냥꾼들은 동쪽 유적으로 끌려갔다고… 그곳은 옛 신전이 잠긴 곳이라네.',
+      '종소리, 가라앉는 숲, 사라지는 물… 모두 그 신전에서 시작된 게 틀림없네.',
+      '신전으로 가는 길목은 숲의 주인이라 불리는 거대한 개구리가 지킨다고 들었네. 몸을 추스르고 준비하게.'
+    ],
+    objectives: [
+      {
+        id: 'find-lost-hunter',
+        label: '사냥꾼 렌 찾기',
+        required: 1,
+        type: 'talk',
+        target: { npcId: LOST_HUNTER_NPC_ID }
+      }
+    ],
+    rewards: {
+      gold: 400,
+      experience: 900,
+      items: [{ id: 'antidote-incense', label: '해독 향', quantity: 2 }]
     }
   }
 ]

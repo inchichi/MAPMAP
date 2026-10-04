@@ -288,6 +288,16 @@ import {
   createQuestLogOverlay
 } from './createQuestLogOverlay'
 import { createQuestTrackerOverlay } from './createQuestTrackerOverlay'
+import { createStatusEffectsOverlay, type StatusEffectPill } from './createStatusEffectsOverlay'
+import {
+  ANTIDOTE_INCENSE_DURATION_MILLISECONDS,
+  ANTIDOTE_INCENSE_ITEM_ID,
+  POISON_FOG_TICK_MILLISECONDS,
+  getPoisonFogDamage,
+  getRemainingImmunitySeconds,
+  isPoisonFogImmune,
+  isPoisonFogTileType
+} from '../poisonFog'
 import { createWindowStack } from './createWindowStack'
 import {
   startScenarioRun,
@@ -314,6 +324,11 @@ type CreatePixiTiledMapViewInput = {
   questLog: QuestLogState
   merchantInventory: PlayerInventory
   potionMerchantInventory: PlayerInventory
+  // 2장 갈대골 약초꾼 오디의 상점 진열(해독 향 등)
+  herbalistInventory: PlayerInventory
+  // 해독 향 면역이 끝나는 시각(Date.now 기준) — 씬을 넘어 이어지게 게임 상태가 들고 있다
+  getPoisonFogImmuneUntil: () => number
+  onPoisonFogImmuneUntilChange: (immuneUntil: number) => void
   sceneId: string
   sceneIntroMessage: string
   cameraTargetCharacterId: string
@@ -339,6 +354,7 @@ type CreatePixiTiledMapViewInput = {
   onBossDefeated: (bossId: string) => void
   onMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   onPotionMerchantInventoryChange: (nextInventory: PlayerInventory) => void
+  onHerbalistInventoryChange: (nextInventory: PlayerInventory) => void
   audioSettings: AudioSettings
   onAudioSettingsChange: (nextAudioSettings: AudioSettings) => void
   onRequestSceneChange: (request: SceneTransitionRequest) => void
@@ -619,6 +635,10 @@ const BLACKSMITH_SHOP_NPC_ID = 'blacksmith'
 const POTION_SHOP_NPC_ID = 'potion_merchant'
 // 물약 상점을 여는 NPC: 마을 물약상인 + 사냥터 야영지 떠돌이 상인
 const POTION_SHOP_NPC_IDS = new Set([POTION_SHOP_NPC_ID, 'camp_merchant'])
+// 2장 갈대골 약초꾼 — 상점 열기 퀘스트 목표의 shopId 는 'herbalist'
+const HERBALIST_SHOP_NPC_ID = 'odi'
+const HERBALIST_SHOP_ID = 'herbalist'
+// tiny-dungeon-16 의 두건 쓴 약초꾼 얼굴(상점 초상화)
 
 // 비주얼노벨 대화창을 쓰는 NPC → 초상화 이미지. 여기 등록된 NPC 는 머리 위 말풍선 대신
 // 하단 대화창으로 대사를 보여준다. (우선 대장장이 모차르찬부터)
@@ -1018,6 +1038,9 @@ export const createPixiTiledMapView = async ({
   questLog,
   merchantInventory,
   potionMerchantInventory,
+  herbalistInventory,
+  getPoisonFogImmuneUntil,
+  onPoisonFogImmuneUntilChange,
   sceneId,
   sceneIntroMessage,
   cameraTargetCharacterId,
@@ -1036,6 +1059,7 @@ export const createPixiTiledMapView = async ({
   onBossDefeated,
   onMerchantInventoryChange,
   onPotionMerchantInventoryChange,
+  onHerbalistInventoryChange,
   audioSettings,
   onAudioSettingsChange,
   onRequestSceneChange
@@ -1278,6 +1302,7 @@ export const createPixiTiledMapView = async ({
   )
   let currentBlacksmithInventory = merchantInventory
   let currentPotionMerchantInventory = potionMerchantInventory
+  let currentHerbalistInventory = herbalistInventory
   let playerAttackStartedAtMilliseconds: number | undefined
   let playerAttackFacing: CharacterMoveDirection | undefined
   let playerWeaponTrailSprites: Sprite[] = []
@@ -1333,6 +1358,7 @@ export const createPixiTiledMapView = async ({
   let isQuestLogOpen = false
   let isBlacksmithShopOpen = false
   let isPotionShopOpen = false
+  let isHerbalistShopOpen = false
   let isPauseMenuOpen = false
   let pendingControlBindingId: PlayerControlBindingId | undefined
   let playerHudOverlay: {
@@ -1378,6 +1404,20 @@ export const createPixiTiledMapView = async ({
     destroy: () => {}
   }
   let playerShopOverlay: {
+    syncFrame: () => void
+    destroy: () => void
+  } = {
+    syncFrame: () => {},
+    destroy: () => {}
+  }
+  let herbalistShopOverlay: {
+    syncFrame: () => void
+    destroy: () => void
+  } = {
+    syncFrame: () => {},
+    destroy: () => {}
+  }
+  let statusEffectsOverlay: {
     syncFrame: () => void
     destroy: () => void
   } = {
@@ -1466,6 +1506,9 @@ export const createPixiTiledMapView = async ({
   }
   const mapPortals = createMapPortalsFromEventLayers({ map })
   const grassTiles = createGrassTileLookup(map)
+  const poisonFogTiles = createPoisonFogTileLookup(map)
+  let poisonFogNextTickAt = 0
+  let wasInPoisonFog = false
   let handleMapOverlayExpandedChange = (_isExpanded: boolean) => {}
   const mapOverlay = createMapOverlay({
     mountElement,
@@ -1536,6 +1579,7 @@ export const createPixiTiledMapView = async ({
     questLogOverlay.syncFrame()
     playerShopOverlay.syncFrame()
     potionShopOverlay.syncFrame()
+    herbalistShopOverlay.syncFrame()
     pauseMenuOverlay.syncFrame()
     questTrackerOverlay.syncFrame()
   }
@@ -3320,6 +3364,7 @@ export const createPixiTiledMapView = async ({
     if (nextIsOpen) {
       isQuestLogOpen = false
       isPotionShopOpen = false
+      isHerbalistShopOpen = false
     }
 
     isBlacksmithShopOpen = nextIsOpen
@@ -3339,6 +3384,7 @@ export const createPixiTiledMapView = async ({
     if (nextIsOpen) {
       isQuestLogOpen = false
       isBlacksmithShopOpen = false
+      isHerbalistShopOpen = false
     }
 
     isPotionShopOpen = nextIsOpen
@@ -3346,6 +3392,27 @@ export const createPixiTiledMapView = async ({
       windowStack.raise('.blacksmith-shop-overlay')
       setQuestLogWithObjectiveFeedback(
         recordShopOpenQuestProgress(currentQuestLog, 'potion')
+      )
+    }
+    syncPlayerUiOverlays()
+  }
+  // 2장 갈대골 약초꾼 오디의 상점(해독 향). 물약 상점 화면을 이름·진열만 바꿔 쓴다.
+  const setHerbalistShopOpen = (nextIsOpen: boolean) => {
+    if (isHerbalistShopOpen === nextIsOpen) {
+      return
+    }
+
+    if (nextIsOpen) {
+      isQuestLogOpen = false
+      isBlacksmithShopOpen = false
+      isPotionShopOpen = false
+    }
+
+    isHerbalistShopOpen = nextIsOpen
+    if (nextIsOpen) {
+      windowStack.raise('.blacksmith-shop-overlay')
+      setQuestLogWithObjectiveFeedback(
+        recordShopOpenQuestProgress(currentQuestLog, HERBALIST_SHOP_ID)
       )
     }
     syncPlayerUiOverlays()
@@ -3365,6 +3432,7 @@ export const createPixiTiledMapView = async ({
       isQuestLogOpen = false
       isBlacksmithShopOpen = false
       isPotionShopOpen = false
+      isHerbalistShopOpen = false
       mapOverlay.setExpanded(false)
       gameSoundEffects.stopAllLoops()
     }
@@ -3510,9 +3578,50 @@ export const createPixiTiledMapView = async ({
     syncPlayerUiOverlays()
   }
   const handleConsumableUsed = (itemId: string) => {
+    if (itemId === ANTIDOTE_INCENSE_ITEM_ID) {
+      onPoisonFogImmuneUntilChange(Date.now() + ANTIDOTE_INCENSE_DURATION_MILLISECONDS)
+      showCharacterDamageText(
+        PLAYER_CHARACTER_ID,
+        '해독 향을 피웠다',
+        EVADE_TEXT_DURATION_MILLISECONDS * 2,
+        EVADE_TEXT_STYLE
+      )
+      statusEffectsOverlay.syncFrame()
+    }
     setQuestLogWithObjectiveFeedback(
       recordItemUseQuestProgress(currentQuestLog, itemId)
     )
+  }
+  // 독안개: 안개 칸에 서 있고 해독 향이 꺼져 있으면 1초마다 최대 체력의 5%. 갑옷·보호 스킬로는 못 막는다
+  // (숨이 막히는 것이라 — applyDamageToPlayer 에 공격자를 넘기지 않는다).
+  const isPlayerInPoisonFog = (): boolean =>
+    poisonFogTiles.size > 0 &&
+    isCharacterOnGrass(getCharacterStateById(PLAYER_CHARACTER_ID), poisonFogTiles)
+  const resolvePoisonFogDamage = (now: number) => {
+    const inFog = isPlayerInPoisonFog() && playerProfile.hp.current > 0
+    const immune = isPoisonFogImmune(getPoisonFogImmuneUntil(), Date.now())
+    if (inFog && !wasInPoisonFog) {
+      poisonFogNextTickAt = now + POISON_FOG_TICK_MILLISECONDS
+      showCharacterDamageText(
+        PLAYER_CHARACTER_ID,
+        immune ? '해독 향이 독안개를 막는다' : '독안개! 숨이 막힌다',
+        EVADE_TEXT_DURATION_MILLISECONDS * 2,
+        immune ? EVADE_TEXT_STYLE : DAMAGE_TEXT_STYLE
+      )
+    }
+    wasInPoisonFog = inFog
+    if (!inFog || immune || now < poisonFogNextTickAt) {
+      return
+    }
+    poisonFogNextTickAt = now + POISON_FOG_TICK_MILLISECONDS
+    applyDamageToPlayer(getPoisonFogDamage(playerProfile.hp.max), now)
+  }
+  const getStatusEffectPills = (): StatusEffectPill[] => {
+    const remaining = getRemainingImmunitySeconds(getPoisonFogImmuneUntil(), Date.now())
+    if (remaining > 0) {
+      return [{ kind: 'buff', text: `해독 향 ${remaining}초` }]
+    }
+    return wasInPoisonFog ? [{ kind: 'danger', text: '독안개 — 해독 향이 필요하다' }] : []
   }
   handleMapOverlayExpandedChange = (nextIsExpanded: boolean) => {
     if (nextIsExpanded) {
@@ -3539,6 +3648,7 @@ export const createPixiTiledMapView = async ({
       !isQuestLogOpen &&
       !isBlacksmithShopOpen &&
       !isPotionShopOpen &&
+      !isHerbalistShopOpen &&
       !isPauseMenuOpen &&
       !mapOverlay.getIsExpanded()
     ) {
@@ -3939,6 +4049,11 @@ export const createPixiTiledMapView = async ({
 
     if (POTION_SHOP_NPC_IDS.has(npcId)) {
       setPotionShopOpen(true)
+      return
+    }
+
+    if (npcId === HERBALIST_SHOP_NPC_ID) {
+      setHerbalistShopOpen(true)
     }
   }
   playerHudOverlay = createPlayerHudOverlay({
@@ -4070,6 +4185,27 @@ export const createPixiTiledMapView = async ({
       syncPlayerUiOverlays()
     }
   })
+  herbalistShopOverlay = createPotionShopOverlay({
+    mountElement,
+    merchantName: '약초꾼 오디',
+    title: '약초 상점',
+    merchantPortraitNpcId: HERBALIST_SHOP_NPC_ID,
+    getPlayerName: () => playerProfile.name,
+    getPlayerInventory: () => currentPlayerInventory,
+    getMerchantInventory: () => currentHerbalistInventory,
+    getIsOpen: () => isHerbalistShopOpen,
+    onRequestOpenChange: setHerbalistShopOpen,
+    onRequestTradeStateChange: (nextPlayerInventory, nextMerchantInventory) => {
+      const previousPlayerInventory = currentPlayerInventory
+      currentPlayerInventory = nextPlayerInventory
+      currentHerbalistInventory = nextMerchantInventory
+      onPlayerInventoryChange(nextPlayerInventory)
+      onHerbalistInventoryChange(nextMerchantInventory)
+      recordAcquiredItemsFromInventoryDelta(previousPlayerInventory, nextPlayerInventory)
+      syncPlayerUiOverlays()
+    }
+  })
+  statusEffectsOverlay = createStatusEffectsOverlay({ mountElement, getPills: getStatusEffectPills })
   pauseMenuOverlay = createPauseMenuOverlay({
     mountElement,
     getIsOpen: () => isPauseMenuOpen,
@@ -7950,7 +8086,9 @@ export const createPixiTiledMapView = async ({
       updatePlayerProjectiles(now, app.ticker.deltaMS)
       if (!npcDialogueOverlay.isOpen()) {
         resolveMonsterContactDamage(now)
+        resolvePoisonFogDamage(now)
       }
+      statusEffectsOverlay.syncFrame()
       resolveMonsterGoldDropPickups()
       resolveMonsterEquipmentDropPickups()
       resolveCoinPilePickups()
@@ -8044,7 +8182,9 @@ export const createPixiTiledMapView = async ({
                 ? () => setBlacksmithShopOpen(true)
                 : POTION_SHOP_NPC_IDS.has(event.characterId)
                   ? () => setPotionShopOpen(true)
-                  : undefined
+                  : event.characterId === HERBALIST_SHOP_NPC_ID
+                    ? () => setHerbalistShopOpen(true)
+                    : undefined
             npcDialogueOverlay.show({
               ...getNpcDialoguePortrait(event.characterId),
               name: portraitCharacter.displayText ?? '',
@@ -9056,6 +9196,8 @@ export const createPixiTiledMapView = async ({
     questLogOverlay.destroy()
     playerShopOverlay.destroy()
     potionShopOverlay.destroy()
+    herbalistShopOverlay.destroy()
+    statusEffectsOverlay.destroy()
     pauseMenuOverlay.destroy()
     questTrackerOverlay.destroy()
     npcDialogueOverlay.destroy()
@@ -9279,6 +9421,23 @@ const createGrassTileLookup = (map: ParsedTiledMap): Set<string> => {
   return grassTileKeys
 }
 
+// roof 레이어의 독안개 타일(swamp_fog_*) 칸 — 판정은 isCharacterOnGrass 와 같은 발밑 칸.
+const createPoisonFogTileLookup = (map: ParsedTiledMap): Set<string> => {
+  const keys = new Set<string>()
+  for (const layer of map.layers) {
+    if (layer.name.toLowerCase() !== 'roof') {
+      continue
+    }
+    for (const tile of layer.tiles) {
+      const tileset = resolveTilesetForTile(tile, map.tilesets)
+      if (isPoisonFogTileType(tileset.tileTypes[tile.localId])) {
+        keys.add(createTileLookupKey(tile.x, tile.y))
+      }
+    }
+  }
+  return keys
+}
+
 const isCharacterOnGrass = (
   character: CharacterState,
   grassTiles: Set<string>
@@ -9420,6 +9579,7 @@ const resolveTilesetLocalIdByType = (
 const STACKABLE_QUEST_REWARD_ITEM_IDS = new Set([
   'health-potion',
   'mana-potion',
+  'antidote-incense',
   'crystal-ore'
 ])
 

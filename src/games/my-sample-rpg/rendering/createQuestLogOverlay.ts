@@ -64,7 +64,8 @@ export const QUEST_GIVER_PORTRAIT_KEY_BY_NPC_ID: Partial<Record<string, string>>
   // 2장: 갈대골 주요 인물 전용 외형(scripts/add-npc-variants.py)
   miren: 'id:miren',
   odi: 'id:odi',
-  tobin: 'id:tobin'
+  tobin: 'id:tobin',
+  ren: 'id:ren'
 }
 // 32px 초상화를 2배(64px)로 — 예전 16px 초상화의 4배와 같은 화면 크기
 const PORTRAIT_SCALE = 2
@@ -495,13 +496,18 @@ export const getQuestGiverPortraitFrame = (
 
 const setPortraitFrame = (
   element: HTMLElement,
-  frame: QuestGiverPortraitFrame
+  frame: QuestGiverPortraitFrame,
+  scale = PORTRAIT_SCALE
 ) => {
   element.style.backgroundImage = `url(${LPC_PORTRAIT_ATLAS_URL})`
   element.style.backgroundRepeat = 'no-repeat'
-  element.style.backgroundPosition = `-${frame.x * PORTRAIT_SCALE}px -${frame.y * PORTRAIT_SCALE}px`
-  element.style.backgroundSize = `${LPC_PORTRAIT_KEYS.length * LPC_PORTRAIT_SIZE * PORTRAIT_SCALE}px ${LPC_PORTRAIT_SIZE * PORTRAIT_SCALE}px`
+  element.style.backgroundPosition = `-${frame.x * scale}px -${frame.y * scale}px`
+  element.style.backgroundSize = `${LPC_PORTRAIT_KEYS.length * LPC_PORTRAIT_SIZE * scale}px ${LPC_PORTRAIT_SIZE * scale}px`
   element.style.imageRendering = 'pixelated'
-  element.style.width = `${frame.width * PORTRAIT_SCALE}px`
-  element.style.height = `${frame.height * PORTRAIT_SCALE}px`
+  element.style.width = `${frame.width * scale}px`
+  element.style.height = `${frame.height * scale}px`
 }
+
+// 퀘스트 창 밖(2장 약초 상점 등)에서도 LPC NPC 얼굴을 같은 그림으로 쓴다.
+export const setNpcPortrait = (element: HTMLElement, npcId: string, scale = PORTRAIT_SCALE) =>
+  setPortraitFrame(element, getQuestGiverPortraitFrame(npcId), scale)

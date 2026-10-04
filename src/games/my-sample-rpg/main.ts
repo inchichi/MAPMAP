@@ -118,6 +118,7 @@ import type {
   SceneTransitionRequest
 } from './rendering/createPixiTiledMapView'
 import './styles.css'
+import { HERBALIST_STOCK_ITEM_IDS } from './potionShop'
 
 type SceneId =
   | 'town'
@@ -389,6 +390,9 @@ registerScenarios([SHELL_GAME_SCENARIO, ...pendingScenarioSnapshot], {
 })
 let merchantInventory = createInitialBlacksmithInventory()
 let potionMerchantInventory = createInitialPotionInventory()
+let herbalistInventory = createInitialPotionInventory({ stockItemIds: HERBALIST_STOCK_ITEM_IDS })
+// 해독 향 면역이 끝나는 시각(Date.now) — 갈대골에서 피우고 숲으로 건너가도 이어지게 씬 밖에 둔다
+let poisonFogImmuneUntil = 0
 let activeControllerRuntime:
   | ReturnType<typeof createCharacterControllerRuntime>
   | undefined
@@ -460,6 +464,11 @@ const bootstrapScene = async (
     questLog,
     merchantInventory,
     potionMerchantInventory,
+    herbalistInventory,
+    getPoisonFogImmuneUntil: () => poisonFogImmuneUntil,
+    onPoisonFogImmuneUntilChange: (immuneUntil) => {
+      poisonFogImmuneUntil = immuneUntil
+    },
     sceneId,
     sceneIntroMessage: getSceneIntroMessage(sceneId),
     cameraTargetCharacterId: PLAYER_CHARACTER_ID,
@@ -525,6 +534,9 @@ const bootstrapScene = async (
     },
     onMerchantInventoryChange: (nextInventory) => {
       merchantInventory = nextInventory
+    },
+    onHerbalistInventoryChange: (nextInventory) => {
+      herbalistInventory = nextInventory
     },
     onPotionMerchantInventoryChange: (nextInventory) => {
       potionMerchantInventory = nextInventory

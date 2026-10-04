@@ -5209,3 +5209,43 @@ body.game-root--map-focused > :not(.game-root) {
   background-image: linear-gradient(180deg, #f2e9d0 0%, #ddcfaa 100%) !important;
   border-color: #d7a14a !important;
 }
+
+/* 상태 표시줄(2장 독안개): 화면 위쪽 가운데. HUD(45)보다 위, 창(50~)보다 아래. 클릭은 게임으로 통과. */
+.status-effects-overlay {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 46;
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+  font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
+}
+
+.status-effects-overlay__pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.status-effects-overlay__pill--buff {
+  background: rgba(36, 72, 44, 0.88);
+  border: 1px solid #8fd49a;
+  color: #e6f7e2;
+}
+
+.status-effects-overlay__pill--danger {
+  background: rgba(96, 26, 26, 0.9);
+  border: 1px solid #f08a7a;
+  color: #ffe4dc;
+  animation: status-effects-danger-pulse 1s ease-in-out infinite;
+}
+
+@keyframes status-effects-danger-pulse {
+  50% {
+    opacity: 0.65;
+  }
+}

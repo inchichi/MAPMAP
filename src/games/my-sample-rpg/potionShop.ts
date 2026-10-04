@@ -19,6 +19,8 @@ export type PotionShopTransactionResult = {
 type CreateInitialPotionInventoryInput = {
   slotCount?: number
   gold?: number
+  // 진열할 물건(순서대로). 없으면 물약상인 기본 진열(체력·마나 포션).
+  stockItemIds?: readonly PotionShopItemDefinition['id'][]
 }
 
 type BuyPotionShopItemInput = {
@@ -36,7 +38,7 @@ type SellPotionShopItemInput = {
 }
 
 export type PotionShopItemDefinition = {
-  id: 'health-potion' | 'mana-potion'
+  id: 'health-potion' | 'mana-potion' | 'antidote-incense'
   label: string
   description: string
   price: number
@@ -58,18 +60,33 @@ export const POTION_ITEM_DEFINITIONS: PotionShopItemDefinition[] = [
     label: '마나 회복 포션',
     description: '마나를 회복하는 물약',
     price: 15
+  },
+  {
+    // 2장: 갈대골 약초꾼 오디가 만든다. 피우면 한동안 독안개 피해를 막는다(playerFogImmunity).
+    id: 'antidote-incense',
+    label: '해독 향',
+    description: '피우면 90초 동안 독안개를 막아 준다',
+    price: 40
   }
 ]
-const POTION_INITIAL_STOCK_ITEM_IDS = POTION_ITEM_DEFINITIONS.map(
-  (definition) => definition.id
-)
+// 물약상인(마을·야영지)의 기본 진열 — 해독 향은 갈대골 약초꾼만 판다.
+export const POTION_MERCHANT_STOCK_ITEM_IDS: readonly PotionShopItemDefinition['id'][] = [
+  'health-potion',
+  'mana-potion'
+]
+export const HERBALIST_STOCK_ITEM_IDS: readonly PotionShopItemDefinition['id'][] = [
+  'antidote-incense',
+  'health-potion',
+  'mana-potion'
+]
 const POTION_ITEM_DEFINITION_BY_ID: Map<string, PotionShopItemDefinition> = new Map(
   POTION_ITEM_DEFINITIONS.map((definition) => [definition.id, definition] as const)
 )
 
 export const createInitialPotionInventory = ({
   slotCount = DEFAULT_POTION_INVENTORY_SLOT_COUNT,
-  gold = DEFAULT_POTION_INVENTORY_GOLD
+  gold = DEFAULT_POTION_INVENTORY_GOLD,
+  stockItemIds = POTION_MERCHANT_STOCK_ITEM_IDS
 }: CreateInitialPotionInventoryInput = {}): PotionShopInventory => {
   const slots: Array<PlayerInventoryItem | undefined> = Array.from(
     { length: slotCount },
@@ -78,16 +95,14 @@ export const createInitialPotionInventory = ({
 
   for (
     let index = 0;
-    index < slotCount && index < POTION_INITIAL_STOCK_ITEM_IDS.length;
+    index < slotCount && index < stockItemIds.length;
     index += 1
   ) {
-    const itemDefinition = getPotionShopItemDefinitionById(
-      POTION_INITIAL_STOCK_ITEM_IDS[index]
-    )
+    const itemDefinition = getPotionShopItemDefinitionById(stockItemIds[index])
 
     if (!itemDefinition) {
       throw new Error(
-        `Missing potion stock item definition for ${POTION_INITIAL_STOCK_ITEM_IDS[index]}`
+        `Missing potion stock item definition for ${stockItemIds[index]}`
       )
     }
 

@@ -30,6 +30,10 @@ VARIANTS = [
     ('id:odi', 'character_villager_flower_dress', [(32, 43, 0.24, 0.32, 0.92, 0.0)], (0.11, 0.18, 0.62, 0.55)),
     ('id:tobin', 'character_commoner_tan_tunic', [(30, 45, 0.58, 0.40, 0.85, 0.0)], (0.085, 0.30, 0.60, 0.45)),
     ('id:reed_guard', 'character_villager_brown_tunic', [(30, 45, 0.26, 0.55, 0.70, 0.0)], (0.11, 0.18, 0.50, 0.72)),
+    # 사냥꾼 렌: 사냥꾼 차림(ranger_green)의 초록 웃옷 → 갈대골 사냥꾼의 흙갈색
+    ('id:ren', 'character_ranger_green', [(30, 45, 0.07, 0.50, 0.78, 0.15)], (0.11, 0.18, 0.62, 0.55)),
+    # 안개 속에 쓰러진 렌(가라앉은 숲 오브젝트 이름이 lost_hunter_ren) — 같은 외형
+    ('id:lost_hunter_ren', 'character_ranger_green', [(30, 45, 0.07, 0.50, 0.78, 0.15)], (0.11, 0.18, 0.62, 0.55)),
 ]
 
 
