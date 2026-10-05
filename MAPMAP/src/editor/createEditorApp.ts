@@ -1144,7 +1144,13 @@ export const createEditorApp = ({
     { id: 'sunken-forest', label: '가라앉은 숲', icon: 'tree' },
     { id: 'ruins-outskirts', label: '신전 외곽', icon: 'tent' },
     { id: 'sunken-temple-1f', label: '신전 1층', icon: 'crystal' },
-    { id: 'sunken-temple-2f', label: '봉인의 방', icon: 'orb' }
+    { id: 'sunken-temple-2f', label: '봉인의 방', icon: 'orb' },
+    { id: 'reed-well', label: '우물 속', icon: 'map' },
+    { id: 'north-pass', label: '북쪽 고갯길', icon: 'map' },
+    { id: 'frost-village', label: '서리목', icon: 'tent' },
+    { id: 'frozen-lake', label: '얼어붙은 호수', icon: 'map' },
+    { id: 'ice-cave-1f', label: '얼음 동굴', icon: 'crystal' },
+    { id: 'ice-cave-2f', label: '얼음 제단', icon: 'orb' }
   ]
   const mapSwitcher = el('div', 'flex items-center gap-1')
   // 새 창/새로고침은 아이콘 버튼으로 — 의미는 title(툴팁)로 유지한다.

@@ -81,7 +81,7 @@ describe('parseTiledMap', () => {
       name: 'town-32',
       tileWidth: 32,
       tileHeight: 32,
-      tileCount: 1796,
+      tileCount: 1798,
       columns: 8,
       image: {
         source: 'town-32.png',
@@ -127,8 +127,9 @@ describe('parseTiledMap', () => {
         'controller.scriptId': 'vn-dialogue',
         'controller.messageDurationSeconds': 2.8,
         'controller.dialogueLines': [
-          '힘세고 강한 아침, 만일 내게 물어보면 I AM 대장장이.',
-          '나중에는 YOU 에게 무기도 팔게 될 거야.'
+          '어서 오게. 티르코네일 대장간 화덕은 불 꺼진 날이 없지.',
+          '칼날은 숫돌에서, 사람은 사냥터에서 벼려지는 법이야.',
+          '장비 상점에 청동 검이며 철 옷이며 갖춰 놨다. 돈이 모이면 들르게.'
         ]
       },
       appearanceType: 'character_bearded_apron_man'
@@ -195,8 +196,8 @@ describe('parseTiledMap', () => {
       'portals',
       'decorations'
     ])
-    // 몬스터 15마리 + 표지판 5개 + 야영지 상인·숨은 상자·갱도 낙석 (scripts/generate-hunting-ground.py 가 만든다)
-    expect(map.eventLayers[0].events).toHaveLength(23)
+    // 몬스터 15마리 + 표지판 5개 + 야영지 상인·숨은 상자·갱도 낙석 + 야영지 사냥꾼 둘 (scripts/generate-hunting-ground.py 가 만든다)
+    expect(map.eventLayers[0].events).toHaveLength(25)
     expect(
       map.eventLayers[0].events.filter((event) =>
         String(event.appearanceType).startsWith('monster_')
@@ -304,8 +305,8 @@ describe('parseTiledMap', () => {
       'characters',
       'portals'
     ])
-    // 보스 두 마리 + 통로 일반 몬스터 다섯 마리 + 보스실 앞 무리 세 마리(q008)
-    expect(map.eventLayers[0].events).toHaveLength(10)
+    // 보스 두 마리 + 통로 일반 몬스터 다섯 마리 + 보스실 앞 무리 세 마리(q008) + 말캉이-보스 하수인 셋
+    expect(map.eventLayers[0].events).toHaveLength(13)
     expect(map.eventLayers[0].events.slice(0, 2)).toMatchObject([
       {
         id: 5,

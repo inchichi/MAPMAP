@@ -11,7 +11,9 @@ export const BOSS_RENDER_SCALE_MULTIPLIER = 2
 // 측정(scripts/estimate-playtime.ts)으로 보스 전투가 1~2분이 되게 맞춘 값.
 const BOSS_HP_EXTRA_BY_APPEARANCE_TYPE: Record<string, number> = {
   monster_frog_king: 3.5,
-  monster_swamp_priest: 4
+  monster_swamp_priest: 4,
+  monster_troll_chief: 3.5,
+  monster_frost_witch: 4
 }
 
 export const getBossHpMultiplier = (appearanceType: string): number =>

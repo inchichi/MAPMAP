@@ -443,7 +443,16 @@ def fence_rect(x0, y0, x1, y1, gates=()):
 
 
 def field_rows(x0, y0, x1, y1, kind='wheat'):
-    """밭 내부: 갈이흙 + 밀 이랑을 한 줄 걸러 심는다(shadow_lower 데칼)."""
+    """밭 내부: 갈이흙 + 밀 이랑을 한 줄 걸러 심는다(shadow_lower 데칼).
+    kind='garden'(오두막 텃밭): 바닥을 갈이흙으로 깔고 새싹 이랑·양배추 이랑을 번갈아(밟고 지나가는 데칼)."""
+    if kind == 'garden':
+        for y in range(y0, y1 + 1):
+            for x in range(x0, x1 + 1):
+                put('ground', x, y, vprop('plowed_tile'))
+                crop = 'flower_c' if (y - y0) % 2 == 0 else ('bush_low' if (x - x0) % 2 == 0 else None)
+                if crop:
+                    put('shadow_lower', x, y, vprop(crop))
+        return
     for y in range(y0, y1 + 1):
         for x in range(x0, x1 + 1):
             put('ground', x, y, DIRT)
@@ -463,9 +472,9 @@ fence_rect(49, 35, 56, 45, gates=((52, 35), (53, 35)))
 field_rows(50, 37, 55, 44, 'plowed')
 # 오두막 텃밭 두 곳(울타리 + 갈이흙 + 꽃)
 fence_rect(11, 20, 17, 25, gates=((14, 20), (15, 20)))
-field_rows(12, 22, 16, 24, 'plowed')
+field_rows(12, 22, 16, 24, 'garden')
 fence_rect(19, 21, 23, 25, gates=((21, 21), (22, 21)))
-field_rows(20, 23, 22, 24, 'plowed')
+field_rows(20, 23, 22, 24, 'garden')
 
 # ---------------------------------------------------------------- 과수원 + 나무
 # 과수원은 과일나무 2열 x 3행의 반듯한 격자 — 큰 나무 8그루를 몰아 심으면 숲처럼 뭉개진다.

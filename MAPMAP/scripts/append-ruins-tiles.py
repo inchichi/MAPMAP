@@ -6,10 +6,14 @@
 
   ruins_stele_lit_r{0,1}c{0,1}  빛나는 봉인 비석(2x2) — 늪 룬 비석(swamp_stele_*)의 새긴 글자를 푸르게 밝히고
                                 둘레 판에 은은한 빛을 번지게 한다. 봉인을 밝힌 뒤(c2-06·c2-07) 이 그림으로 바꿔 놓는다.
+  ruins_thorns_{0,1}            독 가시덩굴(c2-05 신전 길을 막는 것) — 마을 둥근 덤불을 독에 물든 검보랏빛으로 바꾸고
+                                바깥쪽으로 뼛빛 가시를 세운다. 그냥 덤불로 보이면 "지나갈 수 없는 길"로 읽히지 않았다.
 
 출력: town-32.png / town-32.tsx / rendering/townTilesetImageSize.ts / scripts/ruins-tile-gids.json
 """
+import colorsys
 import json
+import math
 import re
 import sys
 
@@ -49,6 +53,39 @@ def lit_stele(stele):
     return out
 
 
+BUSH = 1150                    # town_prop_bush_round
+THORN = (214, 200, 170)
+
+
+def thorns(bush, salt):
+    """덤불을 검보랏빛으로 물들이고 테두리 바깥으로 짧은 가시를 세운다."""
+    out = bush.copy()
+    px = out.load()
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+            nr, ng, nb = colorsys.hsv_to_rgb(0.83, min(1.0, s * 0.55 + 0.12), v * 0.62)
+            px[x, y] = (round(nr * 255), round(ng * 255), round(nb * 255), a)
+    src = bush.load()
+    edge = [(x, y) for y in range(1, bush.height - 1) for x in range(1, bush.width - 1)
+            if src[x, y][3] and any(src[x + dx, y + dy][3] == 0 for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))]
+    cx = sum(x for x, _ in edge) / len(edge)
+    cy = sum(y for _, y in edge) / len(edge)
+    for i, (x, y) in enumerate(edge):
+        if (i * 7 + salt) % 9:
+            continue
+        dx, dy = x - cx, y - cy
+        n = math.hypot(dx, dy) or 1
+        for step in (1, 2, 3):
+            tx, ty = round(x + dx / n * step), round(y + dy / n * step)
+            if 0 <= tx < out.width and 0 <= ty < out.height and px[tx, ty][3] == 0:
+                px[tx, ty] = THORN + (255,) if step < 3 else (150, 132, 110, 255)
+    return out
+
+
 def main():
     sheet = Image.open(PNG).convert('RGBA')
     tsx = open(TSX, encoding='utf-8').read()
@@ -76,6 +113,9 @@ def main():
     lit = lit_stele(stele)
     gids = {'stele_lit': [[add(f'ruins_stele_lit_r{r}c{c}', lit.crop((c * TILE, r * TILE, (c + 1) * TILE, (r + 1) * TILE)))
                            for c in range(2)] for r in range(2)]}
+    bush = tile_of(BUSH)
+    gids['thorns'] = [add(f'ruins_thorns_{i}', thorns(bush if i == 0 else bush.transpose(Image.FLIP_LEFT_RIGHT), i * 4))
+                      for i in range(2)]
 
     total_slots = BASE_SLOTS + len(new_tiles)
     rows_total = -(-total_slots // COLUMNS)

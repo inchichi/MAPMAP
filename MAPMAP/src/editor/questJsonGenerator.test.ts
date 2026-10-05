@@ -95,7 +95,7 @@ describe('generateQuestJson', () => {
     expect(schema.properties?.giver_npc_id?.enum).toEqual(
       profile.npcs.map((npc) => npc.id)
     )
-    expect(schema.properties?.region?.enum).toEqual(['Town', 'Hunting Ground', 'Cave', 'Crystal Mine', 'Harvest Village', 'Upstream Waterway', 'Reed Village', 'Sunken Forest', 'Ruins Outskirts', 'Sunken Temple 1F', 'Sunken Temple 2F'])
+    expect(schema.properties?.region?.enum).toEqual(['Town', 'Hunting Ground', 'Cave', 'Crystal Mine', 'Harvest Village', 'Upstream Waterway', 'Reed Village', 'Sunken Forest', 'Ruins Outskirts', 'Sunken Temple 1F', 'Sunken Temple 2F', 'Reed Well', 'North Pass', 'Frost Village', 'Frozen Lake', 'Ice Cave 1F', 'Ice Cave 2F'])
 
     const objectiveBranches = schema.properties?.objectives?.items?.oneOf ?? []
     const monsterBranch = objectiveBranches.find(
@@ -118,7 +118,13 @@ describe('generateQuestJson', () => {
       'sunken-forest',
       'ruins-outskirts',
       'sunken-temple-1f',
-      'sunken-temple-2f'
+      'sunken-temple-2f',
+      'reed-well',
+      'north-pass',
+      'frost-village',
+      'frozen-lake',
+      'ice-cave-1f',
+      'ice-cave-2f'
     ])
     // 몬스터 종류는 게임의 몬스터 목록을 그대로 따른다
     expect(monsterBranch?.properties?.target?.properties?.appearanceType?.enum).toEqual(
@@ -144,7 +150,13 @@ describe('generateQuestJson', () => {
       'sunken-forest',
       'ruins-outskirts',
       'sunken-temple-1f',
-      'sunken-temple-2f'
+      'sunken-temple-2f',
+      'reed-well',
+      'north-pass',
+      'frost-village',
+      'frozen-lake',
+      'ice-cave-1f',
+      'ice-cave-2f'
     ])
     expect(sceneEnterBranch?.properties?.target?.properties?.sceneId?.enum).not.toContain('town')
     expect(talkBranch?.properties?.target?.properties?.npcId?.enum).toEqual(

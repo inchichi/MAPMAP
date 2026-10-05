@@ -299,7 +299,11 @@
   "id:reed_guard": "npc-id-reed_guard-walk.png",
   "id:ren": "npc-id-ren-walk.png",
   "id:lost_hunter_ren": "npc-id-lost_hunter_ren-walk.png",
-  "id:selin": "npc-id-selin-walk.png"
+  "id:selin": "npc-id-selin-walk.png",
+  "id:hagen": "npc-id-hagen-walk.png",
+  "id:irma": "npc-id-irma-walk.png",
+  "id:volk": "npc-id-volk-walk.png",
+  "id:nina": "npc-id-nina-walk.png"
  },
  "gearIcons": {
   "file": "gear-icons.png",
@@ -347,7 +351,11 @@
    "id:reed_guard",
    "id:ren",
    "id:lost_hunter_ren",
-   "id:selin"
+   "id:selin",
+   "id:hagen",
+   "id:irma",
+   "id:volk",
+   "id:nina"
   ]
  }
 }

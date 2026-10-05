@@ -5,7 +5,7 @@
   name="town-32"
   tilewidth="32"
   tileheight="32"
-  tilecount="1796"
+  tilecount="1798"
   columns="8"
 >
   <image source="town-32.png" width="256" height="7200"/>
@@ -1780,4 +1780,6 @@
   <tile id="1793" type="ruins_stele_lit_r0c1"/>
   <tile id="1794" type="ruins_stele_lit_r1c0"/>
   <tile id="1795" type="ruins_stele_lit_r1c1"/>
+  <tile id="1796" type="ruins_thorns_0"/>
+  <tile id="1797" type="ruins_thorns_1"/>
 </tileset>

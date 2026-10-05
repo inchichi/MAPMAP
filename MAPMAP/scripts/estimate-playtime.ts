@@ -21,7 +21,11 @@ import {
   getBossHpMultiplier
 } from '../src/games/my-sample-rpg/monsterTuning'
 import { getPlayerExperienceToNextLevel } from '../src/games/my-sample-rpg/playerExperience'
-import { QUEST_DEFINITIONS, type QuestDefinition } from '../src/games/my-sample-rpg/questLog'
+import {
+  QUEST_DEFINITIONS,
+  getTalkTargetDialogueLines,
+  type QuestDefinition
+} from '../src/games/my-sample-rpg/questLog'
 import { createMapPortalsFromEventLayers } from '../src/games/my-sample-rpg/tiled/createMapPortalsFromEventLayers'
 import { createWallTileLookup, isWallTileAt } from '../src/games/my-sample-rpg/tiled/createWallTileLookup'
 import { parseTiledMap, type ParsedTiledMap } from '../src/games/my-sample-rpg/tiled/parseTiledMap'
@@ -48,24 +52,34 @@ const QUEST_ORDER = [
   'q002-potion-survival-basics',
   'q003-pig-trouble',
   'q015-hidden-cache',
+  'q048-carpenter-stones',
   'q004-before-cave',
   'q005-investigate-cave-entrance',
   'q006-slime-boss-shadow',
+  'q050-clock-oil',
   'q007-final-supplies',
   'q008-pig-boss-threat',
   'q009-mine-ore-rush',
   'q010-harvest-village-visit',
+  'q049-gardener-seeds',
   'q011-field-pigs',
   'q012-sluice-keeper',
+  'q051-bridge-watch',
   'q013-manor-spores',
   'q014-weapon-path',
   'q016-vanishing-water',
   'q017-reed-village',
   'q018-drowned-path',
+  'q032-village-well',
   'q019-antidote-incense',
+  'q028-herb-basket',
   'q020-beyond-the-fog',
+  'q029-hunter-keepsakes',
   'q021-forest-lord',
   'q022-stele-script',
+  'q027-ferry-shortcut',
+  'q030-skeleton-crest',
+  'q031-hidden-altar',
   'q023-remaining-seals',
   'q024-seal-chamber',
   'q025-swamp-priest',
@@ -112,13 +126,19 @@ type Scene = {
   characters: { name: string; type: string; level: number; tile: Tile }[]
   portals: ReturnType<typeof createMapPortalsFromEventLayers>
 }
-const SCENE_IDS = ['town', 'hunting-ground', 'cave', 'crystal-mine', 'harvest-village', 'upstream-waterway', 'reed-village', 'sunken-forest', 'ruins-outskirts', 'sunken-temple-1f', 'sunken-temple-2f']
+const SCENE_IDS = ['town', 'hunting-ground', 'cave', 'crystal-mine', 'harvest-village', 'upstream-waterway', 'reed-village', 'sunken-forest', 'ruins-outskirts', 'sunken-temple-1f', 'sunken-temple-2f', 'reed-well']
 const scenes: Record<string, Scene> = {}
 
 for (const sceneId of SCENE_IDS) {
   const map = parseTiledMap({
     mapXml: readFileSync(new URL(`${sceneId}.tmx`, MAPS_DIR), 'utf8'),
-    externalTilesets: { '../tilesets/town-32.tsx': townTilesetXml }
+    externalTilesets: {
+      '../tilesets/town-32.tsx': townTilesetXml,
+      '../tilesets/biome-snow.tsx': readFileSync(
+        new URL('../src/games/my-sample-rpg/assets/tilesets/biome-snow.tsx', import.meta.url),
+        'utf8'
+      )
+    }
   })
   const characters = map.eventLayers.flatMap((layer) =>
     layer.events
@@ -222,7 +242,7 @@ const player = {
   gold: 150,
   weaponBonus: BASIC_WEAPON_BONUS
 }
-const lockedPortals = new Set(['mine_shortcut', 'upstream_gate', 'reed_ferry', 'forest_gate', 'temple_road', 'temple_stairs', 'upper_stairs'])
+const lockedPortals = new Set(['mine_shortcut', 'upstream_gate', 'reed_ferry', 'forest_gate', 'temple_road', 'temple_stairs', 'upper_stairs', 'outskirts_raft', 'reed_raft'])
 const damagePerHit = () => 5 + (player.level - 1) * STRENGTH_PER_LEVEL + player.weaponBonus
 const gainExperience = (amount: number) => {
   player.experience += amount
@@ -303,7 +323,7 @@ for (const questId of QUEST_ORDER.filter((id) => !MAIN_ONLY || MAIN_QUEST_IDS.ha
       row.combat += result.combat
     } else if (objective.type === 'talk') {
       row.travel += moveTo(findCharacter(target.npcId ?? ''))
-      row.read += readSeconds(definition.talkTargetDialogueLines ?? definition.activeDialogueLines)
+      row.read += readSeconds(getTalkTargetDialogueLines(definition, target.npcId ?? ''))
     } else if (objective.type === 'scene-enter') {
       const sceneId = target.sceneId ?? ''
       if (player.at.sceneId !== sceneId) {
@@ -346,6 +366,10 @@ for (const questId of QUEST_ORDER.filter((id) => !MAIN_ONLY || MAIN_QUEST_IDS.ha
   if (questId === 'q021-forest-lord') lockedPortals.delete('temple_road')
   if (questId === 'q022-stele-script') lockedPortals.delete('temple_stairs')
   if (questId === 'q023-remaining-seals') lockedPortals.delete('upper_stairs')
+  if (questId === 'q027-ferry-shortcut') {
+    lockedPortals.delete('outskirts_raft')
+    lockedPortals.delete('reed_raft')
+  }
   // 마을에 들를 때 돈이 되면 강철 검을 산다
   if (player.weaponBonus < UPGRADE_WEAPON.bonus && player.at.sceneId === 'town' && player.gold >= UPGRADE_WEAPON.price) {
     player.gold -= UPGRADE_WEAPON.price

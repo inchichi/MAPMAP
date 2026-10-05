@@ -316,6 +316,16 @@ for i, (x, y) in enumerate(((12, 33), (20, 31), (26, 32))):
     put('object', x, y, ROCK_PILE[i % 2])
 put('shadow_lower', 27, 35, G['cave_prop_filth_spot'])
 
+# 가운데 수직 갱도(19~21열) — 텅 빈 굴이었다. 광부들이 쉬어 가던 흔적: 벽 곁 화로 둘,
+# 내려놓고 간 짐 상자, 흩어진 뼈·잔해. 가운데 20열은 비워 두 칸 너비 통로를 지킨다.
+put('object', 19, 13, G['cave_prop_brazier_00'])
+put('object', 21, 22, G['cave_prop_brazier_01'])
+put('object', 21, 17, G[CRATE_SUPPLIES])
+put('object', 19, 25, ROCK_PILE[0])
+for x, y, key in ((21, 12, 'cave_prop_bone_scatter'), (20, 19, 'cave_prop_skull'), (20, 23, RUBBLE_OK[0]),
+                  (21, 26, RUBBLE_OK[1])):
+    put('shadow_lower', x, y, G[key])
+
 # ---------------------------------------------------------------- shadow_lower
 for y in range(H):
     for x in range(W):

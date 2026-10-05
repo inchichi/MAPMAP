@@ -33,6 +33,8 @@ export type StepMonsterPatrolResult = {
 }
 
 const DEFAULT_MONSTER_PATROL_RADIUS_TILES = 4
+// 보스는 싸움이 붙기 전엔 제 자리(아레나 가운데) 곁만 서성인다 — 관문 앞까지 걸어 나오지 않게.
+export const BOSS_PATROL_RADIUS_TILES = 1.5
 const DEFAULT_MONSTER_PATROL_SPEED_TILES_PER_SECOND = 2.4
 const DEFAULT_MONSTER_PATROL_PAUSE_MIN_MILLISECONDS = 250
 const DEFAULT_MONSTER_PATROL_PAUSE_MAX_MILLISECONDS = 700

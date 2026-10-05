@@ -263,7 +263,7 @@ describe('questLogLua (real wasm bridge)', () => {
     // We do it via the TS chain and replicate on Lua side.
     const slimeTarget = { sceneId: 'hunting-ground', appearanceType: 'monster_slime' }
     const pigTarget = { sceneId: 'hunting-ground', appearanceType: 'monster_pig' }
-    const slimeBossTarget = { sceneId: 'cave', appearanceType: 'monster_slime' }
+    const slimeBossTarget = { sceneId: 'cave', appearanceType: 'monster_slime', characterId: '말캉이-보스' }
 
     let log = createInitialQuestLog()
     log = startQuest(log, FIRST_SLIME_HUNT_QUEST_ID)
@@ -435,6 +435,22 @@ describe('questLogLua (real wasm bridge)', () => {
     expect(lua.getVisibleQuestTrackers(luaLog2)).toEqual(
       getVisibleQuestTrackers(log2)
     )
+
+    // 첫 목표를 다 채우면 다음 남은 목표를 보여 준다(꿀꿀이-보스: 바위돌이 8/8 → 꿀꿀이-보스 0/1)
+    const initial = createInitialQuestLog()
+    const multi = {
+      progressByQuestId: {
+        ...initial.progressByQuestId,
+        'q008-pig-boss-threat': {
+          id: 'q008-pig-boss-threat',
+          status: 'active' as const,
+          objectives: { 'defeat-cave-guardians': 8, 'defeat-pig-boss': 0 },
+          trackerVisible: true
+        }
+      }
+    }
+    expect(getVisibleQuestTrackers(multi)[0].text).toBe('꿀꿀이-보스 0/1')
+    expect(lua.getVisibleQuestTrackers(multi)).toEqual(getVisibleQuestTrackers(multi))
 
     // empty when nothing visible
     const fresh = lua.createInitialQuestLog()

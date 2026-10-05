@@ -369,6 +369,20 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
       key: 'ui-check-beige',
       scale: 1.2
     }
+  },
+  {
+    // 2장 곁가지(c2-s5 숨은 제단) 보상 — 신전 외곽 북쪽 숲 뒤 제단에 바쳐져 있던 부적
+    id: 'altar-charm',
+    defense: 5,
+    slotId: 'accessory',
+    label: '늪 제단의 부적',
+    level: 22,
+    description: '옛 신관들이 봉인의 힘을 담아 둔 이끼 낀 부적',
+    price: 600,
+    icon: {
+      key: 'ui-check-beige',
+      scale: 1.2
+    }
   }
 ]
 

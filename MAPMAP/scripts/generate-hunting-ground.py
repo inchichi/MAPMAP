@@ -791,6 +791,17 @@ for name, (tx, ty), props, lines in [
      [('blocksMovement', 'bool', 'true'), ('quest.hiddenWhenCompleted', '', 'q009-mine-ore-rush'),
       ('type', '', 'cave_prop_boulder')],
      ['무너진 바위가 갱도를 막고 있다.', '수정 광산 쪽 일이 정리되면 길이 열릴지도 모른다.']),
+    # 모닥불 곁에서 쉬는 사냥꾼 둘(야영지가 상인 혼자라 비어 보였다) — 초보 사냥 요령
+    ('camp_hunter_bram', (CAMPFIRE_AT[0] - 3, CAMPFIRE_AT[1]),
+     [('blocksMovement', 'bool', 'true'), ('displayText', '', '사냥꾼 브람'),
+      ('type', '', 'character_adventurer_brown_hair')],
+     ['꿀꿀이 떼한테 한꺼번에 덤비지 마. 하나씩 끌어내서 잡는 거야.',
+      '바위돌이는 느려도 단단해. 칼이 안 들면 대장간부터 들르라고.']),
+    ('camp_hunter_lise', (CAMPFIRE_AT[0] + 3, CAMPFIRE_AT[1]),
+     [('blocksMovement', 'bool', 'true'), ('displayText', '', '사냥꾼 리세'),
+      ('type', '', 'character_villager_flower_dress')],
+     ['말캉이는 혼자 다닐 땐 순해. 떼로 몰려오면 얘기가 다르지만.',
+      '남쪽 숲길 버섯돌이 근처에선 오래 서 있지 마. 포자가 독하거든.']),
 ]:
     oid, next_id = next_id, next_id + 1
     chars.append((oid, obj_with_lines(oid, name, tx, ty, props, lines)))

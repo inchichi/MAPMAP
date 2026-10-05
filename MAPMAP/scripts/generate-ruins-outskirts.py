@@ -19,7 +19,7 @@ import sys
 sys.path.insert(0, 'scripts')
 import swamp_terrain as st  # noqa: E402
 from swamp_mapkit import (INVISIBLE_BLOCK, LPC, S, SwampMap, catmull, character, dist_to_path,  # noqa: E402
-                          monster, npc, portal, sign, wobble)
+                          monster, npc, portal, sign, waystone, wobble)
 
 W, H = 50, 40
 OUT = 'src/games/my-sample-rpg/assets/maps/ruins-outskirts.tmx'
@@ -76,10 +76,10 @@ MONSTERS = [
     ('유적 해골병-1', 'monster_skeleton', 24, (15, 18)),
     ('유적 해골병-2', 'monster_skeleton', 24, (28, 17)),
     ('유적 해골병-3', 'monster_skeleton', 25, (8, 24)),
-    ('유적 해골병-4', 'monster_skeleton', 25, (21, 29)),
-    ('유적 해골병-5', 'monster_skeleton', 25, (27, 29)),
-    ('유적 해골병-6', 'monster_skeleton', 26, (22, 32)),
-    ('유적 해골병-7', 'monster_skeleton', 26, (27, 32)),
+    ('유적 해골병-4', 'monster_skeleton', 25, (20, 29)),
+    ('유적 해골병-5', 'monster_skeleton', 25, (28, 29)),
+    ('유적 해골병-6', 'monster_skeleton', 26, (21, 33)),
+    ('유적 해골병-7', 'monster_skeleton', 26, (27, 33)),
     # 이끼 골렘 — 신전 입구 광장
     ('이끼 골렘-1', 'monster_moss_golem', 26, (37, 11)),
     ('이끼 골렘-2', 'monster_moss_golem', 26, (42, 12)),
@@ -208,7 +208,14 @@ if '--ascii' in sys.argv:
         print(f'{y:2} ' + ''.join('o' if (x, y) in plaza_cells and not m.get('object', x, y) else
                                   '~' if (x, y) in m.water_cells else '#' if m.get('object', x, y) else
                                   '^' if m.get('object_upper', x, y) else '.' for x in range(W)))
+# 곁가지(c2-s1·s4·s5) 자리 — 지형을 다 깐 뒤라 기존 배치는 그대로다
+RAFT = (6, 4)                    # 갈대골로 돌아가는 지름길 나룻배(북서 연못가)
+REED_RAFT_SPAWN = (3, 18)        # 갈대골 서쪽 나루 데크
+BANNER = (12, 27)                # 쓰러진 신전 수비대 깃발(c2-s4)
+ALTAR = (2, 1)                   # 북쪽 나무숲 뒤 숨은 제단(c2-s5) — 북서 구석의 좁은 틈으로 들어간다
+ALTAR_GUARDIAN = (7, 1)
 m.validate(ARRIVAL, [(n, p) for n, _k, _l, p in MONSTERS] + [
+    ('나룻배', RAFT), ('깃발', BANNER), ('제단 앞', (ALTAR[0] + 1, ALTAR[1])), ('제단 수호자', ALTAR_GUARDIAN)] + [
     ('도착 칸', ARRIVAL), ('셀린', SELIN), ('비석 앞', (sx, sy + 2)), ('계단', (STAIRS[0], STAIRS[1] + 1)),
     ('돌문 앞', (DOOR_SEAL[0][0], DOOR_SEAL[0][1] + 1))] + [(f'입구 {p}', p) for p in entrance_cells],
     open_edge_cells=entrance_cells)
@@ -246,9 +253,26 @@ chars = [monster(30 + i, name, x, y, kind, lvl) for i, (name, kind, lvl, (x, y))
         ('type', '', 'cave_prop_boulder')])
     for i, (x, y) in enumerate(DOOR_SEAL)
 ]
+chars += [
+    # 귀환 표지석(셀린 야영지) — 도착 칸은 waystones.ts 의 (9, 13)
+    waystone(54, 'ruins-camp', 9, 12),
+    monster(29, '이끼 골렘-제단', ALTAR_GUARDIAN[0], ALTAR_GUARDIAN[1], 'monster_moss_golem', 28),
+    character(26, 'fallen_banner', BANNER[0], BANNER[1], [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['흙에 반쯤 묻힌 깃발이다. 물결 세 줄을 수놓은 문장이 바래 있다.']),
+        ('controller.scriptId', '', 'vn-dialogue'), ('displayText', '', '쓰러진 깃발'), ('type', '', 'town_prop_fence_post')]),
+    character(27, 'hidden_altar', ALTAR[0], ALTAR[1], [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['이끼에 덮인 작은 황금 제단이다. 아무도 이곳을 모르는 듯하다.']),
+        ('controller.scriptId', '', 'vn-dialogue'), ('displayText', '', '숨은 제단'), ('type', '', 'cave_prop_altar_gold_r1c1')]),
+]
 portals = [
+    portal(52, 'reed_raft', RAFT[0], RAFT[1], 1, 1, [
+        ('appearanceType', '', 'swamp_raft'), ('quest.requiresCompleted', '', 'q027-ferry-shortcut'),
+        ('targetFacing', '', 'left'), ('targetSceneId', '', 'reed-village'),
+        ('targetSpawnTileX', 'int', REED_RAFT_SPAWN[0]), ('targetSpawnTileY', 'int', REED_RAFT_SPAWN[1])]),
     portal(50, 'forest_road', ENTRANCE[0], ENTRANCE[1], ENTRANCE[2], ENTRANCE[3], [
-        ('appearanceType', '', 'swamp_grass'), ('targetFacing', '', 'left'),
+        ('appearanceType', '', 'swamp_deck_h'), ('targetFacing', '', 'left'),
         ('targetSceneId', '', 'sunken-forest'),
         ('targetSpawnTileX', 'int', FOREST_SPAWN[0]), ('targetSpawnTileY', 'int', FOREST_SPAWN[1])]),
     portal(51, 'temple_stairs', STAIRS[0], STAIRS[1], STAIRS[2], STAIRS[3], [

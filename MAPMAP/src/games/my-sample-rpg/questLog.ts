@@ -19,6 +19,11 @@ export const WEAPON_PATH_QUEST_ID = 'q014-weapon-path'
 export const HIDDEN_CACHE_QUEST_ID = 'q015-hidden-cache'
 export const CAMP_MERCHANT_NPC_ID = 'camp_merchant'
 export const HIDDEN_CACHE_NPC_ID = 'hidden_cache'
+// 1장 곁가지(디테일 살리기 때 이름을 얻은 티르코네일 주민들의 부탁). 3장 설계 번호(q033~q047) 뒤를 쓴다.
+export const CARPENTER_STONES_QUEST_ID = 'q048-carpenter-stones'
+export const GARDENER_SEEDS_QUEST_ID = 'q049-gardener-seeds'
+export const CLOCK_OIL_QUEST_ID = 'q050-clock-oil'
+export const BRIDGE_WATCH_QUEST_ID = 'q051-bridge-watch'
 // 2장 가라앉은 숲과 고대 유적(docs/chapter2-sunken-forest.md). 설계 번호 c2-01 = q016.
 export const VANISHING_WATER_QUEST_ID = 'q016-vanishing-water'
 export const SLUICE_KEEPER_NPC_ID = 'mage'
@@ -47,6 +52,13 @@ export const SEAL_CHAMBER_QUEST_ID = 'q024-seal-chamber'
 export const SWAMP_PRIEST_QUEST_ID = 'q025-swamp-priest'
 // c2-09 = q026. 물이 다시 흐르는 것을 보고 이멜에게 알린다(2장 끝, 3장 떡밥).
 export const WATER_FLOWS_AGAIN_QUEST_ID = 'q026-water-flows-again'
+// 2장 곁가지 c2-s1~s6 = q027~q032 (docs/chapter2-sunken-forest.md 의 곁가지 표)
+export const FERRY_SHORTCUT_QUEST_ID = 'q027-ferry-shortcut'
+export const HERB_BASKET_QUEST_ID = 'q028-herb-basket'
+export const HUNTER_KEEPSAKES_QUEST_ID = 'q029-hunter-keepsakes'
+export const SKELETON_CREST_QUEST_ID = 'q030-skeleton-crest'
+export const HIDDEN_ALTAR_QUEST_ID = 'q031-hidden-altar'
+export const VILLAGE_WELL_QUEST_ID = 'q032-village-well'
 
 export const FIRST_SLIME_HUNT_OBJECTIVE_ID = 'defeat-slimes'
 export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 12
@@ -129,6 +141,8 @@ export type QuestDefinition = {
   activeDialogueLines: string[]
   // 대화 목표의 상대 NPC(퀘스트를 준 사람이 아닌)가 말하는 대사. 없으면 activeDialogueLines.
   talkTargetDialogueLines?: string[]
+  // 대화 목표가 여럿일 때 상대마다 다른 대사(예: 신전의 두 비석). 없는 상대는 talkTargetDialogueLines.
+  talkTargetDialogueLinesByNpcId?: Record<string, string[]>
   completionDialogueLines: string[]
   arcCompletionMessage?: string
   // 장소 도착(scene-enter)만 목표인 퀘스트: 도착하는 순간 완료하고, 준 사람이 다음 퀘스트를
@@ -194,6 +208,7 @@ const SCENE_SUNKEN_FOREST = 'sunken-forest'
 const SCENE_RUINS_OUTSKIRTS = 'ruins-outskirts'
 const SCENE_SUNKEN_TEMPLE_1F = 'sunken-temple-1f'
 const SCENE_SUNKEN_TEMPLE_2F = 'sunken-temple-2f'
+const SCENE_REED_WELL = 'reed-well'
 const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
 const MONSTER_MUSHROOM_APPEARANCE_TYPE = 'monster_mushroom'
@@ -331,7 +346,8 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     completionDialogueLines: [
       '역시 이상하군.',
       '말캉이와 꿀꿀이가 동시에 사나워지는 건 흔한 일이 아니다.',
-      '사냥터 깊은 곳에 있는 동굴 쪽에서 이상한 기운이 흘러나오는 것 같구나.'
+      '사냥터 깊은 곳에 있는 동굴 쪽에서 이상한 기운이 흘러나오는 것 같구나.',
+      '들어가기 전에 대장장이에게 들러 장비부터 점검받거라. 맨손으로 갈 곳이 아니다.'
     ],
     objectives: [
       {
@@ -363,9 +379,9 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       '마법사는 동굴에 들어가기 전 대장장이에게 장비를 점검받으라고 했다.',
     guideText: '대장장이에게 가서 동굴 탐사 준비를 하자.',
     startDialogueLines: [
-      '힘세고 강한 아침, 만일 내게 물어보면 I AM 대장장이.',
+      '마법사 영감이 보냈나? 얼굴만 봐도 알겠군.',
       '동굴에 들어간다고? 기본 무기만 들고 가기엔 좀 불안한데.',
-      '나중에는 YOU 에게 무기도 팔게 될 거야.',
+      '돈이 모이면 내 가게에서 제대로 된 무기를 맞춰 주지.',
       '일단 이 수호 부적을 가져가. 초보자에게는 작은 방어력도 큰 차이를 만든다.'
     ],
     activeDialogueLines: [
@@ -479,7 +495,9 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
         type: 'monster-defeat',
         target: {
           sceneId: SCENE_CAVE,
-          appearanceType: MONSTER_SLIME_APPEARANCE_TYPE
+          appearanceType: MONSTER_SLIME_APPEARANCE_TYPE,
+          // 보스가 불러낸 작은 말캉이(말캉이-소환-N)는 세지 않는다
+          characterId: '말캉이-보스'
         }
       }
     ],
@@ -511,8 +529,8 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       '무리하지 말고, 체력이 위험하면 바로 물약을 써.'
     ],
     completionDialogueLines: [
-      '준비는 끝났어.',
-      '무리하지 말고, 체력이 위험하면 바로 물약을 써.',
+      '동굴 깊은 곳은 공기부터 다르대. 숨이 막히면 잠깐 물러서.',
+      '체력이 절반 아래로 떨어지면 망설이지 말고 물약을 눌러.',
       '그리고 돌아오면 꼭 들러. 다친 곳 없는지 봐줄게.'
     ],
     objectives: [
@@ -591,7 +609,8 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
         type: 'monster-defeat',
         target: {
           sceneId: SCENE_CAVE,
-          appearanceType: MONSTER_PIG_APPEARANCE_TYPE
+          appearanceType: MONSTER_PIG_APPEARANCE_TYPE,
+          characterId: '꿀꿀이-보스'
         }
       }
     ],
@@ -859,7 +878,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       '{playerName}, 이제 너는 어느 길도 정해지지 않은 모험가가 아니다.',
       '검을 들면 검사, 지팡이를 들면 마법사, 활을 들면 사수 — 무기가 길을 연다.',
       '마지막 시험이다. 잊힌 광산의 단조장을 지키는 꿀꿀이 대장을 쓰러뜨려라.',
-      '가는 길의 바위돌이 셋도 잊지 말고.'
+      '가는 길을 막는 바위돌이 여섯도 잊지 말고.'
     ],
     activeDialogueLines: ['광산 북쪽 용암 단조장, 그 깊은 곳에 꿀꿀이 대장이 있다.'],
     completionDialogueLines: [
@@ -945,6 +964,159 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
         { id: 'hunting-bow', label: '사냥용 활', quantity: 1 },
         { id: 'health-potion', label: '체력 회복 포션', quantity: 3 }
       ]
+    }
+  },
+  {
+    // 남서쪽 집 목수 토렌(villager_1, 잔디밭을 서성인다). 새 집 세 채 주춧돌.
+    id: CARPENTER_STONES_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: 'villager_1',
+    giverName: '목수 토렌',
+    title: '목수의 주춧돌',
+    trackerLabel: '주춧돌 구하기: 바위돌이',
+    prerequisiteQuestIds: [PIG_TROUBLE_QUEST_ID],
+    requestText: '목수 토렌이 새 집 주춧돌로 쓸 단단한 돌을 구해 달라고 했다. 사냥터 바위돌이의 몸돌이 딱 좋다고 한다.',
+    guideText: '사냥터 무너진 광산 쪽과 남쪽 숲길의 바위돌이 4마리를 처치하고 토렌에게 돌아가자.',
+    startDialogueLines: [
+      '이봐, 모험가. 잠깐 시간 있나?',
+      '광장에 새 집을 세 채나 올리는데 주춧돌이 모자라. 강가 돌은 물러서 못 써.',
+      '사냥터 바위돌이 녀석들 몸이 딱 좋은 화강암이거든. 네 마리만 부숴 주면 내가 주워 오지.'
+    ],
+    activeDialogueLines: ['바위돌이는 무너진 광산 앞이랑 남쪽 숲길에 있어. 네 마리면 돼.'],
+    completionDialogueLines: [
+      '이 정도면 집 한 채는 끄떡없겠군!',
+      '지붕 다 올리면 처마 밑에 네 이름 하나 새겨 두지. 농담 아니야.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-field-rocks',
+        label: '바위돌이',
+        required: 4,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_HUNTING_GROUND, appearanceType: MONSTER_ROCK_APPEARANCE_TYPE }
+      }
+    ],
+    rewards: {
+      gold: 120,
+      experience: 240,
+      items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }]
+    }
+  },
+  {
+    // 시청 분수 곁 정원사 에일린(villager_2). 딴따라마을 저택의 세라핀 부인(lady)에게 장미 씨앗을 얻어 온다.
+    id: GARDENER_SEEDS_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: 'villager_2',
+    giverName: '정원사 에일린',
+    title: '장미 씨앗 한 줌',
+    trackerLabel: '세라핀 부인에게 장미 씨앗 얻기',
+    prerequisiteQuestIds: [HARVEST_VILLAGE_VISIT_QUEST_ID],
+    requestText: '정원사 에일린이 딴따라마을 저택 정원의 장미 씨앗을 얻어 달라고 했다.',
+    guideText: '딴따라마을 저택 정원의 세라핀 부인과 이야기한 뒤 에일린에게 돌아가자.',
+    startDialogueLines: [
+      '딴따라마을에 다녀오셨다면서요? 거기 저택 정원 장미가 그렇게 곱대요.',
+      '시청 앞 화분에도 한 번 피워 보고 싶어서요. 세라핀 부인께 씨앗 한 줌만 부탁드려 주실래요?'
+    ],
+    activeDialogueLines: ['세라핀 부인은 저택 정원에 계신대요. 수교 아치 밑 계단으로 내려가면 돼요.'],
+    talkTargetDialogueLines: [
+      '티르코네일 정원사가 보냈다고요? 어머, 반가워라.',
+      '여기 씨앗이에요. 햇볕 잘 드는 데 심고, 물은 아침에만 주라고 전해 줘요.'
+    ],
+    completionDialogueLines: [
+      '와, 진짜 장미 씨앗이에요! 아침에만 물을 주라고요? 꼭 그렇게 할게요.',
+      '내년 봄에 시청 앞이 빨개지면, 그건 다 당신 덕이에요.'
+    ],
+    objectives: [
+      {
+        id: 'talk-lady-seeds',
+        label: '세라핀 부인과 대화',
+        required: 1,
+        type: 'talk',
+        target: { npcId: 'lady' }
+      }
+    ],
+    rewards: {
+      gold: 80,
+      experience: 200,
+      items: [{ id: 'mana-potion', label: '마나 회복 포션', quantity: 2 }]
+    }
+  },
+  {
+    // 시계탑지기 노인(villager_3). 말캉이 점액은 톱니 기름으로 그만이다.
+    id: CLOCK_OIL_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: 'villager_3',
+    giverName: '시계탑지기 노인',
+    title: '시계탑의 기름칠',
+    trackerLabel: '톱니 기름: 말캉이',
+    prerequisiteQuestIds: [SLIME_BOSS_SHADOW_QUEST_ID],
+    requestText: '시계탑지기 노인이 톱니에 바를 말캉이 점액을 구해 달라고 했다.',
+    guideText: '사냥터의 말캉이 8마리를 처치하고 시계탑지기 노인에게 돌아가자.',
+    startDialogueLines: [
+      '요즘 시계탑 톱니가 끼익끼익 우는구먼. 기름이 다 말랐어.',
+      '옛날부터 말캉이 점액만 한 기름이 없지. 끈적하지도 않고 겨울에도 안 얼거든.',
+      '사냥터 말캉이 여덟 마리면 한 해는 거뜬하다네.'
+    ],
+    activeDialogueLines: ['말캉이 여덟 마리. 점액은 내가 알아서 걷어 오지.'],
+    completionDialogueLines: [
+      '들리나? 톱니 소리가 비단처럼 부드러워졌어.',
+      '이 시계탑은 앞으로도 한 번도 멈추지 않을 게야. 자네 덕분에 말이지.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-clock-slimes',
+        label: '말캉이',
+        required: 8,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_HUNTING_GROUND, appearanceType: MONSTER_SLIME_APPEARANCE_TYPE }
+      }
+    ],
+    rewards: {
+      gold: 100,
+      experience: 260,
+      items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }]
+    }
+  },
+  {
+    // 다리지기 오웬(villager_4). 수교 물소리가 가늘어졌다 — 딴따라마을 아치 문지기 헤나 경에게 아래쪽 물보라를 묻는다.
+    // 2장(q016 사라지는 물) 앞에 물이 줄고 있다는 것을 한 번 더 깐다.
+    id: BRIDGE_WATCH_QUEST_ID,
+    regionName: REGION_TIR_CHONAIL,
+    giverNpcId: 'villager_4',
+    giverName: '다리지기 오웬',
+    title: '가늘어진 물소리',
+    trackerLabel: '헤나 경에게 아치 밑 물보라 묻기',
+    prerequisiteQuestIds: [SLUICE_KEEPER_ERRAND_QUEST_ID],
+    requestText: '다리지기 오웬이 수교 물소리가 가늘어졌다며, 딴따라마을 아치 문지기 헤나 경에게 아래쪽 사정을 물어 달라고 했다.',
+    guideText: '수교 아치 밑 계단으로 내려가 딴따라마을 헤나 경과 이야기한 뒤 오웬에게 돌아가자.',
+    startDialogueLines: [
+      '이멜 영감이 수위표에 분필을 긋고 있다는 얘기, 자네도 들었소?',
+      '여기 위에서도 느껴지오. 아치 밑 물소리가 예전보다 가늘어졌어.',
+      '아래 아치를 지키는 헤나 경에게 물보라가 어떤지 좀 물어봐 주겠소? 나는 다리를 비울 수가 없어서.'
+    ],
+    activeDialogueLines: ['헤나 경은 딴따라마을 북쪽 아치 밑 계단 앞에 서 있소.'],
+    talkTargetDialogueLines: [
+      '오웬이 물었다고? 역시 그 친구 귀는 못 속이는군.',
+      '사철 마르지 않던 물보라가 요즘은 아침나절이면 그치오. 이런 일은 처음이오.',
+      '상류 어딘가에서 물을 붙잡고 있는 게 있는 모양이오. 오웬에게 그렇게 전해 주시오.'
+    ],
+    completionDialogueLines: [
+      '물보라가 아침이면 그친다고… 그래, 내 귀가 틀리지 않았구먼.',
+      '물길이 마르면 마을도 마르는 법이오. 무슨 일이 생기면 자네가 제일 먼저 알게 될 게요.'
+    ],
+    objectives: [
+      {
+        id: 'talk-gatekeeper',
+        label: '헤나 경과 대화',
+        required: 1,
+        type: 'talk',
+        target: { npcId: 'gatekeeper' }
+      }
+    ],
+    rewards: {
+      gold: 90,
+      experience: 220,
+      items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }]
     }
   },
   {
@@ -1304,11 +1476,18 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       '두 비석을 모두 밝혀 주세요. 그러면 위층으로 가는 길도 열릴 거예요.'
     ],
     activeDialogueLines: ['신전 1층 서쪽과 동쪽 끝 방의 비석이에요. 하나만 밝혀서는 안 돼요.'],
-    talkTargetDialogueLines: [
-      '비석에 손을 대자 물기에 젖은 글자가 하나씩 푸르게 빛난다.',
-      '봉인 하나가 다시 밝혀졌다. 신전 어딘가에서 새던 물소리가 잦아든다.',
-      '두 비석을 모두 밝혔다면 셀린에게 알리자.'
-    ],
+    talkTargetDialogueLinesByNpcId: {
+      seal_stele_2: [
+        '비석에 손을 대자 물기에 젖은 글자가 하나씩 푸르게 빛난다.',
+        '"물을 붙드는 둘째 봉인. 깨어나려는 이의 이름을 부르지 말라."',
+        '봉인 하나가 다시 밝혀졌다. 신전 어딘가에서 새던 물소리가 잦아든다. 동쪽 끝 방에 비석이 하나 더 있다.'
+      ],
+      seal_stele_3: [
+        '이끼 낀 글자가 손끝에서 하나씩 깨어나 푸르게 빛난다.',
+        '"물을 붙드는 셋째 봉인. 종이 울리면 사제가 먼저 깬다."',
+        '봉인 하나가 다시 밝혀졌다. 두 비석을 모두 밝혔다면 셀린에게 알리자.'
+      ]
+    },
     completionDialogueLines: [
       '두 봉인이 다시 빛난다고요? 이제 물이 더 새지는 않을 거예요!',
       '그런데 이상해요. 비석마다 "사제"라는 말이 나와요. 종이 울리면 사제가 먼저 깬다고…',
@@ -1406,8 +1585,9 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     ],
     activeDialogueLines: ['늪의 사제는 2층 봉인의 방 안쪽 제단 앞에 있어요. 마법사님 말씀대로 발밑을 조심하세요.'],
     completionDialogueLines: [
-      '(쓰러지던 늪의 사제가 남긴 말이 아직 귀에 맴돈다: "우리는… 막고 있었을 뿐… 진짜 깨어나는 것은… 북쪽에…")',
+      '(늪의 사제가 남긴 마지막 말을 셀린에게 전했다)',
       '사제를 쓰러뜨렸다고요? 방금 신전 안쪽에서 커다란 물소리가 났어요. 막혀 있던 물길이 다시 열린 거예요!',
+      '그리고 조금 전 신전 계단에서 사냥꾼 넷이 비틀거리며 올라왔어요. 사제가 물 밑 방에 가둬 두었대요. 렌의 동료들이에요! 갈대골로 먼저 보냈어요.',
       '그런데 사제가 그런 말을 했다고요? 북쪽에서 깨어나는 것… 비석 어디에도 그런 글자는 없었는데.',
       '…일단은 기뻐해요. 당신 덕분에 숲이 다시 숨을 쉴 거예요.'
     ],
@@ -1473,6 +1653,228 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       experience: 2500,
       items: [{ id: 'antidote-incense', label: '해독 향', quantity: 3 }]
     }
+  },
+  {
+    // c2-s1 사공의 나룻배 — 토빈의 옛 나룻배가 숲 남쪽 늪가에 처박혀 있다. 둘레의 늪뱀을 쫓고 배를 살펴 보고하면
+    // 토빈이 배를 고쳐 갈대골 나루 ↔ 신전 외곽 북서 연못을 잇는 지름길을 연다(outskirts_raft·reed_raft).
+    id: FERRY_SHORTCUT_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: 'tobin',
+    giverName: '사공 토빈',
+    title: '사공의 나룻배',
+    trackerLabel: '가라앉은 숲 늪뱀 쫓기',
+    prerequisiteQuestIds: [FOREST_LORD_QUEST_ID],
+    requestText: '숲 남쪽 늪가에 처박힌 옛 나룻배를 찾아, 둘레의 늪뱀을 쫓고 배를 살펴 달라.',
+    guideText: '가라앉은 숲 개구리 소굴 섬 남쪽 늪가에서 늪뱀을 쫓고 부서진 나룻배를 살펴본 뒤 토빈에게 돌아가자.',
+    startDialogueLines: [
+      '신전 외곽까지 걸어서 오가려니 다리가 남아나질 않지?',
+      '사실 내 옛 나룻배가 숲 남쪽 늪가에 처박혀 있어. 물이 불던 날 떠내려갔거든.',
+      '배 둘레에 늪뱀들이 똬리를 틀어서 가 볼 엄두를 못 냈어. 뱀들을 쫓고 배가 고칠 만한지 봐 줄래?',
+      '쓸 만하면 신전 쪽 연못까지 물길을 내 줄게. 거기서부턴 노 몇 번이면 돼.'
+    ],
+    activeDialogueLines: ['숲 개구리 소굴 섬 남쪽 늪가야. 뱀 조심하고.'],
+    talkTargetDialogueLines: [
+      '바닥에 구멍이 났지만 용골은 멀쩡하다. 갈대와 송진으로 메우면 다시 뜰 것 같다.',
+      '토빈에게 알려 주자.'
+    ],
+    completionDialogueLines: [
+      '용골이 멀쩡하다고? 역시 내 배야!',
+      '오늘 밤 안에 고쳐서 나루에 대 둘게. 신전 외곽 북서쪽 연못까지 물길을 열어 두지.',
+      '나루 맨 끝 나룻배를 타면 숲을 건너지 않고 바로 신전 쪽으로 갈 수 있어. 돌아올 때도 그 연못에서 타면 되고.'
+    ],
+    objectives: [
+      {
+        id: 'chase-snakes',
+        label: '늪뱀',
+        required: 4,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_SUNKEN_FOREST, appearanceType: 'monster_snake' }
+      },
+      { id: 'inspect-boat', label: '부서진 나룻배 살펴보기', required: 1, type: 'talk', target: { npcId: 'sunken_boat' } }
+    ],
+    rewards: { gold: 400, experience: 900, items: [] }
+  },
+  {
+    // c2-s2 약초꾼의 바구니 — 오디가 해독 향 말고도 약을 짓게 세 곳의 약초를 캐 온다(채집 = 대화 목표).
+    id: HERB_BASKET_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: HERBALIST_NPC_ID,
+    giverName: '약초꾼 오디',
+    title: '약초꾼의 바구니',
+    trackerLabel: '늪 약초 캐기',
+    prerequisiteQuestIds: [ANTIDOTE_INCENSE_QUEST_ID],
+    requestText: '숲 북쪽 둔덕, 독안개 속 남쪽 섬, 수로 상류길 개울가의 약초를 캐 달라.',
+    guideText:
+      '가라앉은 숲 북쪽 사냥꾼 야영지 곁, 독안개 속 남쪽 섬(해독 향 필요), 수로 상류길 개울가 숲의 약초를 캐서 오디에게 가져가자.',
+    startDialogueLines: [
+      '해독 향만으로는 부족해요. 마을 사람들 기침약, 상처 연고도 지어야 하거든요.',
+      '세 군데 약초가 필요해요. 숲 북쪽 야영지 곁의 푸른 풀, 독안개 속에서만 자라는 붉은 잎, 그리고 상류길 개울가의 하얀 꽃이요.',
+      '독안개 쪽은 꼭 향을 피우고 가세요!'
+    ],
+    activeDialogueLines: ['야영지 곁 푸른 풀, 안개 속 붉은 잎, 개울가 하얀 꽃이에요.'],
+    talkTargetDialogueLinesByNpcId: {
+      herb_patch_1: ['푸른 풀을 뿌리째 캐서 바구니에 담았다.'],
+      herb_patch_2: ['숨을 참고 붉은 잎을 몇 장 땄다. 손끝이 저릿하다.'],
+      herb_patch_3: ['하얀 꽃을 꺾어 바구니에 담았다. 은은한 향이 난다.']
+    },
+    completionDialogueLines: [
+      '와, 세 가지 다 있네요! 붉은 잎은 정말 귀한 건데.',
+      '이걸로 약을 지으면 겨울까지는 넉넉해요. 고마워요. 이건 제가 지은 약이에요, 가져가세요.'
+    ],
+    objectives: [
+      { id: 'herb-ridge', label: '야영지 곁 푸른 풀', required: 1, type: 'talk', target: { npcId: 'herb_patch_1' } },
+      { id: 'herb-fog', label: '독안개 속 붉은 잎', required: 1, type: 'talk', target: { npcId: 'herb_patch_2' } },
+      { id: 'herb-stream', label: '개울가 하얀 꽃', required: 1, type: 'talk', target: { npcId: 'herb_patch_3' } }
+    ],
+    rewards: {
+      gold: 300,
+      experience: 800,
+      items: [
+        { id: 'health-potion', label: '체력 회복 포션', quantity: 4 },
+        { id: 'antidote-incense', label: '해독 향', quantity: 2 }
+      ]
+    }
+  },
+  {
+    // c2-s3 돌아오지 않은 사냥꾼 — 사냥꾼들이 끌려가며 흘린 물건 셋(숲 곳곳, 탐험). 미렌이 가족에게 돌려준다.
+    id: HUNTER_KEEPSAKES_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: REED_VILLAGE_CHIEF_NPC_ID,
+    giverName: '촌장 미렌',
+    title: '돌아오지 않은 사냥꾼',
+    trackerLabel: '사냥꾼의 유품 찾기',
+    prerequisiteQuestIds: [BEYOND_THE_FOG_QUEST_ID],
+    requestText: '끌려간 사냥꾼들이 숲에 흘린 물건을 찾아 가족에게 돌려주고 싶다.',
+    guideText:
+      '가라앉은 숲 서쪽 입구 둔덕 남쪽, 독안개 길, 안개 속 북쪽 섬을 돌며 사냥꾼들의 물건을 찾아 미렌에게 가져가자.',
+    startDialogueLines: [
+      '렌 말로는 끌려가면서 다들 뭔가를 떨어뜨렸다더군. 일부러 흘린 것일지도 모르지.',
+      '가족들이 매일 내 집 앞을 서성인다네. 무엇이든 하나라도 쥐여 주고 싶어.',
+      '입구 둔덕 남쪽, 안개 길, 안개 속 북쪽 섬 — 렌이 기억하는 곳은 그쯤이라네.'
+    ],
+    activeDialogueLines: ['입구 둔덕 남쪽, 안개 길, 안개 속 북쪽 섬이라네.'],
+    talkTargetDialogueLinesByNpcId: {
+      hunter_keepsake_1: ['진흙에서 부러진 활을 건졌다. 손잡이에 "다르"라고 새겨져 있다.'],
+      hunter_keepsake_2: ['가죽 주머니 안에 아이 그림이 그려진 나무 조각이 들어 있다.'],
+      hunter_keepsake_3: ['갈대 무늬 목도리를 풀어 챙겼다. 끝자락에 "미카"라는 수가 놓여 있다.']
+    },
+    completionDialogueLines: [
+      '다르의 활… 미카의 목도리… 이 나무 조각은 막내 사냥꾼 딸아이가 깎아 준 걸세.',
+      '고맙네. 이걸 쥐면 가족들도 조금은 버틸 수 있을 게야. 그 아이들이 꼭 돌아와야 할 텐데.'
+    ],
+    objectives: [
+      { id: 'keepsake-bow', label: '부러진 활', required: 1, type: 'talk', target: { npcId: 'hunter_keepsake_1' } },
+      { id: 'keepsake-pouch', label: '젖은 가죽 주머니', required: 1, type: 'talk', target: { npcId: 'hunter_keepsake_2' } },
+      { id: 'keepsake-scarf', label: '찢어진 목도리', required: 1, type: 'talk', target: { npcId: 'hunter_keepsake_3' } }
+    ],
+    rewards: { gold: 450, experience: 1000, items: [{ id: 'mana-potion', label: '마나 회복 포션', quantity: 3 }] }
+  },
+  {
+    // c2-s4 해골병의 문장 — 유적 해골병의 방패에 남은 물결 문장과 쓰러진 수비대 깃발(셀린의 연구).
+    id: SKELETON_CREST_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: SCHOLAR_NPC_ID,
+    giverName: '학자 셀린',
+    title: '해골병의 문장',
+    trackerLabel: '유적 해골병 처치',
+    prerequisiteQuestIds: [STELE_SCRIPT_QUEST_ID],
+    requestText: '유적 해골병들이 두른 물결 문장의 정체를 알고 싶다. 해골병을 쓰러뜨리고 옛 수비대 깃발을 찾아 달라.',
+    guideText: '신전 외곽에서 유적 해골병을 더 쓰러뜨리고, 남서쪽 풀밭에 쓰러진 깃발을 살펴본 뒤 셀린에게 돌아가자.',
+    startDialogueLines: [
+      '해골병들 방패에 물결 세 줄 문장이 있는 거 봤어요? 신전 수비대 문장 같아요.',
+      '수비대였다면 어딘가에 깃발이 남아 있을 거예요. 남서쪽 풀밭 어딘가에서 봤다는 순례자 기록이 있어요.',
+      '해골병들도 조금 더 쓰러뜨려 주세요. 방패를 몇 개 더 보면 문장을 정확히 옮겨 그릴 수 있어요.'
+    ],
+    activeDialogueLines: ['남서쪽 풀밭의 깃발, 그리고 해골병 방패예요.'],
+    talkTargetDialogueLines: [
+      '흙을 털어 내자 물결 세 줄 아래 작은 글씨가 드러난다: "물을 지키는 자는 물에 잠겨도 지킨다."',
+      '셀린에게 알려 주자.'
+    ],
+    completionDialogueLines: [
+      '"물에 잠겨도 지킨다"… 그래서 죽어서도 신전을 돌고 있었던 거예요.',
+      '그들은 적이 아니었을지도 몰라요. 사제가 깨지 못하게 봉인을 지키던 거라면…',
+      '고마워요. 문장 기록은 제 연구의 큰 조각이에요. 이건 제 비상금이에요, 받아 주세요.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-more-skeletons',
+        label: '유적 해골병',
+        required: 8,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_RUINS_OUTSKIRTS, appearanceType: 'monster_skeleton' }
+      },
+      { id: 'read-banner', label: '쓰러진 깃발 살펴보기', required: 1, type: 'talk', target: { npcId: 'fallen_banner' } }
+    ],
+    rewards: { gold: 600, experience: 1400, items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }] }
+  },
+  {
+    // c2-s5 숨은 제단 — 신전 외곽 북쪽 숲 뒤 좁은 틈의 제단이 직접 퀘스트를 준다(발견). 수호 골렘을 쓰러뜨리면
+    // 제단에 바쳐진 부적을 얻는다.
+    id: HIDDEN_ALTAR_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: 'hidden_altar',
+    giverName: '숨은 제단',
+    title: '숨은 제단',
+    trackerLabel: '제단 수호자 처치',
+    prerequisiteQuestIds: [STELE_SCRIPT_QUEST_ID],
+    requestText: '제단을 지키는 이끼 골렘을 쓰러뜨리면 제단이 바쳐진 것을 내어 줄 것 같다.',
+    guideText: '신전 외곽 북서쪽 숲 뒤 제단 곁의 이끼 골렘을 쓰러뜨린 뒤 제단에 다시 손을 대자.',
+    startDialogueLines: [
+      '제단 위 이끼 아래로 작은 부적이 비친다.',
+      '손을 뻗자 뒤에서 돌 굴러가는 소리가 난다. 제단을 지키는 무언가가 깨어난 것 같다.'
+    ],
+    activeDialogueLines: ['제단 곁의 수호자가 아직 서 있다.'],
+    completionDialogueLines: [
+      '수호자가 무너지자 제단의 이끼가 스르르 걷힌다.',
+      '물결 세 줄이 새겨진 부적이 손바닥 위로 떨어졌다.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-altar-guardian',
+        label: '제단 수호자',
+        required: 1,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_RUINS_OUTSKIRTS, appearanceType: 'monster_moss_golem', characterId: '이끼 골렘-제단' }
+      }
+    ],
+    rewards: { gold: 300, experience: 1200, items: [{ id: 'altar-charm', label: '늪 제단의 부적', quantity: 1 }] }
+  },
+  {
+    // c2-s6 마을의 우물 — 갈대골 마당 우물 아래 옛 물길에 뱀과 개구리가 숨어들고 물길 입구가 막혔다.
+    id: VILLAGE_WELL_QUEST_ID,
+    regionName: REGION_SUNKEN_FOREST,
+    giverNpcId: REED_VILLAGE_CHIEF_NPC_ID,
+    giverName: '촌장 미렌',
+    title: '마을의 우물',
+    trackerLabel: '우물 속 짐승 쫓기',
+    prerequisiteQuestIds: [DROWNED_PATH_QUEST_ID],
+    requestText: '마당 우물 아래 물길에 숨어든 뱀과 개구리를 쫓고 막힌 물길을 뚫어 달라.',
+    guideText: '갈대골 마당 우물로 내려가 늪뱀과 늪개구리 전사를 쫓고, 북쪽 끝 막힌 물길을 뚫은 뒤 미렌에게 돌아가자.',
+    startDialogueLines: [
+      '자네에게 이런 일까지 부탁해서 미안하네만… 마당 우물물이 썩어 가고 있네.',
+      '늪 물이 우물 아래 옛 물길로 거꾸로 차오르면서 뱀이며 개구리가 숨어들었다더군.',
+      '안쪽 물길 입구도 막혔는지 물이 돌지를 않아. 우물 밧줄을 타고 내려가 보게.'
+    ],
+    activeDialogueLines: ['우물 밧줄을 타고 내려가면 된다네. 북쪽 끝 물길 입구를 뚫어 주게.'],
+    talkTargetDialogueLines: [
+      '썩은 갈대 더미를 몇 번 걷어차자 물길이 뚫리며 물이 콸콸 흘러간다.',
+      '미렌에게 알리자.'
+    ],
+    completionDialogueLines: [
+      '우물물이 맑아졌다고 아이들이 뛰어왔다네. 허허, 고맙네.',
+      '갈대골 사람들은 이런 작은 은혜를 잊지 않는다네.'
+    ],
+    objectives: [
+      {
+        id: 'clear-well-beasts',
+        label: '우물 속 짐승',
+        required: 5,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_REED_WELL, appearanceType: 'monster_snake' }
+      },
+      { id: 'unclog-well', label: '막힌 물길 뚫기', required: 1, type: 'talk', target: { npcId: 'well_clog' } }
+    ],
+    rewards: { gold: 350, experience: 900, items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }] }
   }
 ]
 
@@ -1831,16 +2233,27 @@ export const getVisibleQuestTrackers = (
     }
 
     switch (quest.status) {
-      case 'active':
-        const objective = definition.objectives[0]
+      case 'active': {
+        // 아직 끝나지 않은 첫 목표를 보여 준다(처치 5/5 를 채웠는데 "비석 읽기"가 안 보이던 문제). 목표가 하나면
+        // 퀘스트의 추적 이름(trackerLabel), 여럿이면 숫자가 어느 목표의 것인지 보이게 늘 목표 이름으로 쓴다
+        // ("수정 광석 채굴 0/1" 이 실은 광산 진입 0/1 이던 문제).
+        const index = Math.max(
+          0,
+          definition.objectives.findIndex(
+            (candidate) => (quest.objectives[candidate.id] ?? 0) < candidate.required
+          )
+        )
+        const objective = definition.objectives[index]
+        const label = definition.objectives.length === 1 ? definition.trackerLabel : objective.label
 
         return [
           {
             questId: definition.id,
-            text: `${definition.trackerLabel} ${quest.objectives[objective.id]}/${objective.required}`,
+            text: `${label} ${quest.objectives[objective.id] ?? 0}/${objective.required}`,
             objective
           }
         ]
+      }
       case 'ready-to-turn-in':
         return [
           {
@@ -1969,6 +2382,15 @@ export const getNextQuestInteractionForNpc = (
     ? createNpcQuestInteraction(questLog, unlockedDefinition, 'start')
     : undefined
 }
+
+// 대화 목표의 상대 NPC 가 말하는 대사. 상대별 대사 → 공통 대사 → 진행 중 대사 순.
+export const getTalkTargetDialogueLines = (
+  definition: QuestDefinition,
+  npcId: string
+): string[] =>
+  definition.talkTargetDialogueLinesByNpcId?.[npcId] ??
+  definition.talkTargetDialogueLines ??
+  definition.activeDialogueLines
 
 export const formatQuestText = (
   text: string,

@@ -79,7 +79,8 @@ export const usePlayerInventoryConsumable = ({
         })
       }
     case 'antidote-incense':
-      // 해독 향은 능력치를 바꾸지 않는다 — 하나를 태우고, 독안개 면역 시간은 화면(poisonFog)이 잰다.
+    case 'warming-tea':
+      // 해독 향·생강차는 능력치를 바꾸지 않는다 — 하나를 쓰고, 독안개·눈보라 면역 시간은 화면(poisonFog)이 잰다.
       return {
         profile,
         inventory: consumeInventorySlot({

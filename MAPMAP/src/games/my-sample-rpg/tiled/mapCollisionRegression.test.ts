@@ -21,7 +21,8 @@ const loadMap = (name: string) =>
       'utf8'
     ),
     externalTilesets: {
-      '../tilesets/town-32.tsx': townTilesetXml
+      '../tilesets/town-32.tsx': townTilesetXml,
+      '../tilesets/biome-snow.tsx': readFileSync(new URL('../assets/tilesets/biome-snow.tsx', import.meta.url), 'utf8')
     }
   })
 
@@ -274,7 +275,13 @@ describe('every open cell is reachable', () => {
     ['sunken-forest', [2, 22] as [number, number]],
     ['ruins-outskirts', [2, 19] as [number, number]],
     ['sunken-temple-1f', [19, 35] as [number, number]],
-    ['sunken-temple-2f', [14, 25] as [number, number]]
+    ['sunken-temple-2f', [14, 25] as [number, number]],
+    ['reed-well', [10, 16] as [number, number]],
+    ['north-pass', [24, 25] as [number, number]],
+    ['frost-village', [22, 33] as [number, number]],
+    ['frozen-lake', [2, 20] as [number, number]],
+    ['ice-cave-1f', [20, 36] as [number, number]],
+    ['ice-cave-2f', [14, 25] as [number, number]]
   ])('leaves no unreachable floor in %s', (name, start) => {
     expect(reachableFrom(name, start)).toEqual([])
   })

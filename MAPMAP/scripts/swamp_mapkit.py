@@ -100,15 +100,38 @@ def monster(oid, name, tx, ty, kind, level):
                                          ('type', '', kind)])
 
 
+def waystone(oid, waystone_id, tx, ty):
+    """귀환 표지석(waystones.ts) — (tx, ty) 가 오벨리스크 밑동 칸, 윗칸은 그림만. 도착 칸은 밑동 바로 아래.
+    오브젝트 id 를 둘(oid, oid + 1) 쓴다."""
+    return '\n'.join([
+        character(oid, f'waystone_{waystone_id}', tx, ty, [
+            ('blocksMovement', 'bool', 'true'), ('displayText', '', '귀환 표지석'),
+            ('type', '', 'cave_prop_obelisk_r1c0')]),
+        character(oid + 1, f'waystone_{waystone_id}_top', tx, ty - 1, [
+            ('blocksMovement', 'bool', 'false'), ('type', '', 'cave_prop_obelisk_r0c0')]),
+    ])
+
+
 def sign(oid, name, tx, ty, text):
     return character(oid, name, tx, ty, [('type', '', 'sign_inn'), ('blocksMovement', 'bool', 'false'),
                                          ('displayText', '', text)])
 
 
+def load_biome_remap(biome):
+    """바이옴(append-biome-tiles.py)의 gid 치환표. None 이면 늪 그대로."""
+    if not biome:
+        return {}
+    data = json.load(open('scripts/biome-gids.json', encoding='utf-8'))
+    return {int(k): v for k, v in data[biome]['remap'].items()}
+
+
 class SwampMap:
-    def __init__(self, w, h, seed):
+    def __init__(self, w, h, seed, biome=None):
+        """biome: None(늪) 또는 'snow' 등 — 같은 지형 규칙으로 맵을 만들고 TMX 를 쓸 때 타일 번호만 바이옴 판으로 바꾼다."""
         import random
         self.W, self.H = w, h
+        self.biome_remap = load_biome_remap(biome)
+        self.biome = biome
         self.rnd = random.Random(seed)
         self.L = {n: [0] * (w * h) for n in LAYER_NAMES}
         self.vmat = None
@@ -474,8 +497,12 @@ class SwampMap:
                f'nextlayerid="{FIRST_LAYER_ID + len(LAYER_NAMES)}" nextobjectid="{next_object_id}">',
                f'<!-- {generator} 가 생성한다. 손으로 고치지 말고 스크립트를 고친 뒤 다시 돌릴 것. -->',
                ' <tileset firstgid="1" source="../tilesets/town-32.tsx"/>']
+        if self.biome_remap:   # 바이옴 타일셋(append-biome-tiles.py): town-32 다음 칸부터
+            out.append(f' <tileset firstgid="{min(self.biome_remap.values())}" source="../tilesets/biome-{self.biome}.tsx"/>')
+        remap = self.biome_remap
         for i, name in enumerate(LAYER_NAMES, start=FIRST_LAYER_ID):
-            rows = ',\n'.join(','.join(str(v) for v in self.L[name][y * self.W:(y + 1) * self.W]) for y in range(self.H))
+            rows = ',\n'.join(','.join(str(remap.get(v, v)) for v in self.L[name][y * self.W:(y + 1) * self.W])
+                               for y in range(self.H))
             out.append(f' <layer id="{i}" name="{name}" width="{self.W}" height="{self.H}">\n'
                        f'  <data encoding="csv">\n{rows}\n</data>\n </layer>')
         out.append(' <objectgroup id="2" name="characters">')

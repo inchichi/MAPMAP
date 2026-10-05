@@ -18,3 +18,14 @@ export const isPoisonFogImmune = (immuneUntil: number, now: number): boolean => 
 
 export const getRemainingImmunitySeconds = (immuneUntil: number, now: number): number =>
   Math.max(0, Math.ceil((immuneUntil - now) / 1000))
+
+// 3장 눈보라 — 얼어붙은 호수 일부를 덮은 눈보라 칸(roof 레이어의 snow_blizzard_* 타일, append-biome-tiles.py 가
+// 독안개 타일을 바꿔 만든다). 피해는 독안개와 같고, 안에서는 걸음이 느려진다. 서리목 약재상 이르마의 생강차를
+// 마시면 한동안 막는다(면역 시각은 독안개처럼 main.ts 가 쥔다).
+export const WARMING_TEA_ITEM_ID = 'warming-tea'
+export const WARMING_TEA_DURATION_MILLISECONDS = 90_000
+export const BLIZZARD_MOVE_SPEED_MULTIPLIER = 0.75
+const BLIZZARD_TILE_TYPE_PATTERN = /^snow_blizzard_(\d+|edge_w)$/
+
+export const isBlizzardTileType = (tileType: string | undefined): boolean =>
+  tileType !== undefined && BLIZZARD_TILE_TYPE_PATTERN.test(tileType)

@@ -58,6 +58,36 @@ export const CURRENT_GAME_PROJECT_PROFILE: GameStructureProfile = {
       id: 'sunken-temple-2f',
       name: 'Sunken Temple 2F',
       file: 'src/games/my-sample-rpg/assets/maps/sunken-temple-2f.tmx'
+    },
+    {
+      id: 'reed-well',
+      name: 'Reed Well',
+      file: 'src/games/my-sample-rpg/assets/maps/reed-well.tmx'
+    },
+    {
+      id: 'north-pass',
+      name: 'North Pass',
+      file: 'src/games/my-sample-rpg/assets/maps/north-pass.tmx'
+    },
+    {
+      id: 'frost-village',
+      name: 'Frost Village',
+      file: 'src/games/my-sample-rpg/assets/maps/frost-village.tmx'
+    },
+    {
+      id: 'frozen-lake',
+      name: 'Frozen Lake',
+      file: 'src/games/my-sample-rpg/assets/maps/frozen-lake.tmx'
+    },
+    {
+      id: 'ice-cave-1f',
+      name: 'Ice Cave 1F',
+      file: 'src/games/my-sample-rpg/assets/maps/ice-cave-1f.tmx'
+    },
+    {
+      id: 'ice-cave-2f',
+      name: 'Ice Cave 2F',
+      file: 'src/games/my-sample-rpg/assets/maps/ice-cave-2f.tmx'
     }
   ],
   npcs: [

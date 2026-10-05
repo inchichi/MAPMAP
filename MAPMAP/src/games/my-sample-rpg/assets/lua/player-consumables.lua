@@ -56,8 +56,8 @@ function consumables_use_inventory(profile, inventory, slot_index)
       inventory = consume_inventory_slot(inventory, slot_index, item)
     }
 
-  elseif item.id == 'antidote-incense' then
-    -- 해독 향: 능력치는 그대로, 하나만 태운다(독안개 면역 시간은 화면 쪽 poisonFog 가 잰다)
+  elseif item.id == 'antidote-incense' or item.id == 'warming-tea' then
+    -- 해독 향·생강차: 능력치는 그대로, 하나만 쓴다(독안개·눈보라 면역 시간은 화면 쪽 poisonFog 가 잰다)
     return {
       profile = profile,
       inventory = consume_inventory_slot(inventory, slot_index, item)

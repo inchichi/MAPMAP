@@ -423,6 +423,174 @@ export const MONSTER_CATALOG: readonly MonsterCatalogEntry[] = [
       hitAnimationSpeed: 0.16,
       attackAnimationSpeed: 0.16
     }
+  },
+  // ---- 3장 얼어붙은 북쪽(docs/chapter3-frozen-north.md) — 그림은 scripts/build-ch3-lpc-sheets.py
+  {
+    // 눈 말캉이: 말캉이를 흰·하늘빛으로. 행동은 말캉이와 같다.
+    appearanceType: 'monster_snow_slime',
+    label: '눈 말캉이',
+    spec: {
+      idleLeft: lpcStrip('slime-snow.png', 64, 64, 0, range(6)),
+      idleRight: lpcStrip('slime-snow.png', 64, 64, 0, range(6), true),
+      runLeft: lpcStrip('slime-snow.png', 64, 64, 0, range(6)),
+      runRight: lpcStrip('slime-snow.png', 64, 64, 0, range(6), true),
+      hitLeft: lpcStrip('slime-snow.png', 64, 64, 0, [3]),
+      hitRight: lpcStrip('slime-snow.png', 64, 64, 0, [3], true),
+      attackLeft: lpcStrip('slime-snow.png', 64, 64, 1, range(8)),
+      attackRight: lpcStrip('slime-snow.png', 64, 64, 1, range(8), true)
+    },
+    behavior: {
+      ...BASE_BEHAVIOR,
+      aggroRangeTiles: 4.4,
+      deAggroRangeTiles: 6.8,
+      chaseSpeedTilesPerSecond: 3.0,
+      patrolSpeedTilesPerSecond: 1.8,
+      attackRangeTiles: 1.0,
+      attackIntervalMilliseconds: 5000,
+      attackDurationMilliseconds: 760,
+      hitReactionDurationMilliseconds: 240,
+      idleAnimationSpeed: 0.06,
+      runAnimationSpeed: 0.16,
+      hitAnimationSpeed: 0.16,
+      attackAnimationSpeed: 0.12
+    },
+    sounds: { attack: 'slimeAttack', death: 'slimeDeath' }
+  },
+  {
+    // 고블린 약탈자: 초록 고블린, 가죽 갑옷, 단검. 재빠르고 자주 찌르지만 약하다.
+    appearanceType: 'monster_goblin',
+    label: '고블린 약탈자',
+    spec: lpcHumanoidSpec('goblin-raider.png', 6),
+    behavior: {
+      ...BASE_BEHAVIOR,
+      aggroRangeTiles: 5.4,
+      deAggroRangeTiles: 8.0,
+      chaseSpeedTilesPerSecond: 4.0,
+      patrolSpeedTilesPerSecond: 2.0,
+      attackRangeTiles: 1.1,
+      attackIntervalMilliseconds: 2800,
+      attackDurationMilliseconds: 480,
+      hitReactionDurationMilliseconds: 220,
+      idleAnimationSpeed: 0.06,
+      runAnimationSpeed: 0.24,
+      hitAnimationSpeed: 0.2,
+      attackAnimationSpeed: 0.24
+    }
+  },
+  {
+    // 서리 늑대인간: 갈색 털 근육 몸 + 늑대 머리. 멀리서도 냄새를 맡고 빠르게 쫓아와 할퀸다.
+    appearanceType: 'monster_frost_wolfman',
+    label: '서리 늑대인간',
+    spec: lpcHumanoidSpec('frost-wolfman.png', 6),
+    behavior: {
+      ...BASE_BEHAVIOR,
+      aggroRangeTiles: 6.2,
+      deAggroRangeTiles: 9.0,
+      chaseSpeedTilesPerSecond: 4.6,
+      patrolSpeedTilesPerSecond: 2.2,
+      attackRangeTiles: 1.2,
+      attackIntervalMilliseconds: 3200,
+      attackDurationMilliseconds: 520,
+      hitReactionDurationMilliseconds: 220,
+      idleAnimationSpeed: 0.05,
+      runAnimationSpeed: 0.26,
+      hitAnimationSpeed: 0.2,
+      attackAnimationSpeed: 0.22
+    }
+  },
+  {
+    // 얼음 골렘: 바위돌이를 얼음빛으로. 바위돌이처럼 굼뜨고 단단하다.
+    appearanceType: 'monster_ice_golem',
+    label: '얼음 골렘',
+    spec: {
+      idleLeft: lpcStrip('golem-ice-walk.png', 64, 64, 1, [0]),
+      idleRight: lpcStrip('golem-ice-walk.png', 64, 64, 3, [0]),
+      runLeft: lpcStrip('golem-ice-walk.png', 64, 64, 1, range(7)),
+      runRight: lpcStrip('golem-ice-walk.png', 64, 64, 3, range(7)),
+      hitLeft: lpcStrip('golem-ice-die.png', 64, 64, 0, [1]),
+      hitRight: lpcStrip('golem-ice-die.png', 64, 64, 0, [1], true),
+      attackLeft: lpcStrip('golem-ice-attack.png', 64, 96, 1, range(7)),
+      attackRight: lpcStrip('golem-ice-attack.png', 64, 96, 3, range(7))
+    },
+    behavior: {
+      ...BASE_BEHAVIOR,
+      renderScale: 1.1,
+      aggroRangeTiles: 3.8,
+      deAggroRangeTiles: 6.4,
+      chaseSpeedTilesPerSecond: 1.7,
+      patrolSpeedTilesPerSecond: 0.8,
+      attackRangeTiles: 1.1,
+      attackIntervalMilliseconds: 4200,
+      attackDurationMilliseconds: 700,
+      hitReactionDurationMilliseconds: 320,
+      idleAnimationSpeed: 0.1,
+      runAnimationSpeed: 0.22,
+      hitAnimationSpeed: 0.2,
+      attackAnimationSpeed: 0.26
+    }
+  },
+  {
+    // 서리 해골: 유적 해골병을 서리빛으로. 행동은 해골병과 같다.
+    appearanceType: 'monster_frost_skeleton',
+    label: '서리 해골',
+    spec: lpcHumanoidSpec('skeleton-frost.png', 6),
+    behavior: {
+      ...BASE_BEHAVIOR,
+      aggroRangeTiles: 5.0,
+      deAggroRangeTiles: 7.6,
+      chaseSpeedTilesPerSecond: 3.3,
+      patrolSpeedTilesPerSecond: 1.5,
+      attackRangeTiles: 1.3,
+      attackIntervalMilliseconds: 3600,
+      attackDurationMilliseconds: 600,
+      hitReactionDurationMilliseconds: 240,
+      idleAnimationSpeed: 0.05,
+      runAnimationSpeed: 0.2,
+      hitAnimationSpeed: 0.18,
+      attackAnimationSpeed: 0.2
+    }
+  },
+  {
+    // 트롤 족장(3장 중간 보스): 초록 트롤, 철퇴. 내려찍기(둘레 충격파)와 고블린 소환은 bossSkills.ts.
+    appearanceType: 'monster_troll_chief',
+    label: '트롤 족장',
+    spec: lpcHumanoidSpec('troll-chief.png', 6),
+    behavior: {
+      ...BASE_BEHAVIOR,
+      aggroRangeTiles: 6.5,
+      deAggroRangeTiles: 10.0,
+      chaseSpeedTilesPerSecond: 2.2,
+      patrolSpeedTilesPerSecond: 0.9,
+      attackRangeTiles: 1.8,
+      attackIntervalMilliseconds: 3800,
+      attackDurationMilliseconds: 820,
+      hitReactionDurationMilliseconds: 180,
+      idleAnimationSpeed: 0.04,
+      runAnimationSpeed: 0.14,
+      hitAnimationSpeed: 0.16,
+      attackAnimationSpeed: 0.12
+    }
+  },
+  {
+    // 서리 마녀(3장 최종 보스): 흰 로브, 하늘빛 두건, 주문. 얼음 가시와 늑대인간 소환은 bossSkills.ts.
+    appearanceType: 'monster_frost_witch',
+    label: '서리 마녀',
+    spec: lpcHumanoidSpec('frost-witch.png', 7),
+    behavior: {
+      ...BASE_BEHAVIOR,
+      aggroRangeTiles: 7.5,
+      deAggroRangeTiles: 11.0,
+      chaseSpeedTilesPerSecond: 1.8,
+      patrolSpeedTilesPerSecond: 0.8,
+      attackRangeTiles: 1.6,
+      attackIntervalMilliseconds: 3200,
+      attackDurationMilliseconds: 800,
+      hitReactionDurationMilliseconds: 160,
+      idleAnimationSpeed: 0.04,
+      runAnimationSpeed: 0.12,
+      hitAnimationSpeed: 0.16,
+      attackAnimationSpeed: 0.16
+    }
   }
 ]
 

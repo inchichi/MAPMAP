@@ -302,6 +302,17 @@
     <property name="type" value="cave_fill_Water_00"/>
    </properties>
   </object>
+  <object id="8" name="herb_patch_3" type="character" x="400" y="192" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="개울가 그늘에 하얀 꽃을 단 약초가 몇 포기 자라 있다."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="개울 약초"/>
+    <property name="type" value="cave_prop_glow_plant_a"/>
+   </properties>
+  </object>
  </objectgroup>
  <objectgroup id="3" name="portals">
   <!-- 아치 → 딴따라마을 수문 아래 (12, 5). 딴따라마을 쪽 포탈(upstream_gate)은 이 맵의 도착 칸 (5, 21) 을 들고 있다. -->

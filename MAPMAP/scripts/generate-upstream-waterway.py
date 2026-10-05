@@ -167,6 +167,14 @@ chars = [monster(20 + i, name, x, y, kind, lvl) for i, (name, kind, lvl, (x, y))
         ('blocksMovement', 'bool', 'false'), ('quest.requiresCompleted', '', 'q025-swamp-priest'),
         ('type', '', 'cave_fill_Water_00')])
     for i, (dx, dy) in enumerate([(0, 0), (1, 0), (0, 1), (1, 1)])
+] + [
+    # 곁가지 c2-s2(오디의 약초 바구니) — 상류길 숲가의 약초
+    character(8, 'herb_patch_3', 12, 5, [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['개울가 그늘에 하얀 꽃을 단 약초가 몇 포기 자라 있다.']),
+        ('controller.scriptId', '', 'vn-dialogue'),
+        ('displayText', '', '개울 약초'),
+        ('type', '', 'cave_prop_glow_plant_a')]),
 ]
 portals = [
     portal(10, 'aqueduct_gate', GATE[0], GATE[1], GATE[2], GATE[3], [

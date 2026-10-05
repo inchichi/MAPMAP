@@ -9,6 +9,10 @@ import {
   MANOR_SPORE_ERRAND_QUEST_ID,
   WEAPON_PATH_QUEST_ID,
   HIDDEN_CACHE_QUEST_ID,
+  CARPENTER_STONES_QUEST_ID,
+  GARDENER_SEEDS_QUEST_ID,
+  CLOCK_OIL_QUEST_ID,
+  BRIDGE_WATCH_QUEST_ID,
   VANISHING_WATER_QUEST_ID,
   REED_VILLAGE_QUEST_ID,
   DROWNED_PATH_QUEST_ID,
@@ -36,7 +40,9 @@ import {
   getNextQuestInteractionForNpc,
   getQuestNpcBadgeKindForNpc,
   getQuestProgress,
+  getTalkTargetDialogueLines,
   isQuestUnlocked,
+  getQuestDefinition,
   getVisibleQuestTrackers,
   hideVisibleQuestTrackers,
   recordItemUseQuestProgress,
@@ -246,7 +252,10 @@ describe('chapter 2 forest lord (q021, mid boss)', () => {
   ]
 
   it('is offered by chief Miren after Ren is found', () => {
-    expect(getNextQuestInteractionForNpc(completedThrough(UNTIL_BEYOND_THE_FOG.slice(0, 5)), 'miren')).toBeUndefined()
+    // (그 전에는 미렌이 곁가지 '마을의 우물'만 준다)
+    expect(getNextQuestInteractionForNpc(completedThrough(UNTIL_BEYOND_THE_FOG.slice(0, 5)), 'miren')?.questId).not.toBe(
+      FOREST_LORD_QUEST_ID
+    )
     expect(getNextQuestInteractionForNpc(completedThrough(UNTIL_BEYOND_THE_FOG), 'miren')).toMatchObject({
       questId: FOREST_LORD_QUEST_ID,
       action: 'start'
@@ -277,15 +286,24 @@ describe('chapter 2 forest lord (q021, mid boss)', () => {
       action: 'start'
     })
     let questLog = startQuest(afterLord, STELE_SCRIPT_QUEST_ID)
+    // 목표가 여럿이면 첫 목표도 목표 이름으로 — 숫자가 어느 목표의 것인지 보이게
+    expect(getVisibleQuestTrackers(questLog).find((item) => item.questId === STELE_SCRIPT_QUEST_ID)?.text).toBe(
+      `${getQuestDefinition(STELE_SCRIPT_QUEST_ID).objectives[0].label} 0/5`
+    )
     // 비석이 "여기로 와서 대화" 표시를 받는다
     expect(getQuestNpcBadgeKindForNpc(questLog, 'seal_stele_1')).toBe('new')
-    questLog = recordTalkQuestProgress(questLog, 'seal_stele_1')
     for (let i = 0; i < 5; i += 1) {
       questLog = recordMonsterDefeatQuestProgress(questLog, {
         sceneId: 'ruins-outskirts',
         appearanceType: 'monster_skeleton'
       })
     }
+    // 처치를 다 채우면 추적창은 남은 목표(비석 읽기)를 보여 준다
+    expect(getVisibleQuestTrackers(questLog).find((item) => item.questId === STELE_SCRIPT_QUEST_ID)).toMatchObject({
+      text: '첫 봉인 비석 읽기 0/1',
+      objective: { id: 'read-first-seal' }
+    })
+    questLog = recordTalkQuestProgress(questLog, 'seal_stele_1')
     expect(getQuestProgress(questLog, STELE_SCRIPT_QUEST_ID).status).toBe('ready-to-turn-in')
     expect(getNextQuestInteractionForNpc(questLog, 'selin')).toMatchObject({ action: 'complete' })
   })
@@ -299,6 +317,12 @@ describe('chapter 2 forest lord (q021, mid boss)', () => {
         appearanceType: 'monster_drowned'
       })
     }
+    // 두 비석은 서로 다른 글귀를 말한다
+    const seals = QUEST_DEFINITIONS.find((definition) => definition.id === REMAINING_SEALS_QUEST_ID)!
+    expect(getTalkTargetDialogueLines(seals, 'seal_stele_2')).not.toEqual(
+      getTalkTargetDialogueLines(seals, 'seal_stele_3')
+    )
+    expect(getTalkTargetDialogueLines(seals, 'seal_stele_3').join(' ')).toContain('사제')
     questLog = recordTalkQuestProgress(questLog, 'seal_stele_2')
     // 비석 하나로는 끝나지 않는다
     expect(getQuestProgress(questLog, REMAINING_SEALS_QUEST_ID).status).toBe('active')
@@ -342,7 +366,7 @@ describe('chapter 2 forest lord (q021, mid boss)', () => {
 })
 
 describe('questLog', () => {
-  it('registers the quest catalog with stable q001-q026 ids', () => {
+  it('registers the quest catalog with stable q001-q032 ids', () => {
     expect(QUEST_DEFINITIONS.map((definition) => definition.id)).toEqual([
       ...BEGINNER_ARC_QUEST_IDS,
       MINE_ORE_RUSH_QUEST_ID,
@@ -352,6 +376,10 @@ describe('questLog', () => {
       MANOR_SPORE_ERRAND_QUEST_ID,
       WEAPON_PATH_QUEST_ID,
       HIDDEN_CACHE_QUEST_ID,
+      CARPENTER_STONES_QUEST_ID,
+      GARDENER_SEEDS_QUEST_ID,
+      CLOCK_OIL_QUEST_ID,
+      BRIDGE_WATCH_QUEST_ID,
       VANISHING_WATER_QUEST_ID,
       REED_VILLAGE_QUEST_ID,
       DROWNED_PATH_QUEST_ID,
@@ -362,11 +390,17 @@ describe('questLog', () => {
       REMAINING_SEALS_QUEST_ID,
       SEAL_CHAMBER_QUEST_ID,
       SWAMP_PRIEST_QUEST_ID,
-      WATER_FLOWS_AGAIN_QUEST_ID
+      WATER_FLOWS_AGAIN_QUEST_ID,
+      'q027-ferry-shortcut',
+      'q028-herb-basket',
+      'q029-hunter-keepsakes',
+      'q030-skeleton-crest',
+      'q031-hidden-altar',
+      'q032-village-well'
     ])
-    // 1장(q001~q015)은 티르코네일, 2장부터는 가라앉은 숲
+    // 1장(q001~q015, 곁가지 q048~q051)은 티르코네일, 2장부터는 가라앉은 숲
     expect(
-      QUEST_DEFINITIONS.filter((definition) => !definition.id.match(/^q01[6-9]|^q02\d/)).every(
+      QUEST_DEFINITIONS.filter((definition) => !definition.id.match(/^q0(1[6-9]|[2-3]\d)/)).every(
         (definition) => definition.regionName === '티르코네일 마을'
       )
     ).toBe(true)
@@ -491,9 +525,17 @@ describe('questLog', () => {
       .nextQuestLog
 
     questLog = startQuest(questLog, SLIME_BOSS_SHADOW_QUEST_ID)
+    // 보스가 불러낸 작은 말캉이는 세지 않는다
     questLog = recordMonsterDefeatQuestProgress(questLog, {
       sceneId: 'cave',
-      appearanceType: 'monster_slime'
+      appearanceType: 'monster_slime',
+      characterId: '말캉이-소환-1'
+    })
+    expect(getQuestProgress(questLog, SLIME_BOSS_SHADOW_QUEST_ID).status).toBe('active')
+    questLog = recordMonsterDefeatQuestProgress(questLog, {
+      sceneId: 'cave',
+      appearanceType: 'monster_slime',
+      characterId: '말캉이-보스'
     })
     expect(getQuestProgress(questLog, SLIME_BOSS_SHADOW_QUEST_ID).status).toBe(
       'ready-to-turn-in'
@@ -510,7 +552,8 @@ describe('questLog', () => {
     questLog = startQuest(questLog, PIG_BOSS_THREAT_QUEST_ID)
     questLog = recordMonsterDefeatQuestProgress(questLog, {
       sceneId: 'cave',
-      appearanceType: 'monster_pig'
+      appearanceType: 'monster_pig',
+      characterId: '꿀꿀이-보스'
     })
     // 보스만 잡아서는 끝나지 않는다 — 보스실 앞 바위돌이 8마리도 물리쳐야 한다.
     expect(getQuestProgress(questLog, PIG_BOSS_THREAT_QUEST_ID).status).toBe('active')

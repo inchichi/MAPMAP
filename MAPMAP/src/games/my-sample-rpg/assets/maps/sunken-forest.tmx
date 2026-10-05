@@ -549,7 +549,7 @@
     </property>
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="quest.hiddenWhenCompleted" value="q021-forest-lord"/>
-    <property name="type" value="town_prop_bush_round"/>
+    <property name="type" value="ruins_thorns_0"/>
    </properties>
   </object>
   <object id="12" name="east_thorns_1" type="character" x="1904" y="576" width="32" height="32">
@@ -561,7 +561,7 @@
     </property>
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="quest.hiddenWhenCompleted" value="q021-forest-lord"/>
-    <property name="type" value="town_prop_bush_round"/>
+    <property name="type" value="ruins_thorns_1"/>
    </properties>
   </object>
   <object id="13" name="east_thorns_2" type="character" x="1904" y="608" width="32" height="32">
@@ -573,7 +573,82 @@
     </property>
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="quest.hiddenWhenCompleted" value="q021-forest-lord"/>
-    <property name="type" value="town_prop_bush_round"/>
+    <property name="type" value="ruins_thorns_0"/>
+   </properties>
+  </object>
+  <object id="40" name="sunken_boat" type="character" x="720" y="1120" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="바닥이 뚫린 나룻배가 늪가에 처박혀 있다."/>
+     <item value="뱃전에 &quot;토빈&quot;이라는 글자가 새겨져 있다."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="부서진 나룻배"/>
+    <property name="type" value="swamp_raft"/>
+   </properties>
+  </object>
+  <object id="41" name="herb_patch_1" type="character" x="752" y="256" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="푸르스름하게 빛나는 풀이 무성하다."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="늪 약초"/>
+    <property name="type" value="cave_prop_glow_plant_a"/>
+   </properties>
+  </object>
+  <object id="42" name="herb_patch_2" type="character" x="1776" y="928" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="독안개 속에서만 자라는 붉은 잎의 풀이다."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="독안개 약초"/>
+    <property name="type" value="cave_prop_glow_plant_b"/>
+   </properties>
+  </object>
+  <object id="43" name="hunter_keepsake_1" type="character" x="240" y="800" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="진흙에 반쯤 묻힌 부러진 활이다."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="부러진 활"/>
+    <property name="type" value="cave_prop_crate_bones"/>
+   </properties>
+  </object>
+  <object id="44" name="hunter_keepsake_2" type="character" x="1552" y="704" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="물에 불은 가죽 주머니가 굴러다닌다."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="젖은 가죽 주머니"/>
+    <property name="type" value="cave_prop_crate_bones"/>
+   </properties>
+  </object>
+  <object id="45" name="hunter_keepsake_3" type="character" x="1616" y="480" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="갈대 무늬를 수놓은 목도리가 나뭇가지에 걸려 있다."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="찢어진 목도리"/>
+    <property name="type" value="cave_prop_crate_bones"/>
+   </properties>
+  </object>
+  <object id="17" name="temple_road_sign" type="character" x="1808" y="512" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="false"/>
+    <property name="displayText" value="잠긴 신전 →"/>
+    <property name="quest.requiresCompleted" value="q021-forest-lord"/>
+    <property name="type" value="sign_inn"/>
    </properties>
   </object>
  </objectgroup>
@@ -590,7 +665,7 @@
   </object>
   <object id="14" name="temple_road" type="portal" x="1888" y="512" width="32" height="96">
    <properties>
-    <property name="appearanceType" value="swamp_grass"/>
+    <property name="appearanceType" value="swamp_deck_h"/>
     <property name="quest.requiresCompleted" value="q021-forest-lord"/>
     <property name="targetFacing" value="right"/>
     <property name="targetSceneId" value="ruins-outskirts"/>

@@ -155,6 +155,18 @@ const POTION_ICON_FRAME_BY_ID = {
       width: 16,
       height: 16
     }
+  },
+  // 생강차(3장) — 회색 약병
+  'warming-tea': {
+    imageUrl: TINY_DUNGEON_TILESET_IMAGE_URL,
+    imageWidth: TINY_DUNGEON_TILESET_WIDTH,
+    imageHeight: TINY_DUNGEON_TILESET_HEIGHT,
+    frame: {
+      x: 80,
+      y: 144,
+      width: 16,
+      height: 16
+    }
   }
 } as const
 const ICON_CHECK_FRAME = {

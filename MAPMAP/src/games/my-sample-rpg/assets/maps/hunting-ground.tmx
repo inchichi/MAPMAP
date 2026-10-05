@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="32" tileheight="32" infinite="0" nextlayerid="17" nextobjectid="31">
+<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="32" tileheight="32" infinite="0" nextlayerid="17" nextobjectid="33">
 <!-- scripts/generate-hunting-ground.py 가 생성한다. 손으로 고치지 말고 스크립트를 고친 뒤 다시 돌릴 것. -->
  <tileset firstgid="1" source="../tilesets/town-32.tsx"/>
  <layer id="10" name="ground" width="50" height="50">
@@ -550,7 +550,31 @@
     <property name="type" value="cave_prop_boulder"/>
    </properties>
   </object>
-  <object id="29" name="return_stone_sign" type="character" x="1168" y="896" width="32" height="32">
+  <object id="29" name="camp_hunter_bram" type="character" x="720" y="768" width="32" height="32">
+   <properties>
+    <property name="controller.dialogueLines" type="list">
+     <item value="꿀꿀이 떼한테 한꺼번에 덤비지 마. 하나씩 끌어내서 잡는 거야."/>
+     <item value="바위돌이는 느려도 단단해. 칼이 안 들면 대장간부터 들르라고."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="displayText" value="사냥꾼 브람"/>
+    <property name="type" value="character_adventurer_brown_hair"/>
+   </properties>
+  </object>
+  <object id="30" name="camp_hunter_lise" type="character" x="912" y="768" width="32" height="32">
+   <properties>
+    <property name="controller.dialogueLines" type="list">
+     <item value="말캉이는 혼자 다닐 땐 순해. 떼로 몰려오면 얘기가 다르지만."/>
+     <item value="남쪽 숲길 버섯돌이 근처에선 오래 서 있지 마. 포자가 독하거든."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="displayText" value="사냥꾼 리세"/>
+    <property name="type" value="character_villager_flower_dress"/>
+   </properties>
+  </object>
+  <object id="31" name="return_stone_sign" type="character" x="1168" y="896" width="32" height="32">
    <properties>
     <property name="type" value="sign_inn"/>
     <property name="blocksMovement" type="bool" value="false"/>
@@ -599,7 +623,7 @@
   </object>
  </objectgroup>
  <objectgroup id="4" name="decorations">
-  <object id="30" name="hunter_camp" type="reserved" x="736" y="672" width="160" height="128">
+  <object id="32" name="hunter_camp" type="reserved" x="736" y="672" width="160" height="128">
    <properties>
     <property name="displayText" value="사냥꾼 야영지 (모닥불)"/>
    </properties>

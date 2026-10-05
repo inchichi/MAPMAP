@@ -368,6 +368,14 @@ for y in range(H):
             else:
                 put('object', x, y, G['cave_prop_glow_plant_a' if (x + y) % 2 else 'cave_prop_glow_plant_b'])
 
+# 지하 물길 두 갈래(가운데 통로 좌우, 걸을 수 없는 '~' 구덩이) — 텅 빈 물가였다. 모래 테두리(오토타일 경계 칸)에
+# 발광 식물과 떠밀려 온 뼈·잔해를 얹는다. 밟을 수 없는 칸이라 길에는 영향이 없다.
+for x, y, key in ((4, 20, 'cave_prop_glow_plant_a'), (29, 23, 'cave_prop_glow_plant_b'),
+                  (8, 23, 'cave_prop_bone_scatter'), (25, 20, 'cave_prop_skull'),
+                  (11, 20, 'cave_prop_rubble_00'), (22, 23, 'cave_prop_rubble_02')):
+    assert at(x, y) == '~', (x, y)
+    put('deco', x, y, G[key])
+
 # 화로 — 조명이 남하할수록 잦아들고, 아레나엔 관문 쪽 한 쌍뿐.
 for i, (x, y) in enumerate(((1, 8), (1, 13), (13, 5), (19, 5), (19, 11),
                             (14, 19), (14, 27), (24, 27))):

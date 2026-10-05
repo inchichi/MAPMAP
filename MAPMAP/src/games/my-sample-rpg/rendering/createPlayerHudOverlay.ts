@@ -105,6 +105,18 @@ const TINY_DUNGEON_CONSUMABLE_ICON_FRAMES = {
       width: 16,
       height: 16
     }
+  },
+  // 생강차(3장) — 회색 약병
+  'warming-tea': {
+    imageUrl: TINY_DUNGEON_TILESET_IMAGE_URL,
+    imageWidth: TINY_DUNGEON_TILESET_WIDTH,
+    imageHeight: TINY_DUNGEON_TILESET_HEIGHT,
+    frame: {
+      x: 80,
+      y: 144,
+      width: 16,
+      height: 16
+    }
   }
 } as const
 // 수정 광석 아이콘 — town-32 기본 타일(gid 494). 기본 600타일 영역이라 좌표 불변.
@@ -405,6 +417,8 @@ export const createPlayerHudOverlay = ({
         return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['mana-potion']
       case 'antidote-incense':
         return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['antidote-incense']
+      case 'warming-tea':
+        return TINY_DUNGEON_CONSUMABLE_ICON_FRAMES['warming-tea']
       case 'crystal-ore':
         return CRYSTAL_ORE_ICON_FRAME
       default:

@@ -55,6 +55,9 @@ export const QUEST_GIVER_PORTRAIT_KEY_BY_NPC_ID: Partial<Record<string, string>>
   [POTION_MERCHANT_NPC_ID]: 'id:potion_merchant',
   santa: 'id:santa',
   villager_1: 'character_villager_brown_tunic',
+  villager_2: 'character_villager_flower_dress',
+  villager_3: 'character_elder_gray_hair',
+  villager_4: 'character_commoner_tan_tunic',
   elder: 'character_elder_gray_hair',
   farmer: 'id:farmer',
   rona: 'character_villager_flower_dress',
@@ -67,7 +70,9 @@ export const QUEST_GIVER_PORTRAIT_KEY_BY_NPC_ID: Partial<Record<string, string>>
   tobin: 'id:tobin',
   ren: 'id:ren',
   // 신전 외곽의 학자(scripts/build-ch2-lpc-sheets.py)
-  selin: 'id:selin'
+  selin: 'id:selin',
+  // 신전 외곽의 숨은 제단(사람이 아니라 제단이 퀘스트를 준다) — 옛 신관을 떠올리게 마법사 그림
+  hidden_altar: 'character_wizard_purple'
 }
 // 32px 초상화를 2배(64px)로 — 예전 16px 초상화의 4배와 같은 화면 크기
 const PORTRAIT_SCALE = 2

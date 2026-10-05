@@ -36,7 +36,8 @@ const getMonsterPopupSprite = (appearanceType: string): MonsterPopupSprite | und
 const POTION_LABELS: Record<string, string> = {
   'health-potion': '체력 회복 포션',
   'mana-potion': '마나 회복 포션',
-  'antidote-incense': '해독 향'
+  'antidote-incense': '해독 향',
+  'warming-tea': '생강차'
 }
 
 const MATERIAL_LABELS: Record<string, string> = {
@@ -62,7 +63,8 @@ export const describeQuestObjectiveTarget = (
     return {
       kind: 'monster',
       appearanceType,
-      label: getMonsterKindLabel(appearanceType)
+      // 특정 개체(보스 등)를 노리는 목표는 몬스터 종류("말캉이") 대신 목표 이름("말캉이-보스")
+      label: objective.target.characterId ? objective.label : getMonsterKindLabel(appearanceType)
     }
   }
   if (

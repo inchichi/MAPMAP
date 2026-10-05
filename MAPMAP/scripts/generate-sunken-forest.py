@@ -81,6 +81,21 @@ LOST_HUNTER = (54, 31)                   # 안개 속 남쪽 섬에 쓰러진 �
 LORD_CLEARING = (56, 18.5, 3.2)          # 숲의 주인 공터(나무를 심지 않는다)
 EAST_EXIT = [(59, 16), (59, 17), (59, 18)]  # 동쪽 끝 신전 길 — q021 전에는 가시덩굴이 막는다
 RUINS_ARRIVAL = (2, 19)                  # 잠긴 신전 외곽 서쪽 입구 도착 칸
+# 곁가지 대화 목표 오브젝트(지형을 바꾸지 않게 걸을 수 있는 칸 위에 오브젝트로만 둔다)
+SIDE_OBJECTS = [
+    ('sunken_boat', (22, 34), '부서진 나룻배', 'swamp_raft',
+     ['바닥이 뚫린 나룻배가 늪가에 처박혀 있다.', '뱃전에 "토빈"이라는 글자가 새겨져 있다.']),
+    ('herb_patch_1', (23, 7), '늪 약초', 'cave_prop_glow_plant_a',
+     ['푸르스름하게 빛나는 풀이 무성하다.']),
+    ('herb_patch_2', (55, 28), '독안개 약초', 'cave_prop_glow_plant_b',
+     ['독안개 속에서만 자라는 붉은 잎의 풀이다.']),
+    ('hunter_keepsake_1', (7, 24), '부러진 활', 'cave_prop_crate_bones',
+     ['진흙에 반쯤 묻힌 부러진 활이다.']),
+    ('hunter_keepsake_2', (48, 21), '젖은 가죽 주머니', 'cave_prop_crate_bones',
+     ['물에 불은 가죽 주머니가 굴러다닌다.']),
+    ('hunter_keepsake_3', (50, 14), '찢어진 목도리', 'cave_prop_crate_bones',
+     ['갈대 무늬를 수놓은 목도리가 나뭇가지에 걸려 있다.']),
+]
 
 m = SwampMap(W, H, seed=20261006)
 
@@ -179,6 +194,7 @@ if '--ascii' in sys.argv:
 m.validate(ARRIVAL, [(n, p) for n, _k, _l, p in MONSTERS] + [
     ('도착 칸', ARRIVAL), ('사냥꾼 흔적 앞', (HUNTER_TRACE[0], HUNTER_TRACE[1] + 1)),
     ('소굴', LAIR), ('장막 앞', (FOG_WALLS[1][0] - 1, FOG_WALLS[1][1])), ('렌 앞', (LOST_HUNTER[0], LOST_HUNTER[1] + 1))] +
+    [(name, p) for name, p, *_ in SIDE_OBJECTS] +
     [(f'입구 {p}', p) for p in entrance_cells] + [(f'신전 길 {p}', p) for p in EAST_EXIT],
     open_edge_cells=entrance_cells | set(EAST_EXIT))
 
@@ -218,8 +234,22 @@ chars = [monster(20 + i, name, x, y, kind, lvl) for i, (name, kind, lvl, (x, y))
                                                '덩굴 너머 동쪽에서 희미하게 종소리가 들린다.']),
         ('controller.scriptId', '', 'vn-dialogue'),
         ('quest.hiddenWhenCompleted', '', 'q021-forest-lord'),
-        ('type', '', 'town_prop_bush_round')])
+        ('type', '', f'ruins_thorns_{i % 2}')])
     for i, (x, y) in enumerate(EAST_EXIT)
+] + [
+    # 곁가지(c2-s1~s3): 부서진 나룻배(토빈), 약초(오디), 사냥꾼의 유품(미렌) — 대화 목표 오브젝트
+    character(40 + i, name, x, y, [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', lines),
+        ('controller.scriptId', '', 'vn-dialogue'),
+        ('displayText', '', display),
+        ('type', '', kind)])
+    for i, (name, (x, y), display, kind, lines) in enumerate(SIDE_OBJECTS)
+] + [
+    # 덩굴이 걷히면 신전 길 표지판이 보인다
+    character(17, 'temple_road_sign', EAST_EXIT[0][0] - 3, EAST_EXIT[0][1] - 1, [
+        ('blocksMovement', 'bool', 'false'), ('displayText', '', '잠긴 신전 →'),
+        ('quest.requiresCompleted', '', 'q021-forest-lord'), ('type', '', 'sign_inn')]),
 ]
 portals = [
     portal(10, 'reed_gate', ENTRANCE[0], ENTRANCE[1], ENTRANCE[2], ENTRANCE[3], [
@@ -228,7 +258,7 @@ portals = [
         ('targetSpawnTileX', 'int', REED_GATE_SPAWN[0]), ('targetSpawnTileY', 'int', REED_GATE_SPAWN[1])]),
     # 동쪽 끝 신전 길(c2-06) — 가시덩굴이 걷힌 뒤(q021) 잠긴 신전 외곽으로
     portal(14, 'temple_road', EAST_EXIT[0][0], EAST_EXIT[0][1], 1, len(EAST_EXIT), [
-        ('appearanceType', '', 'swamp_grass'), ('quest.requiresCompleted', '', 'q021-forest-lord'),
+        ('appearanceType', '', 'swamp_deck_h'), ('quest.requiresCompleted', '', 'q021-forest-lord'),
         ('targetFacing', '', 'right'), ('targetSceneId', '', 'ruins-outskirts'),
         ('targetSpawnTileX', 'int', RUINS_ARRIVAL[0]), ('targetSpawnTileY', 'int', RUINS_ARRIVAL[1])]),
 ]

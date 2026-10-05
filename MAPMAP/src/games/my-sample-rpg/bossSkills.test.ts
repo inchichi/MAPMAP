@@ -5,9 +5,16 @@ import {
   POISON_PUDDLE_WARNING_MILLISECONDS,
   TONGUE_PULL_STOP_DISTANCE_TILES,
   WATER_PILLAR_WARNING_MILLISECONDS,
+  createGroundSlam,
   createPoisonPuddle,
   createWaterPillars,
   getBossHazardDamage,
+  getBossKey,
+  getBossPresentation,
+  getBossSkillShout,
+  getBossSkillCooldown,
+  getSummonCountPerCast,
+  isBossEnraged,
   getBossSummonPrefix,
   getTonguePullVector,
   isBossSummonCharacterId,
@@ -82,5 +89,43 @@ describe('boss skills', () => {
     expect(getBossSummonPrefix('늪의 사제-보스')).toBe('늪의 사제-소환-')
     expect(isBossSummonCharacterId('늪의 사제-소환-2')).toBe(true)
     expect(isBossSummonCharacterId('물에 빠진 자-2')).toBe(false)
+  })
+
+  it('enrages below half hp: shorter cooldowns and one more summon', () => {
+    expect(isBossEnraged(51, 100)).toBe(false)
+    expect(isBossEnraged(50, 100)).toBe(true)
+    const skill = { kind: 'water-pillar' as const, cooldownMilliseconds: 5500, minRangeTiles: 0, maxRangeTiles: 10 }
+    expect(getBossSkillCooldown(skill, false)).toBe(5500)
+    expect(getBossSkillCooldown(skill, true)).toBe(4400)
+    expect(getSummonCountPerCast(true)).toBe(getSummonCountPerCast(false) + 1)
+  })
+
+  it('gives chapter 2 bosses a title and the priest last words', () => {
+    expect(getBossPresentation('monster_frog_king')?.title).toBe('숲의 주인')
+    expect(getBossPresentation('monster_swamp_priest')?.deathLines?.join(' ')).toContain('북쪽')
+    expect(getBossPresentation('monster_pig')).toBeUndefined()
+  })
+
+  it('gives chapter 3 bosses their own skills, shouts and damage', () => {
+    // 트롤 족장은 붙어 있을 때만 내려찍는다
+    expect(pickBossSkill('monster_troll_chief', 2, { summon: 99_999 }, 0)?.kind).toBe('ground-slam')
+    expect(pickBossSkill('monster_troll_chief', 5, { summon: 99_999 }, 0)).toBeUndefined()
+    expect(pickBossSkill('monster_frost_witch', 6, { summon: 99_999 }, 0)?.kind).toBe('ice-spike')
+    expect(getBossSkillShout('monster_troll_chief', 'summon')).not.toBe(getBossSkillShout('monster_swamp_priest', 'summon'))
+    const slam = createGroundSlam('s', 5, 5, 0)
+    expect(tickBossHazards([slam], 6, 5, slam.armedAt).damageKinds).toEqual(['ground-slam'])
+    expect(tickBossHazards([slam], 9, 5, slam.armedAt).damageKinds).toEqual([])
+    expect(createWaterPillars('i', 5, 5, 0, () => 0, 'ice-spike').every((h) => h.kind === 'ice-spike')).toBe(true)
+    expect(getBossHazardDamage('ground-slam', 1000)).toBe(200)
+  })
+
+  it('looks up chapter 1 bosses by character id, since they share looks with plain monsters', () => {
+    expect(getBossKey({ id: '말캉이-보스', appearanceType: 'monster_slime' })).toBe('boss_slime_king')
+    expect(getBossKey({ id: '꿀꿀이대장-보스', appearanceType: 'monster_pig' })).not.toBe(
+      getBossKey({ id: '꿀꿀이-보스', appearanceType: 'monster_pig' })
+    )
+    expect(getBossKey({ id: '늪지기 거대개구리-보스', appearanceType: 'monster_frog_king' })).toBe('monster_frog_king')
+    expect(pickBossSkill('boss_slime_king', 5, {}, 0)?.kind).toBe('summon')
+    expect(getBossPresentation('boss_pig_captain')?.deathLines?.join(' ')).toContain('용암')
   })
 })

@@ -41,3 +41,11 @@ swamp-priest.png — 늪의 사제 (2장 최종 보스)
   Universal LPC Spritesheet Character Generator 레이어 합성(scripts/build-ch2-lpc-sheets.py),
   https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator
   레이어별 저작자·라이선스는 assets/characters/lpc/CREDITS.csv (해골·좀비 몸, 로브, 두건, 쇠 검 등)
+
+3장(얼어붙은 북쪽) — scripts/build-ch3-lpc-sheets.py
+goblin-raider.png — 고블린 약탈자 / frost-wolfman.png — 서리 늑대인간 / troll-chief.png — 트롤 족장 / frost-witch.png — 서리 마녀
+  Universal LPC Spritesheet Character Generator 레이어 합성(고블린·늑대·트롤 머리, 근육 몸, 단검·철퇴, 로브·두건 등),
+  레이어별 저작자·라이선스는 assets/characters/lpc/CREDITS.csv
+slime-snow.png — 눈 말캉이 (위 "[LPC] Monsters" 말캉이 색 변형)
+golem-ice-walk.png, golem-ice-attack.png, golem-ice-die.png — 얼음 골렘 (위 "LPC Golem" 색 변형)
+skeleton-frost.png — 서리 해골 (유적 해골병 색 변형)

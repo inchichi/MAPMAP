@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="34" height="34" tilewidth="32" tileheight="32" infinite="0" nextlayerid="17" nextobjectid="16" backgroundcolor="#1b1b1b">
+<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="34" height="34" tilewidth="32" tileheight="32" infinite="0" nextlayerid="17" nextobjectid="19" backgroundcolor="#1b1b1b">
  <tileset firstgid="1" source="../tilesets/town-32.tsx"/>
  <layer id="10" name="ground" width="34" height="34">
   <data encoding="csv">
@@ -213,10 +213,10 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,1107,0,0,0,0,0,0,1120,0,0,0,0,0,0,0,0,0,0,0,0,0,1128,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,1090,0,0,0,0,0,0,0,0,0,0,0,0,0,1122,0,0,0,0,0,0,1108,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -281,6 +281,30 @@
     <property name="displayText" value="말캉이 보스"/>
     <property name="blocksMovement" type="bool" value="true"/>
     <property name="monster.level" type="int" value="9"/>
+    <property name="type" value="monster_slime"/>
+   </properties>
+  </object>
+  <object id="16" name="말캉이-소환-1" type="character" x="400" y="224" width="32" height="32">
+   <properties>
+    <property name="displayText" value="작은 말캉이"/>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="monster.level" type="int" value="6"/>
+    <property name="type" value="monster_slime"/>
+   </properties>
+  </object>
+  <object id="17" name="말캉이-소환-2" type="character" x="656" y="224" width="32" height="32">
+   <properties>
+    <property name="displayText" value="작은 말캉이"/>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="monster.level" type="int" value="6"/>
+    <property name="type" value="monster_slime"/>
+   </properties>
+  </object>
+  <object id="18" name="말캉이-소환-3" type="character" x="400" y="352" width="32" height="32">
+   <properties>
+    <property name="displayText" value="작은 말캉이"/>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="monster.level" type="int" value="6"/>
     <property name="type" value="monster_slime"/>
    </properties>
   </object>

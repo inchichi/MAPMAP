@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, 'scripts')
 import swamp_terrain as st  # noqa: E402
 from swamp_mapkit import (LPC, S, SwampMap, catmull, character, dist_to_path, npc, portal, sign,  # noqa: E402
-                          wobble)
+                          waystone, wobble)
 
 W, H = 44, 36
 OUT = 'src/games/my-sample-rpg/assets/maps/reed-village.tmx'
@@ -199,15 +199,51 @@ if '--ascii' in sys.argv:
         print(f'{y:2} ' + ''.join('=' if (x, y) in m.deck_cells else '~' if (x, y) in m.water_cells else
                                   '#' if m.get('object', x, y) else '^' if m.get('object_upper', x, y) else '.'
                                   for x in range(W)))
+# 마을 우물(곁가지 c2-s6 마을의 우물) — 지형을 다 깐 뒤에 얹어 기존 배치를 바꾸지 않는다. 왼쪽 아래 칸은
+# 우물 속으로 내려가는 포탈이 그린다.
+WELL = (19, 25)                         # 우물 2x2 의 왼쪽 위 칸
+m.set('object_upper', WELL[0], WELL[1], LPC['town_prop_well_open_r0c0'])
+m.set('object_upper', WELL[0] + 1, WELL[1], LPC['town_prop_well_open_r0c1'])
+m.set('object', WELL[0] + 1, WELL[1] + 1, LPC['town_prop_well_open_r1c1'])
+WELL_SPAWN = (10, 16)                   # 우물 속(reed-well) 도착 칸
+SHORTCUT_RAFT = (2, 18)                 # 신전 외곽 지름길 나룻배(c2-s1 사공의 나룻배 후)
+OUTSKIRTS_RAFT_SPAWN = (7, 5)
+
 m.validate(ARRIVAL, [('도착 칸', ARRIVAL)] + [(n, p) for n, p, *_ in NPCS] +
+           [('우물 앞', (WELL[0], WELL[1] + 2)), ('지름길 나룻배', SHORTCUT_RAFT)] +
            [('문 앞', (EAST_GATE[0][0] - 1, EAST_GATE[0][1]))] +
            [(f'{name} 문 앞', house_door_front(h)) for name, h in
             (('촌장 집', CHIEF_HOUSE), ('둘째 집', HOUSE_2), ('약초 오두막', HERB_HUT))],
            open_edge_cells=ferry_cells | set(EAST_GATE))
 
+# 2장이 끝나면(늪의 사제를 쓰러뜨린 q025 뒤) 마을 사람들의 평소 대사가 바뀐다 — 같은 사람을 대사만 다르게
+# 두 번 두고 퀘스트 속성으로 하나만 나타나게 한다(이름이 같아 퀘스트·초상화는 그대로 이어진다).
+CHAPTER_END_QUEST = 'q025-swamp-priest'
+LINES_AFTER = {
+    'tobin': ['물이 빠지니까 노 젓기가 한결 수월해. 상류길로 가는 배는 언제든 태워 줄게.',
+              '요 며칠 수로에 물고기가 다시 올라와. 늪이 숨을 쉬는 거지.'],
+    'miren': ['사냥꾼들이 모두 돌아왔네. 이 늙은이가 무슨 말로 고마움을 다 전하겠나.',
+              '갈대골 사람들은 자네 이름을 오래 기억할 걸세.'],
+    'odi': ['독안개가 걷히니 숲에서 처음 보는 약초가 올라와요. 렌이랑 같이 캐러 가기로 했어요.',
+            '해독 향이 남았으면 버리지 마세요. 언젠가 또 쓸 일이 있을지 몰라요.'],
+    'reed_guard': ['숲 문은 이제 열어 두었다. 개구리 녀석들도 순해져서 사람을 보면 물로 뛰어든다.',
+                   '그래도 밤 숲은 조심해라. 늪은 늪이다.'],
+    'reed_weaver': ['잠겼던 갈대밭이 다시 드러났어. 올가을엔 지붕을 새로 일 수 있겠어.',
+                    '사냥꾼들 돌아온 날 밤엔 마을이 다 같이 모닥불을 피웠지.'],
+    'reed_fisher': ['물고기가 숲 쪽으로 돌아가기 시작했어. 종소리가 멎은 뒤로 말이야.',
+                    '그런데 요즘 북쪽에서 부는 바람이 이상하게 차. 늪에선 겪어 본 적 없는 바람이야.'],
+}
+
 # ---------------------------------------------------------------- TMX 출력
-chars = [npc(i + 1, name, x, y, display, appearance, lines)
-         for i, (name, (x, y), display, appearance, lines) in enumerate(NPCS)]
+chars = []
+for i, (name, (x, y), display, appearance, lines) in enumerate(NPCS):
+    if name in LINES_AFTER:
+        chars.append(npc(i + 1, name, x, y, display, appearance, lines,
+                         [('quest.hiddenWhenCompleted', '', CHAPTER_END_QUEST)]))
+        chars.append(npc(60 + i, name, x, y, display, appearance, LINES_AFTER[name],
+                         [('quest.requiresCompleted', '', CHAPTER_END_QUEST)]))
+    else:
+        chars.append(npc(i + 1, name, x, y, display, appearance, lines))
 chars += [
     sign(20, 'reed_village_sign', ARRIVAL[0] + 1, ARRIVAL[1] - 2, '갈대골'),
     sign(21, 'herb_hut_sign', HERB_HUT[0] + 5, HERB_HUT[1] + 7, '약초 오두막'),
@@ -221,7 +257,26 @@ chars += [
         ('controller.scriptId', '', 'vn-dialogue'),
         ('displayText', '', '사냥꾼 렌'),
         ('quest.requiresCompleted', '', 'q020-beyond-the-fog'),
+        ('quest.hiddenWhenCompleted', '', CHAPTER_END_QUEST),
         ('type', '', 'character_ranger_green')]),
+    # 사제를 쓰러뜨린 뒤: 렌과, 신전 물 밑 방에서 풀려나 돌아온 사냥꾼들(마당)
+    character(26, 'ren', house_door_front(CHIEF_HOUSE)[0] - 2, house_door_front(CHIEF_HOUSE)[1], [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['다들 돌아왔어! 넷 다 살아서!',
+                                               '종소리가 멎자 물 밑 방에 차 있던 물이 빠졌대. 네가 사제를 쓰러뜨린 그때였어.']),
+        ('controller.scriptId', '', 'vn-dialogue'),
+        ('displayText', '', '사냥꾼 렌'),
+        ('quest.requiresCompleted', '', CHAPTER_END_QUEST),
+        ('type', '', 'character_ranger_green')]),
+    # 귀환 표지석(마당) — 도착 칸은 waystones.ts 의 (17, 23)
+    waystone(70, 'reed-village', 17, 22),
+    npc(27, 'returned_hunter_dar', 18, 23, '사냥꾼 다르', 'character_ranger_green',
+        ['석 달 동안 물 밑 방에 갇혀 있었어. 사제는 우리를 가둬 두기만 하고 아무것도 묻지 않더군.',
+         '종이 울릴 때마다 물이 차오르고, 멎으면 빠졌지. 마치 무언가를 붙잡아 두려는 것처럼.'],
+        [('quest.requiresCompleted', '', CHAPTER_END_QUEST)]),
+    npc(28, 'returned_hunter_mika', 22, 24, '사냥꾼 미카', 'character_adventurer_brown_hair',
+        ['살아서 갈대골 흙을 밟을 줄은 몰랐어.', '물 밑에서 들은 말이 있어. 사제가 혼잣말로 "북쪽이 깨기 전에"라고 되뇌더군.'],
+        [('quest.requiresCompleted', '', CHAPTER_END_QUEST)]),
 ] + [
     character(30 + i, f'forest_gate_{i}', x, y, [
         ('blocksMovement', 'bool', 'true'),
@@ -233,6 +288,14 @@ chars += [
     for i, (x, y) in enumerate(EAST_GATE)
 ]
 portals = [
+    portal(42, 'reed_well', WELL[0], WELL[1] + 1, 1, 1, [
+        ('appearanceType', '', 'town_prop_well_open_r1c0'), ('targetFacing', '', 'down'),
+        ('targetSceneId', '', 'reed-well'),
+        ('targetSpawnTileX', 'int', WELL_SPAWN[0]), ('targetSpawnTileY', 'int', WELL_SPAWN[1])]),
+    portal(43, 'outskirts_raft', SHORTCUT_RAFT[0], SHORTCUT_RAFT[1], 1, 1, [
+        ('appearanceType', '', 'swamp_raft'), ('quest.requiresCompleted', '', 'q027-ferry-shortcut'),
+        ('targetFacing', '', 'right'), ('targetSceneId', '', 'ruins-outskirts'),
+        ('targetSpawnTileX', 'int', OUTSKIRTS_RAFT_SPAWN[0]), ('targetSpawnTileY', 'int', OUTSKIRTS_RAFT_SPAWN[1])]),
     portal(40, 'ferry_dock', FERRY[0], FERRY[1], FERRY[2], FERRY[3], [
         ('appearanceType', '', 'swamp_raft'), ('targetFacing', '', 'left'),
         ('targetSceneId', '', 'upstream-waterway'),
@@ -245,4 +308,4 @@ portals = [
 m.write_tmx(OUT, 'scripts/generate-reed-village.py', chars,
             '사공 토빈, 촌장 미렌(c2-02 보고), 약초꾼 오디, 문지기 하르, 주민 둘 / 표지판 / 가라앉은 숲 문(닫힘)',
             portals, f'서쪽 나루 → 수로 상류길 전망 둑 {UPSTREAM_LOOKOUT_SPAWN}. 상류길의 나룻배(reed_ferry)는 '
-            f'이 맵의 도착 칸 {ARRIVAL} 을 들고 있다.', next_object_id=50)
+            f'이 맵의 도착 칸 {ARRIVAL} 을 들고 있다.', next_object_id=80)

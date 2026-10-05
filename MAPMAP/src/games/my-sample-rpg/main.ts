@@ -8,6 +8,12 @@ import sunkenForestMapXml from './assets/maps/sunken-forest.tmx?raw'
 import ruinsOutskirtsMapXml from './assets/maps/ruins-outskirts.tmx?raw'
 import sunkenTemple1fMapXml from './assets/maps/sunken-temple-1f.tmx?raw'
 import sunkenTemple2fMapXml from './assets/maps/sunken-temple-2f.tmx?raw'
+import reedWellMapXml from './assets/maps/reed-well.tmx?raw'
+import northPassMapXml from './assets/maps/north-pass.tmx?raw'
+import frostVillageMapXml from './assets/maps/frost-village.tmx?raw'
+import frozenLakeMapXml from './assets/maps/frozen-lake.tmx?raw'
+import iceCave1fMapXml from './assets/maps/ice-cave-1f.tmx?raw'
+import iceCave2fMapXml from './assets/maps/ice-cave-2f.tmx?raw'
 import townMapXml from './assets/maps/town.tmx?raw'
 import replyWithMessageControllerLua from './assets/lua/reply-with-message.lua?raw'
 import wanderNearHomeControllerLua from './assets/lua/wander-near-home.lua?raw'
@@ -20,6 +26,8 @@ import questNewUrl from './assets/tilesets/quest_new.png'
 import caveEntranceVisibleUrl from './assets/tilesets/cave1-visible.png'
 import townTilesetXml from './assets/tilesets/town-32.tsx?raw'
 import townTilesetUrl from './assets/tilesets/town-32.png'
+import biomeSnowTilesetXml from './assets/tilesets/biome-snow.tsx?raw'
+import biomeSnowTilesetUrl from './assets/tilesets/biome-snow.png'
 import tinyDungeonTilesetXml from './assets/tilesets/tiny-dungeon-16.tsx?raw'
 import tinyDungeonTilesetUrl from './assets/tilesets/tiny-dungeon-16.png'
 
@@ -122,6 +130,7 @@ import type {
 } from './rendering/createPixiTiledMapView'
 import './styles.css'
 import { HERBALIST_STOCK_ITEM_IDS } from './potionShop'
+import { STARTING_WAYSTONE_IDS } from './waystones'
 
 type SceneId =
   | 'town'
@@ -135,6 +144,12 @@ type SceneId =
   | 'ruins-outskirts'
   | 'sunken-temple-1f'
   | 'sunken-temple-2f'
+  | 'reed-well'
+  | 'north-pass'
+  | 'frost-village'
+  | 'frozen-lake'
+  | 'ice-cave-1f'
+  | 'ice-cave-2f'
 
 const isCharacterFacing = (value: unknown): value is CharacterMoveDirection =>
   value === 'up' || value === 'down' || value === 'left' || value === 'right'
@@ -218,71 +233,78 @@ gameRootElement.className = 'game-root'
 uiRootElement.className = 'ui-root'
 appRootElement.replaceChildren(gameRootElement, uiRootElement)
 
+// 모든 맵이 쓰는 외부 타일셋 — town-32 와, 3장 눈 바이옴 타일셋(scripts/append-biome-tiles.py, 쓰는 맵만 참조한다)
+const MAP_EXTERNAL_TILESETS = {
+  '../tilesets/town-32.tsx': townTilesetXml,
+  '../tilesets/biome-snow.tsx': biomeSnowTilesetXml
+}
 const parsedTownMap = parseTiledMap({
   mapXml: townMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedHuntingGroundMap = parseTiledMap({
   mapXml: huntingGroundMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedCaveMap = parseTiledMap({
   mapXml: caveMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedCrystalMineMap = parseTiledMap({
   mapXml: crystalMineMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedHarvestVillageMap = parseTiledMap({
   mapXml: harvestVillageMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedUpstreamWaterwayMap = parseTiledMap({
   mapXml: upstreamWaterwayMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedReedVillageMap = parseTiledMap({
   mapXml: reedVillageMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedSunkenForestMap = parseTiledMap({
   mapXml: sunkenForestMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedRuinsOutskirtsMap = parseTiledMap({
   mapXml: ruinsOutskirtsMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedSunkenTemple1fMap = parseTiledMap({
   mapXml: sunkenTemple1fMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const parsedSunkenTemple2fMap = parseTiledMap({
   mapXml: sunkenTemple2fMapXml,
-  externalTilesets: {
-    '../tilesets/town-32.tsx': townTilesetXml
-  }
+  externalTilesets: MAP_EXTERNAL_TILESETS
+})
+const parsedReedWellMap = parseTiledMap({
+  mapXml: reedWellMapXml,
+  externalTilesets: MAP_EXTERNAL_TILESETS
+})
+const parsedNorthPassMap = parseTiledMap({
+  mapXml: northPassMapXml,
+  externalTilesets: MAP_EXTERNAL_TILESETS
+})
+const parsedFrostVillageMap = parseTiledMap({
+  mapXml: frostVillageMapXml,
+  externalTilesets: MAP_EXTERNAL_TILESETS
+})
+const parsedFrozenLakeMap = parseTiledMap({
+  mapXml: frozenLakeMapXml,
+  externalTilesets: MAP_EXTERNAL_TILESETS
+})
+const parsedIceCave1fMap = parseTiledMap({
+  mapXml: iceCave1fMapXml,
+  externalTilesets: MAP_EXTERNAL_TILESETS
+})
+const parsedIceCave2fMap = parseTiledMap({
+  mapXml: iceCave2fMapXml,
+  externalTilesets: MAP_EXTERNAL_TILESETS
 })
 const tinyDungeonTileset = parseTiledTileset({
   firstGid: 1,
@@ -319,7 +341,13 @@ const sceneMaps: Record<SceneId, typeof parsedTownMap> = {
   'sunken-forest': parsedSunkenForestMap,
   'ruins-outskirts': parsedRuinsOutskirtsMap,
   'sunken-temple-1f': parsedSunkenTemple1fMap,
-  'sunken-temple-2f': parsedSunkenTemple2fMap
+  'sunken-temple-2f': parsedSunkenTemple2fMap,
+  'reed-well': parsedReedWellMap,
+  'north-pass': parsedNorthPassMap,
+  'frost-village': parsedFrostVillageMap,
+  'frozen-lake': parsedFrozenLakeMap,
+  'ice-cave-1f': parsedIceCave1fMap,
+  'ice-cave-2f': parsedIceCave2fMap
 }
 const sceneMusicUrls: Record<SceneId, string> = {
   town: townMusicUrl,
@@ -334,7 +362,13 @@ const sceneMusicUrls: Record<SceneId, string> = {
   'sunken-forest': huntingGroundMusicUrl,
   'ruins-outskirts': huntingGroundMusicUrl,
   'sunken-temple-1f': huntingGroundMusicUrl,
-  'sunken-temple-2f': huntingGroundMusicUrl
+  'sunken-temple-2f': huntingGroundMusicUrl,
+  'reed-well': huntingGroundMusicUrl,
+  'north-pass': huntingGroundMusicUrl,
+  'frost-village': huntingGroundMusicUrl,
+  'frozen-lake': huntingGroundMusicUrl,
+  'ice-cave-1f': huntingGroundMusicUrl,
+  'ice-cave-2f': huntingGroundMusicUrl
 }
 const storedPlayerSaveState = readStoredPlayerSaveState()
 const playerProfile = storedPlayerSaveState?.profile ?? createInitialPlayerProfile()
@@ -393,6 +427,9 @@ let collectedCoinTileKeysBySceneId: Record<string, string[]> =
   storedWorldState?.collectedCoinTileKeysBySceneId ?? {}
 let defeatedBossIdsBySceneId: Record<string, string[]> =
   storedWorldState?.defeatedBossIdsBySceneId ?? {}
+let discoveredWaystoneIds: string[] = [
+  ...new Set([...STARTING_WAYSTONE_IDS, ...(storedWorldState?.discoveredWaystoneIds ?? [])])
+]
 // 에디터가 생성·주입한 동적 퀘스트를 런타임 퀘스트 엔진에 등록하고, 진행도 항목을 채운다.
 // 부팅 전에 questLog를 갱신해야 bootstrapScene이 그걸 렌더러로 넘긴다(배지·추적·완료 전부 작동).
 const applyPendingQuests = (): void => {
@@ -423,6 +460,7 @@ let potionMerchantInventory = createInitialPotionInventory()
 let herbalistInventory = createInitialPotionInventory({ stockItemIds: HERBALIST_STOCK_ITEM_IDS })
 // 해독 향 면역이 끝나는 시각(Date.now) — 갈대골에서 피우고 숲으로 건너가도 이어지게 씬 밖에 둔다
 let poisonFogImmuneUntil = 0
+let coldImmuneUntil = 0
 let activeControllerRuntime:
   | ReturnType<typeof createCharacterControllerRuntime>
   | undefined
@@ -496,6 +534,10 @@ const bootstrapScene = async (
     potionMerchantInventory,
     herbalistInventory,
     getPoisonFogImmuneUntil: () => poisonFogImmuneUntil,
+    getColdImmuneUntil: () => coldImmuneUntil,
+    onColdImmuneUntilChange: (immuneUntil) => {
+      coldImmuneUntil = immuneUntil
+    },
     onPoisonFogImmuneUntilChange: (immuneUntil) => {
       poisonFogImmuneUntil = immuneUntil
     },
@@ -511,6 +553,7 @@ const bootstrapScene = async (
       'quest_fin.png': questFinUrl,
       'quest_new.png': questNewUrl,
       'town-32.png': townTilesetUrl,
+      'biome-snow.png': biomeSnowTilesetUrl,
       'tiny-dungeon-16.png': tinyDungeonTilesetUrl
     },
     controllerRuntime,
@@ -540,6 +583,13 @@ const bootstrapScene = async (
     },
     collectedCoinTileKeys: collectedCoinTileKeysBySceneId[sceneId] ?? [],
     defeatedBossIds: defeatedBossIdsBySceneId[sceneId] ?? [],
+    getDiscoveredWaystoneIds: () => discoveredWaystoneIds,
+    onWaystoneDiscovered: (waystoneId) => {
+      if (!discoveredWaystoneIds.includes(waystoneId)) {
+        discoveredWaystoneIds = [...discoveredWaystoneIds, waystoneId]
+        saveWorldState()
+      }
+    },
     onBossDefeated: (bossId) => {
       const defeated = defeatedBossIdsBySceneId[sceneId] ?? []
 
@@ -754,6 +804,8 @@ const scheduleSceneTransition = (request: SceneTransitionRequest) => {
     })
     .catch(renderFatalError)
 }
+
+const NEW_GAME_TOWN_SPAWN: SceneSpawn = { x: 25, y: 19, facing: 'up' }
 
 const clampSpawnCoordinate = (value: number, max: number): number =>
   Math.max(0, Math.min(value, Math.max(0, max)))
@@ -1154,7 +1206,8 @@ function saveWorldState(): void {
         sceneId: activeSceneId,
         questLog,
         collectedCoinTileKeysBySceneId,
-        defeatedBossIdsBySceneId
+        defeatedBossIdsBySceneId,
+        discoveredWaystoneIds
       })
     )
   } catch {
@@ -1374,7 +1427,13 @@ window.addEventListener('message', (event) => {
     sceneId === 'sunken-forest' ||
     sceneId === 'ruins-outskirts' ||
     sceneId === 'sunken-temple-1f' ||
-    sceneId === 'sunken-temple-2f'
+    sceneId === 'sunken-temple-2f' ||
+    sceneId === 'reed-well' ||
+    sceneId === 'north-pass' ||
+    sceneId === 'frost-village' ||
+    sceneId === 'frozen-lake' ||
+    sceneId === 'ice-cave-1f' ||
+    sceneId === 'ice-cave-2f'
   ) {
     questLog = recordSceneEnterQuestProgress(questLog, sceneId)
     // 선택: 도착 칸 지정({ x, y } 타일 좌표) — 에디터·자동 점검에서 원하는 자리에 바로 선다.
@@ -1401,5 +1460,7 @@ void initLuaGameLogic()
       storedWorldState && storedWorldState.sceneId in sceneMaps
         ? (storedWorldState.sceneId as SceneId)
         : 'town'
-    void bootstrapScene(startSceneId).catch(renderFatalError)
+    // 새 게임(저장된 세계 상태 없음)은 마법사 앞 광장에서 시작한다 — 첫 화면에 첫 퀘스트(?)가 보이게.
+    // 이어하기는 예전처럼 맵 가운데.
+    void bootstrapScene(startSceneId, storedWorldState ? undefined : NEW_GAME_TOWN_SPAWN).catch(renderFatalError)
   })

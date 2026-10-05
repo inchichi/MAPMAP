@@ -23,8 +23,8 @@ def lpc(name):
 
 
 class TempleMap(SwampMap):
-    def __init__(self, w, h, seed):
-        super().__init__(w, h, seed)
+    def __init__(self, w, h, seed, biome=None):
+        super().__init__(w, h, seed, biome)
         self.cell = [['#'] * w for _ in range(h)]
 
     # ---------------------------------------------------------- 파기
@@ -105,6 +105,14 @@ class TempleMap(SwampMap):
         else:
             raise SystemExit('꼭짓점 조합 합법화가 수렴하지 않음')
 
+        # 물가 흙둑이 벽에 닿으면(흙↔어두운 바위 전환 타일이 없다) 합법화가 벽을 검은 바위로, 다시 돌바닥을 흙으로
+        # 강등하며 벽 둘레 전체에 흙띠가 번진다. 물은 벽에서 한 칸 이상 떼어 둔다 — 번졌으면 알린다.
+        wet = {(x, y) for y in range(H) for x in range(W) if mat[y][x] in (WATER, DEEP)}
+        spread = [(cx, cy) for cy in range(H + 1) for cx in range(W + 1) if lat[cy][cx] in (BANK, VOID)
+                  and lat[cy][cx] != corner(cx, cy)
+                  and not any((cx + dx, cy + dy) in wet for dx in range(-3, 3) for dy in range(-3, 3))]
+        if spread:
+            raise SystemExit(f'!! 물가 흙이 벽 둘레로 번졌다(꼭짓점 {len(spread)}개, 예: {spread[:4]}) — 물을 벽에서 한 칸 더 떼라')
         for y in range(H):
             for x in range(W):
                 tl, tr, bl, br = lat[y][x], lat[y][x + 1], lat[y + 1][x], lat[y + 1][x + 1]

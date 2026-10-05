@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="32" tileheight="32" infinite="0" nextlayerid="27" nextobjectid="26">
+<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="60" height="60" tilewidth="32" tileheight="32" infinite="0" nextlayerid="27" nextobjectid="34">
  <tileset firstgid="1" source="../tilesets/town-32.tsx"/>
  <layer id="20" name="ground" width="60" height="60">
   <data encoding="csv">
@@ -25,9 +25,9 @@
 517,517,517,517,517,589,640,639,640,589,457,457,457,572,564,564,564,564,507,564,564,564,564,564,564,564,564,564,598,515,515,581,457,457,517,515,515,515,515,515,515,517,517,517,517,507,507,507,507,507,507,507,507,507,507,507,457,517,517,517,
 457,517,517,517,457,589,640,639,640,589,457,457,457,457,457,457,457,517,570,457,457,517,457,457,517,517,517,517,587,515,515,581,457,517,517,515,515,515,515,515,515,517,517,517,517,517,517,517,517,517,457,457,457,457,517,517,517,517,517,517,
 457,457,457,517,457,589,639,639,639,589,457,457,457,457,517,457,457,517,570,457,457,517,517,517,457,457,457,517,587,515,515,581,457,517,517,515,515,515,515,515,515,517,517,517,517,517,517,517,517,517,457,457,457,517,517,517,517,517,517,517,
-517,457,457,517,457,589,641,639,639,589,517,457,507,507,507,507,507,517,570,517,517,457,457,457,457,457,517,457,587,515,515,581,517,517,517,515,515,515,515,515,515,517,517,517,517,517,517,517,517,517,457,457,457,517,517,517,517,517,517,517,
-457,517,457,457,517,589,640,639,640,589,457,517,507,507,507,507,507,517,570,517,507,507,507,457,457,457,457,517,587,515,515,581,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,457,457,457,457,517,517,517,517,517,517,
-457,457,457,457,457,589,639,642,641,589,517,517,507,507,507,507,507,517,570,517,507,507,507,457,457,457,457,517,587,515,515,581,457,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,457,517,457,457,457,517,517,457,517,517,517,
+517,457,457,517,457,589,641,639,639,589,517,457,1191,1191,1191,1191,1191,517,570,517,517,457,457,457,457,457,517,457,587,515,515,581,517,517,517,515,515,515,515,515,515,517,517,517,517,517,517,517,517,517,457,457,457,517,517,517,517,517,517,517,
+457,517,457,457,517,589,640,639,640,589,457,517,1191,1191,1191,1191,1191,517,570,517,1191,1191,1191,457,457,457,457,517,587,515,515,581,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,457,457,457,457,517,517,517,517,517,517,
+457,457,457,457,457,589,639,642,641,589,517,517,1191,1191,1191,1191,1191,517,570,517,1191,1191,1191,457,457,457,457,517,587,515,515,581,457,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,517,457,517,457,457,457,517,517,457,517,517,517,
 517,457,457,517,457,589,639,639,639,589,517,517,457,517,517,517,517,517,570,517,517,517,517,517,517,457,457,588,595,515,515,596,580,582,517,517,517,517,517,517,517,517,517,569,561,563,517,517,457,457,457,457,517,457,517,457,457,457,517,517,
 457,457,457,457,457,589,640,642,641,589,517,517,517,517,517,517,517,517,570,517,517,517,517,517,517,457,588,595,515,515,515,515,515,596,582,517,517,517,517,517,517,517,517,568,507,562,517,517,517,517,457,457,457,457,517,517,517,517,517,517,
 517,457,457,457,457,589,642,640,641,589,517,517,517,517,517,517,517,517,570,517,457,457,517,517,517,588,595,515,515,515,515,515,515,515,596,582,517,517,517,517,517,517,517,568,507,562,517,517,517,457,457,457,457,517,517,517,517,517,517,517,
@@ -89,9 +89,9 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1257,1257,1257,1257,1257,1257,1257,1257,1257,1257,1257,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1166,0,0,0,0,1166,0,0,0,0,0,426,426,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,412,412,412,434,434,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,1191,1191,1191,1191,1191,0,0,0,0,0,0,0,0,0,0,1167,0,0,0,0,1167,0,0,420,420,420,442,442,558,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,1191,1191,1191,1191,1191,0,0,0,1191,1191,1191,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,1191,1191,1191,1191,1191,0,0,0,1191,1191,1191,0,0,0,0,1164,0,0,0,0,1164,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,1166,1166,1166,1166,1166,0,0,0,0,0,0,0,0,0,0,1167,0,0,0,0,1167,0,0,420,420,420,442,442,558,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,1149,0,1149,0,1149,0,0,0,1166,1166,1166,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,1166,1166,1166,1166,1166,0,0,0,1149,0,1149,0,0,0,0,1164,0,0,0,0,1164,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -472,6 +472,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="파딘"/>
     <property name="type" value="character_bearded_apron_man"/>
+    <property name="quest.hiddenWhenCompleted" value="q011-field-pigs"/>
+   </properties>
+  </object>
+  <object id="30" name="farmer" type="character" x="1552" y="448" width="32" height="32">
+   <properties>
+    <property name="controller.dialogueLines" type="list">
+     <item value="꿀꿀이가 안 내려오니 밀이 쑥쑥 자라는구먼."/>
+     <item value="올가을 첫 밀가루로 구운 빵은 자네 몫이야."/>
+    </property>
+    <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="파딘"/>
+    <property name="type" value="character_bearded_apron_man"/>
+    <property name="quest.requiresCompleted" value="q011-field-pigs"/>
    </properties>
   </object>
   <object id="3" name="rona" type="character" x="464" y="736" width="32" height="32">
@@ -484,6 +498,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="로나"/>
     <property name="type" value="character_villager_flower_dress"/>
+    <property name="quest.hiddenWhenCompleted" value="q012-sluice-keeper"/>
+   </properties>
+  </object>
+  <object id="31" name="rona" type="character" x="464" y="736" width="32" height="32">
+   <properties>
+    <property name="controller.dialogueLines" type="list">
+     <item value="이멜 아저씨가 다시 빨래터에 내려오셨어요. 수위표 얘기만 하시지만요."/>
+     <item value="수로 물이 예전만 못하대요… 별일 아니겠죠?"/>
+    </property>
+    <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="로나"/>
+    <property name="type" value="character_villager_flower_dress"/>
+    <property name="quest.requiresCompleted" value="q012-sluice-keeper"/>
    </properties>
   </object>
   <object id="4" name="duran" type="character" x="1392" y="1632" width="32" height="32">
@@ -556,6 +584,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="테오"/>
     <property name="type" value="character_adventurer_brown_hair"/>
+    <property name="quest.hiddenWhenCompleted" value="q014-weapon-path"/>
+   </properties>
+  </object>
+  <object id="33" name="teo" type="character" x="336" y="1408" width="32" height="32">
+   <properties>
+    <property name="controller.dialogueLines" type="list">
+     <item value="광산의 불이 꺼졌대요! 이제 마음 놓고 캐러 갈 수 있겠어요."/>
+     <item value="그래도 못가 벤치 자리는 양보 못 해요. 여기가 제일 편하거든요."/>
+    </property>
+    <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="테오"/>
+    <property name="type" value="character_adventurer_brown_hair"/>
+    <property name="quest.requiresCompleted" value="q014-weapon-path"/>
    </properties>
   </object>
   <object id="10" name="lady" type="character" x="976" y="1248" width="32" height="32">
@@ -568,6 +610,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="세라핀 부인"/>
     <property name="type" value="character_villager_flower_dress"/>
+    <property name="quest.hiddenWhenCompleted" value="q013-manor-spores"/>
+   </properties>
+  </object>
+  <object id="32" name="lady" type="character" x="976" y="1248" width="32" height="32">
+   <properties>
+    <property name="controller.dialogueLines" type="list">
+     <item value="장미가 다시 피었어요. 향기 맡아 보시겠어요?"/>
+     <item value="울타리 틈으로 다니는 기사님들만 없으면 완벽할 텐데요."/>
+    </property>
+    <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="세라핀 부인"/>
+    <property name="type" value="character_villager_flower_dress"/>
+    <property name="quest.requiresCompleted" value="q013-manor-spores"/>
    </properties>
   </object>
   <object id="11" name="patrol" type="character" x="912" y="1056" width="32" height="32">
@@ -576,6 +632,7 @@
     <property name="controller.scriptId" value="wander-near-home"/>
     <property name="displayText" value="갈렌 경"/>
     <property name="type" value="character_knight_gray_helmet"/>
+    <property name="controller.interactionLine" value="순찰 중이오. …울타리 틈으로 지름길을 다닌 건 세라핀 부인께 비밀로 해 주시오."/>
    </properties>
   </object>
   <object id="12" name="ranger" type="character" x="624" y="1184" width="32" height="32">
@@ -600,6 +657,19 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="리네"/>
     <property name="type" value="character_villager_brown_tunic"/>
+   </properties>
+  </object>
+  <object id="28" name="waystone_harvest-village" type="character" x="560" y="224" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="displayText" value="귀환 표지석"/>
+    <property name="type" value="cave_prop_obelisk_r1c0"/>
+   </properties>
+  </object>
+  <object id="29" name="waystone_harvest-village_top" type="character" x="560" y="192" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="false"/>
+    <property name="type" value="cave_prop_obelisk_r0c0"/>
    </properties>
   </object>
  </objectgroup>

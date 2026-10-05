@@ -69,7 +69,13 @@ export const QUEST_MONSTER_SCENES = [
   'sunken-forest',
   'ruins-outskirts',
   'sunken-temple-1f',
-  'sunken-temple-2f'
+  'sunken-temple-2f',
+  'reed-well',
+  'north-pass',
+  'frost-village',
+  'frozen-lake',
+  'ice-cave-1f',
+  'ice-cave-2f'
 ]
 
 // town is the start scene and would complete immediately, so it is excluded.
@@ -83,7 +89,13 @@ export const QUEST_SCENE_ENTER_SCENES = [
   'sunken-forest',
   'ruins-outskirts',
   'sunken-temple-1f',
-  'sunken-temple-2f'
+  'sunken-temple-2f',
+  'reed-well',
+  'north-pass',
+  'frost-village',
+  'frozen-lake',
+  'ice-cave-1f',
+  'ice-cave-2f'
 ]
 
 export const QUEST_SHOPS: { shopId: string; label: string }[] = [

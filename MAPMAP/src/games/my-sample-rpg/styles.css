@@ -4634,8 +4634,12 @@ body.game-root--map-focused > :not(.game-root) {
   transform: translate(-50%, -50%) scale(1.05);
 }
 
-/* 닫기 버튼 — 원형 레드. */
+/* 닫기 버튼 — 원형 레드. 퀘스트 창 닫기와 같은 32px(46px 는 작은 가방 머리줄에 비해 너무 컸다). */
 .player-inventory-overlay .player-inventory-overlay__close {
+  width: 32px;
+  height: 32px;
+  top: 4px;
+  right: 4px;
   background: #c94c4c;
   border-radius: 999px;
   box-shadow: 0 0 8px rgba(201, 76, 76, 0.4);
@@ -5248,4 +5252,99 @@ body.game-root--map-focused > :not(.game-root) {
   50% {
     opacity: 0.65;
   }
+}
+
+/* 보스전 체력바(createBossHealthOverlay) — 상태 표시줄 아래, 화면 위 가운데 */
+.boss-health-overlay {
+  position: fixed;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  width: min(460px, calc(100vw - 32px));
+  pointer-events: none;
+  font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
+  text-align: center;
+}
+
+.boss-health-overlay[hidden] {
+  display: none;
+}
+
+.boss-health-overlay__label {
+  margin-bottom: 4px;
+  color: #f6ead0;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-shadow: 0 1px 0 #2a1d10, 0 0 6px rgba(0, 0, 0, 0.7);
+}
+
+.boss-health-overlay__bar {
+  height: 12px;
+  border: 2px solid #2a1d10;
+  border-radius: 3px;
+  background: rgba(30, 22, 18, 0.85);
+  box-shadow: 0 0 0 1px rgba(246, 234, 208, 0.5), 0 4px 10px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.boss-health-overlay__fill {
+  height: 100%;
+  background: linear-gradient(#e0b04a, #b0762a);
+  transition: width 160ms ease-out;
+}
+
+.boss-health-overlay--enraged .boss-health-overlay__fill {
+  background: linear-gradient(#e2584a, #9c2a22);
+  animation: boss-health-enraged-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes boss-health-enraged-pulse {
+  50% {
+    filter: brightness(1.35);
+  }
+}
+
+/* 보스가 쓰러질 때 화면을 한 번 하얗게 번쩍인다 */
+.scene-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 52%, rgba(10, 7, 14, 0.5) 100%);
+}
+
+.boss-defeat-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 43;
+  background: #fffaf0;
+  pointer-events: none;
+  animation: boss-defeat-flash 520ms ease-out forwards;
+}
+
+@keyframes boss-defeat-flash {
+  from {
+    opacity: 0.75;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* 보스 등장 배너: 씬 인트로 배너를 빌려 두 줄(칭호 / 이름)로, 짙은 색으로 띄운다 */
+.scene-intro-overlay--boss .scene-intro-overlay__panel {
+  border-color: rgba(120, 40, 60, 0.7);
+  background: rgba(38, 20, 28, 0.94);
+  box-shadow: 0 0 0 2px rgba(200, 120, 140, 0.55), 0 18px 36px rgba(0, 0, 0, 0.5);
+}
+
+.scene-intro-overlay--boss .scene-intro-overlay__message {
+  color: #f6dfe4;
+  white-space: pre-line;
+  font-size: 1.1rem;
+}
+
+.player-inventory-overlay .player-inventory-overlay__close-icon {
+  font-size: 1.1rem;
 }

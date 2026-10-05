@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="44" height="36" tilewidth="32" tileheight="32" infinite="0" nextlayerid="17" nextobjectid="50">
+<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="44" height="36" tilewidth="32" tileheight="32" infinite="0" nextlayerid="17" nextobjectid="80">
 <!-- scripts/generate-reed-village.py 가 생성한다. 손으로 고치지 말고 스크립트를 고친 뒤 다시 돌릴 것. -->
  <tileset firstgid="1" source="../tilesets/town-32.tsx"/>
  <layer id="10" name="ground" width="44" height="36">
@@ -110,7 +110,7 @@
 302,302,302,302,302,302,302,302,302,302,302,1150,1755,1756,1756,1757,0,0,0,0,0,0,0,0,0,0,0,302,302,302,302,302,302,302,302,0,0,0,0,0,0,0,1150,1151,
 302,302,302,302,302,302,302,302,302,302,302,302,1755,1756,1756,1757,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1158,0,0,0,0,0,0,0,1151,
 302,302,302,302,302,302,302,302,302,302,302,302,1758,1759,1759,1760,0,0,0,0,0,0,0,0,0,0,302,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,527,
-302,302,302,302,302,302,302,302,302,302,302,302,302,0,0,0,0,0,0,0,0,1696,0,1594,1595,1596,302,302,302,302,302,302,302,302,0,0,0,0,0,0,0,0,0,0,
+302,302,302,302,302,302,302,302,302,302,302,302,302,0,0,0,0,0,0,0,1252,1696,0,1594,1595,1596,302,302,302,302,302,302,302,302,0,0,0,0,0,0,0,0,0,0,
 302,302,302,302,302,302,302,302,302,302,302,302,302,302,0,0,0,0,0,0,0,0,1158,302,302,302,302,302,302,302,302,302,302,302,0,0,0,0,0,0,0,0,0,0,
 302,302,302,302,302,1150,302,302,302,302,302,302,302,302,302,0,0,0,0,1158,302,302,302,302,302,302,302,302,302,302,302,302,302,302,0,0,0,0,0,0,0,0,1150,1150,
 302,302,302,302,302,1150,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,302,1594,1595,1596,0,0,1741,0,0,0,1151,
@@ -189,7 +189,7 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1679,1680,1681,1682,1585,1586,1587,0,0,0,0,0,0,0,0,0,1157,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1684,1685,1686,1687,1588,1589,1590,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1689,1690,1691,1692,1591,1592,1593,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1249,1250,1691,1692,1591,1592,1593,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1157,0,0,0,0,0,0,0,0,0,0,0,1585,1586,1587,1724,1725,1726,1727,1728,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1157,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1588,1589,1590,1729,1730,1731,1732,1733,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1591,1592,1593,1734,1735,1736,1737,1738,0,0,
@@ -294,6 +294,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="사공 토빈"/>
     <property name="type" value="character_commoner_tan_tunic"/>
+    <property name="quest.hiddenWhenCompleted" value="q025-swamp-priest"/>
+   </properties>
+  </object>
+  <object id="60" name="tobin" type="character" x="112" y="640" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="물이 빠지니까 노 젓기가 한결 수월해. 상류길로 가는 배는 언제든 태워 줄게."/>
+     <item value="요 며칠 수로에 물고기가 다시 올라와. 늪이 숨을 쉬는 거지."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="사공 토빈"/>
+    <property name="type" value="character_commoner_tan_tunic"/>
+    <property name="quest.requiresCompleted" value="q025-swamp-priest"/>
    </properties>
   </object>
   <object id="2" name="miren" type="character" x="688" y="672" width="32" height="32">
@@ -306,6 +320,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="촌장 미렌"/>
     <property name="type" value="character_elder_gray_hair"/>
+    <property name="quest.hiddenWhenCompleted" value="q025-swamp-priest"/>
+   </properties>
+  </object>
+  <object id="61" name="miren" type="character" x="688" y="672" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="사냥꾼들이 모두 돌아왔네. 이 늙은이가 무슨 말로 고마움을 다 전하겠나."/>
+     <item value="갈대골 사람들은 자네 이름을 오래 기억할 걸세."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="촌장 미렌"/>
+    <property name="type" value="character_elder_gray_hair"/>
+    <property name="quest.requiresCompleted" value="q025-swamp-priest"/>
    </properties>
   </object>
   <object id="3" name="odi" type="character" x="1072" y="288" width="32" height="32">
@@ -318,6 +346,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="약초꾼 오디"/>
     <property name="type" value="character_villager_flower_dress"/>
+    <property name="quest.hiddenWhenCompleted" value="q025-swamp-priest"/>
+   </properties>
+  </object>
+  <object id="62" name="odi" type="character" x="1072" y="288" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="독안개가 걷히니 숲에서 처음 보는 약초가 올라와요. 렌이랑 같이 캐러 가기로 했어요."/>
+     <item value="해독 향이 남았으면 버리지 마세요. 언젠가 또 쓸 일이 있을지 몰라요."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="약초꾼 오디"/>
+    <property name="type" value="character_villager_flower_dress"/>
+    <property name="quest.requiresCompleted" value="q025-swamp-priest"/>
    </properties>
   </object>
   <object id="4" name="reed_guard" type="character" x="1296" y="832" width="32" height="32">
@@ -330,6 +372,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="문지기 하르"/>
     <property name="type" value="character_villager_brown_tunic"/>
+    <property name="quest.hiddenWhenCompleted" value="q025-swamp-priest"/>
+   </properties>
+  </object>
+  <object id="63" name="reed_guard" type="character" x="1296" y="832" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="숲 문은 이제 열어 두었다. 개구리 녀석들도 순해져서 사람을 보면 물로 뛰어든다."/>
+     <item value="그래도 밤 숲은 조심해라. 늪은 늪이다."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="문지기 하르"/>
+    <property name="type" value="character_villager_brown_tunic"/>
+    <property name="quest.requiresCompleted" value="q025-swamp-priest"/>
    </properties>
   </object>
   <object id="5" name="reed_weaver" type="character" x="784" y="736" width="32" height="32">
@@ -342,6 +398,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="갈대 엮는 네아"/>
     <property name="type" value="character_villager_flower_dress"/>
+    <property name="quest.hiddenWhenCompleted" value="q025-swamp-priest"/>
+   </properties>
+  </object>
+  <object id="64" name="reed_weaver" type="character" x="784" y="736" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="잠겼던 갈대밭이 다시 드러났어. 올가을엔 지붕을 새로 일 수 있겠어."/>
+     <item value="사냥꾼들 돌아온 날 밤엔 마을이 다 같이 모닥불을 피웠지."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="갈대 엮는 네아"/>
+    <property name="type" value="character_villager_flower_dress"/>
+    <property name="quest.requiresCompleted" value="q025-swamp-priest"/>
    </properties>
   </object>
   <object id="6" name="reed_fisher" type="character" x="208" y="544" width="32" height="32">
@@ -354,6 +424,20 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="낚시꾼 베른"/>
     <property name="type" value="character_bearded_apron_man"/>
+    <property name="quest.hiddenWhenCompleted" value="q025-swamp-priest"/>
+   </properties>
+  </object>
+  <object id="65" name="reed_fisher" type="character" x="208" y="544" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="물고기가 숲 쪽으로 돌아가기 시작했어. 종소리가 멎은 뒤로 말이야."/>
+     <item value="그런데 요즘 북쪽에서 부는 바람이 이상하게 차. 늪에선 겪어 본 적 없는 바람이야."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="낚시꾼 베른"/>
+    <property name="type" value="character_bearded_apron_man"/>
+    <property name="quest.requiresCompleted" value="q025-swamp-priest"/>
    </properties>
   </object>
   <object id="20" name="reed_village_sign" type="character" x="144" y="512" width="32" height="32">
@@ -387,7 +471,60 @@
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="사냥꾼 렌"/>
     <property name="quest.requiresCompleted" value="q020-beyond-the-fog"/>
+    <property name="quest.hiddenWhenCompleted" value="q025-swamp-priest"/>
     <property name="type" value="character_ranger_green"/>
+   </properties>
+  </object>
+  <object id="26" name="ren" type="character" x="560" y="672" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="다들 돌아왔어! 넷 다 살아서!"/>
+     <item value="종소리가 멎자 물 밑 방에 차 있던 물이 빠졌대. 네가 사제를 쓰러뜨린 그때였어."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="사냥꾼 렌"/>
+    <property name="quest.requiresCompleted" value="q025-swamp-priest"/>
+    <property name="type" value="character_ranger_green"/>
+   </properties>
+  </object>
+  <object id="70" name="waystone_reed-village" type="character" x="560" y="736" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="displayText" value="귀환 표지석"/>
+    <property name="type" value="cave_prop_obelisk_r1c0"/>
+   </properties>
+  </object>
+  <object id="71" name="waystone_reed-village_top" type="character" x="560" y="704" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="false"/>
+    <property name="type" value="cave_prop_obelisk_r0c0"/>
+   </properties>
+  </object>
+  <object id="27" name="returned_hunter_dar" type="character" x="592" y="768" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="석 달 동안 물 밑 방에 갇혀 있었어. 사제는 우리를 가둬 두기만 하고 아무것도 묻지 않더군."/>
+     <item value="종이 울릴 때마다 물이 차오르고, 멎으면 빠졌지. 마치 무언가를 붙잡아 두려는 것처럼."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="사냥꾼 다르"/>
+    <property name="type" value="character_ranger_green"/>
+    <property name="quest.requiresCompleted" value="q025-swamp-priest"/>
+   </properties>
+  </object>
+  <object id="28" name="returned_hunter_mika" type="character" x="720" y="800" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="살아서 갈대골 흙을 밟을 줄은 몰랐어."/>
+     <item value="물 밑에서 들은 말이 있어. 사제가 혼잣말로 &quot;북쪽이 깨기 전에&quot;라고 되뇌더군."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="사냥꾼 미카"/>
+    <property name="type" value="character_adventurer_brown_hair"/>
+    <property name="quest.requiresCompleted" value="q025-swamp-priest"/>
    </properties>
   </object>
   <object id="30" name="forest_gate_0" type="character" x="1392" y="864" width="32" height="32">
@@ -417,6 +554,25 @@
  </objectgroup>
  <objectgroup id="3" name="portals">
   <!-- 서쪽 나루 → 수로 상류길 전망 둑 (33, 14). 상류길의 나룻배(reed_ferry)는 이 맵의 도착 칸 (3, 17) 을 들고 있다. -->
+  <object id="42" name="reed_well" type="portal" x="608" y="832" width="32" height="32">
+   <properties>
+    <property name="appearanceType" value="town_prop_well_open_r1c0"/>
+    <property name="targetFacing" value="down"/>
+    <property name="targetSceneId" value="reed-well"/>
+    <property name="targetSpawnTileX" type="int" value="10"/>
+    <property name="targetSpawnTileY" type="int" value="16"/>
+   </properties>
+  </object>
+  <object id="43" name="outskirts_raft" type="portal" x="64" y="576" width="32" height="32">
+   <properties>
+    <property name="appearanceType" value="swamp_raft"/>
+    <property name="quest.requiresCompleted" value="q027-ferry-shortcut"/>
+    <property name="targetFacing" value="right"/>
+    <property name="targetSceneId" value="ruins-outskirts"/>
+    <property name="targetSpawnTileX" type="int" value="7"/>
+    <property name="targetSpawnTileY" type="int" value="5"/>
+   </properties>
+  </object>
   <object id="40" name="ferry_dock" type="portal" x="0" y="544" width="32" height="64">
    <properties>
     <property name="appearanceType" value="swamp_raft"/>

@@ -38,7 +38,7 @@ type SellPotionShopItemInput = {
 }
 
 export type PotionShopItemDefinition = {
-  id: 'health-potion' | 'mana-potion' | 'antidote-incense'
+  id: 'health-potion' | 'mana-potion' | 'antidote-incense' | 'warming-tea'
   label: string
   description: string
   price: number
@@ -67,6 +67,13 @@ export const POTION_ITEM_DEFINITIONS: PotionShopItemDefinition[] = [
     label: '해독 향',
     description: '피우면 90초 동안 독안개를 막아 준다',
     price: 40
+  },
+  {
+    // 3장: 서리목 약재상 이르마가 끓인다. 마시면 한동안 눈보라의 추위를 막는다(poisonFog.ts 의 눈보라).
+    id: 'warming-tea',
+    label: '생강차',
+    description: '마시면 90초 동안 눈보라의 추위를 막아 준다',
+    price: 45
   }
 ]
 // 물약상인(마을·야영지)의 기본 진열 — 해독 향은 갈대골 약초꾼만 판다.
@@ -76,6 +83,7 @@ export const POTION_MERCHANT_STOCK_ITEM_IDS: readonly PotionShopItemDefinition['
 ]
 export const HERBALIST_STOCK_ITEM_IDS: readonly PotionShopItemDefinition['id'][] = [
   'antidote-incense',
+  'warming-tea',
   'health-potion',
   'mana-potion'
 ]

@@ -333,11 +333,24 @@ function quest_log_get_visible_trackers(quest_log)
     local quest = get_progress(quest_log, def.id)
     if quest.trackerVisible then
       if quest.status == 'active' then
-        local objective = def.objectives[1]
+        -- TS와 동일: 아직 끝나지 않은 첫 목표(없으면 첫 목표). 목표가 하나면 추적 이름, 여럿이면 늘 목표 이름.
+        local index = 1
+        for j = 1, #def.objectives do
+          local candidate = def.objectives[j]
+          if (quest.objectives[candidate.id] or 0) < candidate.required then
+            index = j
+            break
+          end
+        end
+        local objective = def.objectives[index]
+        local label = def.trackerLabel
+        if #def.objectives > 1 then
+          label = objective.label
+        end
         -- TS와 동일하게 활성 목표(objective)도 함께 담는다 — 트래커 UI가 이 값을 읽는다.
         result[#result + 1] = {
           questId   = def.id,
-          text      = def.trackerLabel .. ' '
+          text      = label .. ' '
                         .. tostring(quest.objectives[objective.id] or 0)
                         .. '/' .. tostring(objective.required),
           objective = objective
