@@ -8,7 +8,7 @@
 import { ruleBasedBossPolicy } from '../src/games/my-sample-rpg/bossTraining/bossFightSim'
 import { runFight, summarizeFights, TARGET_PLAYER_WIN_RATE } from '../src/games/my-sample-rpg/bossTraining/fightEvaluation'
 import type { PlayerBotTier } from '../src/games/my-sample-rpg/bossTraining/playerBots'
-import { createBossArenaSetup, loadBossArenaData } from './lib/bossArena'
+import { createBossArenaSetup, loadBossArenaData } from './boss-arena-setup'
 
 const setup = createBossArenaSetup(loadBossArenaData(), Number(process.env.POTIONS ?? 6))
 

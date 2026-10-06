@@ -21,6 +21,7 @@
 - Lua compatibility check: run the official Lua 5.3 basic tests against the wasm runtime only through `npm run lua:test`.
 - Bundler: Vite
 - Tests: Vitest
+- Boss RL training (offline, not shipped): Python 3.12 with stable-baselines3 / sb3-contrib (MaskablePPO) and Gymnasium under `rl/`. It talks to the TS simulator through a bundled Node process. Versions are pinned in `rl/requirements.txt`. See `docs/boss-rl-design.md`.
 
 ## Resource Layout
 

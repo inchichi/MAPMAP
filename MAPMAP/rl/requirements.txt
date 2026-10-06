@@ -1,0 +1,5 @@
+# Installed into the server's existing ~/venv, which already has torch 2.5.1 (CUDA 12.1) and numpy.
+# stable-baselines3 2.8+ needs torch >= 2.8 and would replace that torch, so stay on 2.7.1.
+stable-baselines3==2.7.1
+sb3-contrib==2.7.1
+gymnasium==1.2.3

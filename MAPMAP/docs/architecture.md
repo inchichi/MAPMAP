@@ -31,7 +31,7 @@ This document is a short guide for module boundaries and code placement.
 - `src/game/playerProgression.ts`: level-up rewards, stat-point spending, monster skill-point rewards, skill-user-level and mana-cap helpers, and level-based skill-point spending for the player profile.
 - `src/game/playerStatEffects.ts`: derived player stat effects for physical attack, movement speed, and evade chance.
 - `src/game/sceneIntro.ts`: scene-id to localized intro text mapping for the temporary map transition banner.
-- `src/games/my-sample-rpg/bossTraining/`: headless trial-boss fight simulator, rule-based player bots (novice/normal/expert), and the fun score used for boss RL. Pure TS, no DOM or Pixi. Reuses `bossSkills.ts`. See `docs/boss-rl-design.md`.
+- `src/games/my-sample-rpg/bossTraining/`: headless trial-boss fight simulator, rule-based player bots (novice/normal/expert), and the fun score used for boss RL. Pure TS, no DOM or Pixi. Reuses `bossSkills.ts`. See `docs/boss-rl-design.md`. `bossEnv.ts` wraps the simulator as an RL environment (one step = one boss decision).
 - `src/game/tiled/`: TMX/TSX parsing, tile metadata, and event-layer data extraction.
 - `src/game/tiled/createNpcCharactersFromEventLayers.ts`: translate `character` object-layer events plus `controller.*`, `monster.level`, and optional `displayText` TMX properties into shared NPC character state.
 - `src/game/tiled/createMapPortalsFromEventLayers.ts`: translate `portal` object-layer events into scene transition data for map exits and entrances.
@@ -74,6 +74,7 @@ This document is a short guide for module boundaries and code placement.
 - `src/rendering/createQuestLogOverlay.ts`: fixed-screen quest window opened with `B`, showing accepted quest lists, quest details, objective progress, tracker toggles, and abandon confirmation.
 - `src/rendering/createQuestTrackerOverlay.ts`: fixed-screen quest tracker panel that displays quests whose per-quest tracker visibility is enabled, with a close button that hides tracker entries without changing quest progress.
 - `scripts/`: project automation scripts such as third-party fetch/build steps.
+- `rl/`: offline boss RL training in Python (`boss_env.py`, `train.py`, `evaluate.py`). `npm run rl:build` writes the bundled Node env server and arena data to `rl/dist/` (git-ignored). Training runs go to `rl/runs/` (git-ignored).
 - `third_party/`: vendored external source code kept in-repo for deterministic builds.
 - `public/vendor/`: generated static artifacts served as-is by Vite.
 

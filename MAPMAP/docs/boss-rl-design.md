@@ -24,6 +24,11 @@ Update it whenever a decision changes. Add new decisions to the log with a date.
 | 2026-10-06 | Balance the trial boss for a level 10 player with 6 potions: boss HP extra ×4 and boss damage multiplier 1. Other bosses do not change. | A sweep (see Balance) put normal and expert inside their win-rate targets. With damage ×2, plain melee decided every fight. |
 | 2026-10-06 | Look up boss HP and damage multipliers by boss key (`getBossKey`), not by appearance. | The trial boss borrows the troll chief's look but needs its own numbers. For every other boss the key equals the appearance, so nothing else changes. |
 | 2026-10-06 | Accept that one fixed setting cannot fit all three tiers. Novices stay below target. | This is a reason to try RL: a policy that sees the player's state can go easier on weak players. |
+| 2026-10-06 | Algorithm: MaskablePPO (`sb3-contrib`). | Discrete actions with many skills blocked at any moment (cooldown, range) need action masking. PPO is stable, simple to tune, and well supported. DQN cannot mask cleanly. Search-based methods (MCTS) need a forward model and are too slow per decision. |
+| 2026-10-06 | One RL step = one boss decision, taken in the middle of a 50 ms tick, after the player moves and before the boss acts. | It must be the exact moment the game's boss chooses. A first version decided before the tick and drifted from the rule-based fight. A test now checks that "always pick the first allowed skill" replays the rule-based fight exactly. |
+| 2026-10-06 | The policy does not see the bot tier. | It must read the player from the fight (damage taken recently, HP, potions), like it would with a real player. |
+| 2026-10-06 | Pin `stable-baselines3` and `sb3-contrib` to 2.7.1 and `gymnasium` to 1.2.3 on the server. | 2.8+ needs torch >= 2.8 and would replace the shared `~/venv` torch 2.5.1 (CUDA 12.1). 2.7.1 only adds packages. |
+| 2026-10-06 | Train on the CPU by default (`--device cpu`). | The policy is a 64×64 MLP. The Node simulators are the bottleneck. |
 
 ## Trial Boss
 
@@ -147,24 +152,54 @@ What is still off, and why it is left as is:
 - **Ranged skills are rare.** charge, tongue-pull, and fan-shot are used less than once per fight because the bots hug the boss. ring-burst almost never hits for the same reason. A policy could keep them for when the player backs off.
 - Melee is still the largest damage source, but skills now deal about half of the damage.
 
-## RL Plan (draft)
+## RL Environment
 
-- Decision point: when the boss is free and at least one skill is available. Actions: one per skill, plus "no skill" (keep chasing and melee). Mask out unavailable skills.
-- Observation (first version): distance and direction to the player, player HP ratio, boss HP ratio, enraged flag, cooldown left for each skill, player roll ready, active hazard count, time since the last skill, last skill used.
-- Reward: the fun score at the end of the fight, plus a penalty when a batch's win rate leaves the tier target. Small per-step shaping only if learning stalls.
-- Opponents: a mix of the 3 tiers, randomized per episode.
-- Algorithm: PPO with action masking (for example `sb3-contrib` MaskablePPO). The policy is a small MLP, so the CPU simulator is the bottleneck, not the GPU.
-- Bridge: a Node process runs many simulator copies, and Python talks to it over stdin/stdout JSON. Batch the steps if it is too slow.
-- Export: save the MLP weights as JSON and run inference in TypeScript inside the game. No ML runtime is needed in the browser.
-- Evaluate with `scripts/simulate-boss-fight.ts` against the rule-based baseline, using the same seeds.
+- TS side: `src/games/my-sample-rpg/bossTraining/bossEnv.ts` (pure, tested in `bossEnv.test.ts`).
+- Server process: `scripts/boss-env-server.ts`. `npm run rl:build` bundles it with esbuild into `rl/dist/boss-env-server.mjs` and writes `rl/dist/boss-arena.json`. Only `rl/` is copied to the server, not the whole repo.
+- Protocol: one JSON object per line over stdin/stdout.
+  - `{"cmd":"reset","seed":N,"tier":"normal"}`: leave out `tier` to pick a random tier per episode.
+  - `{"cmd":"step","action":K}`
+  - `{"cmd":"spec"}`: returns the observation and action names.
+- Python side: `rl/boss_env.py` is a Gymnasium env with one Node child per env, plus `action_masks()` for MaskablePPO.
+- Decision point: the boss is free, at least one skill is available, and no "no skill" hold is active. The rest of the fight runs inside the simulator.
+- Actions (8): `none`, then the 7 skills in list order. Unavailable skills are masked. A masked action is treated as `none`. After `none`, the env does not ask again for 500 ms.
+- Observation (36 numbers, the order is a contract, see `BOSS_ENV_OBSERVATION_NAMES`):
+  - player offset and distance (in units of 10 tiles), player HP, boss HP, enraged
+  - potions left, player rolling, roll ready, boss melee ready, hazard count, fight time
+  - player damage taken and boss damage taken in the last 10 s
+  - for each skill: cooldown left and in range
+  - last action (one-hot)
+- Reward: the fun score (0-1) when the fight ends, 0 before that. Per-tier win-rate penalties and step shaping are not used yet. Add them only if training needs them.
+- Opponents: novice, normal, and expert at random per episode.
+- `rl/train.py`: MaskablePPO, MLP 64×64, `n_steps` 256 per env, batch 2048, 5 epochs, lr 3e-4, gamma 0.995, entropy 0.01, `SubprocVecEnv`. Writes `rl/runs/<name>/` (model, checkpoints, `progress.csv`).
+- `rl/evaluate.py`: plays a fixed number of fights per tier with `--policy rule|model|random` on the same seeds.
+- Still to do: export the MLP weights as JSON and run inference in TypeScript inside the game.
+
+## Training Results
+
+| Date | Run | Steps | Envs | Speed | Notes |
+|---|---|---|---|---|---|
+| 2026-10-06 | `smoke` | 100k | 16 | 5,800 steps/s (24 s) | Pipeline check. Mean fight reward went from 0.63 to 0.69. |
+
+Evaluation on the server (200 fights per tier, seed 12345):
+
+| Tier | Rule boss: win / fun | `smoke` model: win / fun |
+|---|---|---|
+| novice | 9% / 0.52 | 13% / 0.60 |
+| normal | 62% ✓ / 0.69 | 68% ✓ / 0.72 |
+| expert | 98% ✗ / 0.73 | 94% ✓ / 0.72 |
+
+The smoke model is not a result. It only shows that learning moves the numbers in the right direction.
 
 ## Training Server
 
 - SSH alias `capstone` (see `~/.ssh/config` on the dev PC). Do not put keys or passwords in this repo.
 - Ubuntu 24.04 in a Docker container, 2× Xeon Gold 5317 (48 threads), 62 GB RAM, 4× RTX 3090 24 GB, 1.5 TB free disk.
 - The GPUs are shared: 16-21 GB of each was already in use on 2026-10-06.
-- Already installed: Python 3.12 with `~/venv` (torch 2.5.1 CUDA, numpy), Node 24, npm 11.
-- Not installed yet: `gymnasium`, `stable-baselines3`, `sb3-contrib`. Ask before installing.
+- Python 3.12 with `~/venv` (torch 2.5.1 CUDA 12.1, numpy), Node 24, npm 11.
+- Installed on 2026-10-06 into `~/venv` from `rl/requirements.txt`: stable-baselines3 2.7.1, sb3-contrib 2.7.1, gymnasium 1.2.3, plus their small dependencies (pandas, matplotlib, cloudpickle). torch and numpy did not change.
+- There is no `rsync` on the server. Copy with tar over ssh (see How To Run).
+- Work folder: `~/boss-rl` (a copy of `rl/`).
 
 ## How To Run
 
@@ -173,12 +208,22 @@ npx vite-node scripts/simulate-boss-fight.ts
 FIGHTS=1000 SEED=7 POTIONS=6 npx vite-node scripts/simulate-boss-fight.ts
 JSON=1 npx vite-node scripts/simulate-boss-fight.ts
 npx vitest run src/games/my-sample-rpg/bossTraining
+
+# build the env bundle and copy rl/ to the server
+npm run rl:build
+tar czf - -C rl --exclude runs --exclude __pycache__ . | ssh capstone 'mkdir -p ~/boss-rl && cd ~/boss-rl && tar xzf -'
+
+# on the server
+cd ~/boss-rl
+~/venv/bin/python evaluate.py --policy rule --episodes 300
+~/venv/bin/python train.py --timesteps 2000000 --envs 32 --name first-run
+~/venv/bin/python evaluate.py --policy model --model runs/first-run/model.zip --episodes 300
 ```
 
 ## Next Steps
 
 1. ~~Decide the balance knobs.~~ Done on 2026-10-06 (see Balance).
-2. Build the Node ↔ Python bridge and a Gymnasium environment.
-3. Install the RL packages on the server (with approval) and run a first PPO training.
+2. ~~Build the Node ↔ Python bridge and a Gymnasium environment.~~ Done on 2026-10-06.
+3. ~~Install the RL packages on the server.~~ Done on 2026-10-06. Next: a real training run (millions of steps), then compare with `evaluate.py`.
 4. Export the policy and load it into the game for the trial boss.
 5. Optional: self-play, where the player is also trained.

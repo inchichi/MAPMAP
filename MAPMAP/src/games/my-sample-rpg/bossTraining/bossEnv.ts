@@ -3,7 +3,7 @@
 //   - 행동: 0 = 기술 안 씀(쫓아가서 근접 공격), 1~7 = 기술(목록 순서). 못 쓰는 기술은 마스크로 막는다.
 //   - 보상: 싸움이 끝날 때 재미 점수(0~1), 그 전에는 0.
 // 상대 봇의 실력은 판마다 뽑고 정책에게는 알려 주지 않는다 — 플레이어가 어떤지 관찰로 알아내야 한다.
-import { getBossSkills, isBossEnraged } from '../bossSkills'
+import { getBossSkills, isBossEnraged, type BossSkillKind } from '../bossSkills'
 import {
   createFightState,
   createSeededRandom,
@@ -11,10 +11,10 @@ import {
   getDistance,
   getFightOutcome,
   getFightResult,
-  isBossFree,
   isPlayerRolling,
   SIM_TIME_LIMIT_MILLISECONDS,
-  stepFight,
+  beginFightStep,
+  finishFightStep,
   TRIAL_BOSS_KEY,
   type FightOutcome,
   type FightSetup,
@@ -61,6 +61,8 @@ export type BossEnvStep = {
     outcome?: FightOutcome
     fun?: FunBreakdown
     durationMilliseconds?: number
+    playerHpRatio?: number
+    skillUses?: Partial<Record<BossSkillKind, number>>
   }
 }
 
@@ -83,9 +85,6 @@ export const createBossEnv = (config: BossEnvConfig) => {
   let decisions = 0
   // 최근 피해를 재려고 결정 순간마다 누적 피해를 적어 둔다
   let samples: Array<{ at: number; playerDamage: number; bossDamage: number }> = []
-
-  const isDecisionPoint = (): boolean =>
-    isBossFree(state) && state.now >= nextDecisionAt && getAvailableBossSkills(state).length > 0
 
   const getObservation = (): number[] => {
     const { player, boss, now } = state
@@ -123,6 +122,7 @@ export const createBossEnv = (config: BossEnvConfig) => {
   }
 
   // 다음 결정 순간이나 싸움 끝까지 흘린다. 그 사이 보스는 기술을 쓰지 않는다(쫓아가서 근접 공격).
+  // 결정 순간은 한 칸의 두 단계 사이(beginFightStep 뒤)라서, 돌아올 때 그 칸은 아직 끝나지 않았다.
   const advance = (): BossEnvStep => {
     for (;;) {
       const outcome = getFightOutcome(state)
@@ -134,13 +134,22 @@ export const createBossEnv = (config: BossEnvConfig) => {
           actionMask: getActionMask(),
           reward: fun.total,
           done: true,
-          info: { tier, decisions, outcome, fun, durationMilliseconds: result.durationMilliseconds }
+          info: {
+            tier,
+            decisions,
+            outcome,
+            fun,
+            durationMilliseconds: result.durationMilliseconds,
+            playerHpRatio: result.playerHpRatio,
+            skillUses: result.stats.skillUses
+          }
         }
       }
-      if (isDecisionPoint()) {
+      const bossCanChoose = beginFightStep(state, bot(state), random)
+      if (bossCanChoose && state.now >= nextDecisionAt && getAvailableBossSkills(state).length > 0) {
         return { observation: getObservation(), actionMask: getActionMask(), reward: 0, done: false, info: { tier, decisions } }
       }
-      stepFight(state, bot(state), () => undefined, random)
+      finishFightStep(state, bossCanChoose, undefined, random)
     }
   }
 
@@ -159,17 +168,15 @@ export const createBossEnv = (config: BossEnvConfig) => {
       samples = []
       return advance()
     },
-    // 결정 순간에서 행동 하나를 적용하고 다음 결정 순간까지 간다. 막힌 행동은 "안 씀"으로 본다.
+    // 결정 순간에서 행동 하나로 그 칸을 마치고 다음 결정 순간까지 간다. 막힌 행동은 "안 씀"으로 본다.
     step: (action: number): BossEnvStep => {
       const kind = getActionMask()[action] ? BOSS_ENV_ACTIONS[action] : 'none'
       decisions += 1
       lastAction = BOSS_ENV_ACTIONS.indexOf(kind)
       if (kind === 'none') {
         nextDecisionAt = state.now + NONE_ACTION_HOLD_MILLISECONDS
-        stepFight(state, bot(state), () => undefined, random)
-      } else {
-        stepFight(state, bot(state), (_state, available) => available.find((candidate) => candidate === kind), random)
       }
+      finishFightStep(state, true, kind === 'none' ? undefined : (kind as BossSkillKind), random)
       return advance()
     }
   }

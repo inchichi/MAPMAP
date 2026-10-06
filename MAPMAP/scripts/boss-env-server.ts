@@ -10,7 +10,7 @@ import { createInterface } from 'node:readline'
 
 import { BOSS_ENV_ACTIONS, BOSS_ENV_OBSERVATION_NAMES, createBossEnv } from '../src/games/my-sample-rpg/bossTraining/bossEnv'
 import type { PlayerBotTier } from '../src/games/my-sample-rpg/bossTraining/playerBots'
-import { createBossArenaSetup, type BossArenaData } from './lib/bossArena'
+import { createBossArenaSetup, type BossArenaData } from './boss-arena-setup'
 
 const arenaPath = process.argv[2] ?? new URL('./boss-arena.json', import.meta.url)
 const arena = JSON.parse(readFileSync(arenaPath, 'utf8')) as BossArenaData

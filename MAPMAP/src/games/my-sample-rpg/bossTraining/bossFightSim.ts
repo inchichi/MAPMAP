@@ -392,9 +392,9 @@ const useBossSkill = (state: FightState, kind: BossSkillKind, random: () => numb
   }
 }
 
-const stepBoss = (state: FightState, policy: BossPolicy, random: () => number): void => {
+// 이어지는 기술(혀 당기기·돌진·기 모으기)을 흘린다. 이번 칸에 보스가 무엇을 고를 수 있으면 true.
+const updateBossOngoingSkills = (state: FightState): boolean => {
   const { boss, player, now } = state
-  const seconds = SIM_STEP_MILLISECONDS / 1000
 
   // 혀 당기기: 입을 벌린 뒤 짧게 끌어온다(구르는 중이면 빠져나간다)
   if (boss.tongue) {
@@ -425,7 +425,7 @@ const stepBoss = (state: FightState, policy: BossPolicy, random: () => number): 
     if (now >= end + 150) {
       boss.charge = undefined
     }
-    return
+    return false
   }
 
   if (boss.channel) {
@@ -437,18 +437,20 @@ const stepBoss = (state: FightState, policy: BossPolicy, random: () => number): 
       boss.hitReactionUntil = now + CHARGED_BLAST_STAGGER_MILLISECONDS
       delayAllSkills(boss, now + CHARGED_BLAST_STAGGER_MILLISECONDS)
       state.stats.interrupts += 1
-      return
+      return false
     }
     if (now < channel.until) {
-      return
+      return false
     }
     boss.channel = undefined
   }
+  return isBossFree(state)
+}
 
-  if (!isBossFree(state)) {
-    return
-  }
-  const choice = policy(state, getAvailableBossSkills(state))
+// 고른 기술을 쓰고, 고르지 않았으면 근접 공격하거나 쫓아간다.
+const actBoss = (state: FightState, choice: BossSkillKind | undefined, random: () => number): void => {
+  const { boss, player, now } = state
+  const seconds = SIM_STEP_MILLISECONDS / 1000
   if (choice) {
     useBossSkill(state, choice, random)
     return
@@ -467,16 +469,25 @@ const stepBoss = (state: FightState, policy: BossPolicy, random: () => number): 
   }
 }
 
-// 한 칸(SIM_STEP_MILLISECONDS) 흘린다. 순서는 맵 화면과 같다: 플레이어 → 보스 → 위험 지대.
-export const stepFight = (
-  state: FightState,
-  action: PlayerAction,
-  policy: BossPolicy,
-  random: () => number
-): void => {
+// 한 칸(SIM_STEP_MILLISECONDS)은 두 단계다. 순서는 맵 화면과 같다: 플레이어 → 보스 → 위험 지대.
+// 강화학습 환경(bossEnv)은 두 단계 사이에서 멈춰 정책에게 묻는다 — 보스가 고르는 바로 그 순간이다.
+// 앞 단계: 시간을 흘리고 플레이어를 움직이고 이어지는 기술을 흘린다. 보스가 고를 수 있으면 true.
+export const beginFightStep = (state: FightState, action: PlayerAction, random: () => number): boolean => {
   state.now += SIM_STEP_MILLISECONDS
   stepPlayer(state, action, random)
-  stepBoss(state, policy, random)
+  return updateBossOngoingSkills(state)
+}
+
+// 뒤 단계: 보스가 고를 수 있었으면 choice 대로 움직이고, 위험 지대 피해를 준다.
+export const finishFightStep = (
+  state: FightState,
+  bossCanChoose: boolean,
+  choice: BossSkillKind | undefined,
+  random: () => number
+): void => {
+  if (bossCanChoose) {
+    actBoss(state, choice, random)
+  }
   const tick = tickBossHazards(state.hazards, state.player.x, state.player.y, state.now, (x, y) =>
     state.isWall(Math.floor(x), Math.floor(y))
   )
@@ -484,6 +495,16 @@ export const stepFight = (
   for (const kind of tick.damageKinds) {
     damagePlayer(state, getBossHazardDamage(kind, state.player.maxHp), kind, DODGEABLE_HAZARD_KINDS.has(kind))
   }
+}
+
+export const stepFight = (
+  state: FightState,
+  action: PlayerAction,
+  policy: BossPolicy,
+  random: () => number
+): void => {
+  const bossCanChoose = beginFightStep(state, action, random)
+  finishFightStep(state, bossCanChoose, bossCanChoose ? policy(state, getAvailableBossSkills(state)) : undefined, random)
 }
 
 export type FightResult = {
