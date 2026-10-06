@@ -1,0 +1,202 @@
+import { describe, expect, it } from 'vitest'
+
+import { createInitialPlayerInventory, setPlayerInventorySlot } from './playerInventory'
+import { createInitialPlayerQuickslots, setPlayerQuickslotAssignment } from './playerQuickslots'
+import { createInitialPlayerProfile } from './playerProfile'
+import {
+  usePlayerInventoryConsumable,
+  usePlayerQuickslotConsumable
+} from './playerConsumables'
+
+describe('usePlayerInventoryConsumable', () => {
+  it('restores hp and consumes one health potion', () => {
+    const profile = {
+      ...createInitialPlayerProfile(),
+      hp: {
+        current: 13,
+        max: 24
+      }
+    }
+    const inventory = setPlayerInventorySlot({
+      inventory: createInitialPlayerInventory({ slotCount: 3 }),
+      slotIndex: 2,
+      item: {
+        id: 'health-potion',
+        label: '체력 회복 포션',
+        quantity: 2
+      }
+    })
+
+    const nextState = usePlayerInventoryConsumable({
+      profile,
+      inventory,
+      slotIndex: 2
+    })
+
+    expect(nextState).toEqual({
+      profile: {
+        ...profile,
+        hp: {
+          current: 23,
+          max: 24
+        }
+      },
+      inventory: {
+        gold: 150,
+        slots: [
+          undefined,
+          undefined,
+          {
+            id: 'health-potion',
+            label: '체력 회복 포션',
+            quantity: 1
+          }
+        ]
+      }
+    })
+  })
+
+  it('restores mp and clears the slot when the last mana potion is used', () => {
+    const profile = {
+      ...createInitialPlayerProfile(),
+      mp: {
+        current: 3,
+        max: 12
+      }
+    }
+    const inventory = setPlayerInventorySlot({
+      inventory: createInitialPlayerInventory({ slotCount: 2 }),
+      slotIndex: 1,
+      item: {
+        id: 'mana-potion',
+        label: '마나 회복 포션',
+        quantity: 1
+      }
+    })
+
+    const nextState = usePlayerInventoryConsumable({
+      profile,
+      inventory,
+      slotIndex: 1
+    })
+
+    expect(nextState).toEqual({
+      profile: {
+        ...profile,
+        mp: {
+          current: 12,
+          max: 12
+        }
+      },
+      inventory: {
+        gold: 150,
+        slots: [undefined, undefined]
+      }
+    })
+  })
+
+  it('burns one antidote incense without touching the profile', () => {
+    const profile = createInitialPlayerProfile()
+    const inventory = setPlayerInventorySlot({
+      inventory: createInitialPlayerInventory({ slotCount: 1 }),
+      slotIndex: 0,
+      item: {
+        id: 'antidote-incense',
+        label: '해독 향',
+        quantity: 3
+      }
+    })
+
+    expect(
+      usePlayerInventoryConsumable({
+        profile,
+        inventory,
+        slotIndex: 0
+      })
+    ).toEqual({
+      profile,
+      inventory: {
+        gold: 150,
+        slots: [{ id: 'antidote-incense', label: '해독 향', quantity: 2 }]
+      }
+    })
+  })
+
+  it('ignores non-consumable items', () => {
+    const inventory = setPlayerInventorySlot({
+      inventory: createInitialPlayerInventory({ slotCount: 1 }),
+      slotIndex: 0,
+      item: {
+        id: 'key',
+        label: 'Rusty Key',
+        quantity: 1
+      }
+    })
+
+    expect(
+      usePlayerInventoryConsumable({
+        profile: createInitialPlayerProfile(),
+        inventory,
+        slotIndex: 0
+      })
+    ).toBeUndefined()
+  })
+})
+
+describe('usePlayerQuickslotConsumable', () => {
+  it('uses the assigned quickslot inventory item', () => {
+    const profile = {
+      ...createInitialPlayerProfile(),
+      hp: {
+        current: 5,
+        max: 24
+      }
+    }
+    const inventory = setPlayerInventorySlot({
+      inventory: createInitialPlayerInventory({ slotCount: 3 }),
+      slotIndex: 1,
+      item: {
+        id: 'health-potion',
+        label: '체력 회복 포션',
+        quantity: 1
+      }
+    })
+    const quickslots = setPlayerQuickslotAssignment({
+      quickslots: createInitialPlayerQuickslots(),
+      quickslotIndex: 0,
+      inventorySlotIndex: 1
+    })
+
+    expect(
+      usePlayerQuickslotConsumable({
+        profile,
+        inventory,
+        quickslots,
+        quickslotIndex: 0
+      })
+    ).toEqual({
+      profile: {
+        ...profile,
+        hp: {
+          current: 15,
+          max: 24
+        }
+      },
+      inventory: {
+        gold: 150,
+        slots: [undefined, undefined, undefined]
+      }
+    })
+  })
+
+  it('returns undefined for empty quickslots', () => {
+    expect(
+      usePlayerQuickslotConsumable({
+        profile: createInitialPlayerProfile(),
+        inventory: createInitialPlayerInventory({ slotCount: 1 }),
+        quickslots: createInitialPlayerQuickslots(),
+        quickslotIndex: 0
+      })
+    ).toBeUndefined()
+  })
+})
