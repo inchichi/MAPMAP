@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { QuestLogState } from '../questLog'
-import { applyQuestGatedEvents } from './applyQuestGatedEvents'
+import { applyQuestGatedEvents, getQuestGatedEventKey } from './applyQuestGatedEvents'
 import type { ParsedTiledEvent, ParsedTiledMap } from './parseTiledMap'
 
 const event = (name: string, properties: ParsedTiledEvent['properties']): ParsedTiledEvent => ({
@@ -53,5 +53,12 @@ describe('applyQuestGatedEvents', () => {
       'always',
       'shortcut'
     ])
+  })
+
+  it('changes the gated key only when the gated objects change', () => {
+    const before = getQuestGatedEventKey(map, questLogWith('active'))
+    expect(getQuestGatedEventKey(map, questLogWith('active'))).toBe(before)
+    expect(getQuestGatedEventKey(map, questLogWith('completed'))).not.toBe(before)
+    expect(getQuestGatedEventKey(map, questLogWith('completed'))).not.toContain('always')
   })
 })

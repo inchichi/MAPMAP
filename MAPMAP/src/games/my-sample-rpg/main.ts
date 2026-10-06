@@ -54,7 +54,7 @@ import {
   createTiledNpcEventObject,
   normalizeStoredPlayerControlBindings
 } from './lua/luaGameLogic'
-import { applyQuestGatedEvents } from './tiled/applyQuestGatedEvents'
+import { applyQuestGatedEvents, getQuestGatedEventKey } from './tiled/applyQuestGatedEvents'
 import { createNpcCharactersFromEventLayers } from './tiled/createNpcCharactersFromEventLayers'
 import { parseTiledMap, parseTiledTileset } from './tiled/parseTiledMap'
 import { createInitialPlayerInventory } from './playerInventory'
@@ -186,6 +186,8 @@ type SceneRenderer = {
     name?: string
     dialogueLines?: string[]
   }) => boolean
+  getPlayerSpot: () => SceneSpawn
+  isDialogueOpen: () => boolean
 }
 
 // 배경음악(BGM) 전역 사용 여부. false면 어떤 씬에서도 BGM을 재생하지 않는다(효과음은 그대로).
@@ -484,9 +486,40 @@ let isSceneTransitionScheduled = false
 let audioSettings = applyEditorMute(readStoredAudioSettings())
 let refreshEventDraftPreview: (() => void) | undefined
 
+// 씬 안에서 퀘스트를 마쳐 퀘스트 조건 오브젝트(문·NPC 교체 등)가 바뀌면, 대화가 끝난 뒤 그 자리에서
+// 씬을 다시 띄워 바로 보이게 한다(예전에는 씬을 나갔다 와야 보였다). 지금 씬에 반영된 조건 키를 기억한다.
+let activeQuestGatedEventKey = ''
+let questGateRefreshTimerId: number | undefined
+
+const refreshSceneWhenQuestGatesChange = (sceneId: SceneId) => {
+  if (
+    questGateRefreshTimerId !== undefined ||
+    getQuestGatedEventKey(sceneMaps[sceneId], questLog) === activeQuestGatedEventKey
+  ) {
+    return
+  }
+
+  questGateRefreshTimerId = window.setInterval(() => {
+    if (activeSceneId !== sceneId || !activeSceneRenderer) {
+      window.clearInterval(questGateRefreshTimerId)
+      questGateRefreshTimerId = undefined
+      return
+    }
+    if (activeSceneRenderer.isDialogueOpen()) {
+      return
+    }
+    window.clearInterval(questGateRefreshTimerId)
+    questGateRefreshTimerId = undefined
+    void bootstrapScene(sceneId, activeSceneRenderer.getPlayerSpot(), { isQuestGateRefresh: true }).catch(
+      renderFatalError
+    )
+  }, 200)
+}
+
 const bootstrapScene = async (
   sceneId: SceneId,
-  spawn?: SceneSpawn
+  spawn?: SceneSpawn,
+  options: { isQuestGateRefresh?: boolean } = {}
 ): Promise<void> => {
   const baseSceneMap = sceneMaps[sceneId]
 
@@ -496,6 +529,7 @@ const bootstrapScene = async (
 
   // 퀘스트로 열리고 닫히는 오브젝트(광산 지름길 포탈·낙석 등)를 지금 진행도에 맞춘다.
   const sceneMap = applyQuestGatedEvents(baseSceneMap, questLog)
+  activeQuestGatedEventKey = getQuestGatedEventKey(baseSceneMap, questLog)
 
   // 현재 씬을 기억한다 — 에디터가 퀘스트를 라이브로 주입하면 이 씬을 다시 부팅해 반영한다.
   activeSceneId = sceneId
@@ -551,7 +585,8 @@ const bootstrapScene = async (
       poisonFogImmuneUntil = immuneUntil
     },
     sceneId,
-    sceneIntroMessage: getSceneIntroMessage(sceneId),
+    // 같은 씬을 그 자리에서 다시 띄울 때는 장소 이름 배너를 다시 보이지 않는다
+    sceneIntroMessage: options.isQuestGateRefresh ? '' : getSceneIntroMessage(sceneId),
     cameraTargetCharacterId: PLAYER_CHARACTER_ID,
     characterSpriteSheet: {
       tileset: tinyDungeonTileset,
@@ -589,6 +624,7 @@ const bootstrapScene = async (
     onQuestLogChange: (nextQuestLog) => {
       questLog = nextQuestLog
       saveWorldState()
+      refreshSceneWhenQuestGatesChange(sceneId)
     },
     collectedCoinTileKeys: collectedCoinTileKeysBySceneId[sceneId] ?? [],
     defeatedBossIds: defeatedBossIdsBySceneId[sceneId] ?? [],

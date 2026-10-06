@@ -184,6 +184,9 @@ export const createPixiTiledMapView = async ({
     name?: string
     dialogueLines?: string[]
   }) => boolean
+  // 씬을 그 자리에서 다시 띄울 때(퀘스트로 맵 오브젝트가 바뀌었을 때) 플레이어가 서 있던 곳
+  getPlayerSpot: () => { x: number; y: number; facing: CharacterMoveDirection }
+  isDialogueOpen: () => boolean
 }> => {
   const app = new Application()
   let cameraZoom = CAMERA_DEFAULT_ZOOM
@@ -2194,6 +2197,11 @@ export const createPixiTiledMapView = async ({
     setPlacementTemplate,
     refreshPlacements,
     refreshNpcs,
-    spawnNpcNearPlayer
+    spawnNpcNearPlayer,
+    getPlayerSpot: () => {
+      const player = getCharacterStateById(PLAYER_CHARACTER_ID)
+      return { x: player.position.x, y: player.position.y, facing: player.facing }
+    },
+    isDialogueOpen: () => npcDialogueOverlay.isOpen()
   }
 }
