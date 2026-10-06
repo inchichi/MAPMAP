@@ -1,0 +1,31 @@
+/* 네오둥근모 — 형제 게임의 자산을 복사하지 않고 상대 경로로 참조한다.
+   라이선스: licenses/neodgm.txt */
+@font-face {
+  font-family: 'NeoDunggeunmo';
+  src: url('../my-sample-rpg/assets/fonts/neodgm.woff2') format('woff2');
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #141b1b;
+  color: #f2eaf1;
+  font-family: 'NeoDunggeunmo', monospace;
+}
+
+#app {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* 픽셀아트를 정수 배율로 띄우므로 브라우저 보간을 끈다. */
+#app canvas {
+  image-rendering: pixelated;
+}
