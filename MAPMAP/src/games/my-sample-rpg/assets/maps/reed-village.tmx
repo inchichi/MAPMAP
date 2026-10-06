@@ -283,7 +283,7 @@
 </data>
  </layer>
  <objectgroup id="2" name="characters">
-  <!-- 사공 토빈, 촌장 미렌(c2-02 보고), 약초꾼 오디, 문지기 하르, 주민 둘 / 표지판 / 가라앉은 숲 문(닫힘) -->
+  <!-- 사공 토빈, 촌장 미렌(c2-02 보고), 약초꾼 오디, 문지기 하르, 주민 둘 / 표지판 / 잠긴숲 문(닫힘) -->
   <object id="1" name="tobin" type="character" x="112" y="640" width="32" height="32">
    <properties>
     <property name="blocksMovement" type="bool" value="true"/>
@@ -366,7 +366,7 @@
    <properties>
     <property name="blocksMovement" type="bool" value="true"/>
     <property name="controller.dialogueLines" type="list">
-     <item value="저 문 너머가 가라앉은 숲이다. 숲길은 위험하다."/>
+     <item value="저 문 너머가 잠긴숲이다. 숲길은 위험하다."/>
      <item value="촌장님 말씀을 듣고 가라. 개구리 녀석들이 떼로 다닌다."/>
     </property>
     <property name="controller.scriptId" value="vn-dialogue"/>
@@ -458,7 +458,7 @@
    <properties>
     <property name="type" value="sign_inn"/>
     <property name="blocksMovement" type="bool" value="false"/>
-    <property name="displayText" value="가라앉은 숲 →"/>
+    <property name="displayText" value="잠긴숲 →"/>
    </properties>
   </object>
   <object id="25" name="ren" type="character" x="560" y="672" width="32" height="32">
@@ -553,7 +553,7 @@
   </object>
  </objectgroup>
  <objectgroup id="3" name="portals">
-  <!-- 서쪽 나루 → 수로 상류길 전망 둑 (33, 14). 상류길의 나룻배(reed_ferry)는 이 맵의 도착 칸 (3, 17) 을 들고 있다. -->
+  <!-- 서쪽 나루 → 윗물길 전망 둑 (33, 14). 상류길의 나룻배(reed_ferry)는 이 맵의 도착 칸 (3, 17) 을 들고 있다. -->
   <object id="42" name="reed_well" type="portal" x="608" y="832" width="32" height="32">
    <properties>
     <property name="appearanceType" value="town_prop_well_open_r1c0"/>

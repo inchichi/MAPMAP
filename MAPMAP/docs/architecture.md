@@ -18,7 +18,7 @@ This document is a short guide for module boundaries and code placement.
 - `src/game/monsterCombat.ts`: monster HP, contact damage, and defeat-state rules shared by combat scenes.
 - `src/game/monsterDisplayName.ts`: monster name formatting for on-map labels and HUD badges.
 - `src/game/monsterRewards.ts`: monster reward amounts such as beginner gold, experience, and level-based skill-point drops.
-- `src/game/questLog.ts`: pure quest definitions, quest progress state transitions, prerequisite checks, objective event matching, tracker visibility, NPC badge state, dialogue text formatting, and reward data for the 티르코네일 beginner quest arc.
+- `src/game/questLog.ts`: pure quest definitions, quest progress state transitions, prerequisite checks, objective event matching, tracker visibility, NPC badge state, dialogue text formatting, and reward data for the 느티골 beginner quest arc.
 - `src/game/playerExperience.ts`: player experience gain, level-up application, and the level 100 cap.
 - `src/game/playerEquipment.ts`: player-facing equipment state, starter gear data, blacksmith gear data, item price metadata, and item icon metadata used by the combined player panel.
 - `src/game/playerProfile.ts`: player-facing name, starter beginner class, 10-level promotion check, level 100 cap, future job-to-primary-stat mapping, resource, exp, stat, and skill data used by the HUD, plus available and total skill-point tracking for the skill window.

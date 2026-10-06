@@ -1,4 +1,4 @@
-"""3장 '얼음 동굴' 1층(ice-cave-1f, 40x40)·2층(ice-cave-2f, 30x30) 생성기 — c3-07·c3-08 의 무대.
+"""3장 '서리굴' 1층(ice-cave-1f, 40x40)·2층(ice-cave-2f, 30x30) 생성기 — c3-07·c3-08 의 무대.
 신전 도구(temple_mapkit)를 눈 바이옴으로: 돌바닥은 푸른 회색 얼음돌, 물은 얼음, 물가 둑은 눈.
 
 1층: 남쪽 입구 굴 ─ 얼음 골렘의 방(서) ─ 가운데 얼어붙은 물길 회랑 ─ 동쪽 굴: 얼어붙은 사냥꾼(구출, c3-07) ─ 북쪽:
@@ -14,7 +14,7 @@ sys.path.insert(0, 'scripts')
 from swamp_mapkit import INVISIBLE_BLOCK, character, monster, portal  # noqa: E402
 from temple_mapkit import TempleMap, lpc  # noqa: E402
 
-LAKE_SPAWN = (52, 20)                 # 얼어붙은 호수 동굴 계단 앞
+LAKE_SPAWN = (52, 20)                 # 거울못 동굴 계단 앞
 
 # ---------------------------------------------------------------- 1층
 W1, H1 = 40, 40
@@ -88,7 +88,7 @@ portals = [
 m.write_tmx('src/games/my-sample-rpg/assets/maps/ice-cave-1f.tmx', 'scripts/generate-ice-cave.py', chars,
             '얼어붙은 사냥꾼(frozen_hunter, q039 — 구출 뒤 사라짐), 얼음 광맥(ice_vein, q039) / 얼음 골렘 3(Lv45~46), '
             '서리 해골 5(Lv44~45)',
-            portals, f'남쪽 계단 → 얼어붙은 호수 {LAKE_SPAWN}. 북쪽 계단 → 2층 {SPAWN_2}(q039 후).', next_object_id=40)
+            portals, f'남쪽 계단 → 거울못 {LAKE_SPAWN}. 북쪽 계단 → 2층 {SPAWN_2}(q039 후).', next_object_id=40)
 
 # ---------------------------------------------------------------- 2층
 W2, H2 = 30, 30

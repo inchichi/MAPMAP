@@ -453,7 +453,7 @@
   <object id="1" name="elder" type="character" x="1104" y="992" width="32" height="32">
    <properties>
     <property name="controller.dialogueLines" type="list">
-     <item value="이 물이 어디서 오는지 아나? 티르코네일 수로 끝에서 우리 들녘까지 흘러온다네."/>
+     <item value="이 물이 어디서 오는지 아나? 느티골 수로 끝에서 우리 들녘까지 흘러온다네."/>
      <item value="물이 마르면 마을도 마르는 게야. 그래서 우물을 늘 지키고 있지."/>
     </property>
     <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
@@ -465,7 +465,7 @@
   <object id="2" name="farmer" type="character" x="1552" y="448" width="32" height="32">
    <properties>
     <property name="controller.dialogueLines" type="list">
-     <item value="올해 이삭이 유난히 굵어. 슬라임 숲 쪽 바람만 안 불면 풍년일세."/>
+     <item value="올해 이삭이 유난히 굵어. 말캉이 숲 쪽 바람만 안 불면 풍년일세."/>
      <item value="밀은 정직해. 물 준 만큼, 딱 그만큼 자라거든."/>
     </property>
     <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
@@ -541,7 +541,7 @@
   <object id="6" name="gatekeeper" type="character" x="1008" y="288" width="32" height="32">
    <properties>
     <property name="controller.dialogueLines" type="list">
-     <item value="티르코네일에서 내려오셨소? 계단이 미끄러우니 조심하시오."/>
+     <item value="느티골에서 내려오셨소? 계단이 미끄러우니 조심하시오."/>
      <item value="물보라가 사철 마르질 않아서 아치 밑은 늘 서늘하오."/>
     </property>
     <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
@@ -639,7 +639,7 @@
    <properties>
     <property name="controller.dialogueLines" type="list">
      <item value="왼쪽은 과수원, 곧장 가면 방죽못. 숲 쪽으론 요즘 슬라임이 극성이니 초보는 낮에만 다니게."/>
-     <item value="티르코네일로 돌아가려면 북쪽 아치 밑 계단이오."/>
+     <item value="느티골로 돌아가려면 북쪽 아치 밑 계단이오."/>
     </property>
     <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
     <property name="controller.scriptId" value="vn-dialogue"/>
@@ -683,7 +683,7 @@
     <property name="targetSpawnTileY" type="int" value="41"/>
    </properties>
   </object>
-  <!-- 2장 입구: 수문 위 수도교 아치 → 수로 상류길. q014(무기의 길) 완료 후에만 열린다(q016 사라지는 물). -->
+  <!-- 2장 입구: 수문 위 수도교 아치 → 윗물길. q014(무기의 길) 완료 후에만 열린다(q016 사라지는 물). -->
   <object id="25" name="upstream_gate" type="portal" x="352" y="128" width="96" height="32">
    <properties>
     <property name="appearanceType" value="stairs_stone_step_base_00"/>

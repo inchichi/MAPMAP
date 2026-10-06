@@ -1,6 +1,6 @@
 """2장 늪 지역 맵 생성기 공용 도구 — 지형 깔기, 나무 심기, 물가 장식, 가장자리 막기, 검증, TMX 저장.
 
-수로 상류길(generate-upstream-waterway.py)과 갈대골(generate-reed-village.py)이 같이 쓴다.
+윗물길(generate-upstream-waterway.py)과 갈대골(generate-reed-village.py)이 같이 쓴다.
 지형 규칙은 swamp_terrain.py(꼭짓점 재질 → 바닥·경계 덮개). 원칙(1장 생성기와 같음):
   * object 레이어의 0 이 아닌 칸이 벽이다.
   * 투명 충돌(302)은 물 위와, 나무·수관으로 덮인 맵 가장자리에만 쓴다. 빈 땅을 막을 땐 덤불처럼
@@ -353,7 +353,7 @@ class SwampMap:
         return cands
 
     def plant_drowned_trees(self, cands, accept, limit=6, chance=1.0):
-        """물속에 선 고목(가라앉은 숲): 둘레 3x3 이 모두 물인 칸, 서로 3칸 이상.
+        """물속에 선 고목(잠긴숲): 둘레 3x3 이 모두 물인 칸, 서로 3칸 이상.
         chance < 1 이면 위(뒤) 행부터 심되 칸마다 그 확률로만 골라, 맵 위쪽에 몰리지 않고 고르게 흩어진다."""
         drowned = 0
         for y, r, x in cands:

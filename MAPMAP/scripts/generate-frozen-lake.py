@@ -1,11 +1,11 @@
-"""3장 '얼어붙은 호수'(frozen-lake, 56x40) 생성기 — c3-03~c3-06 의 무대. 눈 바이옴.
+"""3장 '거울못'(frozen-lake, 56x40) 생성기 — c3-03~c3-06 의 무대. 눈 바이옴.
 
 호수는 얼음(지나갈 수 없음)이고, 물 위로 남은 눈 둑길로만 가운데 섬에 닿는다. 둑길과 섬은 눈보라에 덮였다(지붕
 레이어의 안개 타일이 눈 판에서 눈보라가 된다 — 들어서면 피해·감속, 이르마의 생강차로 막는다). 둑길 들머리는
 눈더미가 막고 있다가 c3-04(q036 생강차)를 마치면 치워진다. 섬 가운데 얼음 속에 옛 종탑(2장 신전의 종과 같은 문양).
 
   서쪽 기슭(서리목 길, 늑대인간 사냥터) ─┬─ 둑길(눈보라) ─ 가운데 섬(얼음 속 종탑) ─ 둑길 ─┐
-                                        └─ 북쪽 호숫가 길(둘러 감) ─────────────────────────┴─ 동쪽 기슭: 얼음 동굴 입구
+                                        └─ 북쪽 호숫가 길(둘러 감) ─────────────────────────┴─ 동쪽 기슭: 서리굴 입구
                                                                                                 (트롤 족장, 고블린)
 """
 import math
@@ -20,14 +20,17 @@ OUT = 'src/games/my-sample-rpg/assets/maps/frozen-lake.tmx'
 WEST_EXIT = (0, 19, 1, 3)
 ARRIVAL = (2, 20)
 VILLAGE_SPAWN = (41, 16)                  # 서리목 동쪽 길 안쪽
-CAVE_STAIRS = (52, 19, 2, 1)              # 얼음 동굴로 내려가는 계단(q038 후)
-CAVE_SPAWN = (20, 36)                     # 얼음 동굴 1층 도착 칸
+CAVE_STAIRS = (52, 19, 2, 1)              # 서리굴로 내려가는 계단(q038 후)
+CAVE_SPAWN = (20, 36)                     # 서리굴 1층 도착 칸
 ISLAND = (29.0, 20.0, 5.0, 4.2)
 BELL = (29, 18)                           # 얼음 속 종탑(대화 목표)
 DRIFT_X = 15                              # 이 열의 걸을 수 있는 칸마다 눈더미(q036 후 치워짐) — 둑길·북쪽 길 모두
 BLIZZARD_X = (16, 43)                     # 이 열 사이 호수 위는 눈보라
 TROLL = (48, 19)
 WOLF_DEN = (6, 33)                        # 늑대인간 굴(q035 조사 목표)
+FROST_HERBS = [(8, 4), (10, 24), (12, 31)]  # 이르마의 서리꽃(q044, 서쪽 물가 — 눈보라 밖)
+FROZEN_LETTER = (11, 13)                  # 뒤집힌 우편 썰매(q045)
+GOBLIN_CACHE = (53, 9)                    # 고블린 은신처(q046, 동쪽 호숫가)
 
 LAKE = (29.0, 20.0, 15.5, 13.0)
 WEST_SHORE = [(x, y) for x in range(0, 13) for y in range(0, H)]
@@ -137,7 +140,8 @@ if leaks:
 print(f'눈더미 {len(DRIFTS)}개')
 m.validate(ARRIVAL, [(n, p) for n, _k, _l, p in MONSTERS] + [
     ('도착 칸', ARRIVAL), ('종탑 앞', (BELL[0], BELL[1] + 1)), ('동굴 계단', (CAVE_STAIRS[0], CAVE_STAIRS[1])),
-    ('늑대 굴 앞', (WOLF_DEN[0], WOLF_DEN[1] + 1)), ('눈더미 앞', (DRIFT_X - 1, 20))] +
+    ('늑대 굴 앞', (WOLF_DEN[0], WOLF_DEN[1] + 1)), ('눈더미 앞', (DRIFT_X - 1, 20)),
+    ('편지 썰매', FROZEN_LETTER), ('고블린 은신처', GOBLIN_CACHE)] + [(f'서리꽃 {p}', p) for p in FROST_HERBS] +
     [(f'소환 {p}', p) for p in SUMMONS] + [(f'서쪽 {p}', p) for p in west_cells], open_edge_cells=west_cells)
 
 chars = [monster(20 + i, name, x, y, kind, lvl) for i, (name, kind, lvl, (x, y)) in enumerate(MONSTERS)] + [
@@ -159,8 +163,25 @@ chars = [monster(20 + i, name, x, y, kind, lvl) for i, (name, kind, lvl, (x, y))
         ('controller.scriptId', '', 'vn-dialogue'), ('displayText', '', '늑대인간의 굴'),
         ('type', '', 'cave_prop_skull_pile_r0c0')]),
     sign(4, 'lake_sign', ARRIVAL[0] + 2, ARRIVAL[1] - 2, '서리목 ←'),
+    character(80, 'frozen_letter', FROZEN_LETTER[0], FROZEN_LETTER[1], [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['얼음판에 반쯤 박힌 우편 썰매다. 짐칸에 편지 꾸러미가 얼어붙어 있다.']),
+        ('controller.scriptId', '', 'vn-dialogue'), ('displayText', '', '뒤집힌 우편 썰매'),
+        ('type', '', 'cave_prop_crate_bones')]),
+    character(81, 'goblin_cache', GOBLIN_CACHE[0], GOBLIN_CACHE[1], [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['바위 둘 사이 눈더미가 이상하게 봉긋하다. 무언가 묻혀 있는 것 같다.']),
+        ('controller.scriptId', '', 'vn-dialogue'), ('displayText', '', '봉긋한 눈더미'),
+        ('type', '', 'cave_prop_crate_bones')]),
 ] + [
-    character(5 + i, f'snow_drift_{i}', x, y, [
+    character(82 + i, f'frost_herb_{i + 1}', x, y, [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['눈 속에서 하늘빛으로 빛나는 꽃이다. 이르마가 말한 서리꽃 같다.']),
+        ('controller.scriptId', '', 'vn-dialogue'), ('displayText', '', '서리꽃'),
+        ('type', '', 'cave_prop_glow_plant_b')])
+    for i, (x, y) in enumerate(FROST_HERBS)
+] + [
+    character(100 + i, f'snow_drift_{i}', x, y, [
         ('blocksMovement', 'bool', 'true'),
         ('controller.dialogueLines', 'list', ['허리까지 쌓인 눈더미가 둑길을 막고 있다.',
                                                '그 너머는 앞이 보이지 않는 눈보라다. 맨몸으로는 갈 수 없다.']),
@@ -180,7 +201,8 @@ portals = [
         ('targetSpawnTileX', 'int', CAVE_SPAWN[0]), ('targetSpawnTileY', 'int', CAVE_SPAWN[1])]),
 ]
 m.write_tmx(OUT, 'scripts/generate-frozen-lake.py', chars,
-            '얼음 속 종탑(frozen_bell, q037), 늑대인간의 굴(wolf_den, q035), 둑길 눈더미(q036 후 치워짐) / '
+            '얼음 속 종탑(frozen_bell, q037), 늑대인간의 굴(wolf_den, q035), 둑길 눈더미(q036 후 치워짐), '
+            '서리꽃(frost_herb_1~3, q044), 우편 썰매(frozen_letter, q045), 고블린 은신처(goblin_cache, q046) / '
             '서리 늑대인간 6(Lv42~44), 눈 말캉이 3, 고블린 2, 트롤 족장-보스(Lv46) + 소환 고블린 4',
-            portals, f'서쪽 → 서리목 {VILLAGE_SPAWN}. 동쪽 동굴 계단 → 얼음 동굴 1층 {CAVE_SPAWN}(q038 후).',
-            next_object_id=70)
+            portals, f'서쪽 → 서리목 {VILLAGE_SPAWN}. 동쪽 동굴 계단 → 서리굴 1층 {CAVE_SPAWN}(q038 후).',
+            next_object_id=130)

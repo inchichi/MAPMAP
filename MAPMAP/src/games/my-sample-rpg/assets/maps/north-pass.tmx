@@ -228,7 +228,7 @@
 </data>
  </layer>
  <objectgroup id="2" name="characters">
-  <!-- 표지판, 고블린이 훔친 짐 / 눈 말캉이 5(Lv38~39), 고블린 약탈자 4(Lv39~41, 서쪽 야영지) -->
+  <!-- 표지판, 고블린이 훔친 짐, 니나의 썰매(nina_sled, q042) / 눈 말캉이 5(Lv38~39), 고블린 약탈자 4(Lv39~41, 서쪽 야영지) -->
   <object id="10" name="눈 말캉이-1" type="character" x="848" y="736" width="32" height="32">
    <properties>
     <property name="blocksMovement" type="bool" value="true"/>
@@ -296,7 +296,7 @@
    <properties>
     <property name="type" value="sign_inn"/>
     <property name="blocksMovement" type="bool" value="false"/>
-    <property name="displayText" value="서리목 ↑ · 티르코네일 ↓"/>
+    <property name="displayText" value="서리목 ↑ · 느티골 ↓"/>
    </properties>
   </object>
   <object id="2" name="goblin_loot" type="character" x="240" y="256" width="32" height="32">
@@ -310,9 +310,20 @@
     <property name="type" value="cave_prop_crate_bones"/>
    </properties>
   </object>
+  <object id="3" name="nina_sled" type="character" x="1104" y="352" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="true"/>
+    <property name="controller.dialogueLines" type="list">
+     <item value="눈 더미 속에 빨간 줄이 그어진 작은 썰매가 박혀 있다."/>
+    </property>
+    <property name="controller.scriptId" value="vn-dialogue"/>
+    <property name="displayText" value="작은 썰매"/>
+    <property name="type" value="swamp_raft"/>
+   </properties>
+  </object>
  </objectgroup>
  <objectgroup id="3" name="portals">
-  <!-- 남쪽 → 티르코네일 (10, 1), 북쪽 → 서리목 (22, 33). -->
+  <!-- 남쪽 → 느티골 (10, 1), 북쪽 → 서리목 (22, 33). -->
   <object id="30" name="town_road" type="portal" x="736" y="864" width="96" height="32">
    <properties>
     <property name="appearanceType" value="stairs_stone_step_base_00"/>

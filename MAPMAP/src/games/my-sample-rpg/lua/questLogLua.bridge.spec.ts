@@ -622,7 +622,7 @@ describe('questLogLua (real wasm bridge)', () => {
     const completionLines = [
       '돌아왔구나, {playerName}.',
       '동굴의 어두운 기운이 사라졌다. 네가 해낸 것이다.',
-      '이제 티르코네일 마을은 당분간 안전할 것이다.'
+      '이제 느티골은 당분간 안전할 것이다.'
     ]
     expect(lua.formatQuestTextLines(completionLines, ctx)).toEqual(
       formatQuestTextLines(completionLines, ctx)

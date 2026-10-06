@@ -45,7 +45,7 @@ scripts/append-cave-tiles.py 가 이 시트를 town-32 타일셋 뒤에 덧붙�
 
 town-32 기본 타일(id 0-599)은 이 라이선스와 무관하다.
 
---- 마을(딴따라마을) 소품 — sheet__village.png ---
+--- 마을(물레골) 소품 — sheet__village.png ---
 
 6. [LPC] Trees — 나무/덤불 전부
    bluecarrot16, Jetrel, Zabin, Hyptosis, Surt, Buch, Johann Charlot,

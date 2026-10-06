@@ -10,7 +10,7 @@ export const FINAL_SUPPLIES_QUEST_ID = 'q007-final-supplies'
 export const PIG_BOSS_THREAT_QUEST_ID = 'q008-pig-boss-threat'
 export const MINE_ORE_RUSH_QUEST_ID = 'q009-mine-ore-rush'
 export const HARVEST_VILLAGE_VISIT_QUEST_ID = 'q010-harvest-village-visit'
-// 딴따라마을 심부름(5단계) + 무기의 길(최종장)
+// 물레골 심부름(5단계) + 무기의 길(최종장)
 export const FIELD_PIG_ERRAND_QUEST_ID = 'q011-field-pigs'
 export const SLUICE_KEEPER_ERRAND_QUEST_ID = 'q012-sluice-keeper'
 export const MANOR_SPORE_ERRAND_QUEST_ID = 'q013-manor-spores'
@@ -19,19 +19,19 @@ export const WEAPON_PATH_QUEST_ID = 'q014-weapon-path'
 export const HIDDEN_CACHE_QUEST_ID = 'q015-hidden-cache'
 export const CAMP_MERCHANT_NPC_ID = 'camp_merchant'
 export const HIDDEN_CACHE_NPC_ID = 'hidden_cache'
-// 1장 곁가지(디테일 살리기 때 이름을 얻은 티르코네일 주민들의 부탁). 3장 설계 번호(q033~q047) 뒤를 쓴다.
+// 1장 곁가지(디테일 살리기 때 이름을 얻은 느티골 주민들의 부탁). 3장 설계 번호(q033~q047) 뒤를 쓴다.
 export const CARPENTER_STONES_QUEST_ID = 'q048-carpenter-stones'
 export const GARDENER_SEEDS_QUEST_ID = 'q049-gardener-seeds'
 export const CLOCK_OIL_QUEST_ID = 'q050-clock-oil'
 export const BRIDGE_WATCH_QUEST_ID = 'q051-bridge-watch'
-// 2장 가라앉은 숲과 고대 유적(docs/chapter2-sunken-forest.md). 설계 번호 c2-01 = q016.
+// 2장 잠긴숲과 고대 유적(docs/chapter2-sunken-forest.md). 설계 번호 c2-01 = q016.
 export const VANISHING_WATER_QUEST_ID = 'q016-vanishing-water'
 export const SLUICE_KEEPER_NPC_ID = 'mage'
 export const SUNKEN_STELE_NPC_ID = 'sunken_stele'
 // c2-02 = q017. 갈대골 촌장 미렌에게 보고한다(이멜이 보낸다).
 export const REED_VILLAGE_QUEST_ID = 'q017-reed-village'
 export const REED_VILLAGE_CHIEF_NPC_ID = 'miren'
-// c2-03 = q018. 가라앉은 숲 어귀 — 늪개구리 전사를 몰아내고 사라진 사냥꾼들의 흔적을 찾는다.
+// c2-03 = q018. 잠긴숲 어귀 — 늪개구리 전사를 몰아내고 사라진 사냥꾼들의 흔적을 찾는다.
 export const DROWNED_PATH_QUEST_ID = 'q018-drowned-path'
 export const HUNTER_TRACE_NPC_ID = 'hunter_trace'
 // c2-04 = q019(해독 향) + q020(독안개 너머). 약초꾼 오디의 해독 향으로 독안개를 건너 사냥꾼 렌을 찾는다.
@@ -41,7 +41,7 @@ export const HERBALIST_NPC_ID = 'odi'
 export const LOST_HUNTER_NPC_ID = 'lost_hunter_ren'
 // c2-05 = q021. 신전 길목을 지키는 숲의 주인(늪지기 거대개구리, 중간 보스).
 export const FOREST_LORD_QUEST_ID = 'q021-forest-lord'
-// c2-06 = q022. 잠긴 신전 외곽의 학자 셀린 — 첫 봉인 비석의 글자를 밝힌다.
+// c2-06 = q022. 물밑 신전 외곽의 학자 셀린 — 첫 봉인 비석의 글자를 밝힌다.
 export const STELE_SCRIPT_QUEST_ID = 'q022-stele-script'
 export const SCHOLAR_NPC_ID = 'selin'
 export const FIRST_SEAL_STELE_NPC_ID = 'seal_stele_1'
@@ -59,6 +59,25 @@ export const HUNTER_KEEPSAKES_QUEST_ID = 'q029-hunter-keepsakes'
 export const SKELETON_CREST_QUEST_ID = 'q030-skeleton-crest'
 export const HIDDEN_ALTAR_QUEST_ID = 'q031-hidden-altar'
 export const VILLAGE_WELL_QUEST_ID = 'q032-village-well'
+// 3장 얼어붙은 북쪽(docs/chapter3-frozen-north.md). 설계 번호 c3-01 = q033 … c3-09 = q041, 곁가지 c3-s1~s5 = q042~q046.
+// 맵(generate-frost-village·frozen-lake·ice-cave.py)이 q034·q036·q038·q039 를 문·눈더미 조건으로 쓴다.
+export const NORTH_WIND_QUEST_ID = 'q033-north-wind'
+export const SNOWBOUND_VILLAGE_QUEST_ID = 'q034-snowbound-village'
+export const VANISHING_FLOCK_QUEST_ID = 'q035-vanishing-flock'
+export const WARMING_TEA_QUEST_ID = 'q036-warming-tea'
+export const FROZEN_BELL_QUEST_ID = 'q037-frozen-bell'
+export const CAVE_GUARDIAN_QUEST_ID = 'q038-cave-guardian'
+export const ICE_CAVE_QUEST_ID = 'q039-ice-cave'
+export const FROST_WITCH_QUEST_ID = 'q040-frost-witch'
+export const SNOW_STOPS_QUEST_ID = 'q041-snow-stops'
+export const NINA_SLED_QUEST_ID = 'q042-nina-sled'
+export const VOLK_ORE_QUEST_ID = 'q043-volk-ore'
+export const IRMA_HERBS_QUEST_ID = 'q044-irma-herbs'
+export const FROZEN_LETTER_QUEST_ID = 'q045-frozen-letter'
+export const GOBLIN_TREASURE_QUEST_ID = 'q046-goblin-treasure'
+export const HUNTER_CHIEF_NPC_ID = 'hagen'
+export const APOTHECARY_NPC_ID = 'irma'
+export const FROST_SMITH_NPC_ID = 'volk'
 
 export const FIRST_SLIME_HUNT_OBJECTIVE_ID = 'defeat-slimes'
 export const FIRST_SLIME_HUNT_REQUIRED_SLIME_DEFEATS = 12
@@ -149,7 +168,7 @@ export type QuestDefinition = {
   // 이어서 맡긴다(마을까지 왕복하지 않게). 대사는 준 사람이 멀리서 전하는 말로 보여 준다.
   autoTurnInOnSceneEnter?: boolean
   // 멀리서 전하는 말(autoTurnInOnSceneEnter 완료 대사)을 의뢰인이 아닌 다른 사람이 할 때 — 예: 셀린이 건넨
-  // 전언석에서 들려오는 티르코네일 마법사의 목소리. 대화창의 그림과 이름이 이 사람으로 바뀐다.
+  // 전언석에서 들려오는 느티골 마법사의 목소리. 대화창의 그림과 이름이 이 사람으로 바뀐다.
   remoteSpeaker?: { npcId: string; name: string }
   objectives: QuestObjectiveDefinition[]
   rewards: QuestRewards
@@ -196,8 +215,8 @@ export type QuestTextFormatContext = {
   playerName: string
 }
 
-const REGION_TIR_CHONAIL = '티르코네일 마을'
-const REGION_SUNKEN_FOREST = '가라앉은 숲'
+const REGION_TIR_CHONAIL = '느티골'
+const REGION_SUNKEN_FOREST = '잠긴숲'
 const SCENE_HUNTING_GROUND = 'hunting-ground'
 const SCENE_CAVE = 'cave'
 const SCENE_CRYSTAL_MINE = 'crystal-mine'
@@ -209,6 +228,12 @@ const SCENE_RUINS_OUTSKIRTS = 'ruins-outskirts'
 const SCENE_SUNKEN_TEMPLE_1F = 'sunken-temple-1f'
 const SCENE_SUNKEN_TEMPLE_2F = 'sunken-temple-2f'
 const SCENE_REED_WELL = 'reed-well'
+const REGION_FROST_NORTH = '서리목'
+const SCENE_TOWN = 'town'
+const SCENE_NORTH_PASS = 'north-pass'
+const SCENE_FROZEN_LAKE = 'frozen-lake'
+const SCENE_ICE_CAVE_1F = 'ice-cave-1f'
+const SCENE_ICE_CAVE_2F = 'ice-cave-2f'
 const MONSTER_SLIME_APPEARANCE_TYPE = 'monster_slime'
 const MONSTER_PIG_APPEARANCE_TYPE = 'monster_pig'
 const MONSTER_MUSHROOM_APPEARANCE_TYPE = 'monster_mushroom'
@@ -421,21 +446,21 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     regionName: REGION_TIR_CHONAIL,
     giverNpcId: WIZARD_NPC_ID,
     giverName: '마법사',
-    title: '동굴입구 조사',
-    trackerLabel: '동굴입구 조사',
+    title: '어스름 굴 입구 조사',
+    trackerLabel: '어스름 굴 입구 조사',
     prerequisiteQuestIds: [BLACKSMITH_PREPARATION_QUEST_ID],
     requestText:
       '사냥터 깊은 곳의 동굴 안쪽에서 이상한 기운이 느껴진다고 한다.',
-    guideText: '사냥터의 "동굴입구" 표지판을 따라가 포탈에서 F를 눌러 동굴에 들어가 보자.',
+    guideText: '사냥터의 "어스름 굴 입구" 표지판을 따라가 포탈에서 F를 눌러 동굴에 들어가 보자.',
     autoTurnInOnSceneEnter: true,
     startDialogueLines: [
       '이제 사냥터의 원인을 확인할 때가 되었구나.',
-      '사냥터에 있는 "동굴입구" 표지판을 찾아라.',
+      '사냥터에 있는 "어스름 굴 입구" 표지판을 찾아라.',
       '그 안쪽에서 이상한 마력이 흘러나오고 있다.',
       '포탈 앞에서 F를 눌러 동굴 안으로 들어가 보거라.'
     ],
     activeDialogueLines: [
-      '사냥터에 있는 "동굴입구" 표지판을 찾아라.',
+      '사냥터에 있는 "어스름 굴 입구" 표지판을 찾아라.',
       '포탈 앞에서 F를 눌러 동굴 안으로 들어가 보거라.'
     ],
     completionDialogueLines: [
@@ -564,7 +589,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     regionName: REGION_TIR_CHONAIL,
     giverNpcId: WIZARD_NPC_ID,
     giverName: '마법사',
-    title: '티르코네일을 위협하는 꿀꿀이-보스',
+    title: '느티골을 위협하는 꿀꿀이-보스',
     trackerLabel: '꿀꿀이-보스 처치',
     prerequisiteQuestIds: [FINAL_SUPPLIES_QUEST_ID],
     requestText:
@@ -585,12 +610,12 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     completionDialogueLines: [
       '돌아왔구나, {playerName}.',
       '동굴의 어두운 기운이 사라졌다. 네가 해낸 것이다.',
-      '이제 티르코네일 마을은 당분간 안전할 것이다.',
+      '이제 느티골은 당분간 안전할 것이다.',
       '하지만 이것은 네 모험의 시작일 뿐이다.',
       '정해진 길은 없다. 검을 들면 검의 길이, 활을 들면 활의 길이, 지팡이를 들면 마법의 길이 열린다.'
     ],
     arcCompletionMessage:
-      '티르코네일의 이상한 기운을 해결했다.\n마을 사람들은 {playerName}을 진짜 모험가로 인정하기 시작했다.\n어떤 무기를 드느냐에 따라 싸우는 법이 달라진다.',
+      '느티골의 이상한 기운을 해결했다.\n마을 사람들은 {playerName}을 진짜 모험가로 인정하기 시작했다.\n어떤 무기를 드느냐에 따라 싸우는 법이 달라진다.',
     objectives: [
       {
         id: 'defeat-cave-guardians',
@@ -696,14 +721,14 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     giverNpcId: POTION_MERCHANT_NPC_ID,
     giverName: '물약상인',
     title: '수로 끝의 마을',
-    trackerLabel: '딴따라마을 방문',
+    trackerLabel: '물레골 방문',
     prerequisiteQuestIds: [POTION_SURVIVAL_BASICS_QUEST_ID],
     requestText:
-      '남쪽 수교 아래 계단이 딴따라마을로 이어진다. 촌장님께 안부를 전해 달라.',
+      '남쪽 수교 아래 계단이 물레골로 이어진다. 촌장님께 안부를 전해 달라.',
     guideText:
-      '마을 남쪽 수교의 중앙 아치 계단으로 내려가 딴따라마을의 마리네 촌장을 만나자.',
+      '마을 남쪽 수교의 중앙 아치 계단으로 내려가 물레골의 마리네 촌장을 만나자.',
     startDialogueLines: [
-      '우리 물약 약초의 절반은 딴따라마을 들녘에서 온단다.',
+      '우리 물약 약초의 절반은 물레골 들녘에서 온단다.',
       '남쪽 수교 아치 밑 계단으로 내려가면 바로 그 마을이야.',
       '우물가에 계신 마리네 촌장님께 내 안부 좀 전해 주겠니?'
     ],
@@ -718,7 +743,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     objectives: [
       {
         id: 'enter-harvest-village',
-        label: '딴따라마을 진입',
+        label: '물레골 진입',
         required: 1,
         type: 'scene-enter',
         target: {
@@ -885,7 +910,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       '해냈구나. 광산의 불이 잠잠해졌다는 소식이 벌써 마을까지 들려왔다.',
       '이제 너는 어떤 무기를 들어도 제 길을 찾을 것이다.'
     ],
-    arcCompletionMessage: '티르코네일과 딴따라마을에 평화가 돌아왔다. — 무기의 길 완결',
+    arcCompletionMessage: '느티골과 물레골에 평화가 돌아왔다. — 무기의 길 완결',
     objectives: [
       {
         id: 'defeat-mine-rocks',
@@ -1003,7 +1028,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     }
   },
   {
-    // 시청 분수 곁 정원사 에일린(villager_2). 딴따라마을 저택의 세라핀 부인(lady)에게 장미 씨앗을 얻어 온다.
+    // 시청 분수 곁 정원사 에일린(villager_2). 물레골 저택의 세라핀 부인(lady)에게 장미 씨앗을 얻어 온다.
     id: GARDENER_SEEDS_QUEST_ID,
     regionName: REGION_TIR_CHONAIL,
     giverNpcId: 'villager_2',
@@ -1011,15 +1036,15 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     title: '장미 씨앗 한 줌',
     trackerLabel: '세라핀 부인에게 장미 씨앗 얻기',
     prerequisiteQuestIds: [HARVEST_VILLAGE_VISIT_QUEST_ID],
-    requestText: '정원사 에일린이 딴따라마을 저택 정원의 장미 씨앗을 얻어 달라고 했다.',
-    guideText: '딴따라마을 저택 정원의 세라핀 부인과 이야기한 뒤 에일린에게 돌아가자.',
+    requestText: '정원사 에일린이 물레골 저택 정원의 장미 씨앗을 얻어 달라고 했다.',
+    guideText: '물레골 저택 정원의 세라핀 부인과 이야기한 뒤 에일린에게 돌아가자.',
     startDialogueLines: [
-      '딴따라마을에 다녀오셨다면서요? 거기 저택 정원 장미가 그렇게 곱대요.',
+      '물레골에 다녀오셨다면서요? 거기 저택 정원 장미가 그렇게 곱대요.',
       '시청 앞 화분에도 한 번 피워 보고 싶어서요. 세라핀 부인께 씨앗 한 줌만 부탁드려 주실래요?'
     ],
     activeDialogueLines: ['세라핀 부인은 저택 정원에 계신대요. 수교 아치 밑 계단으로 내려가면 돼요.'],
     talkTargetDialogueLines: [
-      '티르코네일 정원사가 보냈다고요? 어머, 반가워라.',
+      '느티골 정원사가 보냈다고요? 어머, 반가워라.',
       '여기 씨앗이에요. 햇볕 잘 드는 데 심고, 물은 아침에만 주라고 전해 줘요.'
     ],
     completionDialogueLines: [
@@ -1078,7 +1103,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     }
   },
   {
-    // 다리지기 오웬(villager_4). 수교 물소리가 가늘어졌다 — 딴따라마을 아치 문지기 헤나 경에게 아래쪽 물보라를 묻는다.
+    // 다리지기 오웬(villager_4). 수교 물소리가 가늘어졌다 — 물레골 아치 문지기 헤나 경에게 아래쪽 물보라를 묻는다.
     // 2장(q016 사라지는 물) 앞에 물이 줄고 있다는 것을 한 번 더 깐다.
     id: BRIDGE_WATCH_QUEST_ID,
     regionName: REGION_TIR_CHONAIL,
@@ -1087,14 +1112,14 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     title: '가늘어진 물소리',
     trackerLabel: '헤나 경에게 아치 밑 물보라 묻기',
     prerequisiteQuestIds: [SLUICE_KEEPER_ERRAND_QUEST_ID],
-    requestText: '다리지기 오웬이 수교 물소리가 가늘어졌다며, 딴따라마을 아치 문지기 헤나 경에게 아래쪽 사정을 물어 달라고 했다.',
-    guideText: '수교 아치 밑 계단으로 내려가 딴따라마을 헤나 경과 이야기한 뒤 오웬에게 돌아가자.',
+    requestText: '다리지기 오웬이 수교 물소리가 가늘어졌다며, 물레골 아치 문지기 헤나 경에게 아래쪽 사정을 물어 달라고 했다.',
+    guideText: '수교 아치 밑 계단으로 내려가 물레골 헤나 경과 이야기한 뒤 오웬에게 돌아가자.',
     startDialogueLines: [
       '이멜 영감이 수위표에 분필을 긋고 있다는 얘기, 자네도 들었소?',
       '여기 위에서도 느껴지오. 아치 밑 물소리가 예전보다 가늘어졌어.',
       '아래 아치를 지키는 헤나 경에게 물보라가 어떤지 좀 물어봐 주겠소? 나는 다리를 비울 수가 없어서.'
     ],
-    activeDialogueLines: ['헤나 경은 딴따라마을 북쪽 아치 밑 계단 앞에 서 있소.'],
+    activeDialogueLines: ['헤나 경은 물레골 북쪽 아치 밑 계단 앞에 서 있소.'],
     talkTargetDialogueLines: [
       '오웬이 물었다고? 역시 그 친구 귀는 못 속이는군.',
       '사철 마르지 않던 물보라가 요즘은 아침나절이면 그치오. 이런 일은 처음이오.',
@@ -1133,7 +1158,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     requestText:
       '동굴의 소란이 가라앉았는데도 수교 물이 돌아오지 않는다. 개울을 거슬러 올라가 물이 어디로 사라지는지 알아봐 달라.',
     guideText:
-      '이멜이 지키는 수문 위 아치를 지나 수로 상류길로 올라가, 물이 사라지는 곳을 살펴본 뒤 이멜에게 돌아가자.',
+      '이멜이 지키는 수문 위 아치를 지나 윗물길로 올라가, 물이 사라지는 곳을 살펴본 뒤 이멜에게 돌아가자.',
     startDialogueLines: [
       '자네, 마침 잘 왔네.',
       '동굴 소란이 가라앉았는데도 수교 물이 돌아오질 않아. 오히려 더 줄었지.',
@@ -1155,7 +1180,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     objectives: [
       {
         id: 'enter-upstream-waterway',
-        label: '수로 상류길로 가기',
+        label: '윗물길로 가기',
         required: 1,
         type: 'scene-enter',
         target: { sceneId: SCENE_UPSTREAM_WATERWAY }
@@ -1188,7 +1213,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     prerequisiteQuestIds: [VANISHING_WATER_QUEST_ID],
     requestText:
       '갈대골 사공 토빈이 수로를 거슬러 왔다. 늪 물이 불어 마을이 잠기고 있다며, 촌장 미렌이 만나고 싶어 한다.',
-    guideText: '수로 상류길 동쪽 전망 둑 끝의 나룻배를 타고 갈대골로 건너가, 촌장 미렌을 만나자.',
+    guideText: '윗물길 동쪽 전망 둑 끝의 나룻배를 타고 갈대골로 건너가, 촌장 미렌을 만나자.',
     startDialogueLines: [
       '마침 잘 왔네. 아까 늪 쪽에서 낯선 나룻배 하나가 수로를 거슬러 올라왔다네.',
       '갈대골 사공 토빈이라더군. 늪 물이 하루가 다르게 불어나 마을이 잠기고 있다는 게야.',
@@ -1230,7 +1255,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     requestText:
       '석 달 전 숲에 들어간 사냥꾼 다섯이 돌아오지 않았다. 숲 어귀의 늪개구리 전사들을 몰아내고 사냥꾼들의 흔적을 찾아 달라.',
     guideText:
-      '갈대골 남동쪽 문으로 가라앉은 숲에 들어가 늪개구리 전사를 물리치고, 북쪽 둔덕의 사냥꾼 야영지를 살펴본 뒤 미렌에게 돌아가자.',
+      '갈대골 남동쪽 문으로 잠긴숲에 들어가 늪개구리 전사를 물리치고, 북쪽 둔덕의 사냥꾼 야영지를 살펴본 뒤 미렌에게 돌아가자.',
     startDialogueLines: [
       '하르에게 일러 두었네. 이제 숲 문을 지나갈 수 있을 걸세.',
       '석 달 전 숲에 들어간 사냥꾼 다섯이 아직 돌아오지 않았네. 그중엔 내 조카 렌도 있지.',
@@ -1280,8 +1305,8 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     title: '해독 향',
     trackerLabel: '식인 꽃 처치',
     prerequisiteQuestIds: [DROWNED_PATH_QUEST_ID],
-    requestText: '독안개를 견딜 해독 향을 만들려면 식인 꽃의 꽃가루주머니가 필요하다. 가라앉은 숲의 식인 꽃을 쓰러뜨려 달라.',
-    guideText: '가라앉은 숲 물가에 뿌리박은 식인 꽃 셋을 쓰러뜨리고 약초꾼 오디에게 돌아가자.',
+    requestText: '독안개를 견딜 해독 향을 만들려면 식인 꽃의 꽃가루주머니가 필요하다. 잠긴숲의 식인 꽃을 쓰러뜨려 달라.',
+    guideText: '잠긴숲 물가에 뿌리박은 식인 꽃 셋을 쓰러뜨리고 약초꾼 오디에게 돌아가자.',
     startDialogueLines: [
       '촌장님께 들었어요. 동쪽 독안개를 건너야 한다고요?',
       '맨몸으로 들어가면 몇 걸음 못 가서 쓰러져요. 해독 향을 피워야 해요.',
@@ -1312,7 +1337,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
   },
   {
     // 해독 향을 피우고 독안개 속으로 — 남쪽 섬에 쓰러진 사냥꾼 렌을 찾아 미렌에게 알린다. 렌은 나머지
-    // 사냥꾼들이 동쪽 유적(잠긴 신전)으로 끌려갔다고 전한다 → c2-05 숲의 주인, c2-06 신전.
+    // 사냥꾼들이 동쪽 유적(물밑 신전)으로 끌려갔다고 전한다 → c2-05 숲의 주인, c2-06 신전.
     id: BEYOND_THE_FOG_QUEST_ID,
     regionName: REGION_SUNKEN_FOREST,
     giverNpcId: HERBALIST_NPC_ID,
@@ -1369,7 +1394,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     prerequisiteQuestIds: [BEYOND_THE_FOG_QUEST_ID],
     requestText: '신전으로 가는 길목을 지키는 숲의 주인, 늪지기 거대개구리를 쓰러뜨려 달라.',
     guideText:
-      '해독 향을 피우고 가라앉은 숲 독안개 길을 따라 동쪽 끝 공터로 가 늪지기 거대개구리를 쓰러뜨리자. 녀석이 뱉은 초록 독 웅덩이는 피하고, 쓰러뜨리면 촌장 미렌에게 알리자.',
+      '해독 향을 피우고 잠긴숲 독안개 길을 따라 동쪽 끝 공터로 가 늪지기 거대개구리를 쓰러뜨리자. 녀석이 뱉은 초록 독 웅덩이는 피하고, 쓰러뜨리면 촌장 미렌에게 알리자.',
     startDialogueLines: [
       '렌이 정신을 차리고 이야기를 더 해 주었네.',
       '사냥꾼들을 끌고 간 개구리 무리에겐 우두머리가 있다더군. 안개 길 동쪽 끝, 신전으로 가는 길목에 버티고 있는 거대한 개구리라네.',
@@ -1412,7 +1437,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     prerequisiteQuestIds: [FOREST_LORD_QUEST_ID],
     requestText: '첫 봉인 비석을 지키는 해골병들을 물리치고, 비석에 손을 대 빛나는 옛 글자를 읽어 달라.',
     guideText:
-      '잠긴 신전 외곽 남쪽 돌 광장에서 유적 해골병을 물리치고 봉인 비석에 손을 대 글자를 읽자. 읽으면 북서쪽 야영지의 셀린에게 돌아가자.',
+      '물밑 신전 외곽 남쪽 돌 광장에서 유적 해골병을 물리치고 봉인 비석에 손을 대 글자를 읽자. 읽으면 북서쪽 야영지의 셀린에게 돌아가자.',
     startDialogueLines: [
       '촌장님이 보내셨다고요? 반가워요. 저는 셀린, 이 유적을 몇 해째 살피고 있어요.',
       '석 달 전부터 신전 깊은 곳에서 종이 울려요. 그 뒤로 숲이 가라앉고, 무덤에 누워 있어야 할 해골병들이 일어나 돌아다니기 시작했죠.',
@@ -1466,9 +1491,9 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     title: '남은 두 봉인',
     trackerLabel: '물에 빠진 자 처치',
     prerequisiteQuestIds: [STELE_SCRIPT_QUEST_ID],
-    requestText: '잠긴 신전 1층 동쪽과 서쪽 끝 방의 봉인 비석 둘을 다시 밝혀 달라.',
+    requestText: '물밑 신전 1층 동쪽과 서쪽 끝 방의 봉인 비석 둘을 다시 밝혀 달라.',
     guideText:
-      '신전 외곽 북동쪽 돌계단으로 잠긴 신전 1층에 내려가, 물에 빠진 자들을 물리치며 서쪽·동쪽 끝 방의 비석에 손을 대자. 둘 다 밝히면 셀린에게 돌아가자.',
+      '신전 외곽 북동쪽 돌계단으로 물밑 신전 1층에 내려가, 물에 빠진 자들을 물리치며 서쪽·동쪽 끝 방의 비석에 손을 대자. 둘 다 밝히면 셀린에게 돌아가자.',
     startDialogueLines: [
       '신전 문이 열렸어요! 이제 남은 두 봉인을 찾아야 해요.',
       '돌문의 글자가 두 갈래로 동쪽과 서쪽을 가리켰다고요? 그럼 신전 1층 양쪽 끝 방에 하나씩 있을 거예요.',
@@ -1492,7 +1517,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       '두 봉인이 다시 빛난다고요? 이제 물이 더 새지는 않을 거예요!',
       '그런데 이상해요. 비석마다 "사제"라는 말이 나와요. 종이 울리면 사제가 먼저 깬다고…',
       '봉인을 깨던 존재는 아마 2층 봉인의 방에 있을 거예요. 위층으로 가는 돌문도 이제 열렸을 거고요.',
-      '아, 그리고… 티르코네일의 마법사님께 편지를 띄웠더니 답장 대신 이게 왔어요. 전언석이래요.'
+      '아, 그리고… 느티골의 마법사님께 편지를 띄웠더니 답장 대신 이게 왔어요. 전언석이래요.'
     ],
     objectives: [
       {
@@ -1524,7 +1549,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     }
   },
   {
-    // 봉인의 방(c2-08 앞부분) — 2층에 들어서면 셀린이 건넨 전언석에서 티르코네일 마법사의 목소리가 들린다
+    // 봉인의 방(c2-08 앞부분) — 2층에 들어서면 셀린이 건넨 전언석에서 느티골 마법사의 목소리가 들린다
     // (autoTurnInOnSceneEnter + remoteSpeaker, 1장 q005 와 같은 방식). 이어서 q025 가 바로 시작된다.
     id: SEAL_CHAMBER_QUEST_ID,
     regionName: REGION_SUNKEN_FOREST,
@@ -1534,8 +1559,8 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     title: '봉인의 방',
     trackerLabel: '2층 봉인의 방으로',
     prerequisiteQuestIds: [REMAINING_SEALS_QUEST_ID],
-    requestText: '전언석을 지니고 잠긴 신전 2층 봉인의 방으로 올라가 달라.',
-    guideText: '잠긴 신전 1층 북쪽, 가고일이 지키는 계단으로 2층 봉인의 방에 올라가자.',
+    requestText: '전언석을 지니고 물밑 신전 2층 봉인의 방으로 올라가 달라.',
+    guideText: '물밑 신전 1층 북쪽, 가고일이 지키는 계단으로 2층 봉인의 방에 올라가자.',
     autoTurnInOnSceneEnter: true,
     startDialogueLines: [
       '이 전언석을 품에 넣어 두세요. 마법사님이 당신과 직접 이야기하고 싶어 하셨대요.',
@@ -1545,7 +1570,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     activeDialogueLines: ['신전 1층 북쪽 계단으로 올라가세요. 전언석을 잃어버리면 안 돼요!'],
     completionDialogueLines: [
       '(품속의 전언석이 따뜻해지며 낯익은 목소리가 울린다)',
-      '들리느냐, {playerName}. 티르코네일의 마법사다. 셀린의 편지로 다 들었다. 봉인 셋을 다시 밝혔다니 장하구나.',
+      '들리느냐, {playerName}. 느티골의 마법사다. 셀린의 편지로 다 들었다. 봉인 셋을 다시 밝혔다니 장하구나.',
       '동굴의 기운이 더 깊은 곳에서 화가 난 것처럼 움직인다고 했던 것을 기억하느냐? 그 기운이 땅 밑 물길을 타고 이 신전까지 흘러왔다.',
       '그 기운에 옛 신전을 지키던 늪의 사제가 삼켜졌다. 종을 울려 봉인을 깨던 자가 바로 그다.'
     ],
@@ -1577,7 +1602,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     prerequisiteQuestIds: [SEAL_CHAMBER_QUEST_ID],
     requestText: '봉인을 깨던 늪의 사제를 쓰러뜨리고 셀린에게 알려 달라.',
     guideText:
-      '잠긴 신전 2층 봉인의 방 안쪽 제단 앞의 늪의 사제를 쓰러뜨리자. 사제가 불러낸 물에 빠진 자에 둘러싸이지 말고, 바닥의 푸른 고리가 차오르면 비키자. 쓰러뜨리면 신전 외곽의 셀린에게 돌아가자.',
+      '물밑 신전 2층 봉인의 방 안쪽 제단 앞의 늪의 사제를 쓰러뜨리자. 사제가 불러낸 물에 빠진 자에 둘러싸이지 말고, 바닥의 푸른 고리가 차오르면 비키자. 쓰러뜨리면 신전 외곽의 셀린에게 돌아가자.',
     startDialogueLines: [
       '(전언석의 목소리가 이어진다) 사제를 쓰러뜨려라, {playerName}.',
       '녀석은 물에 빠진 자들을 불러내고, 네 발밑에서 물기둥을 솟구치게 할 것이다. 바닥에 푸른 고리가 차오르면 바로 비켜라.',
@@ -1610,7 +1635,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     }
   },
   {
-    // 다시 흐르는 물(c2-09, 2장 끝) — 셀린이 맡기고 딴따라마을 수문지기 이멜에게 보고한다. 수로 상류길의
+    // 다시 흐르는 물(c2-09, 2장 끝) — 셀린이 맡기고 물레골 수문지기 이멜에게 보고한다. 윗물길의
     // 빨려 들던 구멍이 메워지고(upstream-waterway, quest.requiresCompleted q025) 물이 다시 흐른다.
     // 이멜의 완료 대사와 장 완료 메시지가 3장(북쪽)으로 넘어가는 고리다.
     id: WATER_FLOWS_AGAIN_QUEST_ID,
@@ -1620,29 +1645,29 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     turnInNpcId: SLUICE_KEEPER_NPC_ID,
     turnInName: '이멜',
     title: '다시 흐르는 물',
-    trackerLabel: '수로 상류길 둘러보기',
+    trackerLabel: '윗물길 둘러보기',
     prerequisiteQuestIds: [SWAMP_PRIEST_QUEST_ID],
-    requestText: '수로 상류길에 물이 다시 흐르는지 보고, 딴따라마을 수문지기 이멜에게 알려 달라.',
+    requestText: '윗물길에 물이 다시 흐르는지 보고, 물레골 수문지기 이멜에게 알려 달라.',
     guideText:
-      '갈대골 나루에서 토빈의 나룻배로 수로 상류길에 건너가 물이 다시 흐르는지 보고, 딴따라마을 수문의 이멜에게 알리자.',
+      '갈대골 나루에서 토빈의 나룻배로 윗물길에 건너가 물이 다시 흐르는지 보고, 물레골 수문의 이멜에게 알리자.',
     startDialogueLines: [
-      '처음에 당신을 이 숲으로 보낸 사람이 딴따라마을 수문지기라고 했죠? 그분께 알려 드려야죠.',
-      '물이 땅으로 빨려 들던 수로 상류길도 지금쯤 메워졌을 거예요. 가는 길에 꼭 보고 가세요.',
+      '처음에 당신을 이 숲으로 보낸 사람이 물레골 수문지기라고 했죠? 그분께 알려 드려야죠.',
+      '물이 땅으로 빨려 들던 윗물길도 지금쯤 메워졌을 거예요. 가는 길에 꼭 보고 가세요.',
       '저는 여기 남아 비석을 마저 읽을게요. 사제가 말한 "북쪽"이 무엇인지… 알아내면 꼭 알려 드릴게요.'
     ],
-    activeDialogueLines: ['수로 상류길을 지나 딴따라마을의 이멜에게 가 보세요.'],
+    activeDialogueLines: ['윗물길을 지나 물레골의 이멜에게 가 보세요.'],
     completionDialogueLines: [
       '물이… 물이 다시 차오르고 있네! 아까부터 수문이 덜컹거리길래 무슨 일인가 했지.',
-      '갈대골도, 가라앉은 숲도 무사하다고? 자네가 정말 해냈구먼.',
+      '갈대골도, 잠긴숲도 무사하다고? 자네가 정말 해냈구먼.',
       '그런데 늪의 사제가 북쪽을 말했다고? 북쪽이라면… 눈 덮인 산맥 너머 말인가.',
       '그쪽에서 내려오는 바람이 요즘 유난히 차갑다네. 언젠가 자네가 그 바람을 거슬러 올라가게 될지도 모르겠군.'
     ],
     arcCompletionMessage:
-      '가라앉은 숲의 봉인이 다시 밝아지고, 막혔던 물이 흐르기 시작했다.\n하지만 늪의 사제는 마지막에 말했다. 진짜 깨어나는 것은 북쪽에 있다고.\n{playerName}의 다음 여정은 차가운 바람이 내려오는 북쪽이다.',
+      '잠긴숲의 봉인이 다시 밝아지고, 막혔던 물이 흐르기 시작했다.\n하지만 늪의 사제는 마지막에 말했다. 진짜 깨어나는 것은 북쪽에 있다고.\n{playerName}의 다음 여정은 차가운 바람이 내려오는 북쪽이다.',
     objectives: [
       {
         id: 'see-upstream-waterway',
-        label: '수로 상류길 둘러보기',
+        label: '윗물길 둘러보기',
         required: 1,
         type: 'scene-enter',
         target: { sceneId: SCENE_UPSTREAM_WATERWAY }
@@ -1662,10 +1687,10 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     giverNpcId: 'tobin',
     giverName: '사공 토빈',
     title: '사공의 나룻배',
-    trackerLabel: '가라앉은 숲 늪뱀 쫓기',
+    trackerLabel: '잠긴숲 늪뱀 쫓기',
     prerequisiteQuestIds: [FOREST_LORD_QUEST_ID],
     requestText: '숲 남쪽 늪가에 처박힌 옛 나룻배를 찾아, 둘레의 늪뱀을 쫓고 배를 살펴 달라.',
-    guideText: '가라앉은 숲 개구리 소굴 섬 남쪽 늪가에서 늪뱀을 쫓고 부서진 나룻배를 살펴본 뒤 토빈에게 돌아가자.',
+    guideText: '잠긴숲 개구리 소굴 섬 남쪽 늪가에서 늪뱀을 쫓고 부서진 나룻배를 살펴본 뒤 토빈에게 돌아가자.',
     startDialogueLines: [
       '신전 외곽까지 걸어서 오가려니 다리가 남아나질 않지?',
       '사실 내 옛 나룻배가 숲 남쪽 늪가에 처박혀 있어. 물이 불던 날 떠내려갔거든.',
@@ -1703,9 +1728,9 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     title: '약초꾼의 바구니',
     trackerLabel: '늪 약초 캐기',
     prerequisiteQuestIds: [ANTIDOTE_INCENSE_QUEST_ID],
-    requestText: '숲 북쪽 둔덕, 독안개 속 남쪽 섬, 수로 상류길 개울가의 약초를 캐 달라.',
+    requestText: '숲 북쪽 둔덕, 독안개 속 남쪽 섬, 윗물길 개울가의 약초를 캐 달라.',
     guideText:
-      '가라앉은 숲 북쪽 사냥꾼 야영지 곁, 독안개 속 남쪽 섬(해독 향 필요), 수로 상류길 개울가 숲의 약초를 캐서 오디에게 가져가자.',
+      '잠긴숲 북쪽 사냥꾼 야영지 곁, 독안개 속 남쪽 섬(해독 향 필요), 윗물길 개울가 숲의 약초를 캐서 오디에게 가져가자.',
     startDialogueLines: [
       '해독 향만으로는 부족해요. 마을 사람들 기침약, 상처 연고도 지어야 하거든요.',
       '세 군데 약초가 필요해요. 숲 북쪽 야영지 곁의 푸른 풀, 독안개 속에서만 자라는 붉은 잎, 그리고 상류길 개울가의 하얀 꽃이요.',
@@ -1746,7 +1771,7 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
     prerequisiteQuestIds: [BEYOND_THE_FOG_QUEST_ID],
     requestText: '끌려간 사냥꾼들이 숲에 흘린 물건을 찾아 가족에게 돌려주고 싶다.',
     guideText:
-      '가라앉은 숲 서쪽 입구 둔덕 남쪽, 독안개 길, 안개 속 북쪽 섬을 돌며 사냥꾼들의 물건을 찾아 미렌에게 가져가자.',
+      '잠긴숲 서쪽 입구 둔덕 남쪽, 독안개 길, 안개 속 북쪽 섬을 돌며 사냥꾼들의 물건을 찾아 미렌에게 가져가자.',
     startDialogueLines: [
       '렌 말로는 끌려가면서 다들 뭔가를 떨어뜨렸다더군. 일부러 흘린 것일지도 모르지.',
       '가족들이 매일 내 집 앞을 서성인다네. 무엇이든 하나라도 쥐여 주고 싶어.',
@@ -1875,7 +1900,541 @@ export const QUEST_DEFINITIONS: QuestDefinition[] = [
       { id: 'unclog-well', label: '막힌 물길 뚫기', required: 1, type: 'talk', target: { npcId: 'well_clog' } }
     ],
     rewards: { gold: 350, experience: 900, items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }] }
+  },
+  {
+    // 북쪽에서 부는 바람(c3-01) — 2장 끝(이멜의 "북쪽 바람")을 받아 느티골 마법사가 북쪽 성문 너머 된바람재로 보낸다.
+    // 된바람재에 들어서면 전언석으로 완료되고, 마법사가 이어서 q034 를 맡긴다(autoTurnInOnSceneEnter).
+    id: NORTH_WIND_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: WIZARD_NPC_ID,
+    giverName: '마법사',
+    remoteSpeaker: { npcId: WIZARD_NPC_ID, name: '마법사(전언석)' },
+    title: '북쪽에서 부는 바람',
+    trackerLabel: '북쪽 성문 너머 된바람재로',
+    prerequisiteQuestIds: [WATER_FLOWS_AGAIN_QUEST_ID],
+    requestText: '늪의 사제가 남긴 "북쪽"의 정체를 알아보러, 느티골 북쪽 성문 너머 된바람재에 올라 달라.',
+    guideText: '느티골 북서쪽 끝의 북쪽 성문을 지나 된바람재로 가자.',
+    autoTurnInOnSceneEnter: true,
+    startDialogueLines: [
+      '왔구나, {playerName}. 물레골 이멜에게서 편지가 왔다. 늪의 사제가 마지막에 "북쪽"을 말했다지.',
+      '나도 느끼고 있었다. 늪 밑에서 꿈틀대던 것과 같은 기운이 북쪽 산맥에서 내려오고 있어.',
+      '십 년 넘게 닫혀 있던 북쪽 성문을 오늘 아침 열게 했다. 그 너머가 된바람재다.',
+      '이 전언석을 품에 넣고 가거라. 고개에 닿으면 다시 부르마.'
+    ],
+    activeDialogueLines: ['북쪽 성문은 마을 북서쪽 끝에 있다. 된바람재에 닿으면 전언석으로 부르마.'],
+    completionDialogueLines: [
+      '(품속의 전언석이 따뜻해지며 마법사의 목소리가 울린다)',
+      '된바람재에 닿았구나. 바람이 거셀 테니 걸음을 서두르지 마라.',
+      '고개 너머 서리목이라는 산골 마을이 있다. 석 달째 눈이 그치지 않는다는 소문이 내려왔다.'
+    ],
+    objectives: [
+      {
+        id: 'reach-north-pass',
+        label: '된바람재 도착',
+        required: 1,
+        type: 'scene-enter',
+        target: { sceneId: SCENE_NORTH_PASS }
+      }
+    ],
+    rewards: { gold: 200, experience: 300, items: [] }
+  },
+  {
+    // 눈 속의 마을(c3-02) — 마법사가 맡기고 서리목 사냥꾼 대장 하겐에게 보고한다. 고갯길 서쪽 고블린 야영지에서
+    // 마을의 훔친 짐을 되찾는다. 끝나면 서리목 동쪽 호숫길(lake_road, quest.requiresCompleted)이 열린다.
+    id: SNOWBOUND_VILLAGE_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: WIZARD_NPC_ID,
+    giverName: '마법사',
+    turnInNpcId: HUNTER_CHIEF_NPC_ID,
+    turnInName: '사냥꾼 대장 하겐',
+    title: '눈 속의 마을',
+    trackerLabel: '고블린 약탈자 쫓고 서리목으로',
+    prerequisiteQuestIds: [NORTH_WIND_QUEST_ID],
+    requestText: '된바람재에 진을 친 고블린 약탈자를 쫓고, 고개 끝 서리목 마을을 찾아 달라.',
+    guideText:
+      '된바람재 서쪽 고블린 야영지의 약탈자를 쫓고 훔친 짐을 살펴본 뒤, 고개 북쪽 끝 서리목의 사냥꾼 대장 하겐을 찾자.',
+    startDialogueLines: [
+      '(전언석의 목소리가 이어진다) 고개 서쪽에 고블린 약탈자들이 진을 쳤다는구나. 서리목으로 가는 짐을 노린다더군.',
+      '약탈자를 쫓고 녀석들이 훔친 짐을 찾아 서리목 사람들에게 돌려주어라.',
+      '마을을 이끄는 이는 사냥꾼 대장 하겐이다. 내 이름을 대면 알아들을 게다.'
+    ],
+    activeDialogueLines: ['고블린 야영지는 된바람재 서쪽, 개울 건너 모닥불 곁이다.'],
+    talkTargetDialogueLines: [
+      '상자마다 서리목 마을의 낙인이 찍혀 있다. 말린 고기와 장작, 겨울을 날 식량이다.',
+      '고개 끝 서리목에 알려 주자.'
+    ],
+    completionDialogueLines: [
+      '느티골에서 왔다고? 그 노인네 마법사가 보냈구먼. …그리고 이건, 우리 겨울 식량 아닌가!',
+      '고블린 놈들이 고개를 막은 뒤로 아래 마을과 길이 끊겨서 애를 먹었다. 고맙다, {playerName}.',
+      '나는 하겐, 이 마을 사냥꾼들을 이끈다. 촌장님이 앓아누우신 뒤로는 마을 일도 내가 보고 있지.',
+      '석 달 전부터 눈이 그치질 않아. 그리고 밤마다 늑대인간이 가축을 물어 간다. 동쪽 호숫길을 열어 둘 테니 좀 도와다오.'
+    ],
+    objectives: [
+      {
+        id: 'chase-pass-goblins',
+        label: '고블린 약탈자',
+        required: 4,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_NORTH_PASS, appearanceType: 'monster_goblin' }
+      },
+      { id: 'find-stolen-goods', label: '훔친 짐 살펴보기', required: 1, type: 'talk', target: { npcId: 'goblin_loot' } }
+    ],
+    rewards: { gold: 400, experience: 700, items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 3 }] }
+  },
+  {
+    // 사라지는 가축(c3-03) — 거울못 남서쪽 늑대인간의 굴. 굴에서 발자국이 못 한가운데 눈보라 속으로 이어진다.
+    id: VANISHING_FLOCK_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: HUNTER_CHIEF_NPC_ID,
+    giverName: '사냥꾼 대장 하겐',
+    title: '사라지는 가축',
+    trackerLabel: '서리 늑대인간 쫓기',
+    prerequisiteQuestIds: [SNOWBOUND_VILLAGE_QUEST_ID],
+    requestText: '가축을 물어 가는 서리 늑대인간을 쫓고, 거울못 가의 늑대인간 굴을 살펴 달라.',
+    guideText: '서리목 동쪽 길로 거울못에 가서 서리 늑대인간을 쓰러뜨리고, 남서쪽 늑대인간의 굴을 살펴본 뒤 하겐에게 돌아가자.',
+    startDialogueLines: [
+      '늑대인간 자취는 늘 동쪽 거울못 쪽으로 사라진다. 못이 얼어붙은 뒤로 놈들이 그 가에 굴을 판 모양이야.',
+      '내 사냥꾼들은 벌써 셋이나 다쳤다. 늑대인간을 쫓고, 굴이 어디서 끝나는지 봐 다오.',
+      '놈들은 빠르고 끈질기다. 등을 보이면 끝까지 쫓아온다.'
+    ],
+    activeDialogueLines: ['늑대인간의 굴은 거울못 남서쪽 바위 틈이다.'],
+    talkTargetDialogueLines: [
+      '굴 안에 양털과 뼈가 흩어져 있다. 그 사이에 하늘빛으로 빛나는 얼음 조각이 박혀 있다.',
+      '발자국은 굴을 나와 못 한가운데, 눈보라가 몰아치는 쪽으로 이어진다.'
+    ],
+    completionDialogueLines: [
+      '하늘빛 얼음… 이건 보통 얼음이 아니야. 손에 쥐면 손금까지 시리군.',
+      '늑대인간이 눈보라 한가운데에서 나온다고? 석 달 동안 그 안에 들어갔다 나온 사냥꾼은 없었다.',
+      '눈보라에 맨몸으로 들어가면 몇 걸음 못 가서 몸이 굳는다. 약재상 이르마에게 가 봐라. 그 애라면 방법을 알 거다.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-frost-wolfmen',
+        label: '서리 늑대인간',
+        required: 5,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_FROZEN_LAKE, appearanceType: 'monster_frost_wolfman' }
+      },
+      { id: 'inspect-wolf-den', label: '늑대인간의 굴 살펴보기', required: 1, type: 'talk', target: { npcId: 'wolf_den' } }
+    ],
+    rewards: { gold: 450, experience: 800, items: [] }
+  },
+  {
+    // 생강차(c3-04) — 이르마가 눈 말캉이 젤리로 생강차를 끓인다. 끝나면 거울못 둑길의 눈더미가 치워진다
+    // (quest.hiddenWhenCompleted q036). 눈보라 피해·둔화는 poisonFog.ts·environmentHazards.ts.
+    id: WARMING_TEA_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: APOTHECARY_NPC_ID,
+    giverName: '약재상 이르마',
+    title: '생강차',
+    trackerLabel: '눈 말캉이 젤리 모으기',
+    prerequisiteQuestIds: [VANISHING_FLOCK_QUEST_ID],
+    requestText: '눈보라를 견딜 생강차를 끓이려면 눈 말캉이 젤리가 필요하다. 거울못의 눈 말캉이를 쓰러뜨려 달라.',
+    guideText: '거울못 서쪽 물가의 눈 말캉이를 쓰러뜨려 젤리를 모으고 약재상 이르마에게 돌아가자.',
+    startDialogueLines: [
+      '하겐 아저씨가 보냈죠? 눈보라 속에 들어가야 한다고요.',
+      '생강차를 진하게 끓이면 한동안 추위를 막을 수 있어요. 그런데 생강만으로는 금방 식어 버려요.',
+      '눈 말캉이 젤리를 넣으면 열기가 오래 가요. 차가운 것끼리 서로 밀어내거든요. 할머니 비법이에요.',
+      '거울못 물가에 눈 말캉이가 많아요. 여섯 마리만 잡아 주세요.'
+    ],
+    activeDialogueLines: ['눈 말캉이는 거울못 서쪽 물가에 모여 있어요.'],
+    completionDialogueLines: [
+      '이만하면 한 솥 끓이겠어요! 잠깐만요…',
+      '자, 생강차예요. 마시면 한동안 눈보라의 추위를 막아 줘요. 다 떨어지면 제 가게에서 사 가세요.',
+      '차가 식기 전에 눈보라를 빠져나와야 해요. 몸이 굳기 시작하면 바로 마시거나 돌아오고요.',
+      '하겐 아저씨네 사냥꾼들이 둑길의 눈더미도 치워 두겠대요. 이제 못 한가운데까지 갈 수 있을 거예요.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-snow-slimes',
+        label: '눈 말캉이',
+        required: 6,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_FROZEN_LAKE, appearanceType: 'monster_snow_slime' }
+      }
+    ],
+    rewards: { gold: 350, experience: 700, items: [{ id: 'warming-tea', label: '생강차', quantity: 3 }] }
+  },
+  {
+    // 얼음 속 종탑(c3-05) — 눈보라를 건너 못 가운데 섬의 종탑. 2장 신전의 종과 같은 물결 세 줄 문양 — 종은 하나가 아니었다.
+    id: FROZEN_BELL_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: HUNTER_CHIEF_NPC_ID,
+    giverName: '사냥꾼 대장 하겐',
+    title: '얼음 속 종탑',
+    trackerLabel: '눈보라 속 종탑 조사',
+    prerequisiteQuestIds: [WARMING_TEA_QUEST_ID],
+    requestText: '생강차를 마시고 눈보라를 건너 거울못 한가운데 섬의 옛 종탑을 살펴 달라.',
+    guideText: '생강차를 마시고(가방에서 쓰거나 퀵슬롯에 올려 두자) 거울못 둑길을 따라 눈보라 속 가운데 섬의 종탑을 살펴본 뒤 하겐에게 돌아가자.',
+    startDialogueLines: [
+      '둑길 눈더미는 치웠다. 그 너머 못 한가운데 섬에 옛 종탑이 있다. 내 할아버지 때 못에 잠겼다더군.',
+      '요즘 밤마다 그 종탑 쪽에서 종소리가 난다. 얼음 속에 잠긴 종이 울릴 리가 없는데 말이야.',
+      '눈보라에 들어가기 전에 생강차를 꼭 마셔라. 늑대인간도 그 안에서 기다리고 있을 거다.'
+    ],
+    activeDialogueLines: ['생강차를 마시고 둑길을 따라가라. 종탑은 못 한가운데 섬에 있다.'],
+    talkTargetDialogueLines: [
+      '두꺼운 얼음 속에 종이 갇혀 있다. 종 몸통에 물결 세 줄 문양이 새겨져 있다. 잠긴숲 신전의 비석과 같은 문양이다.',
+      '종 둘레의 얼음이 안쪽에서부터 거미줄처럼 금이 가 있다. 누군가 얼음 속에서 종을 울리고 있다.',
+      '동쪽 호숫가 쪽에서 땅을 울리는 울음소리가 들려온다.'
+    ],
+    completionDialogueLines: [
+      '물결 세 줄… 남쪽 늪 신전의 종에도 같은 문양이 있었다고? 그렇다면 종은 하나가 아니었던 거군.',
+      '얼음 속에서 종을 울리는 놈이 있다면, 그건 못 밑으로 이어진 동쪽 서리굴 안에 있을 거다.',
+      '문제는 서리굴 입구다. 고블린 약탈자들을 부리는 트롤 족장이 그 앞을 차지하고 버티고 있어.'
+    ],
+    objectives: [
+      { id: 'inspect-frozen-bell', label: '얼음 속 종탑 살펴보기', required: 1, type: 'talk', target: { npcId: 'frozen_bell' } }
+    ],
+    rewards: { gold: 450, experience: 700, items: [{ id: 'warming-tea', label: '생강차', quantity: 2 }] }
+  },
+  {
+    // 동굴을 막은 자(c3-06, 중간 보스) — 거울못 동쪽 호숫가의 트롤 족장. 고블린을 불러내고 붙어 있으면 내려찍는다
+    // (bossSkills.ts). 끝나면 서리굴 계단(ice_cave_stairs, quest.requiresCompleted q038)이 열린다.
+    id: CAVE_GUARDIAN_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: HUNTER_CHIEF_NPC_ID,
+    giverName: '사냥꾼 대장 하겐',
+    title: '동굴을 막은 자',
+    trackerLabel: '트롤 족장 처치',
+    prerequisiteQuestIds: [FROZEN_BELL_QUEST_ID],
+    requestText: '서리굴 입구를 차지한 트롤 족장을 쓰러뜨려 달라.',
+    guideText:
+      '거울못 동쪽 호숫가 서리굴 입구의 트롤 족장을 쓰러뜨리자. 족장이 부르는 고블린에 둘러싸이지 말고, 붙어 있다가 바닥에 고리가 차오르면 물러서자. 쓰러뜨리면 하겐에게 돌아가자.',
+    startDialogueLines: [
+      '트롤 족장은 고블린들보다 머리 셋은 크다. 몽둥이로 땅을 내려찍으면 얼음판이 쩍쩍 갈라지지.',
+      '붙어서 싸우다가 놈이 몽둥이를 치켜들면 바로 물러서라. 고블린을 부르면 그놈들부터 정리하고.',
+      '족장만 쓰러지면 고블린들도 흩어질 거다. 부탁한다, {playerName}.'
+    ],
+    activeDialogueLines: ['트롤 족장은 거울못 동쪽 호숫가, 서리굴 입구 앞에 버티고 있다.'],
+    completionDialogueLines: [
+      '트롤 족장을 쓰러뜨렸다고? 하하, 오늘 밤 사냥꾼들 술잔이 바쁘겠군!',
+      '이제 서리굴로 들어갈 수 있다. 그 전에 대장장이 볼크를 만나 봐라. 놈이 굴 안 사정을 제일 잘 안다.',
+      '볼크는 젊을 때 그 굴에서 광석을 캤지. 우리 사냥꾼 하나가 굴에 들어갔다 돌아오지 않은 것도 놈이 먼저 알렸다.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-troll-chief',
+        label: '트롤 족장',
+        required: 1,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_FROZEN_LAKE, appearanceType: 'monster_troll_chief', characterId: '트롤 족장-보스' }
+      }
+    ],
+    rewards: {
+      gold: 900,
+      experience: 1200,
+      items: [
+        { id: 'health-potion', label: '체력 회복 포션', quantity: 5 },
+        { id: 'mana-potion', label: '마나 회복 포션', quantity: 3 }
+      ]
+    }
+  },
+  {
+    // 서리굴(c3-07) — 1층의 얼음 골렘·서리 해골, 얼음 속에 갇힌 사냥꾼 에른을 구하고 볼크가 말한 얼음 광맥을 캔다.
+    // 끝나면 2층 계단(altar_stairs, quest.requiresCompleted q039)이 열리고 얼어붙은 사냥꾼은 사라진다(마을로 내려감).
+    id: ICE_CAVE_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: FROST_SMITH_NPC_ID,
+    giverName: '대장장이 볼크',
+    title: '서리굴',
+    trackerLabel: '서리굴 1층 조사',
+    prerequisiteQuestIds: [CAVE_GUARDIAN_QUEST_ID],
+    requestText: '서리굴 1층에서 사라진 사냥꾼을 찾고, 얼음 광맥에서 광석을 떼어 와 달라.',
+    guideText:
+      '거울못 동쪽 계단으로 서리굴 1층에 들어가 얼음 골렘과 서리 해골을 물리치고, 얼어붙은 사냥꾼과 북쪽 얼음 광맥을 찾은 뒤 볼크에게 돌아가자.',
+    startDialogueLines: [
+      '하겐이 보냈나. 트롤 놈을 잡았다니 솜씨가 보통이 아니군.',
+      '보름 전, 젊은 사냥꾼 에른이 늑대인간을 쫓아 서리굴로 들어갔다가 돌아오지 않았다. 마르타 할멈 아들이야.',
+      '굴 안은 얼음 골렘과 얼어 죽은 자들의 뼈가 지킨다. 녀석들은 쇠붙이로 때려도 잘 안 깨져.',
+      '굴 북쪽에 푸르게 빛나는 얼음 광맥이 있다. 그걸 한 덩이 떼어 오면 내가 마녀의 얼음도 깨는 날을 세워 주지.'
+    ],
+    activeDialogueLines: ['에른을 찾아 주게. 그리고 북쪽 광맥도 잊지 말고.'],
+    talkTargetDialogueLinesByNpcId: {
+      frozen_hunter: [
+        '얼음을 몇 번 내려치자 갇혀 있던 사냥꾼이 쓰러지듯 빠져나온다.',
+        '"…서리목의 에른이오. 고맙소… 굴 아래에서 흰 옷의 여자가 종을 울리고 있었소. 그 소리를 듣자 몸이 얼어붙었지."',
+        '"나는 혼자 내려갈 수 있소. 어머니께… 살아 있다고 전해 주시오."'
+      ],
+      ice_vein: ['푸르게 빛나는 얼음 광맥에서 손바닥만 한 광석 한 덩이를 떼어 냈다. 손이 저릴 만큼 차갑다.']
+    },
+    completionDialogueLines: [
+      '에른이 살아 돌아왔다고? 마르타 할멈이 울다가 웃다가 난리가 났더군. 자네 덕이야.',
+      '그리고 이 광석… 그래, 바로 이거다. 하룻밤이면 날을 세울 수 있다.',
+      '흰 옷의 여자라… 노인들이 겁줄 때 하던 서리 마녀 이야기가 진짜였던 모양이군.',
+      '굴 2층으로 내려가는 계단은 얼음으로 막혀 있었는데, 에른이 나오면서 그 얼음도 녹았다더군. 이제 길이 열렸다.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-ice-golems',
+        label: '얼음 골렘',
+        required: 3,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_ICE_CAVE_1F, appearanceType: 'monster_ice_golem' }
+      },
+      {
+        id: 'defeat-frost-skeletons',
+        label: '서리 해골',
+        required: 4,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_ICE_CAVE_1F, appearanceType: 'monster_frost_skeleton' }
+      },
+      { id: 'rescue-hunter', label: '얼어붙은 사냥꾼 구하기', required: 1, type: 'talk', target: { npcId: 'frozen_hunter' } },
+      { id: 'mine-ice-vein', label: '얼음 광맥 캐기', required: 1, type: 'talk', target: { npcId: 'ice_vein' } }
+    ],
+    rewards: {
+      gold: 800,
+      experience: 1200,
+      items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 3 }]
+    }
+  },
+  {
+    // 서리 마녀(c3-08, 3장 최종 보스) — 서리굴 2층 얼음 제단. 늑대인간을 불러내고 발밑에 얼음 가시를 솟게 하며,
+    // 분노하면 외친다(bossSkills.ts). 볼크가 맡기고(전언석의 마법사가 거든다) 하겐에게 보고한다.
+    id: FROST_WITCH_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: FROST_SMITH_NPC_ID,
+    giverName: '대장장이 볼크',
+    turnInNpcId: HUNTER_CHIEF_NPC_ID,
+    turnInName: '사냥꾼 대장 하겐',
+    title: '서리 마녀',
+    trackerLabel: '서리 마녀 처치',
+    prerequisiteQuestIds: [ICE_CAVE_QUEST_ID],
+    requestText: '서리굴 2층 얼음 제단에서 종을 울리는 서리 마녀를 쓰러뜨려 달라.',
+    guideText:
+      '서리굴 1층 북쪽 계단으로 2층 얼음 제단에 내려가 서리 마녀를 쓰러뜨리자. 바닥에 하늘빛 고리가 차오르면 비키고, 불려 나온 늑대인간에 둘러싸이지 말자. 쓰러뜨리면 서리목의 하겐에게 알리자.',
+    startDialogueLines: [
+      '(볼크가 날을 세우는 사이, 품속의 전언석이 울린다)',
+      '(전언석) {playerName}, 마법사다. 에른이 본 흰 옷의 여자… 늪의 사제와 같은 종을 울리는 자라면, 그 기운에 삼켜진 게 아니라 스스로 받아들인 자일 게다.',
+      '(전언석) 그런 자는 망설이지 않는다. 얼음 가시가 발밑에서 솟기 전에 바닥의 하늘빛 고리를 보고 비켜라.',
+      '자, 날을 세웠다. 마녀의 얼음도 이거면 깨질 거다. 돌아오면 하겐에게 먼저 알려 주게.'
+    ],
+    activeDialogueLines: ['2층 얼음 제단은 1층 북쪽 계단 아래다. 발밑을 조심하게.'],
+    completionDialogueLines: [
+      '(서리 마녀가 남긴 마지막 말을 하겐에게 전했다)',
+      '…들리나? 바람 소리가 달라졌다. 석 달 만에 처음으로 눈이 가늘어지고 있어.',
+      '잠든 거인, 남쪽 불의 산, 두 번째 종… 노인들 옛이야기에나 나오던 말들이군.',
+      '서리목은 이 은혜를 잊지 않는다, {playerName}. 이건 느티골 마법사에게 직접 전하는 게 좋겠다.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-frost-witch',
+        label: '서리 마녀',
+        required: 1,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_ICE_CAVE_2F, appearanceType: 'monster_frost_witch', characterId: '서리 마녀-보스' }
+      }
+    ],
+    rewards: {
+      gold: 1500,
+      experience: 1600,
+      items: [
+        { id: 'health-potion', label: '체력 회복 포션', quantity: 5 },
+        { id: 'mana-potion', label: '마나 회복 포션', quantity: 5 }
+      ]
+    }
+  },
+  {
+    // 그치는 눈(c3-09, 3장 끝) — 하겐이 맡기고 느티골 마법사에게 보고한다. 마녀의 마지막 말이 4장(남쪽 불의 산) 고리다.
+    id: SNOW_STOPS_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: HUNTER_CHIEF_NPC_ID,
+    giverName: '사냥꾼 대장 하겐',
+    turnInNpcId: WIZARD_NPC_ID,
+    turnInName: '마법사',
+    title: '그치는 눈',
+    trackerLabel: '느티골 마법사에게 알리기',
+    prerequisiteQuestIds: [FROST_WITCH_QUEST_ID],
+    requestText: '서리 마녀의 마지막 말을 느티골의 마법사에게 전해 달라.',
+    guideText: '서리목의 귀환 표지석이나 된바람재를 거쳐 느티골로 돌아가 마법사에게 알리자.',
+    startDialogueLines: [
+      '마을 한가운데 표지석에 손을 대면 느티골까지 금방이다. 거기 마법사에게 마녀의 말을 그대로 전해라.',
+      '눈이 그치면 고개 길도 다시 다닐 만해질 거다. 언제든 들러라. 이르마가 생강차를 끓여 둘 테니.'
+    ],
+    activeDialogueLines: ['느티골 마법사에게 마녀의 말을 전해라. 표지석을 쓰면 금방이다.'],
+    completionDialogueLines: [
+      '서리 마녀를 쓰러뜨렸다고? 북쪽 바람이 누그러진 걸 나도 느꼈다. 수고했다, {playerName}.',
+      '잠든 거인… 남쪽 불의 산에서 두 번째 종이 울린다… 그래, 그렇게 말했단 말이지.',
+      '늪의 종, 얼음의 종, 그리고 불의 종. 종들이 하나씩 울릴 때마다 무언가가 깨어나고 있다.',
+      '옛 책을 뒤져 보마. 남쪽 불의 산으로 가는 길을 찾으면 다시 너를 부르겠다.'
+    ],
+    arcCompletionMessage:
+      '서리목의 눈이 그치고, 얼음 속 종은 다시 잠들었다.\n하지만 서리 마녀는 마지막에 말했다. 잠든 거인은 이미 몸을 뒤척였고, 남쪽 불의 산에서 두 번째 종이 울린다고.\n{playerName}의 다음 여정은 불길이 치솟는 남쪽이다.',
+    objectives: [
+      {
+        id: 'return-to-town',
+        label: '느티골로 돌아가기',
+        required: 1,
+        type: 'scene-enter',
+        target: { sceneId: SCENE_TOWN }
+      }
+    ],
+    rewards: { gold: 1000, experience: 800, items: [{ id: 'warming-tea', label: '생강차', quantity: 3 }] }
+  },
+  {
+    // c3-s1 니나의 썰매 — 된바람재 개울가에 두고 온 썰매. 둘레의 눈 말캉이를 쫓고 썰매를 찾는다.
+    id: NINA_SLED_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: 'nina',
+    giverName: '마을 아이 니나',
+    title: '니나의 썰매',
+    trackerLabel: '된바람재에서 썰매 찾기',
+    prerequisiteQuestIds: [SNOWBOUND_VILLAGE_QUEST_ID],
+    requestText: '된바람재 개울가에 두고 온 니나의 썰매를 찾아 달라.',
+    guideText: '된바람재 개울 다리 동쪽에서 눈 말캉이를 쫓고 니나의 썰매를 찾아 니나에게 돌아가자.',
+    startDialogueLines: [
+      '저기요, 고블린 쫓아낸 사람 맞죠? 그럼 하나도 안 무섭겠네요.',
+      '고블린이 오기 전에 고개 개울가에서 썰매를 탔거든요. 도망치느라 썰매를 두고 왔어요.',
+      '근데 거기 눈 말캉이들이 잔뜩 모여 있대요. 엄마가 혼자 가면 안 된대요. 대신 찾아 주세요!'
+    ],
+    activeDialogueLines: ['개울 다리 건너 오른쪽이에요. 빨간 줄이 있는 썰매예요!'],
+    talkTargetDialogueLines: ['눈 더미 속에 빨간 줄이 그어진 작은 썰매가 박혀 있다. 끈만 조금 해졌다.', '니나에게 가져다주자.'],
+    completionDialogueLines: [
+      '내 썰매다! 끈만 고치면 돼요. 볼크 아저씨한테 부탁해야지.',
+      '이거 받으세요. 이르마 언니가 아플 때 먹으라고 준 건데, 저는 안 아프니까요.'
+    ],
+    objectives: [
+      {
+        id: 'chase-sled-slimes',
+        label: '눈 말캉이',
+        required: 4,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_NORTH_PASS, appearanceType: 'monster_snow_slime' }
+      },
+      { id: 'find-sled', label: '니나의 썰매 찾기', required: 1, type: 'talk', target: { npcId: 'nina_sled' } }
+    ],
+    rewards: { gold: 250, experience: 400, items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }] }
+  },
+  {
+    // c3-s2 볼크의 광석 — 서리굴 1층 얼음 골렘의 몸속 얼음심장석으로 마을 사냥꾼들의 창끝을 벼린다.
+    id: VOLK_ORE_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: FROST_SMITH_NPC_ID,
+    giverName: '대장장이 볼크',
+    title: '볼크의 광석',
+    trackerLabel: '얼음 골렘 처치',
+    prerequisiteQuestIds: [ICE_CAVE_QUEST_ID],
+    requestText: '서리굴 얼음 골렘의 몸속 얼음심장석을 모아 달라. 사냥꾼들의 창끝을 벼릴 것이다.',
+    guideText: '서리굴 1층의 얼음 골렘 다섯을 쓰러뜨리고 볼크에게 돌아가자.',
+    startDialogueLines: [
+      '광맥 광석으로 날 하나는 세웠는데, 사냥꾼들 창끝까지 벼리기엔 모자라.',
+      '얼음 골렘 몸속에는 얼음심장석이라는 게 박혀 있다. 광맥 광석보다 단단하지.',
+      '골렘 다섯이면 사냥꾼들 창끝을 다 벼릴 수 있겠다. 부탁하네.'
+    ],
+    activeDialogueLines: ['얼음 골렘은 서리굴 1층 서쪽에 몰려 있다.'],
+    completionDialogueLines: [
+      '이 빛깔 좀 보게. 얼음심장석이 이렇게 맑은 건 처음이야.',
+      '하겐네 사냥꾼들 창끝은 이제 늑대인간 가죽도 단번에 뚫을 거다. 수고비 받아 두게.'
+    ],
+    objectives: [
+      {
+        id: 'defeat-heart-golems',
+        label: '얼음 골렘',
+        required: 5,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_ICE_CAVE_1F, appearanceType: 'monster_ice_golem' }
+      }
+    ],
+    rewards: { gold: 500, experience: 600, items: [{ id: 'mana-potion', label: '마나 회복 포션', quantity: 3 }] }
+  },
+  {
+    // c3-s3 이르마의 약초 — 거울못 서쪽 물가의 서리꽃 세 포기(채집 = 대화 목표).
+    id: IRMA_HERBS_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: APOTHECARY_NPC_ID,
+    giverName: '약재상 이르마',
+    title: '이르마의 약초',
+    trackerLabel: '거울못 서리꽃 캐기',
+    prerequisiteQuestIds: [WARMING_TEA_QUEST_ID],
+    requestText: '다친 사냥꾼들에게 쓸 약을 지으려면 거울못 물가의 서리꽃이 필요하다. 세 포기를 캐 달라.',
+    guideText: '거울못 서쪽 물가에 핀 서리꽃 세 포기를 캐서 이르마에게 돌아가자.',
+    startDialogueLines: [
+      '하겐 아저씨네 사냥꾼 셋이 늑대인간한테 물려서 상처가 얼어 가요.',
+      '서리꽃을 달이면 언 살이 풀려요. 눈 속에서도 하늘빛으로 빛나서 찾기는 쉬워요.',
+      '거울못 서쪽 물가에 세 포기쯤 피어 있을 거예요.'
+    ],
+    activeDialogueLines: ['서리꽃은 하늘빛으로 빛나요. 거울못 서쪽 물가를 둘러보세요.'],
+    talkTargetDialogueLines: ['눈 속에서 하늘빛으로 빛나는 서리꽃을 뿌리째 조심스럽게 캤다.'],
+    completionDialogueLines: [
+      '세 포기 다요? 이만하면 사냥꾼들 상처를 다 돌볼 수 있겠어요.',
+      '남은 걸로 생강차도 조금 더 끓였어요. 가져가세요.'
+    ],
+    objectives: [
+      { id: 'pick-frost-herb-1', label: '서리꽃 캐기 (물가 북쪽)', required: 1, type: 'talk', target: { npcId: 'frost_herb_1' } },
+      { id: 'pick-frost-herb-2', label: '서리꽃 캐기 (물가 가운데)', required: 1, type: 'talk', target: { npcId: 'frost_herb_2' } },
+      { id: 'pick-frost-herb-3', label: '서리꽃 캐기 (물가 남쪽)', required: 1, type: 'talk', target: { npcId: 'frost_herb_3' } }
+    ],
+    rewards: { gold: 300, experience: 400, items: [{ id: 'warming-tea', label: '생강차', quantity: 2 }] }
+  },
+  {
+    // c3-s4 얼어붙은 편지 — 나무꾼 테오도르(frost_villager_1). 지난겨울 거울못에서 뒤집힌 우편 썰매의 편지를
+    // 꺼내 양치기 마르타(frost_villager_2)에게 전한다.
+    id: FROZEN_LETTER_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: 'frost_villager_1',
+    giverName: '나무꾼 테오도르',
+    turnInNpcId: 'frost_villager_2',
+    turnInName: '양치기 마르타',
+    title: '얼어붙은 편지',
+    trackerLabel: '우편 썰매에서 편지 꺼내기',
+    turnInTrackerText: '얼어붙은 편지: 마르타에게 전하기',
+    prerequisiteQuestIds: [VANISHING_FLOCK_QUEST_ID],
+    requestText: '거울못 얼음 밑에 갇힌 우편 썰매에서 편지를 꺼내 양치기 마르타에게 전해 달라.',
+    guideText: '거울못 서쪽 물가에 뒤집힌 우편 썰매에서 편지를 꺼내 서리목의 양치기 마르타에게 전하자.',
+    startDialogueLines: [
+      '지난겨울 아래 마을에서 올라오던 우편 썰매가 거울못 얼음판에서 뒤집혔어. 우편꾼은 겨우 살았지.',
+      '썰매는 아직 물가 얼음에 반쯤 박혀 있어. 거기 마르타 할멈 딸이 느티골에서 보낸 편지가 있을 거야.',
+      '할멈이 요즘 아들 걱정에 잠도 못 자. 딸 편지라도 읽으면 좀 나을 텐데. 꺼내다 전해 주겠나?'
+    ],
+    activeDialogueLines: ['우편 썰매는 거울못 서쪽 물가 얼음에 박혀 있어. 편지는 마르타 할멈에게.'],
+    talkTargetDialogueLines: ['얼음을 깨고 썰매 짐칸에서 젖지 않은 편지 한 통을 꺼냈다. 겉봉에 "서리목, 어머니께"라고 적혀 있다.'],
+    completionDialogueLines: [
+      '편지라고? …이 글씨, 우리 딸이구나.',
+      '"어머니, 느티골은 봄이 일러요. 눈이 그치면 오빠랑 같이 내려오세요." …녀석, 오빠 걱정은 내가 하는데.',
+      '고맙네. 테오도르 녀석이 보냈다고? 둘 다 내 몫까지 받아 두게. 장작 판 돈하고 내 양털 판 돈이야.'
+    ],
+    objectives: [
+      { id: 'dig-out-letter', label: '우편 썰매에서 편지 꺼내기', required: 1, type: 'talk', target: { npcId: 'frozen_letter' } }
+    ],
+    rewards: { gold: 300, experience: 400, items: [{ id: 'health-potion', label: '체력 회복 포션', quantity: 2 }] }
+  },
+  {
+    // c3-s5 고블린 보물 지도 — 트롤 족장이 지니고 있던 지도. 거울못 동쪽 호숫가 고블린 은신처를 턴다.
+    id: GOBLIN_TREASURE_QUEST_ID,
+    regionName: REGION_FROST_NORTH,
+    giverNpcId: HUNTER_CHIEF_NPC_ID,
+    giverName: '사냥꾼 대장 하겐',
+    title: '고블린 보물 지도',
+    trackerLabel: '고블린 은신처 털기',
+    prerequisiteQuestIds: [CAVE_GUARDIAN_QUEST_ID],
+    requestText: '트롤 족장이 지니던 지도에 그려진 고블린 은신처를 찾아 달라.',
+    guideText: '거울못 동쪽 호숫가의 고블린 약탈자를 쫓고 지도에 그려진 은신처를 뒤진 뒤 하겐에게 돌아가자.',
+    startDialogueLines: [
+      '트롤 족장 허리춤에서 이게 나왔다. 가죽에 그린 지도야. 고블린 글씨는 못 읽지만 그림은 알겠군.',
+      '거울못 동쪽 호숫가, 바위 둘 사이에 X 표시가 있다. 놈들이 이 일대에서 훔친 걸 쌓아 둔 곳일 거다.',
+      '남은 고블린들이 지키고 있을 거다. 찾은 건 네가 가져라. 마을 것만 아니면.'
+    ],
+    activeDialogueLines: ['지도의 X 표시는 거울못 동쪽 호숫가다. 고블린을 조심해라.'],
+    talkTargetDialogueLines: [
+      '바위 사이 눈더미를 파헤치자 고블린들이 숨겨 둔 상자가 나왔다.',
+      '은화 주머니와 함께, 서리목 사냥꾼의 이름이 새겨진 칼집도 들어 있다.'
+    ],
+    completionDialogueLines: [
+      '이 칼집… 작년에 잃어버렸다던 우리 사냥꾼 것이군. 이건 주인에게 돌려주마.',
+      '은화는 네 몫이다. 고블린 놈들, 꽤나 모아 뒀구먼.'
+    ],
+    objectives: [
+      {
+        id: 'chase-cache-goblins',
+        label: '고블린 약탈자',
+        required: 4,
+        type: 'monster-defeat',
+        target: { sceneId: SCENE_FROZEN_LAKE, appearanceType: 'monster_goblin' }
+      },
+      { id: 'open-goblin-cache', label: '고블린 은신처 뒤지기', required: 1, type: 'talk', target: { npcId: 'goblin_cache' } }
+    ],
+    rewards: { gold: 900, experience: 600, items: [] }
   }
+
 ]
 
 const QUEST_DEFINITION_BY_ID = Object.fromEntries(

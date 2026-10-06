@@ -314,7 +314,7 @@
     <property name="blocksMovement" type="bool" value="true"/>
     <property name="controller.dialogueLines" type="list">
      <item value="쇠가 얼어서 망치질이 영 시원찮아."/>
-     <item value="얼음 동굴 근처에 좋은 광맥이 있었는데… 트롤 놈들이 차지해 버렸지."/>
+     <item value="서리굴 근처에 좋은 광맥이 있었는데… 트롤 놈들이 차지해 버렸지."/>
     </property>
     <property name="controller.scriptId" value="vn-dialogue"/>
     <property name="displayText" value="대장장이 볼크"/>
@@ -381,7 +381,7 @@
    <properties>
     <property name="type" value="sign_inn"/>
     <property name="blocksMovement" type="bool" value="false"/>
-    <property name="displayText" value="얼어붙은 호수 →"/>
+    <property name="displayText" value="거울못 →"/>
    </properties>
   </object>
   <object id="24" name="smithy_sign" type="character" x="336" y="640" width="32" height="32">
@@ -400,7 +400,7 @@
   </object>
  </objectgroup>
  <objectgroup id="3" name="portals">
-  <!-- 남쪽 → 고갯길 (24, 2). 동쪽 → 얼어붙은 호수 (2, 20)(q034 후). -->
+  <!-- 남쪽 → 고갯길 (24, 2). 동쪽 → 거울못 (2, 20)(q034 후). -->
   <object id="30" name="pass_road" type="portal" x="672" y="1120" width="96" height="32">
    <properties>
     <property name="appearanceType" value="stairs_stone_step_base_00"/>

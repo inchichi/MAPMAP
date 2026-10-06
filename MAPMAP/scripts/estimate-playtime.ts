@@ -83,7 +83,21 @@ const QUEST_ORDER = [
   'q023-remaining-seals',
   'q024-seal-chamber',
   'q025-swamp-priest',
-  'q026-water-flows-again'
+  'q026-water-flows-again',
+  'q033-north-wind',
+  'q034-snowbound-village',
+  'q042-nina-sled',
+  'q035-vanishing-flock',
+  'q045-frozen-letter',
+  'q036-warming-tea',
+  'q044-irma-herbs',
+  'q037-frozen-bell',
+  'q038-cave-guardian',
+  'q046-goblin-treasure',
+  'q039-ice-cave',
+  'q043-volk-ore',
+  'q040-frost-witch',
+  'q041-snow-stops'
 ]
 const MAIN_QUEST_IDS = new Set([
   'q001-first-slime-hunt',
@@ -106,7 +120,16 @@ const MAIN_QUEST_IDS = new Set([
   'q023-remaining-seals',
   'q024-seal-chamber',
   'q025-swamp-priest',
-  'q026-water-flows-again'
+  'q026-water-flows-again',
+  'q033-north-wind',
+  'q034-snowbound-village',
+  'q035-vanishing-flock',
+  'q036-warming-tea',
+  'q037-frozen-bell',
+  'q038-cave-guardian',
+  'q039-ice-cave',
+  'q040-frost-witch',
+  'q041-snow-stops'
 ])
 const SHOP_NPC_BY_ID: Record<string, string> = { blacksmith: 'blacksmith' }
 const BASIC_WEAPON_BONUS = 2
@@ -126,7 +149,7 @@ type Scene = {
   characters: { name: string; type: string; level: number; tile: Tile }[]
   portals: ReturnType<typeof createMapPortalsFromEventLayers>
 }
-const SCENE_IDS = ['town', 'hunting-ground', 'cave', 'crystal-mine', 'harvest-village', 'upstream-waterway', 'reed-village', 'sunken-forest', 'ruins-outskirts', 'sunken-temple-1f', 'sunken-temple-2f', 'reed-well']
+const SCENE_IDS = ['town', 'hunting-ground', 'cave', 'crystal-mine', 'harvest-village', 'upstream-waterway', 'reed-village', 'sunken-forest', 'ruins-outskirts', 'sunken-temple-1f', 'sunken-temple-2f', 'reed-well', 'north-pass', 'frost-village', 'frozen-lake', 'ice-cave-1f', 'ice-cave-2f']
 const scenes: Record<string, Scene> = {}
 
 for (const sceneId of SCENE_IDS) {
@@ -242,7 +265,7 @@ const player = {
   gold: 150,
   weaponBonus: BASIC_WEAPON_BONUS
 }
-const lockedPortals = new Set(['mine_shortcut', 'upstream_gate', 'reed_ferry', 'forest_gate', 'temple_road', 'temple_stairs', 'upper_stairs', 'outskirts_raft', 'reed_raft'])
+const lockedPortals = new Set(['mine_shortcut', 'upstream_gate', 'reed_ferry', 'forest_gate', 'temple_road', 'temple_stairs', 'upper_stairs', 'outskirts_raft', 'reed_raft', 'north_gate', 'lake_road', 'ice_cave_stairs', 'altar_stairs'])
 const damagePerHit = () => 5 + (player.level - 1) * STRENGTH_PER_LEVEL + player.weaponBonus
 const gainExperience = (amount: number) => {
   player.experience += amount
@@ -354,7 +377,7 @@ for (const questId of QUEST_ORDER.filter((id) => !MAIN_ONLY || MAIN_QUEST_IDS.ha
   if (definition.autoTurnInOnSceneEnter) {
     giverAlreadyPresent = true // 마법사가 멀리서 말을 걸고 다음 퀘스트를 바로 맡긴다
   } else {
-    row.travel += moveTo(giver)
+    row.travel += moveTo(definition.turnInNpcId ? findCharacter(definition.turnInNpcId) : giver)
   }
   row.read += readSeconds(definition.completionDialogueLines)
   gainExperience(definition.rewards.experience)
@@ -366,6 +389,10 @@ for (const questId of QUEST_ORDER.filter((id) => !MAIN_ONLY || MAIN_QUEST_IDS.ha
   if (questId === 'q021-forest-lord') lockedPortals.delete('temple_road')
   if (questId === 'q022-stele-script') lockedPortals.delete('temple_stairs')
   if (questId === 'q023-remaining-seals') lockedPortals.delete('upper_stairs')
+  if (questId === 'q026-water-flows-again') lockedPortals.delete('north_gate')
+  if (questId === 'q034-snowbound-village') lockedPortals.delete('lake_road')
+  if (questId === 'q038-cave-guardian') lockedPortals.delete('ice_cave_stairs')
+  if (questId === 'q039-ice-cave') lockedPortals.delete('altar_stairs')
   if (questId === 'q027-ferry-shortcut') {
     lockedPortals.delete('outskirts_raft')
     lockedPortals.delete('reed_raft')

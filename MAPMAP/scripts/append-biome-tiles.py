@@ -197,7 +197,7 @@ def main():
         add(gid, blizzard(tile_of(gid), i * 3), f'snow_blizzard_{i}')
     add(SWAMP['fog_edge_w'], blizzard(tile_of(SWAMP['fog_edge_w']), 5), 'snow_blizzard_edge_w')
     add(SWAMP['fog_wall'], snow_caps(recolor(tile_of(SWAMP['fog_wall'])), 3), 'snow_drift_wall')
-    # 동굴(얼음 동굴): 여섯 재질의 바닥·전환 타일
+    # 동굴(서리굴): 여섯 재질의 바닥·전환 타일
     for mat in CAVE_MATS:
         for key in sorted(k for k in LPC if k.startswith(f'cave_fill_{mat}_')):
             add(LPC[key], recolor(tile_of(LPC[key])), f'snow_{key}')

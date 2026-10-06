@@ -127,7 +127,7 @@ describe('parseTiledMap', () => {
         'controller.scriptId': 'vn-dialogue',
         'controller.messageDurationSeconds': 2.8,
         'controller.dialogueLines': [
-          '어서 오게. 티르코네일 대장간 화덕은 불 꺼진 날이 없지.',
+          '어서 오게. 느티골 대장간 화덕은 불 꺼진 날이 없지.',
           '칼날은 숫돌에서, 사람은 사냥터에서 벼려지는 법이야.',
           '장비 상점에 청동 검이며 철 옷이며 갖춰 놨다. 돈이 모이면 들르게.'
         ]
@@ -243,7 +243,7 @@ describe('parseTiledMap', () => {
       properties: {
         blocksMovement: false,
         type: 'sign_inn',
-        displayText: '동굴입구'
+        displayText: '어스름 굴 입구'
       },
       appearanceType: 'sign_inn'
     })

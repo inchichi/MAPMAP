@@ -1,6 +1,6 @@
 // 귀환 표지석(빠른 이동) — 지역이 늘어 오가기가 지루해지지 않게, 한 번 손을 댄 표지석 사이를 바로 오간다.
 // 표지석은 맵에 'waystone_<id>' 오브젝트로 두고(그림은 오벨리스크), 도착 칸은 여기 한 곳에서 정한다.
-// 발견한 표지석은 월드 저장(worldSaveState.discoveredWaystoneIds)에 남는다. 티르코네일은 처음부터 안다.
+// 발견한 표지석은 월드 저장(worldSaveState.discoveredWaystoneIds)에 남는다. 느티골은 처음부터 안다.
 
 export type Waystone = {
   id: string
@@ -11,10 +11,11 @@ export type Waystone = {
 }
 
 export const WAYSTONES: readonly Waystone[] = [
-  { id: 'tir-chonail', label: '티르코네일', sceneId: 'town', spawn: { x: 30, y: 21 } },
-  { id: 'harvest-village', label: '딴따라마을', sceneId: 'harvest-village', spawn: { x: 17, y: 7 } },
+  { id: 'tir-chonail', label: '느티골', sceneId: 'town', spawn: { x: 30, y: 21 } },
+  { id: 'harvest-village', label: '물레골', sceneId: 'harvest-village', spawn: { x: 17, y: 7 } },
   { id: 'reed-village', label: '갈대골', sceneId: 'reed-village', spawn: { x: 17, y: 23 } },
-  { id: 'ruins-camp', label: '신전 외곽 야영지', sceneId: 'ruins-outskirts', spawn: { x: 9, y: 13 } }
+  { id: 'ruins-camp', label: '신전 외곽 야영지', sceneId: 'ruins-outskirts', spawn: { x: 9, y: 13 } },
+  { id: 'frost-village', label: '서리목', sceneId: 'frost-village', spawn: { x: 24, y: 18 } }
 ]
 
 export const STARTING_WAYSTONE_IDS: readonly string[] = ['tir-chonail']

@@ -398,7 +398,7 @@
    <properties>
     <property name="type" value="sign_inn"/>
     <property name="blocksMovement" type="bool" value="false"/>
-    <property name="displayText" value="가라앉은 숲 ←"/>
+    <property name="displayText" value="잠긴숲 ←"/>
    </properties>
   </object>
   <object id="10" name="seal_stele_1_r0c0" type="character" x="752" y="896" width="32" height="32">
@@ -536,7 +536,7 @@
   </object>
  </objectgroup>
  <objectgroup id="3" name="portals">
-  <!-- 서쪽 끝 → 가라앉은 숲 동쪽 끝 (57, 17). 숲의 신전 길 포탈(temple_road)은 이 맵의 도착 칸 (2, 19) 을 들고 있다. 북동 돌계단 → 잠긴 신전 1층 (19, 36)(q022 후). -->
+  <!-- 서쪽 끝 → 잠긴숲 동쪽 끝 (57, 17). 숲의 신전 길 포탈(temple_road)은 이 맵의 도착 칸 (2, 19) 을 들고 있다. 북동 돌계단 → 물밑 신전 1층 (19, 36)(q022 후). -->
   <object id="52" name="reed_raft" type="portal" x="192" y="128" width="32" height="32">
    <properties>
     <property name="appearanceType" value="swamp_raft"/>

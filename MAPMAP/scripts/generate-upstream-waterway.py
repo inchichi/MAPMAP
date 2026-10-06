@@ -1,11 +1,11 @@
-"""2장 첫 맵 '수로 상류길'(upstream-waterway, 40x24) 생성기.
+"""2장 첫 맵 '윗물길'(upstream-waterway, 40x24) 생성기.
 
-이야기(docs/chapter2-sunken-forest.md, c2-01 "사라지는 물"): 딴따라마을 수문 위 아치를 지나
+이야기(docs/chapter2-sunken-forest.md, c2-01 "사라지는 물"): 물레골 수문 위 아치를 지나
 개울을 거슬러 오르면, 북동쪽에서 내려오던 물이 한가운데의 구멍으로 빨려 들어 사라진다. 구멍
 아래쪽 옛 물길은 말라 진흙 바닥만 남았다(마을 물이 줄어든 까닭). 구멍 곁에는 반쯤 잠긴 룬
 비석이 있고(봉인 떡밥), 동쪽 끝은 물에 잠긴 숲 — 갈대골로 가는 길은 아직 건널 수 없다.
 
-  남서 아치(딴따라마을) ─ 마른 물길을 따라 북동 ─ 물이 빨려 드는 구멍 + 룬 비석 ─ 동쪽 전망 둑
+  남서 아치(물레골) ─ 마른 물길을 따라 북동 ─ 물이 빨려 드는 구멍 + 룬 비석 ─ 동쪽 전망 둑
 
 지형은 꼭짓점 재질 격자(GRASS/WATER/MUD/HOLE)로 정하고 경계는 scripts/swamp_terrain.py 의
 규칙(꼭짓점 16가지 + 변별 경계 위치)으로 깐다. 물은 바닥 레이어의 cave_fill_Water(흐르는 물
@@ -28,9 +28,9 @@ OUT = 'src/games/my-sample-rpg/assets/maps/upstream-waterway.tmx'
 STELE = S['stele']   # 2x2 룬 비석(append-swamp-tiles.py 가 잘린 LPC 비석을 대칭으로 복원)
 
 # 이야기 지점(칸 좌표)
-ARRIVAL = (5, 21)                 # 딴따라마을에서 올라와 서는 칸
+ARRIVAL = (5, 21)                 # 물레골에서 올라와 서는 칸
 GATE = (4, 23, 3, 1)              # 아치(포탈) x, y, w, h — 남쪽 가장자리
-VILLAGE_SPAWN = (12, 5)           # 돌아갈 때 딴따라마을 도착 칸(수문 아치 아래)
+VILLAGE_SPAWN = (12, 5)           # 돌아갈 때 물레골 도착 칸(수문 아치 아래)
 SINK = (21, 10)                   # 구멍 칸(2x2 꼭짓점 구멍의 가운데 칸)
 STELE_AT = (23, 13)               # 비석 2x2 의 왼쪽 위 칸 — 상호작용 오브젝트는 왼쪽 아래 칸
 LOOKOUT = (34, 13)                # 동쪽 전망 둑 끝(표지판 칸)
@@ -160,7 +160,7 @@ chars = [monster(20 + i, name, x, y, kind, lvl) for i, (name, kind, lvl, (x, y))
         ('controller.scriptId', '', 'vn-dialogue'),
         ('type', '', 'swamp_stele_r1c0')]),
     sign(2, 'reed_valley_sign', LOOKOUT[0], LOOKOUT[1], '갈대골 나루 →'),
-    sign(3, 'aqueduct_sign', GATE[0] + GATE[2], GATE[1] - 2, '딴따라마을 ↓'),
+    sign(3, 'aqueduct_sign', GATE[0] + GATE[2], GATE[1] - 2, '물레골 ↓'),
 ] + [
     # 늪의 사제를 쓰러뜨리면(q025, c2-08) 봉인이 온전해져 물을 빨아들이던 구멍이 메워진다 — 구멍 칸을 물로 덮는다
     character(4 + i, f'sink_refilled_{i}', SINK[0] + dx, SINK[1] + dy, [
@@ -190,5 +190,5 @@ portals = [
 m.write_tmx(OUT, 'scripts/generate-upstream-waterway.py', chars,
             '룬 비석(sunken_stele, c2-01 조사 목표), 갈대골 표지판, 아치 표지판, 메워진 구멍(sink_refilled, q025 후) / '
             '늪뱀 4(Lv16~17), 식인 꽃 3(Lv17~18, 제자리)',
-            portals, f'아치 → 딴따라마을 수문 아래 {VILLAGE_SPAWN}. 딴따라마을 쪽 포탈(upstream_gate)은 이 맵의 도착 칸 {ARRIVAL} 을 들고 있다.',
+            portals, f'아치 → 물레골 수문 아래 {VILLAGE_SPAWN}. 물레골 쪽 포탈(upstream_gate)은 이 맵의 도착 칸 {ARRIVAL} 을 들고 있다.',
             next_object_id=40)

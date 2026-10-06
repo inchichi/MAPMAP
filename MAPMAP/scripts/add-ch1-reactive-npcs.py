@@ -2,7 +2,7 @@
 
 갈대골 사냥꾼 렌과 같은 방식: 원래 개체에 `quest.hiddenWhenCompleted`, 같은 id·자리·외형의 복제 개체에
 `quest.requiresCompleted` 와 새 대사를 단다(퀘스트 대화는 여전히 NPC id 로 찾으므로 영향 없다).
-마을·딴따라마을 생성기는 objectgroup 을 보존하므로 TMX 에 직접 넣는다. 이미 나뉘어 있으면 건너뛴다.
+마을·물레골 생성기는 objectgroup 을 보존하므로 TMX 에 직접 넣는다. 이미 나뉘어 있으면 건너뛴다.
 """
 import re
 from xml.sax.saxutils import quoteattr
@@ -21,7 +21,7 @@ CHANGES = {
         ('villager_3', Q_PIG_BOSS, ['자네가 동굴 깊은 곳의 그 녀석을 잠재웠다지?',
                                     '오늘 밤엔 시계탑 종을 한 번 더 쳐야겠군. 마을이 무사하다는 뜻으로 말이야.']),
         ('villager_4', 'q010-harvest-village-visit', [
-            '딴따라마을에 다녀왔구려. 마리네 촌장님은 여전히 우물가에 계시오?',
+            '물레골에 다녀왔구려. 마리네 촌장님은 여전히 우물가에 계시오?',
             '수교 물이 줄면 내가 제일 먼저 안다오. 요즘은… 아치 밑 물소리가 조금 가늘어졌소.']),
     ],
     'harvest-village.tmx': [

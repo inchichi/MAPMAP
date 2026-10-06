@@ -1,10 +1,10 @@
 """2장 거점 '갈대골'(reed-village, 44x36) 생성기.
 
-이야기(docs/chapter2-sunken-forest.md, c2-02): 가라앉은 숲 가장자리, 불어나는 늪 위에 섬 몇 개를 나무
-데크로 이어 사는 마을. 수로 상류길 전망 둑에서 사공 토빈의 나룻배를 타고 서쪽 나루에 닿는다.
+이야기(docs/chapter2-sunken-forest.md, c2-02): 잠긴숲 가장자리, 불어나는 늪 위에 섬 몇 개를 나무
+데크로 이어 사는 마을. 윗물길 전망 둑에서 사공 토빈의 나룻배를 타고 서쪽 나루에 닿는다.
 
   서쪽 나루(토빈) ─ 데크 ─ 가운데 섬(촌장 미렌의 집, 마을 마당) ─ 데크 ─ 북쪽 섬(약초꾼 오디의 오두막)
-                                         └─ 데크 ─ 남동 섬: 가라앉은 숲으로 가는 문(문지기 하르, 아직 닫힘)
+                                         └─ 데크 ─ 남동 섬: 잠긴숲으로 가는 문(문지기 하르, 아직 닫힘)
 
 그림체는 2장 원칙(비교안 C): 바닥·나무는 늪 색 town 타일, 고목은 LPC, 집은 town 오두막을 짚 지붕·
 흙벽으로 바꾼 것(append-swamp-tiles.py 의 house_thatch). 지형·나무·검증은 swamp_mapkit.
@@ -32,18 +32,18 @@ LOGPILE = [[LPC['town_prop_logpile_r0c1'], 0],
 PIER = [(x, y) for x in range(0, 4) for y in (17, 18)]          # 서쪽 나루 데크(맵 끝까지)
 FERRY = (0, 17, 1, 2)                                           # 나룻배 포탈(왼쪽 위, 너비, 높이)
 ARRIVAL = (3, 17)                                               # 나룻배에서 내려서는 칸
-UPSTREAM_LOOKOUT_SPAWN = (33, 14)                               # 돌아갈 때 수로 상류길 도착 칸(전망 둑)
+UPSTREAM_LOOKOUT_SPAWN = (33, 14)                               # 돌아갈 때 윗물길 도착 칸(전망 둑)
 CHIEF_HOUSE = (17, 12)                                          # 초가 5x8 의 왼쪽 위 칸
 HOUSE_2 = (12, 18)
 HERB_HUT = (29, 0)
-EAST_GATE = [(43, 26), (43, 27)]                                # 가라앉은 숲으로 가는 문(q017 완료 후 열림)
-FOREST_ARRIVAL = (2, 22)                                        # 가라앉은 숲 서쪽 입구 도착 칸
+EAST_GATE = [(43, 26), (43, 27)]                                # 잠긴숲으로 가는 문(q017 완료 후 열림)
+FOREST_ARRIVAL = (2, 22)                                        # 잠긴숲 서쪽 입구 도착 칸
 # 섬: 둥근 사각형(초타원 지수 2.6) — 집(5x8)과 마당을 앉힐 평평한 땅이 필요하다. (x0, y0, x1, y1) 꼭짓점 좌표
 ISLANDS = [
     (1, 13, 7, 23),       # 서쪽 나루 섬
     (11, 12, 28, 29),     # 가운데 섬(촌장 집, 마당, 둘째 집)
     (24, -1, 38, 10),     # 북쪽 섬(약초 오두막·약초밭) — 위쪽은 맵 가장자리
-    (34, 21, 45, 33),     # 남동 섬(가라앉은 숲 문)
+    (34, 21, 45, 33),     # 남동 섬(잠긴숲 문)
 ]
 ISLETS = [(7.5, 5.5, 2.4, 1.8), (36.5, 15.0, 2.2, 1.8), (6.0, 30.0, 2.6, 2.0), (31.0, 33.0, 2.4, 1.6),
           (41.0, 9.0, 2.0, 2.4)]
@@ -167,7 +167,7 @@ NPCS = [
      'character_villager_flower_dress',
      ['늪 약초는 독이 되기도 하고 약이 되기도 해요. 필요한 게 있으면 골라 보세요.', '독안개 냄새가 요즘 부쩍 짙어졌어요.']),
     ('reed_guard', (40, 25), '문지기 하르', 'character_villager_brown_tunic',
-     ['저 문 너머가 가라앉은 숲이다. 숲길은 위험하다.', '촌장님 말씀을 듣고 가라. 개구리 녀석들이 떼로 다닌다.']),
+     ['저 문 너머가 잠긴숲이다. 숲길은 위험하다.', '촌장님 말씀을 듣고 가라. 개구리 녀석들이 떼로 다닌다.']),
     ('reed_weaver', (24, 22), '갈대 엮는 네아', 'character_villager_flower_dress',
      ['갈대로 지붕을 이고, 갈대로 바구니를 엮지.', '물이 불어나서 갈대밭이 반이나 잠겼어.']),
     ('reed_fisher', (6, 16), '낚시꾼 베른', 'character_bearded_apron_man',
@@ -249,7 +249,7 @@ for i, (name, (x, y), display, appearance, lines) in enumerate(NPCS):
 chars += [
     sign(20, 'reed_village_sign', ARRIVAL[0] + 1, ARRIVAL[1] - 2, '갈대골'),
     sign(21, 'herb_hut_sign', HERB_HUT[0] + 5, HERB_HUT[1] + 7, '약초 오두막'),
-    sign(22, 'forest_gate_sign', EAST_GATE[0][0] - 2, EAST_GATE[0][1] - 2, '가라앉은 숲 →'),
+    sign(22, 'forest_gate_sign', EAST_GATE[0][0] - 2, EAST_GATE[0][1] - 2, '잠긴숲 →'),
 ] + [
     # 안개에서 돌아온 사냥꾼 렌(q020 보고 뒤) — 촌장 집 옆에서 쉬고 있다
     character(25, 'ren', house_door_front(CHIEF_HOUSE)[0] - 2, house_door_front(CHIEF_HOUSE)[1], [
@@ -308,6 +308,6 @@ portals = [
         ('targetSpawnTileX', 'int', FOREST_ARRIVAL[0]), ('targetSpawnTileY', 'int', FOREST_ARRIVAL[1])]),
 ]
 m.write_tmx(OUT, 'scripts/generate-reed-village.py', chars,
-            '사공 토빈, 촌장 미렌(c2-02 보고), 약초꾼 오디, 문지기 하르, 주민 둘 / 표지판 / 가라앉은 숲 문(닫힘)',
-            portals, f'서쪽 나루 → 수로 상류길 전망 둑 {UPSTREAM_LOOKOUT_SPAWN}. 상류길의 나룻배(reed_ferry)는 '
+            '사공 토빈, 촌장 미렌(c2-02 보고), 약초꾼 오디, 문지기 하르, 주민 둘 / 표지판 / 잠긴숲 문(닫힘)',
+            portals, f'서쪽 나루 → 윗물길 전망 둑 {UPSTREAM_LOOKOUT_SPAWN}. 상류길의 나룻배(reed_ferry)는 '
             f'이 맵의 도착 칸 {ARRIVAL} 을 들고 있다.', next_object_id=80)

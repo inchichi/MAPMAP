@@ -6,7 +6,7 @@
   남쪽 입구(고갯길) ─ 마당(광장, 귀환 표지석) ─┬─ 북쪽: 하겐의 오두막
                                                 ├─ 서쪽: 볼크의 대장간, 얼어붙은 연못
                                                 ├─ 동쪽: 이르마의 약재상
-                                                └─ 동쪽 끝 길 → 얼어붙은 호수
+                                                └─ 동쪽 끝 길 → 거울못
 """
 import math
 import re
@@ -30,7 +30,7 @@ SOUTH_EXIT = (21, 35, 3, 1)
 ARRIVAL = (22, 33)
 PASS_SPAWN = (24, 2)                       # 고갯길 북쪽 끝
 EAST_EXIT = (43, 15, 1, 3)
-LAKE_ARRIVAL = (2, 20)                     # 얼어붙은 호수 서쪽 입구
+LAKE_ARRIVAL = (2, 20)                     # 거울못 서쪽 입구
 HAGEN_HOUSE = (19, 3)                      # 오두막 5x8 의 왼쪽 위 칸
 SMITHY = (5, 10)
 APOTHECARY = (31, 9)
@@ -138,7 +138,7 @@ NPCS = [
      ['생강차 한 잔이면 눈보라 속에서도 한동안은 버틸 수 있어요.', '필요한 게 있으면 골라 보세요.']),
     ('volk', (house_door_front(SMITHY)[0] + 2, house_door_front(SMITHY)[1]), '대장장이 볼크',
      'character_bearded_apron_man',
-     ['쇠가 얼어서 망치질이 영 시원찮아.', '얼음 동굴 근처에 좋은 광맥이 있었는데… 트롤 놈들이 차지해 버렸지.']),
+     ['쇠가 얼어서 망치질이 영 시원찮아.', '서리굴 근처에 좋은 광맥이 있었는데… 트롤 놈들이 차지해 버렸지.']),
     ('nina', (PLAZA[0] - 2, PLAZA[1] + 2), '마을 아이 니나', 'character_villager_flower_dress',
      ['눈사람 만들어 본 적 있어요? 근데 요즘은 밖에 못 나가게 해요.', '늑대가 무섭대요. 난 안 무서운데.']),
     ('frost_villager_1', (house_door_front(HOUSE_4)[0] + 2, house_door_front(HOUSE_4)[1]), '나무꾼 테오도르',
@@ -180,7 +180,7 @@ chars = [npc(i + 1, name, x, y, display, appearance, lines) for i, (name, (x, y)
          enumerate(NPCS)] + [
     waystone(20, 'frost-village', *WAYSTONE),
     sign(22, 'frost_village_sign', ARRIVAL[0] + 2, ARRIVAL[1] - 1, '서리목'),
-    sign(23, 'lake_road_sign', 39, 14, '얼어붙은 호수 →'),
+    sign(23, 'lake_road_sign', 39, 14, '거울못 →'),
     sign(24, 'smithy_sign', SMITHY[0] + 5, SMITHY[1] + 9, '대장간'),
     sign(25, 'apothecary_sign', APOTHECARY[0] - 1, APOTHECARY[1] + 9, '약재상'),
 ]
@@ -196,4 +196,4 @@ portals = [
 ]
 m.write_tmx(OUT, 'scripts/generate-frost-village.py', chars,
             '하겐(사냥꾼 대장), 이르마(약재상), 볼크(대장장이), 니나, 주민 둘 / 귀환 표지석, 표지판',
-            portals, f'남쪽 → 고갯길 {PASS_SPAWN}. 동쪽 → 얼어붙은 호수 {LAKE_ARRIVAL}(q034 후).', next_object_id=40)
+            portals, f'남쪽 → 고갯길 {PASS_SPAWN}. 동쪽 → 거울못 {LAKE_ARRIVAL}(q034 후).', next_object_id=40)

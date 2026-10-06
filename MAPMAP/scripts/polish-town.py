@@ -85,7 +85,7 @@ for (x, y), wall in (((24, 14), 82), ((24, 15), 90)):
 for r in range(2):
     for c in range(3):
         put('deco', 23 + c, 14 + r, DOOR[r][c])
-# 남서쪽 집: 앞벽(좌상단 81 기준 4x4) 오른쪽에 문, 왼쪽에 꽃창 — 딴따라마을 오두막과 같은 짜임
+# 남서쪽 집: 앞벽(좌상단 81 기준 4x4) 오른쪽에 문, 왼쪽에 꽃창 — 물레골 오두막과 같은 짜임
 WX, WY = 13, 34
 assert get('object', WX, WY) == 81
 for dy in range(4):
@@ -138,7 +138,7 @@ for y in range(AQUEDUCT_Y):
         else:
             put('ground', x, y, GRASS_ALT if (x * 7 + y * 13) % 11 == 0 else GRASS)
 
-# 잔디↔자갈 경계 오토타일(사냥터·딴따라마을과 같은 전환 타일)
+# 잔디↔자갈 경계 오토타일(사냥터·물레골과 같은 전환 타일)
 snap = list(L['ground'])
 
 

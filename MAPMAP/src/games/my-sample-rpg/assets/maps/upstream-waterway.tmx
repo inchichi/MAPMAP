@@ -271,7 +271,7 @@
    <properties>
     <property name="type" value="sign_inn"/>
     <property name="blocksMovement" type="bool" value="false"/>
-    <property name="displayText" value="딴따라마을 ↓"/>
+    <property name="displayText" value="물레골 ↓"/>
    </properties>
   </object>
   <object id="4" name="sink_refilled_0" type="character" x="688" y="352" width="32" height="32">
@@ -315,7 +315,7 @@
   </object>
  </objectgroup>
  <objectgroup id="3" name="portals">
-  <!-- 아치 → 딴따라마을 수문 아래 (12, 5). 딴따라마을 쪽 포탈(upstream_gate)은 이 맵의 도착 칸 (5, 21) 을 들고 있다. -->
+  <!-- 아치 → 물레골 수문 아래 (12, 5). 물레골 쪽 포탈(upstream_gate)은 이 맵의 도착 칸 (5, 21) 을 들고 있다. -->
   <object id="10" name="aqueduct_gate" type="portal" x="128" y="736" width="96" height="32">
    <properties>
     <property name="appearanceType" value="stairs_stone_step_base_00"/>

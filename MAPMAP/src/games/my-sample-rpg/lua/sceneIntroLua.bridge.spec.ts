@@ -58,7 +58,7 @@ const CASES: ReadonlyArray<string> = [
   'caves',
   'dungeon',
   'hunting-ground-2',
-  '티르코네일 마을'
+  '느티골'
 ]
 
 describe('sceneIntroLua (real wasm bridge)', () => {

@@ -366,7 +366,7 @@ describe('chapter 2 forest lord (q021, mid boss)', () => {
 })
 
 describe('questLog', () => {
-  it('registers the quest catalog with stable q001-q032 ids', () => {
+  it('registers the quest catalog with stable q001-q051 ids', () => {
     expect(QUEST_DEFINITIONS.map((definition) => definition.id)).toEqual([
       ...BEGINNER_ARC_QUEST_IDS,
       MINE_ORE_RUSH_QUEST_ID,
@@ -396,15 +396,34 @@ describe('questLog', () => {
       'q029-hunter-keepsakes',
       'q030-skeleton-crest',
       'q031-hidden-altar',
-      'q032-village-well'
+      'q032-village-well',
+      'q033-north-wind',
+      'q034-snowbound-village',
+      'q035-vanishing-flock',
+      'q036-warming-tea',
+      'q037-frozen-bell',
+      'q038-cave-guardian',
+      'q039-ice-cave',
+      'q040-frost-witch',
+      'q041-snow-stops',
+      'q042-nina-sled',
+      'q043-volk-ore',
+      'q044-irma-herbs',
+      'q045-frozen-letter',
+      'q046-goblin-treasure'
     ])
-    // 1장(q001~q015, 곁가지 q048~q051)은 티르코네일, 2장부터는 가라앉은 숲
+    // 1장(q001~q015, 곁가지 q048~q051)은 느티골, 2장(q016~q032)은 잠긴숲, 3장(q033~q046)은 서리목
     expect(
-      QUEST_DEFINITIONS.filter((definition) => !definition.id.match(/^q0(1[6-9]|[2-3]\d)/)).every(
-        (definition) => definition.regionName === '티르코네일 마을'
+      QUEST_DEFINITIONS.filter((definition) => !definition.id.match(/^q0(1[6-9]|[2-3]\d|4[0-6])/)).every(
+        (definition) => definition.regionName === '느티골'
       )
     ).toBe(true)
-    expect(getQuestDefinitionRegion(VANISHING_WATER_QUEST_ID)).toBe('가라앉은 숲')
+    expect(getQuestDefinitionRegion(VANISHING_WATER_QUEST_ID)).toBe('잠긴숲')
+    expect(
+      QUEST_DEFINITIONS.filter((definition) => definition.id.match(/^q0(3[3-9]|4[0-6])/)).every(
+        (definition) => definition.regionName === '서리목'
+      )
+    ).toBe(true)
     expect(JSON.stringify(QUEST_DEFINITIONS)).not.toContain('준수')
   })
 

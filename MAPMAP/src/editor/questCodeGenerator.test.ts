@@ -10,7 +10,7 @@ const quest = (): GeneratedQuestJson => ({
   quest_id: 'hunt_forest_slimes',
   title: '숲의 슬라임 사냥',
   giver_npc_id: 'wizard',
-  region: '티르코네일',
+  region: '느티골',
   request_text: '슬라임을 잡아줘',
   guide_text: '사냥터로 가라',
   start_dialogue_lines: ['시작'],

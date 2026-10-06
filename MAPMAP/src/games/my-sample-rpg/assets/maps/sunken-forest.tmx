@@ -646,14 +646,14 @@
   <object id="17" name="temple_road_sign" type="character" x="1808" y="512" width="32" height="32">
    <properties>
     <property name="blocksMovement" type="bool" value="false"/>
-    <property name="displayText" value="잠긴 신전 →"/>
+    <property name="displayText" value="물밑 신전 →"/>
     <property name="quest.requiresCompleted" value="q021-forest-lord"/>
     <property name="type" value="sign_inn"/>
    </properties>
   </object>
  </objectgroup>
  <objectgroup id="3" name="portals">
-  <!-- 서쪽 끝 → 갈대골 문 안쪽 (41, 26). 갈대골 쪽 포탈(forest_gate)은 이 맵의 도착 칸 (2, 22) 을 들고 있다. 동쪽 끝 → 잠긴 신전 외곽 (2, 19)(q021 후). -->
+  <!-- 서쪽 끝 → 갈대골 문 안쪽 (41, 26). 갈대골 쪽 포탈(forest_gate)은 이 맵의 도착 칸 (2, 22) 을 들고 있다. 동쪽 끝 → 물밑 신전 외곽 (2, 19)(q021 후). -->
   <object id="10" name="reed_gate" type="portal" x="0" y="672" width="32" height="96">
    <properties>
     <property name="appearanceType" value="swamp_deck_v"/>

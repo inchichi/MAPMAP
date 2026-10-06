@@ -1,4 +1,4 @@
-// 2장 독안개 — 가라앉은 숲 동쪽을 덮은 안개 칸(roof 레이어의 swamp_fog_* 타일)에 서 있으면 숨이 막혀 체력이
+// 2장 독안개 — 잠긴숲 동쪽을 덮은 안개 칸(roof 레이어의 swamp_fog_* 타일)에 서 있으면 숨이 막혀 체력이
 // 깎인다. 갈대골 약초꾼 오디의 해독 향을 피우면 한동안 막는다. 면역 시간은 씬을 넘어 이어져야 하므로
 // (갈대골에서 피우고 숲으로 건너간다) 맵 화면이 아니라 게임 상태(main.ts)에 둔다. 시각은 Date.now().
 
@@ -19,7 +19,7 @@ export const isPoisonFogImmune = (immuneUntil: number, now: number): boolean => 
 export const getRemainingImmunitySeconds = (immuneUntil: number, now: number): number =>
   Math.max(0, Math.ceil((immuneUntil - now) / 1000))
 
-// 3장 눈보라 — 얼어붙은 호수 일부를 덮은 눈보라 칸(roof 레이어의 snow_blizzard_* 타일, append-biome-tiles.py 가
+// 3장 눈보라 — 거울못 일부를 덮은 눈보라 칸(roof 레이어의 snow_blizzard_* 타일, append-biome-tiles.py 가
 // 독안개 타일을 바꿔 만든다). 피해는 독안개와 같고, 안에서는 걸음이 느려진다. 서리목 약재상 이르마의 생강차를
 // 마시면 한동안 막는다(면역 시각은 독안개처럼 main.ts 가 쥔다).
 export const WARMING_TEA_ITEM_ID = 'warming-tea'

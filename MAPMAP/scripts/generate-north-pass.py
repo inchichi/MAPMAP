@@ -1,9 +1,9 @@
-"""3장 '북쪽 고갯길'(north-pass, 50x28) 생성기 — c3-01·c3-02 의 무대. 눈 바이옴(append-biome-tiles.py).
+"""3장 '된바람재'(north-pass, 50x28) 생성기 — c3-01·c3-02 의 무대. 눈 바이옴(append-biome-tiles.py).
 
-티르코네일 북쪽 들판 끝에서 오래 닫혀 있던 고갯길. 눈 쌓인 산길이 굽이쳐 북쪽 서리목 마을로 오르고, 가운데를
+느티골 북쪽 들판 끝에서 오래 닫혀 있던 고갯길. 눈 쌓인 산길이 굽이쳐 북쪽 서리목 마을로 오르고, 가운데를
 얼어붙은 개울이 가로지른다(나무다리). 서쪽 공터에 고블린 약탈자들이 야영하며 길을 막는다.
 
-  남쪽 끝(티르코네일) ─ 산길 ─ 개울 나무다리 ─ 산길 ─ 북쪽 끝(서리목)
+  남쪽 끝(느티골) ─ 산길 ─ 개울 나무다리 ─ 산길 ─ 북쪽 끝(서리목)
                       └─ 서쪽 공터: 고블린 야영지
 """
 import sys
@@ -14,12 +14,13 @@ from swamp_mapkit import LPC, SwampMap, catmull, character, dist_to_path, monste
 
 W, H = 50, 28
 OUT = 'src/games/my-sample-rpg/assets/maps/north-pass.tmx'
-SOUTH_EXIT = (23, 27, 3, 1)               # 티르코네일로(왼쪽 위, 너비, 높이)
+SOUTH_EXIT = (23, 27, 3, 1)               # 느티골로(왼쪽 위, 너비, 높이)
 ARRIVAL = (24, 25)
-TOWN_SPAWN = (10, 1)                      # 티르코네일 북쪽 끝
+TOWN_SPAWN = (10, 1)                      # 느티골 북쪽 끝
 NORTH_EXIT = (23, 0, 3, 1)                # 서리목으로
 VILLAGE_ARRIVAL = (22, 33)                # 서리목 남쪽 입구
 CAMP = (9, 9)                             # 고블린 야영지 모닥불
+NINA_SLED = (34, 10)                      # 니나의 썰매(q042, 개울 다리 건너 동쪽)
 PATH = catmull([(24.5, 28.0), (23.5, 24.0), (19.5, 20.5), (20.5, 16.5), (27.5, 13.5), (28.5, 9.5), (24.5, 5.5),
                 (24.5, -1.0)])
 CAMP_PATH = catmull([(19.5, 18.5), (15.0, 13.5), (10.5, 10.5)])
@@ -86,16 +87,20 @@ south_cells = {(SOUTH_EXIT[0] + i, SOUTH_EXIT[1]) for i in range(SOUTH_EXIT[2])}
 north_cells = {(NORTH_EXIT[0] + i, NORTH_EXIT[1]) for i in range(NORTH_EXIT[2])}
 m.seal_border(south_cells | north_cells)
 m.fill_orphans(ARRIVAL)
-m.validate(ARRIVAL, [(n, p) for n, _k, _l, p in MONSTERS] + [('도착 칸', ARRIVAL), ('야영지', (CAMP[0], CAMP[1] + 1))] +
+m.validate(ARRIVAL, [(n, p) for n, _k, _l, p in MONSTERS] + [('도착 칸', ARRIVAL), ('야영지', (CAMP[0], CAMP[1] + 1)), ('니나의 썰매', NINA_SLED)] +
            [(f'남쪽 {p}', p) for p in south_cells] + [(f'북쪽 {p}', p) for p in north_cells],
            open_edge_cells=south_cells | north_cells)
 
 chars = [monster(10 + i, name, x, y, kind, lvl) for i, (name, kind, lvl, (x, y)) in enumerate(MONSTERS)] + [
-    sign(1, 'pass_south_sign', ARRIVAL[0] + 2, ARRIVAL[1] - 1, '서리목 ↑ · 티르코네일 ↓'),
+    sign(1, 'pass_south_sign', ARRIVAL[0] + 2, ARRIVAL[1] - 1, '서리목 ↑ · 느티골 ↓'),
     character(2, 'goblin_loot', CAMP[0] - 2, CAMP[1] - 2, [
         ('blocksMovement', 'bool', 'true'),
         ('controller.dialogueLines', 'list', ['고블린들이 훔쳐 온 상자다. 서리목 마을 낙인이 찍혀 있다.']),
         ('controller.scriptId', '', 'vn-dialogue'), ('displayText', '', '훔친 짐'), ('type', '', 'cave_prop_crate_bones')]),
+    character(3, 'nina_sled', NINA_SLED[0], NINA_SLED[1], [
+        ('blocksMovement', 'bool', 'true'),
+        ('controller.dialogueLines', 'list', ['눈 더미 속에 빨간 줄이 그어진 작은 썰매가 박혀 있다.']),
+        ('controller.scriptId', '', 'vn-dialogue'), ('displayText', '', '작은 썰매'), ('type', '', 'swamp_raft')]),
 ]
 portals = [
     portal(30, 'town_road', *SOUTH_EXIT, [
@@ -108,5 +113,5 @@ portals = [
         ('targetSpawnTileX', 'int', VILLAGE_ARRIVAL[0]), ('targetSpawnTileY', 'int', VILLAGE_ARRIVAL[1])]),
 ]
 m.write_tmx(OUT, 'scripts/generate-north-pass.py', chars,
-            '표지판, 고블린이 훔친 짐 / 눈 말캉이 5(Lv38~39), 고블린 약탈자 4(Lv39~41, 서쪽 야영지)',
-            portals, f'남쪽 → 티르코네일 {TOWN_SPAWN}, 북쪽 → 서리목 {VILLAGE_ARRIVAL}.', next_object_id=40)
+            '표지판, 고블린이 훔친 짐, 니나의 썰매(nina_sled, q042) / 눈 말캉이 5(Lv38~39), 고블린 약탈자 4(Lv39~41, 서쪽 야영지)',
+            portals, f'남쪽 → 느티골 {TOWN_SPAWN}, 북쪽 → 서리목 {VILLAGE_ARRIVAL}.', next_object_id=40)

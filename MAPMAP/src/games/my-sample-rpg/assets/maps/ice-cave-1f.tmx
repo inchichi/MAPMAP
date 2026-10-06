@@ -394,7 +394,7 @@
   </object>
  </objectgroup>
  <objectgroup id="3" name="portals">
-  <!-- 남쪽 계단 → 얼어붙은 호수 (52, 20). 북쪽 계단 → 2층 (14, 25)(q039 후). -->
+  <!-- 남쪽 계단 → 거울못 (52, 20). 북쪽 계단 → 2층 (14, 25)(q039 후). -->
   <object id="30" name="lake_stairs" type="portal" x="640" y="1216" width="64" height="32">
    <properties>
     <property name="appearanceType" value="stairs_stone_step_base_00"/>

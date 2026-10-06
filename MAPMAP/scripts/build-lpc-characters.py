@@ -354,7 +354,7 @@ NPC_BY_ID = {
         L('torso/clothes/robe/female/{anim}/purple.png'),
         L('hair/long/adult/{anim}.png', 'hair', 'chestnut'),
     ],
-    # 딴따라마을 퀘스트 의뢰인 — 외형을 공유하는 다른 주민과 구별되게
+    # 물레골 퀘스트 의뢰인 — 외형을 공유하는 다른 주민과 구별되게
     'lady': human(F) + [
         L('torso/clothes/robe/female/{anim}/blue.png'),
         L('hair/long/adult/{anim}.png', 'hair', 'platinum'),

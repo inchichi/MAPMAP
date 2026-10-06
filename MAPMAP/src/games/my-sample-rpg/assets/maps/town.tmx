@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="32" tileheight="32" infinite="0" nextlayerid="12" nextobjectid="86">
+<map version="1.10" tiledversion="1.12.1" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="32" tileheight="32" infinite="0" nextlayerid="12" nextobjectid="88">
  <tileset firstgid="1" source="../tilesets/town-32.tsx"/>
  <layer id="1" name="ground" width="50" height="50">
   <data encoding="csv">
@@ -167,7 +167,7 @@
   <object id="1" name="blacksmith" type="character" x="400.467" y="515.737">
    <properties>
     <property name="controller.dialogueLines" type="list">
-     <item value="어서 오게. 티르코네일 대장간 화덕은 불 꺼진 날이 없지."/>
+     <item value="어서 오게. 느티골 대장간 화덕은 불 꺼진 날이 없지."/>
      <item value="칼날은 숫돌에서, 사람은 사냥터에서 벼려지는 법이야."/>
      <item value="장비 상점에 청동 검이며 철 옷이며 갖춰 놨다. 돈이 모이면 들르게."/>
     </property>
@@ -262,7 +262,7 @@
     <property name="controller.dialogueLines" type="list">
      <item value="시청 앞 화분은 전부 제가 가꿔요. 분수 물을 길어다 주거든요."/>
      <item value="요즘 사냥터 쪽 바람이 이상해요. 꽃잎 끝이 자꾸 누렇게 말려요."/>
-     <item value="딴따라마을 들꽃은 여기보다 훨씬 크대요. 언젠가 꼭 가 볼 거예요."/>
+     <item value="물레골 들꽃은 여기보다 훨씬 크대요. 언젠가 꼭 가 볼 거예요."/>
     </property>
     <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
     <property name="controller.scriptId" value="vn-dialogue"/>
@@ -288,7 +288,7 @@
    <properties>
     <property name="controller.dialogueLines" type="list">
      <item value="이 시계탑은 내 할아버지의 할아버지 때부터 한 번도 멈춘 적이 없다네."/>
-     <item value="남쪽 수교는 옛날 사람들이 딴따라마을 들녘까지 물을 대려고 쌓은 게야."/>
+     <item value="남쪽 수교는 옛날 사람들이 물레골 들녘까지 물을 대려고 쌓은 게야."/>
      <item value="광산이 문을 닫은 뒤로 마을이 많이 조용해졌지. 그래도 동쪽 밀밭은 아직 살아 있어."/>
     </property>
     <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
@@ -314,7 +314,7 @@
   <object id="7" name="villager_4" type="character" x="1008" y="1372">
    <properties>
     <property name="controller.dialogueLines" type="list">
-     <item value="이 아치 밑 계단으로 내려가면 딴따라마을이오. 물보라에 계단이 미끄러우니 조심하시오."/>
+     <item value="이 아치 밑 계단으로 내려가면 물레골이오. 물보라에 계단이 미끄러우니 조심하시오."/>
      <item value="수교 위로는 사람이 못 다니오. 물길이 마을 생명줄이라 내가 지키는 게요."/>
     </property>
     <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
@@ -327,7 +327,7 @@
   <object id="85" name="villager_4" type="character" x="1008" y="1372">
    <properties>
     <property name="controller.dialogueLines" type="list">
-     <item value="딴따라마을에 다녀왔구려. 마리네 촌장님은 여전히 우물가에 계시오?"/>
+     <item value="물레골에 다녀왔구려. 마리네 촌장님은 여전히 우물가에 계시오?"/>
      <item value="수교 물이 줄면 내가 제일 먼저 안다오. 요즘은… 아치 밑 물소리가 조금 가늘어졌소."/>
     </property>
     <property name="controller.messageDurationSeconds" type="float" value="2.8"/>
@@ -357,6 +357,13 @@
     <property name="type" value="cave_prop_obelisk_r0c0"/>
    </properties>
   </object>
+  <object id="87" name="north_gate_sign" type="character" x="240" y="96" width="32" height="32">
+   <properties>
+    <property name="blocksMovement" type="bool" value="false"/>
+    <property name="displayText" value="북쪽 성문 · 된바람재 ↑"/>
+    <property name="type" value="sign_inn"/>
+   </properties>
+  </object>
  </objectgroup>
  <objectgroup id="9" name="portals">
   <object id="8" name="east_gate" type="portal" x="1568" y="544" width="32" height="64">
@@ -375,6 +382,16 @@
     <property name="targetSceneId" value="harvest-village"/>
     <property name="targetSpawnTileX" type="int" value="29"/>
     <property name="targetSpawnTileY" type="int" value="7"/>
+   </properties>
+  </object>
+  <object id="86" name="north_gate" type="portal" x="256" y="0" width="96" height="32">
+   <properties>
+    <property name="appearanceType" value="stairs_stone_step_base_00"/>
+    <property name="quest.requiresCompleted" value="q026-water-flows-again"/>
+    <property name="targetFacing" value="up"/>
+    <property name="targetSceneId" value="north-pass"/>
+    <property name="targetSpawnTileX" type="int" value="24"/>
+    <property name="targetSpawnTileY" type="int" value="25"/>
    </properties>
   </object>
  </objectgroup>

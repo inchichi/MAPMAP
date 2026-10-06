@@ -46,7 +46,7 @@ const DEFAULT_LLM_ENDPOINT = 'https://api.openai.com/v1/responses'
 const DEFAULT_LLM_MODEL = 'gpt-5.4-mini'
 const AVAILABLE_NPC_NAMES = ['마법사', '대장장이', '물약상인'] as const
 const DEFAULT_SCENARIO_TEXT = [
-  '티르코네일 마을 외곽에서 밤마다 슬라임이 늘어난다.',
+  '느티골 외곽에서 밤마다 슬라임이 늘어난다.',
   '마을 사람들은 버려진 우물에서 푸른 빛이 샌다고 말한다.',
   '초보 모험가는 마법사, 대장장이, 물약상인을 도와 원인을 조사하고,',
   '마지막에는 동굴 입구의 슬라임 우두머리를 처치해 마을을 지켜야 한다.'

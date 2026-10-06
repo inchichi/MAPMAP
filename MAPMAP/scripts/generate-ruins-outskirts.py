@@ -1,10 +1,10 @@
-"""2장 '잠긴 신전 외곽'(ruins-outskirts, 50x40) 생성기 — c2-06 비석의 글자(q022)의 무대.
+"""2장 '물밑 신전 외곽'(ruins-outskirts, 50x40) 생성기 — c2-06 비석의 글자(q022)의 무대.
 
-이야기(docs/chapter2-sunken-forest.md): 가라앉은 숲 동쪽, 물이 빠져 드러난 옛 신전 들판. 무너진 기둥과
+이야기(docs/chapter2-sunken-forest.md): 잠긴숲 동쪽, 물이 빠져 드러난 옛 신전 들판. 무너진 기둥과
 두건 쓴 석상이 늪풀에 묻혀 있고, 유적을 지키던 해골병들이 아직 돌아다닌다. 학자 셀린이 혼자 야영하며
 비석의 옛 글자를 읽고 있다.
 
-  서쪽 숲길(가라앉은 숲 동쪽 끝) ─ 진흙 길 ─┬─ 북서: 셀린의 야영지
+  서쪽 숲길(잠긴숲 동쪽 끝) ─ 진흙 길 ─┬─ 북서: 셀린의 야영지
                                            ├─ 남쪽: 첫 봉인 비석 광장(해골병 수호자) — q022 조사 목표
                                            └─ 북동: 신전 입구 광장(이끼 골렘, 돌계단) — q022 를 마치면 봉인이 풀린다
 
@@ -30,9 +30,9 @@ CRATE = 1095
 LOG_SEAT = 1189
 
 # ---------------------------------------------------------------- 자리(칸 좌표)
-ENTRANCE = (0, 18, 1, 3)                   # 서쪽 끝 포탈(가라앉은 숲) — 왼쪽 위, 너비, 높이
+ENTRANCE = (0, 18, 1, 3)                   # 서쪽 끝 포탈(잠긴숲) — 왼쪽 위, 너비, 높이
 ARRIVAL = (2, 19)
-FOREST_SPAWN = (57, 17)                    # 돌아갈 때 가라앉은 숲 동쪽 끝(덩굴이 있던 자리 안쪽)
+FOREST_SPAWN = (57, 17)                    # 돌아갈 때 잠긴숲 동쪽 끝(덩굴이 있던 자리 안쪽)
 CAMP = (11, 9)                             # 셀린 야영지 모닥불
 SELIN = (13, 10)
 STELE_AT = (23, 27)                        # 첫 봉인 비석 2x2 의 왼쪽 위 칸
@@ -242,7 +242,7 @@ chars = [monster(30 + i, name, x, y, kind, lvl) for i, (name, kind, lvl, (x, y))
     npc(1, 'selin', SELIN[0], SELIN[1], '학자 셀린', 'character_villager_flower_dress',
         ['비석의 글자는 이 근방 어느 기록에도 없는 옛 문자예요. 그래도 조금씩 읽히기 시작했어요.',
          '유적을 지키던 해골병들이 아직도 순찰을 돌아요. 조심하세요.']),
-    sign(2, 'ruins_entrance_sign', ARRIVAL[0] + 1, ARRIVAL[1] - 2, '가라앉은 숲 ←'),
+    sign(2, 'ruins_entrance_sign', ARRIVAL[0] + 1, ARRIVAL[1] - 2, '잠긴숲 ←'),
 ] + [character(10 + i, name, x, y, props) for i, (name, x, y, props) in enumerate(stele_objects)] + [
     character(20 + i, f'temple_door_seal_{i}', x, y, [
         ('blocksMovement', 'bool', 'true'),
@@ -283,6 +283,6 @@ portals = [
 m.write_tmx(OUT, 'scripts/generate-ruins-outskirts.py', chars,
             '학자 셀린, 첫 봉인 비석(seal_stele_1, q022 조사 목표 — 밝힌 뒤 _lit 로 바뀜), 봉인된 돌문(q022 후 열림) / '
             '유적 해골병 7(Lv24~26, 비석 수호자 4), 이끼 골렘 3(Lv26~27)',
-            portals, f'서쪽 끝 → 가라앉은 숲 동쪽 끝 {FOREST_SPAWN}. 숲의 신전 길 포탈(temple_road)은 이 맵의 도착 칸 '
-            f'{ARRIVAL} 을 들고 있다. 북동 돌계단 → 잠긴 신전 1층 {TEMPLE_1F_SPAWN}(q022 후).',
+            portals, f'서쪽 끝 → 잠긴숲 동쪽 끝 {FOREST_SPAWN}. 숲의 신전 길 포탈(temple_road)은 이 맵의 도착 칸 '
+            f'{ARRIVAL} 을 들고 있다. 북동 돌계단 → 물밑 신전 1층 {TEMPLE_1F_SPAWN}(q022 후).',
             next_object_id=60)

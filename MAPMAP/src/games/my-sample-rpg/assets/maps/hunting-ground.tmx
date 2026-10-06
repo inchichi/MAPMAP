@@ -415,7 +415,7 @@
    <properties>
     <property name="type" value="sign_inn"/>
     <property name="blocksMovement" type="bool" value="false"/>
-    <property name="displayText" value="동굴입구"/>
+    <property name="displayText" value="어스름 굴 입구"/>
    </properties>
   </object>
   <object id="12" name="말캉이-3" type="character" x="192" y="480" width="32" height="32">

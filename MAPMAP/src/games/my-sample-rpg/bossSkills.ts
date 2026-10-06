@@ -104,7 +104,7 @@ const BOSS_PRESENTATION_BY_APPEARANCE_TYPE: Record<string, BossPresentation> = {
     enrageLine: '말캉… 말캉말캉!!'
   },
   boss_pig_king: {
-    title: '티르코네일을 노리는 자',
+    title: '느티골을 노리는 자',
     enrageLine: '꾸에에에엑!',
     deathLines: [
       '꾸… 꾸르륵…',
@@ -133,7 +133,7 @@ const BOSS_PRESENTATION_BY_APPEARANCE_TYPE: Record<string, BossPresentation> = {
     ]
   },
   monster_troll_chief: {
-    title: '얼음 동굴의 문지기',
+    title: '서리굴의 문지기',
     enrageLine: '크아아아!'
   },
   monster_frost_witch: {
