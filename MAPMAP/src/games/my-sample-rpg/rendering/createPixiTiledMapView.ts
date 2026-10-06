@@ -23,7 +23,7 @@ import { PLAYER_CHARACTER_ID } from '../characterState'
 import type { CharacterAction, CharacterMoveDirection, CharacterState } from '../characterState'
 import { createGameEventQueue } from '../events/createGameEventQueue'
 import type { HolidayDialogueEventSpec } from '../eventGeneration'
-import { getEquippedPlayerWeaponAttackKind } from '../playerEquipment'
+import { getEquippedPlayerMeleeMotion, getEquippedPlayerWeaponAttackKind } from '../playerEquipment'
 import { type PlayerRollState } from '../playerRoll'
 import { type PlayerControlBindingId } from '../playerControls'
 import { getAllQuestDefinitions, getQuestProgress } from '../questLog'
@@ -60,6 +60,8 @@ import { createUiOverlays } from './mapView/uiOverlays'
 import { createPlayerRewards } from './mapView/playerRewards'
 import { createEnvironmentHazards } from './mapView/environmentHazards'
 import { createPlayerActions } from './mapView/playerActions'
+import { getPlayerMeleeAttackCooldownMilliseconds } from './mapView/playerMeleeMotions'
+import { createPlayerWeaponSkills } from './mapView/playerWeaponSkills'
 import { createCharacterNodes } from './mapView/characterNodes'
 import { createPlayerGearVisuals } from './mapView/playerGearVisuals'
 import { createMovement } from './mapView/movement'
@@ -83,7 +85,6 @@ import {
   GAME_VIEWPORT_HEIGHT,
   GAME_VIEWPORT_WIDTH,
   MONSTER_EQUIPMENT_DROP_IMAGE_URL_BY_DROP_ID,
-  PLAYER_ATTACK_COOLDOWN_MILLISECONDS,
   PLAYER_ATTACK_DURATION_MILLISECONDS,
   PLAYER_EQUIPMENT_APPEARANCE_CONFIG_BY_ITEM_ID,
   PLAYER_WEAPON_APPEARANCE_CONFIG_BY_ITEM_ID,
@@ -699,10 +700,13 @@ export const createPixiTiledMapView = async ({
     }
 
     const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
-    // 쿨다운은 휘두르기가 끝난 뒤부터 센다(동작 320ms + 300ms ≈ 0.62초에 한 번).
+    // 쿨다운은 휘두르기가 끝난 뒤부터 센다(동작 320ms + 기본 300ms ≈ 0.62초에 한 번).
     // 예전엔 시작부터 세어 0.3초마다 — 동작이 끝나기도 전에 다음 공격이 나갔다.
+    // 무기별 모션은 쿨다운이 다르다(단검은 짧고 도끼·철퇴는 길다).
     playerAttackReadyAtMilliseconds =
-      now + PLAYER_ATTACK_DURATION_MILLISECONDS + PLAYER_ATTACK_COOLDOWN_MILLISECONDS
+      now +
+      PLAYER_ATTACK_DURATION_MILLISECONDS +
+      getPlayerMeleeAttackCooldownMilliseconds(getEquippedPlayerMeleeMotion(currentPlayerEquipment))
 
     // 장착 무기의 공격 방식 분기: 근접은 기존 스윙+슬래시, 활/마법은 발사체.
     const attackKind = getEquippedPlayerWeaponAttackKind(currentPlayerEquipment)
@@ -723,8 +727,10 @@ export const createPixiTiledMapView = async ({
 
   // 발사체 비주얼은 전용 아트가 아직 없어 Graphics 로 그린다(골드 드랍 동전과 같은 방식).
   const {
+    applyMonsterDamageOverTime,
     clearMagicEffects,
     clearPlayerProjectiles,
+    freezeMonster,
     getPlayerBasicAttackDamage,
     isMonsterFrozen,
     isPlayerCasting,
@@ -737,7 +743,8 @@ export const createPixiTiledMapView = async ({
     updateMonsterMagicStatuses,
     updatePlayerMagicCast,
     updatePlayerProjectiles,
-    getPlayerMagicCast
+    getPlayerMagicCast,
+    spawnMagicImpact
   } = createPlayerCombatEffects({
     map,
     wallTiles,
@@ -797,6 +804,7 @@ export const createPixiTiledMapView = async ({
     triggerPlayerAttack,
     triggerPlayerBowSkill,
     triggerPlayerMagicSkill,
+    triggerPlayerWeaponSkill: (skillId, now) => triggerPlayerWeaponSkill(skillId, now),
     showCharacterDamageText: (...args) => showCharacterDamageText(...args),
     tryMoveCharacter: (...args) => tryMoveCharacter(...args),
     getCurrentPlayerEquipment: () => currentPlayerEquipment,
@@ -1541,7 +1549,11 @@ export const createPixiTiledMapView = async ({
     resolvePlayerAttackDamage,
     resolvePlayerSmashSkillDamage
   } = createCombat({
-    clearMagicEffects,
+    // 사망·부활 때 마법 효과와 함께 무기 스킬의 예약 타격·효과도 지운다.
+    clearMagicEffects: () => {
+      clearMagicEffects()
+      clearPlayerWeaponSkills()
+    },
     clearPlayerProjectiles,
     clearPlayerProtectSkillEffectSprite,
     clearPlayerSlashEffectSprite,
@@ -1635,6 +1647,38 @@ export const createPixiTiledMapView = async ({
     setPlayerSmashSkillReadyAtMilliseconds: (value) => {
       playerSmashSkillReadyAtMilliseconds = value
     }
+  })
+  const {
+    clearPlayerWeaponSkills,
+    triggerPlayerWeaponSkill,
+    updatePlayerWeaponSkills
+  } = createPlayerWeaponSkills({
+    map,
+    playerProfile,
+    monsterCombatStates,
+    getCurrentPlayerEquipment: () => currentPlayerEquipment,
+    getCharacterStateById,
+    getCharacterStates: () => characterStates,
+    setCharacterStates: (value) => {
+      characterStates = value
+    },
+    getDepthSortedLayer: () => depthSortedLayer,
+    isMonsterCharacter,
+    isMonsterCombatStateDefeated,
+    getCharacterPixelCenter,
+    resolveMonstersInCollisionRect,
+    applyDamageToMonster,
+    knockbackMonsterAwayFromCharacter,
+    freezeMonster,
+    applyMonsterDamageOverTime,
+    spawnMagicImpact,
+    getPlayerBasicAttackDamage,
+    tryMoveCharacter: (...args) => tryMoveCharacter(...args),
+    setPlayerProtectSkillActiveUntilMilliseconds: (value) => {
+      playerProtectSkillActiveUntilMilliseconds = value
+    },
+    startPlayerWeaponAttackMotion,
+    showPlayerMagicMessage
   })
   const {
     bossSkillReadyAtById,
@@ -1823,6 +1867,7 @@ export const createPixiTiledMapView = async ({
     updateCharacters
   } = createFrameUpdate({
     app,
+    updatePlayerWeaponSkills,
     applyDamageToPlayer,
     applyNpcConfigUpdate,
     bossSkillReadyAtById,
@@ -2134,6 +2179,7 @@ export const createPixiTiledMapView = async ({
     clearPlayerSmashSkillEffectSprites()
     clearPlayerProjectiles()
     clearMagicEffects()
+    clearPlayerWeaponSkills()
     for (const monsterGoldDrop of monsterGoldDrops.values()) {
       monsterGoldDrop.container.destroy({ children: true })
     }

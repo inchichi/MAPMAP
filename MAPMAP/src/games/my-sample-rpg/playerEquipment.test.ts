@@ -4,7 +4,7 @@ import {
   createInitialPlayerEquipment,
   getPlayerEquipmentItemDefinitionById,
   getPlayerEquipmentItemDefinitionBySlotId,
-  isEquippedPlayerWeaponThrust
+  getEquippedPlayerMeleeMotion
 } from './playerEquipment'
 
 describe('createInitialPlayerEquipment', () => {
@@ -128,7 +128,7 @@ describe('createInitialPlayerEquipment', () => {
   })
 })
 
-describe('isEquippedPlayerWeaponThrust', () => {
+describe('getEquippedPlayerMeleeMotion', () => {
   const equipWeapon = (weaponId: string) => {
     const equipment = createInitialPlayerEquipment()
 
@@ -141,12 +141,15 @@ describe('isEquippedPlayerWeaponThrust', () => {
     }
   }
 
-  it('treats the long spear as a thrust weapon', () => {
-    expect(isEquippedPlayerWeaponThrust(equipWeapon('long-spear'))).toBe(true)
+  it('gives each special melee weapon its own motion', () => {
+    expect(getEquippedPlayerMeleeMotion(equipWeapon('long-spear'))).toBe('thrust')
+    expect(getEquippedPlayerMeleeMotion(equipWeapon('battle-axe'))).toBe('cleave')
+    expect(getEquippedPlayerMeleeMotion(equipWeapon('spiked-mace'))).toBe('crush')
+    expect(getEquippedPlayerMeleeMotion(equipWeapon('quick-dagger'))).toBe('quick-slash')
   })
 
-  it('treats swords and the starter weapon as slash weapons', () => {
-    expect(isEquippedPlayerWeaponThrust(createInitialPlayerEquipment())).toBe(false)
-    expect(isEquippedPlayerWeaponThrust(equipWeapon('iron-sword'))).toBe(false)
+  it('falls back to slash for swords and the starter weapon', () => {
+    expect(getEquippedPlayerMeleeMotion(createInitialPlayerEquipment())).toBe('slash')
+    expect(getEquippedPlayerMeleeMotion(equipWeapon('iron-sword'))).toBe('slash')
   })
 })

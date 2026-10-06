@@ -11,6 +11,7 @@ import {
   getPlayerProtectSkillDurationByLevel
 } from '../playerSkills'
 import { createInitialPlayerProfile } from '../playerProfile'
+import { PLAYER_WEAPON_SKILL_DEFINITIONS } from '../playerWeaponSkills'
 import {
   createPlayerSkillsLua,
   type PlayerSkillsLua
@@ -27,7 +28,10 @@ const LUA_MODULE_WASM_URL = new URL(
   import.meta.url
 )
 
-const SKILL_IDS = ['smash', 'protect', 'unknown', '', 'dash', 'ice-bolt', 'fireball', 'chain-lightning', 'multi-shot', 'piercing-arrow', 'poison-arrow']
+const SKILL_IDS = [
+  'smash', 'protect', 'unknown', '', 'dash', 'ice-bolt', 'fireball', 'chain-lightning', 'multi-shot', 'piercing-arrow', 'poison-arrow',
+  ...PLAYER_WEAPON_SKILL_DEFINITIONS.map((definition) => definition.id)
+]
 
 describe('playerSkillsLua (real wasm bridge)', () => {
   let lua: PlayerSkillsLua | undefined

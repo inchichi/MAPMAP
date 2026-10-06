@@ -8,6 +8,7 @@ import {
   getPlayerJobDisplayName,
   isPlayerJobPromotionAvailable
 } from './playerProfile'
+import { PLAYER_WEAPON_SKILL_DEFINITIONS } from './playerWeaponSkills'
 
 describe('createInitialPlayerProfile', () => {
   it('creates the default player HUD profile', () => {
@@ -105,7 +106,14 @@ describe('createInitialPlayerProfile', () => {
           description: '맞은 적을 중독',
           level: 0,
           maxLevel: 5
-        }
+        },
+        ...PLAYER_WEAPON_SKILL_DEFINITIONS.map((definition) => ({
+          hotkey: '',
+          label: definition.label,
+          description: definition.description,
+          level: 0,
+          maxLevel: 5
+        }))
       ]
     })
   })
@@ -141,5 +149,11 @@ describe('createInitialPlayerProfile', () => {
     expect(getPlayerJobPrimaryStatId('마법사')).toBe('intelligence')
     expect(getPlayerJobPrimaryStatId('도적')).toBe('luck')
     expect(getPlayerJobPrimaryStatId('초보자')).toBeUndefined()
+  })
+})
+
+describe('weapon skill slots', () => {
+  it('adds one slot per weapon skill after the 10 chapter 1 skills', () => {
+    expect(createInitialPlayerProfile().skills).toHaveLength(10 + PLAYER_WEAPON_SKILL_DEFINITIONS.length)
   })
 })

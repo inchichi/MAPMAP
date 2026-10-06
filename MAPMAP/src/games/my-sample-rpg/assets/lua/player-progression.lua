@@ -162,6 +162,29 @@ function progression_spend_stat_point(
   return result
 end
 
+-- 스킬을 배울 수 있는 플레이어 레벨(0-based profile.skills 인덱스, TS getPlayerSkillRequiredLevelByProfileIndex 미러).
+-- 표에 없는 스킬은 1.
+local SKILL_REQUIRED_LEVEL_BY_INDEX = {
+  [10] = 15, -- cross-slash
+  [11] = 38, -- flash-strike
+  [12] = 1, -- lunge
+  [13] = 15, -- spear-sweep
+  [14] = 38, -- thunder-javelin
+  [15] = 1, -- whirlwind
+  [16] = 15, -- ground-splitter
+  [17] = 38, -- execute
+  [18] = 1, -- ground-slam
+  [19] = 15, -- shockwave
+  [20] = 38, -- earthquake
+  [21] = 1, -- vital-strike
+  [22] = 15, -- shadow-step
+  [23] = 38, -- blade-flurry
+  [24] = 15, -- arrow-rain
+  [25] = 38, -- storm-arrows
+  [26] = 15, -- blizzard
+  [27] = 38, -- meteor
+}
+
 -- ── spendPlayerSkillPoint ── (실패 시 json_null) skill_index 0-based.
 function progression_spend_skill_point(profile, skill_index)
   local skill = profile.skills[skill_index + 1]
@@ -173,6 +196,11 @@ function progression_spend_skill_point(profile, skill_index)
   local skill_point_cost = progression_skill_point_cost(skill)
 
   if skill_point_cost <= 0 or profile.availableSkillPoints < skill_point_cost then
+    return json_null
+  end
+
+  -- 2·3장 무기 스킬은 그 장의 레벨대가 되어야 배운다.
+  if profile.level < (SKILL_REQUIRED_LEVEL_BY_INDEX[skill_index] or 1) then
     return json_null
   end
 

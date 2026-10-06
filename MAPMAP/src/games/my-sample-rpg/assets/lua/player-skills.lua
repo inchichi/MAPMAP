@@ -19,6 +19,25 @@ local PROFILE_INDEX_BY_ID = {
   ['multi-shot']      = 7,
   ['piercing-arrow']  = 8,
   ['poison-arrow']    = 9,
+  -- 무기 계열 스킬(TS playerWeaponSkills.ts 정의 순서)
+  ['cross-slash']     = 10,
+  ['flash-strike']    = 11,
+  lunge               = 12,
+  ['spear-sweep']     = 13,
+  ['thunder-javelin'] = 14,
+  whirlwind           = 15,
+  ['ground-splitter'] = 16,
+  execute             = 17,
+  ['ground-slam']     = 18,
+  shockwave           = 19,
+  earthquake          = 20,
+  ['vital-strike']    = 21,
+  ['shadow-step']     = 22,
+  ['blade-flurry']    = 23,
+  ['arrow-rain']      = 24,
+  ['storm-arrows']    = 25,
+  blizzard            = 26,
+  meteor              = 27,
 }
 
 -- 마법 스킬 레벨별 MP/위력 (TS PLAYER_MAGIC_SKILL_TABLE 미러). 5레벨 이후는 마지막 값에서
@@ -30,6 +49,25 @@ local MAGIC_SKILL_TABLE = {
   ['multi-shot']      = { mana = { 3, 3, 4, 4, 5 },  power = { 2, 3, 4, 5, 6 },     step = 1 },
   ['piercing-arrow']  = { mana = { 4, 5, 5, 6, 7 },  power = { 6, 9, 12, 15, 18 },  step = 3 },
   ['poison-arrow']    = { mana = { 3, 4, 4, 5, 5 },  power = { 2, 3, 4, 5, 6 },     step = 1 },
+  -- 무기 계열 스킬(TS playerWeaponSkills.ts 장별 표)
+  ['cross-slash']     = { mana = { 9, 10, 11, 12, 13 }, power = { 24, 30, 37, 45, 54 }, step = 9 },
+  ['flash-strike']    = { mana = { 15, 16, 18, 20, 22 }, power = { 48, 60, 74, 90, 108 }, step = 18 },
+  lunge               = { mana = { 4, 5, 6, 7, 8 }, power = { 10, 14, 18, 23, 28 }, step = 5 },
+  ['spear-sweep']     = { mana = { 9, 10, 11, 12, 13 }, power = { 24, 30, 37, 45, 54 }, step = 9 },
+  ['thunder-javelin'] = { mana = { 15, 16, 18, 20, 22 }, power = { 48, 60, 74, 90, 108 }, step = 18 },
+  whirlwind           = { mana = { 4, 5, 6, 7, 8 }, power = { 10, 14, 18, 23, 28 }, step = 5 },
+  ['ground-splitter'] = { mana = { 9, 10, 11, 12, 13 }, power = { 24, 30, 37, 45, 54 }, step = 9 },
+  execute             = { mana = { 15, 16, 18, 20, 22 }, power = { 48, 60, 74, 90, 108 }, step = 18 },
+  ['ground-slam']     = { mana = { 4, 5, 6, 7, 8 }, power = { 10, 14, 18, 23, 28 }, step = 5 },
+  shockwave           = { mana = { 9, 10, 11, 12, 13 }, power = { 24, 30, 37, 45, 54 }, step = 9 },
+  earthquake          = { mana = { 15, 16, 18, 20, 22 }, power = { 48, 60, 74, 90, 108 }, step = 18 },
+  ['vital-strike']    = { mana = { 4, 5, 6, 7, 8 }, power = { 10, 14, 18, 23, 28 }, step = 5 },
+  ['shadow-step']     = { mana = { 9, 10, 11, 12, 13 }, power = { 24, 30, 37, 45, 54 }, step = 9 },
+  ['blade-flurry']    = { mana = { 15, 16, 18, 20, 22 }, power = { 48, 60, 74, 90, 108 }, step = 18 },
+  ['arrow-rain']      = { mana = { 9, 10, 11, 12, 13 }, power = { 24, 30, 37, 45, 54 }, step = 9 },
+  ['storm-arrows']    = { mana = { 15, 16, 18, 20, 22 }, power = { 48, 60, 74, 90, 108 }, step = 18 },
+  blizzard            = { mana = { 9, 10, 11, 12, 13 }, power = { 24, 30, 37, 45, 54 }, step = 9 },
+  meteor              = { mana = { 15, 16, 18, 20, 22 }, power = { 48, 60, 74, 90, 108 }, step = 18 },
 }
 
 local function magic_table_value(values, skill_level, step)

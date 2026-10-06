@@ -83,6 +83,7 @@ export type FrameUpdateContext = {
   resolveMonsterEquipmentDropPickups: () => void
   resolveMonsterGoldDropPickups: () => void
   resolvePlayerAttackDamage: (now: number) => void
+  updatePlayerWeaponSkills: (now: number) => void
   resolvePlayerSmashSkillDamage: (now: number) => void
   resolvePoisonFogDamage: (now: number) => void
   sceneId: string
@@ -183,6 +184,7 @@ export const createFrameUpdate = (ctx: FrameUpdateContext) => {
     resolveMonsterEquipmentDropPickups,
     resolveMonsterGoldDropPickups,
     resolvePlayerAttackDamage,
+    updatePlayerWeaponSkills,
     resolvePlayerSmashSkillDamage,
     resolvePoisonFogDamage,
     sceneId,
@@ -526,6 +528,7 @@ export const createFrameUpdate = (ctx: FrameUpdateContext) => {
       resolvePlayerSmashSkillDamage(now)
       updatePlayerMagicCast(now)
       updateMonsterMagicStatuses(now)
+      updatePlayerWeaponSkills(now)
       updatePlayerProjectiles(now, app.ticker.deltaMS)
       if (!npcDialogueOverlay.isOpen()) {
         resolveMonsterContactDamage(now)

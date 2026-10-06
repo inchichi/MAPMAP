@@ -4,6 +4,7 @@ import {
   type PlayerSkillSlot,
   type PlayerStatId
 } from './playerProfile'
+import { getPlayerSkillRequiredLevelByProfileIndex } from './playerSkills'
 import {
   PLAYER_BASE_INTELLIGENCE_STAT,
   PLAYER_INTELLIGENCE_MP_BONUS_PER_POINT
@@ -106,6 +107,11 @@ export const spendPlayerSkillPoint = (
   const skillPointCost = getPlayerSkillPointCost(skill)
 
   if (skillPointCost <= 0 || profile.availableSkillPoints < skillPointCost) {
+    return undefined
+  }
+
+  // 2·3장 무기 스킬은 그 장의 레벨대가 되어야 배운다.
+  if (profile.level < getPlayerSkillRequiredLevelByProfileIndex(skillIndex)) {
     return undefined
   }
 

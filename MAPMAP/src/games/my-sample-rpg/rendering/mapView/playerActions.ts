@@ -10,7 +10,7 @@ import type { GameSoundEffects } from '../createGameSoundEffects'
 import { AnimatedSprite, Container } from 'pixi.js'
 import { PLAYER_CHARACTER_ID } from '../../characterState'
 import type { CharacterMoveDirection, CharacterState } from '../../characterState'
-import { getEquippedPlayerWeaponAttackKind, isEquippedPlayerWeaponThrust } from '../../playerEquipment'
+import { getEquippedPlayerMeleeMotion, getEquippedPlayerWeaponLine } from '../../playerEquipment'
 import {
   PLAYER_CHAIN_LIGHTNING_SKILL_ID,
   PLAYER_DASH_SKILL_ID,
@@ -44,7 +44,8 @@ import {
 } from '../../lua/luaGameLogic'
 import { EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, PLAYER_ATTACK_SLASH_EFFECT_ANIMATION_SPEED, PLAYER_ATTACK_SLASH_EFFECT_SCALE_X, PLAYER_ATTACK_SLASH_EFFECT_SCALE_Y, PLAYER_PROTECT_SKILL_COOLDOWN_MILLISECONDS } from './constants'
 import { getCharacterDepthSortValue, getFacingFromRollVector, isCharacterOnGrass } from './tiles'
-import { createPlayerThrustAttack } from './playerThrustAttack'
+import { createPlayerMeleeMotionEffects, getPlayerMeleeMotion } from './playerMeleeMotions'
+import type { PlayerWeaponSkillTriggerResult } from './playerWeaponSkills'
 import { type PlayerHitReactionState, type SlashVfxRenderResources } from './types'
 
 export type PlayerActionsContext = {
@@ -64,6 +65,7 @@ export type PlayerActionsContext = {
   triggerPlayerAttack: (now: number) => void
   triggerPlayerBowSkill: (skillId: string, now: number) => boolean
   triggerPlayerMagicSkill: (skillId: string, now: number) => boolean
+  triggerPlayerWeaponSkill: (skillId: string, now: number) => PlayerWeaponSkillTriggerResult
   showCharacterDamageText: (characterId: string, message: string, durationMilliseconds: number, style?: TextStyle) => void
   tryMoveCharacter: (characterId: string, deltaX: number, deltaY: number, options?: { preserveFacing?: boolean; ignoreMonsterBlocking?: boolean; cornerAssist?: boolean; }) => boolean
   getCurrentPlayerEquipment: () => PlayerEquipment
@@ -123,6 +125,7 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
     triggerPlayerAttack,
     triggerPlayerBowSkill,
     triggerPlayerMagicSkill,
+    triggerPlayerWeaponSkill,
     showCharacterDamageText,
     tryMoveCharacter,
     getCurrentPlayerEquipment,
@@ -384,9 +387,9 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
         didTrigger = triggerPlayerProtectSkill(now)
         break
       case PLAYER_SMASH_SKILL_ID:
-        // 스매시는 검 계열(근접 무기) 스킬 — 지팡이·활로는 쓸 수 없다.
-        if (getEquippedPlayerWeaponAttackKind(getCurrentPlayerEquipment()) !== 'melee') {
-          showPlayerMagicMessage('근접 무기를 들어야 한다')
+        // 스매시는 검 계열 1장 스킬 — 다른 무기는 각자의 계열 스킬을 쓴다.
+        if (getEquippedPlayerWeaponLine(getCurrentPlayerEquipment()) !== 'sword') {
+          showPlayerMagicMessage('검 계열 무기를 들어야 한다')
           return false
         }
         didTrigger = triggerPlayerSmashSkill(now)
@@ -453,8 +456,15 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
         didTrigger = true
         break
       }
-      default:
-        return false
+      default: {
+        // 무기 계열 스킬(playerWeaponSkills): 무기·대상이 없으면 이유를 이미 띄웠다.
+        const result = triggerPlayerWeaponSkill(skillId, now)
+        if (result === 'blocked' || result === 'not-weapon-skill') {
+          return false
+        }
+        didTrigger = result === 'cast'
+        break
+      }
     }
 
     if (!didTrigger) {
@@ -500,23 +510,24 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
       ? now
       : undefined)
     setPlayerAttackFacing(character.facing)
-    // 창은 찌르기: 휘두르는 슬래시 대신 앞으로 뻗는 찌르기 이펙트, 판정은 앞쪽 직선(combat.ts).
-    if (isEquippedPlayerWeaponThrust(getCurrentPlayerEquipment())) {
+    // 창·도끼·철퇴·단검은 무기별 모션 이펙트(판정은 combat.ts), 나머지는 기본 슬래시.
+    const meleeMotion = getPlayerMeleeMotion(getEquippedPlayerMeleeMotion(getCurrentPlayerEquipment()))
+    if (meleeMotion) {
       clearPlayerSlashEffectSprite()
-      playPlayerThrustEffect(character)
+      playPlayerMeleeMotionEffect(meleeMotion, character)
       return
     }
     playPlayerSlashEffect(character)
   }
-  const { clearPlayerThrustEffectSprite, playPlayerThrustEffect } = createPlayerThrustAttack({
+  const { clearPlayerMeleeMotionEffect, playPlayerMeleeMotionEffect } = createPlayerMeleeMotionEffects({
     characterPixelHeight,
     characterPixelWidth,
     map,
     getDepthSortedLayer
   })
-  // 근접 공격 이펙트(슬래시·찌르기)를 모두 지운다 — 사망·부활 때도 불린다.
+  // 근접 공격 이펙트(슬래시·무기별 모션)를 모두 지운다 — 사망·부활 때도 불린다.
   const clearPlayerSlashEffectSprite = () => {
-    clearPlayerThrustEffectSprite()
+    clearPlayerMeleeMotionEffect()
     const sprite = getPlayerSlashEffectSprite()
     if (!sprite) {
       return

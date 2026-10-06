@@ -1248,8 +1248,10 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
   }
 
   return {
+    applyMonsterDamageOverTime,
     clearMagicEffects,
     clearPlayerProjectiles,
+    freezeMonster,
     getPlayerBasicAttackDamage,
     isMonsterFrozen,
     isPlayerCasting,
@@ -1262,6 +1264,7 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     updateMonsterMagicStatuses,
     updatePlayerMagicCast,
     updatePlayerProjectiles,
-    getPlayerMagicCast: () => playerMagicCast
+    getPlayerMagicCast: () => playerMagicCast,
+    spawnMagicImpact
   }
 }

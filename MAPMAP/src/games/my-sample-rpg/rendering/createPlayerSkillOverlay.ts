@@ -9,19 +9,12 @@ import {
   PLAYER_SKILL_DRAG_MIME_TYPE
 } from '../playerSkillSlots'
 import {
-  PLAYER_PROTECT_SKILL_ID,
-  PLAYER_DASH_SKILL_ID,
-  PLAYER_FOCUS_SKILL_ID,
-  PLAYER_ICE_BOLT_SKILL_ID,
-  PLAYER_FIREBALL_SKILL_ID,
-  PLAYER_CHAIN_LIGHTNING_SKILL_ID,
-  PLAYER_MULTI_SHOT_SKILL_ID,
-  PLAYER_PIERCING_ARROW_SKILL_ID,
-  PLAYER_POISON_ARROW_SKILL_ID,
-  getPlayerSkillDisplayInfoById
+  PLAYER_SKILL_IDS_IN_DISPLAY_ORDER,
+  getPlayerSkillDisplayInfoById,
+  getPlayerSkillProfileIndex,
+  getPlayerSkillRequiredLevel
 } from '../playerSkills'
 import { isPlayerSkillUnlockedInProfile } from '../lua/luaGameLogic'
-import { PLAYER_SMASH_SKILL_ID } from '../playerSmashSkill'
 import { getResponsiveUiScale } from './getResponsiveUiScale'
 
 type CreatePlayerSkillOverlayInput = {
@@ -75,48 +68,11 @@ export const createPlayerSkillOverlay = ({
   const skillLevels: HTMLSpanElement[] = []
   const skillDescriptions: HTMLSpanElement[] = []
   const skillActions: HTMLSpanElement[] = []
-  const visibleSkillEntries = [
-    {
-      profileSkillIndex: 0,
-      skillId: PLAYER_SMASH_SKILL_ID
-    },
-    {
-      profileSkillIndex: 1,
-      skillId: PLAYER_PROTECT_SKILL_ID
-    },
-    {
-      profileSkillIndex: 2,
-      skillId: PLAYER_DASH_SKILL_ID
-    },
-    {
-      profileSkillIndex: 3,
-      skillId: PLAYER_FOCUS_SKILL_ID
-    },
-    {
-      profileSkillIndex: 4,
-      skillId: PLAYER_ICE_BOLT_SKILL_ID
-    },
-    {
-      profileSkillIndex: 5,
-      skillId: PLAYER_FIREBALL_SKILL_ID
-    },
-    {
-      profileSkillIndex: 6,
-      skillId: PLAYER_CHAIN_LIGHTNING_SKILL_ID
-    },
-    {
-      profileSkillIndex: 7,
-      skillId: PLAYER_MULTI_SHOT_SKILL_ID
-    },
-    {
-      profileSkillIndex: 8,
-      skillId: PLAYER_PIERCING_ARROW_SKILL_ID
-    },
-    {
-      profileSkillIndex: 9,
-      skillId: PLAYER_POISON_ARROW_SKILL_ID
-    }
-  ] as const
+  // 공통 스킬, 그다음 무기 계열마다 해금 레벨 순(playerSkills.ts)
+  const visibleSkillEntries = PLAYER_SKILL_IDS_IN_DISPLAY_ORDER.map((skillId) => ({
+    skillId,
+    profileSkillIndex: getPlayerSkillProfileIndex(skillId) ?? -1
+  }))
   let panelPosition = { left: 0, top: 0 }
   let hasPanelPosition = false
   let dragState:
@@ -206,7 +162,7 @@ export const createPlayerSkillOverlay = ({
     name.className = 'player-skill-overlay__skill-name'
     name.textContent = skill.label
     description.className = 'player-skill-overlay__skill-description'
-    description.textContent = skill.description
+    description.textContent = getPlayerSkillDisplayInfoById(skillEntry.skillId).description
     level.className = 'player-skill-overlay__skill-level'
     level.textContent = getPlayerSkillLevelLabel(skill)
     action.className = 'player-skill-overlay__skill-action'
@@ -371,14 +327,18 @@ export const createPlayerSkillOverlay = ({
       const description = skillDescriptions[index]
       const action = skillActions[index]
     const skillPointCost = getPlayerSkillPointCost(skill)
+    const requiredLevel = getPlayerSkillRequiredLevel(skillEntry.skillId)
+    const isLevelLocked = profile.level < requiredLevel
     const canUpgrade =
-      profile.availableSkillPoints >= skillPointCost && skillPointCost > 0
+      !isLevelLocked && profile.availableSkillPoints >= skillPointCost && skillPointCost > 0
     const actionLabel =
-      skill.level <= 0
-        ? '잠김'
-        : skill.level >= skill.maxLevel
-          ? 'MAX'
-          : '강화'
+      isLevelLocked
+        ? `Lv${requiredLevel}`
+        : skill.level <= 0
+          ? '잠김'
+          : skill.level >= skill.maxLevel
+            ? 'MAX'
+            : '강화'
 
       row.classList.toggle('player-skill-overlay__skill-row--locked', !canUpgrade)
       row.classList.toggle(
@@ -388,9 +348,11 @@ export const createPlayerSkillOverlay = ({
       row.draggable = isPlayerSkillUnlockedInProfile(profile, skillEntry.skillId)
       row.title = canUpgrade
         ? `${skill.label}을 ${skillPointCost} 포인트로 올립니다`
-        : skill.level >= skill.maxLevel
-          ? `${skill.label}은 이미 최대 레벨입니다`
-          : '스킬 포인트가 부족합니다'
+        : isLevelLocked
+          ? `레벨 ${requiredLevel}부터 배울 수 있습니다`
+          : skill.level >= skill.maxLevel
+            ? `${skill.label}은 이미 최대 레벨입니다`
+            : '스킬 포인트가 부족합니다'
       row.setAttribute(
         'aria-label',
         canUpgrade
@@ -401,7 +363,7 @@ export const createPlayerSkillOverlay = ({
       )
       hotkey.textContent = skill.hotkey
       name.textContent = skill.label
-      description.textContent = skill.description
+      description.textContent = displaySkill.description
       level.textContent = getPlayerSkillLevelLabel(skill)
       action.textContent = actionLabel
       renderSkillIcon(icon, displaySkill.iconUrl)

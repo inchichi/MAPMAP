@@ -1,5 +1,12 @@
 import { PLAYER_SMASH_SKILL_ID } from './playerSmashSkill'
 import type { PlayerProfile } from './playerProfile'
+import type { PlayerWeaponLine } from './playerEquipment'
+import {
+  PLAYER_WEAPON_LINE_LABEL,
+  PLAYER_WEAPON_SKILL_DEFINITIONS,
+  getPlayerWeaponSkillDefinition,
+  getPlayerWeaponSkillRequiredLevel
+} from './playerWeaponSkills'
 
 export type PlayerSkillDisplayInfo = {
   label: string
@@ -40,11 +47,15 @@ const PLAYER_SKILL_PROFILE_INDEX_BY_ID: Record<string, number> = {
   [PLAYER_CHAIN_LIGHTNING_SKILL_ID]: 6,
   [PLAYER_MULTI_SHOT_SKILL_ID]: 7,
   [PLAYER_PIERCING_ARROW_SKILL_ID]: 8,
-  [PLAYER_POISON_ARROW_SKILL_ID]: 9
+  [PLAYER_POISON_ARROW_SKILL_ID]: 9,
+  // 무기 계열 스킬은 그 뒤에 정의 순서대로(10~)
+  ...Object.fromEntries(
+    PLAYER_WEAPON_SKILL_DEFINITIONS.map((definition, index) => [definition.id, 10 + index])
+  )
 }
 
-// 무기 스킬(마법·활)의 레벨별 MP 와 자체 위력. 최종 데미지 = (마법: 지력 마법 공격력 /
-// 활: 힘 물리 공격력) + 위력 + 그 무기 보너스.
+// 무기 스킬(마법·활·무기 계열 스킬)의 레벨별 MP 와 자체 위력. 최종 데미지 = (마법·지팡이: 지력 마법 공격력 /
+// 그 밖: 힘 물리 공격력) + 위력 + 그 무기 보너스.
 // 5레벨 이후는 마지막 값에서 레벨당 (MP +1, 위력 +step) 씩 오른다.
 const PLAYER_MAGIC_SKILL_TABLE: Record<
   string,
@@ -59,7 +70,10 @@ const PLAYER_MAGIC_SKILL_TABLE: Record<
   },
   [PLAYER_MULTI_SHOT_SKILL_ID]: { mana: [3, 3, 4, 4, 5], power: [2, 3, 4, 5, 6], powerStep: 1 },
   [PLAYER_PIERCING_ARROW_SKILL_ID]: { mana: [4, 5, 5, 6, 7], power: [6, 9, 12, 15, 18], powerStep: 3 },
-  [PLAYER_POISON_ARROW_SKILL_ID]: { mana: [3, 4, 4, 5, 5], power: [2, 3, 4, 5, 6], powerStep: 1 }
+  [PLAYER_POISON_ARROW_SKILL_ID]: { mana: [3, 4, 4, 5, 5], power: [2, 3, 4, 5, 6], powerStep: 1 },
+  ...Object.fromEntries(
+    PLAYER_WEAPON_SKILL_DEFINITIONS.map((definition) => [definition.id, definition.table])
+  )
 }
 
 const getMagicSkillTableValue = (
@@ -145,7 +159,7 @@ export const getPlayerFocusSkillManaRestoreByLevel = (
 const PLAYER_SKILL_DISPLAY_INFO_BY_ID: Record<string, PlayerSkillDisplayInfo> = {
   [PLAYER_SMASH_SKILL_ID]: {
     label: '스매시',
-    description: '직선으로 뻗는 검 잔상 스킬',
+    description: '[검 · Lv1] 직선으로 뻗는 검 잔상 스킬',
     iconUrl: PLAYER_SMASH_SKILL_ICON_URL
   },
   [PLAYER_PROTECT_SKILL_ID]: {
@@ -165,35 +179,90 @@ const PLAYER_SKILL_DISPLAY_INFO_BY_ID: Record<string, PlayerSkillDisplayInfo> = 
   },
   [PLAYER_ICE_BOLT_SKILL_ID]: {
     label: '아이스 볼트',
-    description: '[마법 무기] 가장 가까운 적을 쫓는 얼음 화살. 맞은 적을 얼려 움직이지 못하게 한다',
+    description: '[지팡이 · Lv1] 가장 가까운 적을 쫓는 얼음 화살. 맞은 적을 얼려 움직이지 못하게 한다',
     iconUrl: PLAYER_ICE_BOLT_SKILL_ICON_URL
   },
   [PLAYER_FIREBALL_SKILL_ID]: {
     label: '파이어볼',
-    description: '[마법 무기] 적에게 날아가 터지는 불덩이. 주변 적에게도 피해를 주고 불태운다',
+    description: '[지팡이 · Lv1] 적에게 날아가 터지는 불덩이. 주변 적에게도 피해를 주고 불태운다',
     iconUrl: PLAYER_FIREBALL_SKILL_ICON_URL
   },
   [PLAYER_CHAIN_LIGHTNING_SKILL_ID]: {
     label: '체인 라이트닝',
-    description: '[마법 무기] 적을 내리친 번개가 가까운 적들에게 차례로 옮겨붙는다',
+    description: '[지팡이 · Lv1] 적을 내리친 번개가 가까운 적들에게 차례로 옮겨붙는다',
     iconUrl: PLAYER_CHAIN_LIGHTNING_SKILL_ICON_URL
   },
   [PLAYER_MULTI_SHOT_SKILL_ID]: {
     label: '멀티샷',
-    description: '[활] 가까운 적 여러 마리에게 동시에 화살을 날린다',
+    description: '[활 · Lv1] 가까운 적 여러 마리에게 동시에 화살을 날린다',
     iconUrl: PLAYER_MULTI_SHOT_SKILL_ICON_URL
   },
   [PLAYER_PIERCING_ARROW_SKILL_ID]: {
     label: '관통 화살',
-    description: '[활] 곧게 날아가며 앞을 막은 적들을 모두 꿰뚫는 강한 화살',
+    description: '[활 · Lv1] 곧게 날아가며 앞을 막은 적들을 모두 꿰뚫는 강한 화살',
     iconUrl: PLAYER_PIERCING_ARROW_SKILL_ICON_URL
   },
   [PLAYER_POISON_ARROW_SKILL_ID]: {
     label: '독화살',
-    description: '[활] 맞은 적을 중독시켜 몇 초 동안 계속 피해를 준다',
+    description: '[활 · Lv1] 맞은 적을 중독시켜 몇 초 동안 계속 피해를 준다',
     iconUrl: PLAYER_POISON_ARROW_SKILL_ICON_URL
   }
 }
+
+// 무기 계열 스킬 아이콘(scripts/generate-weapon-skill-icons.py 가 만든다)
+const getPlayerWeaponSkillIconUrl = (iconFileName: string): string =>
+  new URL(`./assets/skills/weapon/${iconFileName}.png`, import.meta.url).href
+
+for (const definition of PLAYER_WEAPON_SKILL_DEFINITIONS) {
+  PLAYER_SKILL_DISPLAY_INFO_BY_ID[definition.id] = {
+    label: definition.label,
+    description: `[${PLAYER_WEAPON_LINE_LABEL[definition.weaponLine]} · Lv${getPlayerWeaponSkillRequiredLevel(definition)}] ${definition.description}`,
+    iconUrl: getPlayerWeaponSkillIconUrl(definition.iconFileName)
+  }
+}
+
+// 스킬을 쓰려면 들어야 하는 무기 계열. 방어 자세·돌진·집중은 무기를 가리지 않는다(undefined).
+export const getPlayerSkillWeaponLine = (skillId: string): PlayerWeaponLine | undefined => {
+  if (skillId === PLAYER_SMASH_SKILL_ID) {
+    return 'sword'
+  }
+  if (PLAYER_MAGIC_SKILL_IDS.includes(skillId)) {
+    return 'staff'
+  }
+  if (PLAYER_BOW_SKILL_IDS.includes(skillId)) {
+    return 'bow'
+  }
+  return getPlayerWeaponSkillDefinition(skillId)?.weaponLine
+}
+
+// 스킬을 배울 수 있는 플레이어 레벨. 1장 스킬과 공통 스킬은 1.
+export const getPlayerSkillRequiredLevel = (skillId: string): number => {
+  const definition = getPlayerWeaponSkillDefinition(skillId)
+  return definition ? getPlayerWeaponSkillRequiredLevel(definition) : 1
+}
+
+export const getPlayerSkillRequiredLevelByProfileIndex = (profileSkillIndex: number): number => {
+  const skillId = Object.keys(PLAYER_SKILL_PROFILE_INDEX_BY_ID).find(
+    (id) => PLAYER_SKILL_PROFILE_INDEX_BY_ID[id] === profileSkillIndex
+  )
+  return skillId ? getPlayerSkillRequiredLevel(skillId) : 1
+}
+
+export const getPlayerSkillProfileIndex = (skillId: string): number | undefined =>
+  PLAYER_SKILL_PROFILE_INDEX_BY_ID[skillId]
+
+// 스킬 창 표시 순서: 공통 스킬, 그다음 무기 계열마다 해금 레벨 순.
+const PLAYER_WEAPON_LINE_DISPLAY_ORDER: readonly PlayerWeaponLine[] = ['sword', 'spear', 'axe', 'mace', 'dagger', 'bow', 'staff']
+export const PLAYER_SKILL_IDS_IN_DISPLAY_ORDER: readonly string[] = [
+  PLAYER_PROTECT_SKILL_ID,
+  PLAYER_DASH_SKILL_ID,
+  PLAYER_FOCUS_SKILL_ID,
+  ...PLAYER_WEAPON_LINE_DISPLAY_ORDER.flatMap((weaponLine) =>
+    Object.keys(PLAYER_SKILL_PROFILE_INDEX_BY_ID)
+      .filter((skillId) => getPlayerSkillWeaponLine(skillId) === weaponLine)
+      .sort((left, right) => getPlayerSkillRequiredLevel(left) - getPlayerSkillRequiredLevel(right))
+  )
+]
 
 export const getPlayerSkillDisplayInfoById = (
   skillId: string

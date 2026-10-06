@@ -1,3 +1,5 @@
+import { PLAYER_WEAPON_SKILL_DEFINITIONS } from './playerWeaponSkills'
+
 export type PlayerStatBlock = {
   strength: number
   agility: number
@@ -150,7 +152,15 @@ export const createInitialPlayerProfile = (): PlayerProfile => ({
           description: '맞은 적을 중독',
           level: 0,
           maxLevel: 5
-        }
+        },
+        // 무기 계열 스킬(playerWeaponSkills.ts 순서). 단축키는 Q/W/E/R 슬롯으로만 쓴다.
+        ...PLAYER_WEAPON_SKILL_DEFINITIONS.map((definition) => ({
+          hotkey: '',
+          label: definition.label,
+          description: definition.description,
+          level: 0,
+          maxLevel: 5
+        }))
       ]
     })
 

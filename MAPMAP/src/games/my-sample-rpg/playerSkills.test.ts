@@ -14,7 +14,7 @@ describe('playerSkills', () => {
   it('looks up display info for the smash and protect skills', () => {
     expect(getPlayerSkillDisplayInfoById('smash')).toMatchObject({
       label: '스매시',
-      description: '직선으로 뻗는 검 잔상 스킬'
+      description: '[검 · Lv1] 직선으로 뻗는 검 잔상 스킬'
     })
     expect(getPlayerSkillDisplayInfoById('smash').iconUrl).toContain(
       'Slash_skill.png'

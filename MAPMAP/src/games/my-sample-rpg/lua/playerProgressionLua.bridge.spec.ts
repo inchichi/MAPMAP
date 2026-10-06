@@ -133,6 +133,16 @@ describe('playerProgressionLua (real wasm)', () => {
       }
     }
 
+    // spendPlayerSkillPoint: 무기 계열 스킬(인덱스 10~)은 장 해금 레벨(1/15/38) 경계
+    for (const level of [1, 14, 15, 37, 38]) {
+      const profile = { ...createInitialPlayerProfile(), level, availableSkillPoints: 5 }
+      for (let skillIndex = 10; skillIndex < profile.skills.length; skillIndex++) {
+        expect(
+          lua.spendPlayerSkillPoint(profile, skillIndex)
+        ).toEqual(spendPlayerSkillPoint(profile, skillIndex))
+      }
+    }
+
     // getPlayerSkillPointCost + getPlayerSkillLevelLabel: 레벨 0..6, maxLevel 1/5
     for (const maxLevel of [1, 5]) {
       for (let level = 0; level <= 6; level++) {

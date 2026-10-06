@@ -699,6 +699,15 @@ slime-snow.png — 눈 말캉이 (위 "[LPC] Monsters" 말캉이 색 변형)
 golem-ice-walk.png, golem-ice-attack.png, golem-ice-die.png — 얼음 골렘 (위 "LPC Golem" 색 변형)
 skeleton-frost.png — 서리 해골 (유적 해골병 색 변형)
 
+■ game-icons
+game-icons.net
+license: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+source: https://github.com/game-icons/icons
+used for: skill icons (src/games/my-sample-rpg/assets/skills/*.png and skills/weapon/*.png), recolored and framed
+authors:
+- Lorc (https://lorcblog.blogspot.com): crossed-swords, saber-slash, spear-hook, thrown-spear, axe-swing, groundbreaker, chopped-skull, hammer-drop, impact-point, earth-crack, knife-thrust, backstab, spinning-blades, smash-arrows, striking-arrows, snowing, meteor-impact, piercing-sword, checked-shield, energy-arrow, sprint, meditation, frozen-arrow, fire-ray, lightning-branches, supersonic-arrow, chemical-arrow
+- Delapouite (https://delapouite.com): sun-spear, split-arrows
+
 ■ ninja-adventure
 # Ninja Adventure Asset Pack
 
