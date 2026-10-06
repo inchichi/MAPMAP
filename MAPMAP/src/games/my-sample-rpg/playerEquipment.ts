@@ -39,6 +39,10 @@ export type PlayerEquipmentItem = {
 // 무기의 기본 공격 방식 — melee: 근접 스윙(기본), bow: 화살 발사, magic: 에너지볼 발사.
 export type PlayerWeaponAttackKind = 'melee' | 'bow' | 'magic'
 
+// 근접 무기의 공격 모션 — slash: 기본 베기, thrust: 창 찌르기, cleave: 도끼 가르기,
+// crush: 철퇴 내려치기, quick-slash: 단검 빠른 긋기. 모션별 판정·이펙트는 rendering/mapView/playerMeleeMotions.ts.
+export type PlayerMeleeMotion = 'slash' | 'thrust' | 'cleave' | 'crush' | 'quick-slash'
+
 export type PlayerEquipmentItemDefinition = PlayerEquipmentItem & {
   slotId: PlayerEquipmentSlotId
   icon: PlayerEquipmentIcon
@@ -48,8 +52,8 @@ export type PlayerEquipmentItemDefinition = PlayerEquipmentItem & {
   defense?: number
   // 무기 슬롯 아이템만 의미 있음. 없으면 melee.
   attackKind?: PlayerWeaponAttackKind
-  // 근접 무기의 공격 동작. thrust 면 앞쪽 직선 찌르기 판정을 쓴다. 없으면 휘두르기(슬래시).
-  meleeMotion?: 'thrust'
+  // 근접 무기의 공격 모션. 없으면 slash.
+  meleeMotion?: PlayerMeleeMotion
 }
 
 export type PlayerEquipmentSlot = {
@@ -183,6 +187,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     level: 2,
     description: '무거운 한손 도끼',
     price: 260,
+    meleeMotion: 'cleave',
     icon: {
       key: 'lpc-weapon:battle-axe',
       scale: 1
@@ -210,6 +215,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     level: 1,
     description: '빠른 연속 공격용 무기',
     price: 180,
+    meleeMotion: 'quick-slash',
     icon: {
       key: 'lpc-weapon:quick-dagger',
       scale: 1
@@ -223,6 +229,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     level: 3,
     description: '강한 타격을 주는 둔기',
     price: 340,
+    meleeMotion: 'crush',
     icon: {
       key: 'lpc-weapon:spiked-mace',
       scale: 1
@@ -456,16 +463,16 @@ export const getEquippedPlayerWeaponAttackKind = (
   return definition?.attackKind ?? 'melee'
 }
 
-// 장착 중인 무기가 찌르기 근접 무기(창)인지 — 렌더러가 찌르기 이펙트·판정을 이걸로 분기한다.
-export const isEquippedPlayerWeaponThrust = (
+// 장착 중인 무기의 근접 공격 모션 — 렌더러가 이펙트·판정·쿨다운을 이걸로 분기한다.
+export const getEquippedPlayerMeleeMotion = (
   equipment: Pick<PlayerEquipment, 'slots'>
-): boolean => {
+): PlayerMeleeMotion => {
   const weaponSlot = equipment.slots.find((slot) => slot.id === 'weapon')
   const definition = weaponSlot?.item
     ? getPlayerEquipmentItemDefinitionById(weaponSlot.item.id)
     : undefined
 
-  return definition?.meleeMotion === 'thrust'
+  return definition?.meleeMotion ?? 'slash'
 }
 
 // 장착 중인 장비의 전투 보정 합계 — 렌더러의 공격/피격 계산에 더해진다.

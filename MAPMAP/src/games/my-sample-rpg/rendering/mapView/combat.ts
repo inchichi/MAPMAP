@@ -12,7 +12,7 @@ import type { GameSoundEffects } from '../createGameSoundEffects'
 import { AnimatedSprite } from 'pixi.js'
 import { PLAYER_CHARACTER_ID } from '../../characterState'
 import type { CharacterMoveDirection, CharacterState } from '../../characterState'
-import { getEquippedPlayerDefense, isEquippedPlayerWeaponThrust } from '../../playerEquipment'
+import { getEquippedPlayerDefense, getEquippedPlayerMeleeMotion } from '../../playerEquipment'
 import { type PlayerInventory } from '../../playerInventory'
 import { PLAYER_SMASH_SKILL_ID } from '../../playerSmashSkill'
 import { recordMonsterDefeatQuestProgress, type QuestLogState } from '../../questLog'
@@ -27,7 +27,8 @@ import { DEFAULT_MONSTER_DEATH_SOUND, getMonsterCatalogEntry, type MonsterBehavi
 import { isBossSummonCharacterId } from '../../bossSkills'
 import { BOSS_RETRY_RESPAWN_DELAY_MILLISECONDS, DAMAGE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, MONSTER_ATTACK_RANGE_TOUCH_TOLERANCE_TILES, MONSTER_CONTACT_DAMAGE_COOLDOWN_MILLISECONDS, MONSTER_CONTACT_DAMAGE_TOUCH_TOLERANCE_TILES, MONSTER_RESPAWN_DELAY_MILLISECONDS, PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES, PLAYER_DAMAGE_INVULNERABILITY_MILLISECONDS, PLAYER_RESPAWN_DELAY_MILLISECONDS, SLASH_VFX_HIT_PADDING_PIXELS, WHITE_SLASH_WIDE_FRAME_BOUNDS, isBossCharacterId } from './constants'
 import { getMonsterBehaviorConfig } from './nodes'
-import { PLAYER_THRUST_ATTACK_PROBE_DISTANCE_IN_TILES, isPlayerThrustHitWindowOpen } from './playerThrustAttack'
+import { getPlayerMeleeMotion } from './playerMeleeMotions'
+import { getFacingDirection, isMeleeMotionHitWindowOpen, type MeleeMotion } from './meleeMotions/meleeMotion'
 import { createCollisionRectFromCharacter } from './tiles'
 import { type MonsterPigAnimationMode, type MonsterPigBehaviorState, type PlayerHitReactionState, type RenderedCharacterNode } from './types'
 
@@ -747,15 +748,14 @@ export const createCombat = (ctx: CombatContext) => {
       return
     }
 
-    const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
-    const playerSlashEffectSprite = getPlayerSlashEffectSprite()
-    const isThrust = isEquippedPlayerWeaponThrust(getCurrentPlayerEquipment())
-    if (
-      isThrust &&
-      !isPlayerThrustHitWindowOpen(now - (getPlayerAttackStartedAtMilliseconds() ?? now))
-    ) {
+    const meleeMotion = getPlayerMeleeMotion(getEquippedPlayerMeleeMotion(getCurrentPlayerEquipment()))
+    if (meleeMotion) {
+      resolvePlayerMeleeMotionDamage(meleeMotion, now)
       return
     }
+
+    const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
+    const playerSlashEffectSprite = getPlayerSlashEffectSprite()
     const targetCharacter = playerSlashEffectSprite
       ? resolveClosestMonsterInCollisionRect(
           createSlashEffectHitRect(playerSlashEffectSprite)
@@ -766,9 +766,7 @@ export const createCombat = (ctx: CombatContext) => {
           canReceiveInteraction: (character) =>
             isMonsterCharacter(character) &&
             !isMonsterCombatStateDefeated(character.id),
-          interactionProbeDistanceInTiles: isThrust
-            ? PLAYER_THRUST_ATTACK_PROBE_DISTANCE_IN_TILES
-            : PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES
+          interactionProbeDistanceInTiles: PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES
         })
 
     if (targetCharacter) {
@@ -776,6 +774,65 @@ export const createCombat = (ctx: CombatContext) => {
       applyDamageToMonster(targetCharacter.id, getPlayerBasicAttackDamage(false), now)
       setPlayerAttackResolvedStartedAtMilliseconds(getPlayerAttackStartedAtMilliseconds())
     }
+  }
+
+  // 무기별 모션(창·도끼·철퇴·단검) 판정: 모션이 정한 시점부터 동작이 끝날 때까지,
+  // 한 마리(single) 또는 범위 안 전부(area)를 한 번 맞힌다.
+  function resolvePlayerMeleeMotionDamage(meleeMotion: MeleeMotion, now: number): void {
+    const attackStartedAt = getPlayerAttackStartedAtMilliseconds() ?? now
+    if (!isMeleeMotionHitWindowOpen(meleeMotion, now - attackStartedAt)) {
+      return
+    }
+
+    const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
+    const damage = getPlayerBasicAttackDamage(false)
+    const hit = meleeMotion.hit
+
+    if (hit.kind === 'single') {
+      const targetCharacter = resolveCharacterInteractionTarget({
+        sourceCharacter: playerCharacter,
+        targetCharacters: getCharacterStates(),
+        canReceiveInteraction: (character) =>
+          isMonsterCharacter(character) &&
+          !isMonsterCombatStateDefeated(character.id),
+        interactionProbeDistanceInTiles: hit.probeDistanceInTiles
+      })
+
+      if (targetCharacter) {
+        applyDamageToMonster(targetCharacter.id, damage, now)
+        setPlayerAttackResolvedStartedAtMilliseconds(attackStartedAt)
+      }
+      return
+    }
+
+    const center = getCharacterPixelCenter(playerCharacter)
+    const direction = getFacingDirection(playerCharacter.facing)
+    const hitRect = hit.getHitRect({
+      x: center.x,
+      y: center.y,
+      bodyWidth: playerCharacter.collisionSize.width * map.tileWidth,
+      bodyHeight: playerCharacter.collisionSize.height * map.tileHeight,
+      directionX: direction.x,
+      directionY: direction.y,
+      tileWidth: map.tileWidth,
+      tileHeight: map.tileHeight
+    })
+    const targetCharacters = getCharacterStates().filter(
+      (character) =>
+        isMonsterCharacter(character) &&
+        !isMonsterCombatStateDefeated(character.id) &&
+        doCollisionRectsIntersect(hitRect, createPixelCollisionRectFromCharacter(character))
+    )
+
+    if (targetCharacters.length === 0) {
+      return
+    }
+
+    for (const targetCharacter of targetCharacters) {
+      applyDamageToMonster(targetCharacter.id, damage, now)
+      knockbackMonsterAwayFromCharacter(targetCharacter.id, playerCharacter, hit.extraKnockbackInTiles)
+    }
+    setPlayerAttackResolvedStartedAtMilliseconds(attackStartedAt)
   }
 
   function resolvePlayerSmashSkillDamage(now: number): void {
