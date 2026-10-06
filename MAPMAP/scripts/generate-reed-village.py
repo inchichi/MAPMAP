@@ -23,8 +23,10 @@ OUT = 'src/games/my-sample-rpg/assets/maps/reed-village.tmx'
 TOWN_TMX = 'src/games/my-sample-rpg/assets/maps/town.tmx'
 FENCE_GATE = LPC['town_prop_fence_gate']
 FLOWERS = [LPC[f'town_prop_flower_{k}'] for k in 'abcd']
-LOGPILE = [[LPC['town_prop_logpile_r0c0'], LPC['town_prop_logpile_r0c1']],
-           [LPC['town_prop_logpile_r1c0'], LPC['town_prop_logpile_r1c1']]]
+# 장작더미: 타일 이름(logpile_r?c?)과 실제 그림 조각이 어긋나 있어 그림 기준으로 맞춘다.
+# 위 왼쪽 = 솟은 통나무 끝, 아래 = 단면 더미(왼쪽)·옆면(오른쪽). r1c0 은 통나무 한 토막이라 쓰지 않는다.
+LOGPILE = [[LPC['town_prop_logpile_r0c1'], 0],
+           [LPC['town_prop_logpile_r1c1'], LPC['town_prop_logpile_r0c0']]]
 
 # ---------------------------------------------------------------- 자리(칸 좌표)
 PIER = [(x, y) for x in range(0, 4) for y in (17, 18)]          # 서쪽 나루 데크(맵 끝까지)

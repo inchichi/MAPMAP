@@ -15,7 +15,8 @@
     "lua:build": "node scripts/build-lua-wasm.mjs",
     "lua:sync": "npm run lua:fetch && npm run lua:build",
     "lua:bridge:test": "tsc --noEmit && vitest run --config vitest.lua-bridge.config.ts",
-    "lua:test": "node scripts/fetch-lua-tests.mjs && node scripts/test-lua-wasm.mjs"
+    "lua:test": "node scripts/fetch-lua-tests.mjs && node scripts/test-lua-wasm.mjs",
+    "rl:build": "vite-node scripts/export-boss-arena.ts && esbuild scripts/boss-env-server.ts --bundle --platform=node --format=esm --target=node20 --outfile=rl/dist/boss-env-server.mjs"
   },
   "devDependencies": {
     "@pixi/tilemap": "^5.0.2",

@@ -26,7 +26,7 @@ import { QUEST_GIVER_PORTRAIT_KEY_BY_NPC_ID } from '../createQuestLogOverlay'
 import { getWaystone, getWaystoneIdFromCharacterId, getWaystoneMenuPage } from '../../waystones'
 import { startScenarioRun, type ScenarioRewardGrant, type ScenarioRun } from '../../scenario/scenarioRuntime'
 import { createScenarioFlagAccess, getScenarioForNpc, isPriorityScenarioForNpc } from '../../scenario/scenarioStore'
-import { BLACKSMITH_SHOP_NPC_ID, DAMAGE_TEXT_DURATION_MILLISECONDS, HERBALIST_SHOP_NPC_IDS, LEVEL_UP_TEXT_STYLE, NPC_PORTRAITS, POTION_SHOP_NPC_IDS, QUEST_DIALOGUE_DURATION_MILLISECONDS, QUEST_START_TEXT, SCENARIO_REWARD_ITEM_LABEL_BY_ID } from './constants'
+import { BLACKSMITH_SHOP_NPC_ID, DAMAGE_TEXT_DURATION_MILLISECONDS, HERBALIST_SHOP_NPC_IDS, LEVEL_UP_TEXT_STYLE, POTION_SHOP_NPC_IDS, QUEST_DIALOGUE_DURATION_MILLISECONDS, QUEST_START_TEXT, SCENARIO_REWARD_ITEM_LABEL_BY_ID } from './constants'
 import { addQuestItemRewardsToInventory } from './questRewards'
 import { type SceneTransitionRequest } from './types'
 
@@ -111,14 +111,10 @@ export const createNpcInteractions = (ctx: NpcInteractionsContext) => {
     syncPlayerUiOverlays()
   }
 
-  // 대화창 초상화: 일러스트가 있으면 그것, 없으면 그 NPC 의 LPC 전신을 픽셀 그대로 키워 쓴다.
+  // 대화창 초상화: 게임 그림체에 맞춰 그 NPC 의 LPC 전신을 픽셀 그대로 키워 쓴다.
   const getNpcDialoguePortrait = (
     characterId: string
   ): { portraitUrl: string; pixelArtPortrait: boolean } => {
-    const illustration = NPC_PORTRAITS[characterId]
-    if (illustration) {
-      return { portraitUrl: illustration, pixelArtPortrait: false }
-    }
     const character = getCharacterStates().find((candidate) => candidate.id === characterId)
     const key = character ? getLpcNpcSheetKey(character.id, character.appearanceType) : undefined
     const fullBody = key ? getLpcNpcFullBodyUrl(key) : undefined
@@ -428,8 +424,8 @@ export const createNpcInteractions = (ctx: NpcInteractionsContext) => {
     const fullBody = sheetKey ? getLpcNpcFullBodyUrl(sheetKey) : undefined
 
     getNpcDialogueOverlay().show({
-      portraitUrl: NPC_PORTRAITS[giverNpcId] ?? fullBody ?? '',
-      pixelArtPortrait: !NPC_PORTRAITS[giverNpcId] && fullBody !== undefined,
+      portraitUrl: fullBody ?? '',
+      pixelArtPortrait: fullBody !== undefined,
       name: speaker?.name ?? definition.giverName,
       lines: formatQuestTextLines(lines, { playerName: playerProfile.name })
     })

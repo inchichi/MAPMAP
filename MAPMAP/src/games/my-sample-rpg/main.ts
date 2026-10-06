@@ -14,6 +14,7 @@ import frostVillageMapXml from './assets/maps/frost-village.tmx?raw'
 import frozenLakeMapXml from './assets/maps/frozen-lake.tmx?raw'
 import iceCave1fMapXml from './assets/maps/ice-cave-1f.tmx?raw'
 import iceCave2fMapXml from './assets/maps/ice-cave-2f.tmx?raw'
+import bossArenaMapXml from './assets/maps/boss-arena.tmx?raw'
 import townMapXml from './assets/maps/town.tmx?raw'
 import replyWithMessageControllerLua from './assets/lua/reply-with-message.lua?raw'
 import wanderNearHomeControllerLua from './assets/lua/wander-near-home.lua?raw'
@@ -150,6 +151,7 @@ type SceneId =
   | 'frozen-lake'
   | 'ice-cave-1f'
   | 'ice-cave-2f'
+  | 'boss-arena'
 
 const isCharacterFacing = (value: unknown): value is CharacterMoveDirection =>
   value === 'up' || value === 'down' || value === 'left' || value === 'right'
@@ -306,6 +308,11 @@ const parsedIceCave2fMap = parseTiledMap({
   mapXml: iceCave2fMapXml,
   externalTilesets: MAP_EXTERNAL_TILESETS
 })
+// 시험장: 여러 기술을 가진 시험 보스(강화학습 실험용). 에디터의 맵 전환으로만 들어온다.
+const parsedBossArenaMap = parseTiledMap({
+  mapXml: bossArenaMapXml,
+  externalTilesets: MAP_EXTERNAL_TILESETS
+})
 const tinyDungeonTileset = parseTiledTileset({
   firstGid: 1,
   source: '../tilesets/tiny-dungeon-16.tsx',
@@ -347,7 +354,8 @@ const sceneMaps: Record<SceneId, typeof parsedTownMap> = {
   'frost-village': parsedFrostVillageMap,
   'frozen-lake': parsedFrozenLakeMap,
   'ice-cave-1f': parsedIceCave1fMap,
-  'ice-cave-2f': parsedIceCave2fMap
+  'ice-cave-2f': parsedIceCave2fMap,
+  'boss-arena': parsedBossArenaMap
 }
 const sceneMusicUrls: Record<SceneId, string> = {
   town: townMusicUrl,
@@ -368,7 +376,8 @@ const sceneMusicUrls: Record<SceneId, string> = {
   'frost-village': huntingGroundMusicUrl,
   'frozen-lake': huntingGroundMusicUrl,
   'ice-cave-1f': huntingGroundMusicUrl,
-  'ice-cave-2f': huntingGroundMusicUrl
+  'ice-cave-2f': huntingGroundMusicUrl,
+  'boss-arena': huntingGroundMusicUrl
 }
 const storedPlayerSaveState = readStoredPlayerSaveState()
 const playerProfile = storedPlayerSaveState?.profile ?? createInitialPlayerProfile()
@@ -1433,7 +1442,8 @@ window.addEventListener('message', (event) => {
     sceneId === 'frost-village' ||
     sceneId === 'frozen-lake' ||
     sceneId === 'ice-cave-1f' ||
-    sceneId === 'ice-cave-2f'
+    sceneId === 'ice-cave-2f' ||
+    sceneId === 'boss-arena'
   ) {
     questLog = recordSceneEnterQuestProgress(questLog, sceneId)
     // 선택: 도착 칸 지정({ x, y } 타일 좌표) — 에디터·자동 점검에서 원하는 자리에 바로 선다.

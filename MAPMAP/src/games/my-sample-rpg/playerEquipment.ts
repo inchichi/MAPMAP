@@ -48,6 +48,8 @@ export type PlayerEquipmentItemDefinition = PlayerEquipmentItem & {
   defense?: number
   // 무기 슬롯 아이템만 의미 있음. 없으면 melee.
   attackKind?: PlayerWeaponAttackKind
+  // 근접 무기의 공격 동작. thrust 면 앞쪽 직선 찌르기 판정을 쓴다. 없으면 휘두르기(슬래시).
+  meleeMotion?: 'thrust'
 }
 
 export type PlayerEquipmentSlot = {
@@ -194,6 +196,7 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     level: 2,
     description: '거리감을 유지하기 좋은 창',
     price: 280,
+    meleeMotion: 'thrust',
     icon: {
       key: 'lpc-weapon:long-spear',
       scale: 1
@@ -451,6 +454,18 @@ export const getEquippedPlayerWeaponAttackKind = (
     : undefined
 
   return definition?.attackKind ?? 'melee'
+}
+
+// 장착 중인 무기가 찌르기 근접 무기(창)인지 — 렌더러가 찌르기 이펙트·판정을 이걸로 분기한다.
+export const isEquippedPlayerWeaponThrust = (
+  equipment: Pick<PlayerEquipment, 'slots'>
+): boolean => {
+  const weaponSlot = equipment.slots.find((slot) => slot.id === 'weapon')
+  const definition = weaponSlot?.item
+    ? getPlayerEquipmentItemDefinitionById(weaponSlot.item.id)
+    : undefined
+
+  return definition?.meleeMotion === 'thrust'
 }
 
 // 장착 중인 장비의 전투 보정 합계 — 렌더러의 공격/피격 계산에 더해진다.

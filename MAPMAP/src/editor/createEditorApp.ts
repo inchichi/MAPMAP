@@ -19,6 +19,7 @@ import {
 import { analyzeGame, type GameAnalysis } from './analyzeGame'
 import { extractTmxLayerNames, extractTmxObjects, type TmxObject } from './tmxObjects'
 import { readLocalStorage } from './safeStorage'
+import { createSceneSwitcher, type SceneSwitcherEntry } from './createSceneSwitcher'
 import { LOCAL_LLM_MODEL } from './llmProvider'
 import {
   appendEventEvaluation,
@@ -292,11 +293,6 @@ const ENTITY_BASE =
 // 선택된 구성원(=지금 편집 중인 에셋) — 가장 또렷한 소프트 그레이 필 + 밝은 테두리(퀵카드 선택과 동일 언어).
 const ENTITY_ACTIVE =
   'h-[34px] min-w-0 flex items-center gap-1.5 rounded-lg px-2 text-left bg-[#52555b] border border-[#9296a0] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] text-[12px] text-[#f0f1f3] transition duration-150'
-// 게임 미리보기 위 맵 탭(마을/사냥터/동굴) — 둥근 나무 탭, 선택된 탭만 금색 그라데이션.
-const SCENE_TAB =
-  'h-[26px] flex items-center gap-1.5 text-[14px] leading-none rounded-lg px-3 py-1 bg-[#1a1a1c] border border-[#3c3c3c] text-[#9d9d9d] transition hover:bg-[#242427] hover:text-[#d4d4d4]'
-const SCENE_TAB_ACTIVE =
-  'h-[26px] flex items-center gap-1.5 text-[14px] leading-none rounded-lg px-3 py-1 bg-[#a8adb5] border border-[#878d96] text-[#1c1d20] shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] transition'
 // 진행 단계 캡슐(선택→작성→생성→확인→적용) — 숫자 원형 배지 + 라벨 구조.
 // 현재 단계: 금색 테두리+은은한 glow 펄스, 숫자는 금색 채움 / 완료: ✓ / 미완료: 보조 정보 수준.
 const STEP_PILL =
@@ -1052,6 +1048,28 @@ export const createEditorApp = ({
     el('span', 'truncate text-[13px] font-medium leading-none text-[#9d9d9d]', '게임 화면'),
     el('span', 'hidden lg:inline text-[10px] leading-none text-[#7a6a52]', '현재 실행 중')
   )
+  // 맵 전환 — 프리뷰는 항상 my-sample-rpg를 실행하므로 그 게임의 씬을 바꾼다. 맵이 많아도 한 줄에
+  // 들어가게 최근 맵 탭 + 검색 드롭다운(createSceneSwitcher)으로 고르고, 드롭다운은 장별로 묶는다.
+  const previewScenes: SceneSwitcherEntry[] = [
+    { id: 'town', label: '마을', icon: 'building', group: '1장' },
+    { id: 'hunting-ground', label: '사냥터', icon: 'sword', group: '1장' },
+    { id: 'cave', label: '동굴', icon: 'crystal', group: '1장' },
+    { id: 'crystal-mine', label: '수정 광산', icon: 'orb', group: '1장' },
+    { id: 'harvest-village', label: '딴따라마을', icon: 'tree', group: '2장' },
+    { id: 'upstream-waterway', label: '수로 상류길', icon: 'map', group: '2장' },
+    { id: 'reed-village', label: '갈대골', icon: 'tent', group: '2장' },
+    { id: 'sunken-forest', label: '가라앉은 숲', icon: 'tree', group: '2장' },
+    { id: 'ruins-outskirts', label: '신전 외곽', icon: 'tent', group: '2장' },
+    { id: 'sunken-temple-1f', label: '신전 1층', icon: 'crystal', group: '2장' },
+    { id: 'sunken-temple-2f', label: '봉인의 방', icon: 'orb', group: '2장' },
+    { id: 'reed-well', label: '우물 속', icon: 'map', group: '2장' },
+    { id: 'north-pass', label: '북쪽 고갯길', icon: 'map', group: '3장' },
+    { id: 'frost-village', label: '서리목', icon: 'tent', group: '3장' },
+    { id: 'frozen-lake', label: '얼어붙은 호수', icon: 'map', group: '3장' },
+    { id: 'ice-cave-1f', label: '얼음 동굴', icon: 'crystal', group: '3장' },
+    { id: 'ice-cave-2f', label: '얼음 제단', icon: 'orb', group: '3장' },
+    { id: 'boss-arena', label: '시험장', icon: 'sword', group: '테스트' }
+  ]
   // 맵 요약(현재 맵 + 개체 수) — 텍스트 나열 대신 정보 칩(pill)로 분리해 한눈에 읽히게.
   // 줄바꿈 금지: 공간이 모자라면 overflow-hidden으로 끝 칩부터 잘린다(헤더 높이 고정).
   const STAT_CHIP =
@@ -1068,6 +1086,15 @@ export const createEditorApp = ({
       currentMapId !== undefined
         ? game.maps.find((map) => map.id === currentMapId)
         : undefined
+    // 게임은 에디터가 불러오지 않은 맵(예: 2·3장 맵)에도 갈 수 있다. 그때는 다른 맵의 개수를
+    // 대신 보여 주지 않고 맵 이름만 띄운다.
+    if (currentMapId !== undefined && !focusMap) {
+      const label = previewScenes.find((scene) => scene.id === currentMapId)?.label ?? currentMapId
+      const chip = el('span', STAT_CHIP_MAP, label)
+      chip.title = `현재 맵: ${label} (에디터에 불러오지 않은 맵이라 개수는 세지 않아요)`
+      previewStats.replaceChildren(chip)
+      return
+    }
     const map = focusMap ?? game.maps[0]
     if (!map) {
       previewStats.replaceChildren()
@@ -1130,37 +1157,16 @@ export const createEditorApp = ({
     prevCountsByMap[map.id] = counts
   }
   previewBar.append(previewTitle, previewStats)
-  const previewActions = el('div', 'flex items-center gap-1.5 shrink-0')
-  // 맵 전환 — 프리뷰는 항상 my-sample-rpg를 실행하므로 그 게임의 씬(마을/사냥터/동굴)을 바꾼다.
-  // 탭마다 게임풍 아이콘: 마을→집, 사냥터→검, 동굴→수정.
-  const previewScenes: Array<{ id: string; label: string; icon: EditorIconName }> = [
-    { id: 'town', label: '마을', icon: 'building' },
-    { id: 'hunting-ground', label: '사냥터', icon: 'sword' },
-    { id: 'cave', label: '동굴', icon: 'crystal' },
-    { id: 'crystal-mine', label: '수정 광산', icon: 'orb' },
-    { id: 'harvest-village', label: '딴따라마을', icon: 'tree' },
-    { id: 'upstream-waterway', label: '수로 상류길', icon: 'map' },
-    { id: 'reed-village', label: '갈대골', icon: 'tent' },
-    { id: 'sunken-forest', label: '가라앉은 숲', icon: 'tree' },
-    { id: 'ruins-outskirts', label: '신전 외곽', icon: 'tent' },
-    { id: 'sunken-temple-1f', label: '신전 1층', icon: 'crystal' },
-    { id: 'sunken-temple-2f', label: '봉인의 방', icon: 'orb' },
-    { id: 'reed-well', label: '우물 속', icon: 'map' },
-    { id: 'north-pass', label: '북쪽 고갯길', icon: 'map' },
-    { id: 'frost-village', label: '서리목', icon: 'tent' },
-    { id: 'frozen-lake', label: '얼어붙은 호수', icon: 'map' },
-    { id: 'ice-cave-1f', label: '얼음 동굴', icon: 'crystal' },
-    { id: 'ice-cave-2f', label: '얼음 제단', icon: 'orb' }
-  ]
-  const mapSwitcher = el('div', 'flex items-center gap-1')
+  const previewActions = el('div', 'flex items-center justify-end gap-1.5 min-w-0 flex-1')
+  const sceneSwitcher = createSceneSwitcher({ onSelect: (entry) => handleSceneSelect(entry) })
   // 새 창/새로고침은 아이콘 버튼으로 — 의미는 title(툴팁)로 유지한다.
-  const popoutButton = el('button', 'w-[26px] h-[26px] flex items-center justify-center rounded-lg bg-[#1a1a1c] border border-[#3c3c3c] text-[13px] leading-none text-[#9d9d9d] transition hover:bg-[#242427] hover:text-[#d4d7dc]', '↗') as HTMLButtonElement
+  const popoutButton = el('button', 'w-[26px] h-[26px] shrink-0 flex items-center justify-center rounded-lg bg-[#1a1a1c] border border-[#3c3c3c] text-[13px] leading-none text-[#9d9d9d] transition hover:bg-[#242427] hover:text-[#d4d7dc]', '↗') as HTMLButtonElement
   popoutButton.type = 'button'
   popoutButton.title = '새 창에서 열기'
-  const reloadButton = el('button', 'w-[26px] h-[26px] flex items-center justify-center rounded-lg bg-[#1a1a1c] border border-[#3c3c3c] text-[13px] leading-none text-[#9d9d9d] transition hover:bg-[#242427] hover:text-[#d4d7dc]', '↻') as HTMLButtonElement
+  const reloadButton = el('button', 'w-[26px] h-[26px] shrink-0 flex items-center justify-center rounded-lg bg-[#1a1a1c] border border-[#3c3c3c] text-[13px] leading-none text-[#9d9d9d] transition hover:bg-[#242427] hover:text-[#d4d7dc]', '↻') as HTMLButtonElement
   reloadButton.type = 'button'
   reloadButton.title = '게임 새로고침'
-  previewActions.append(mapSwitcher, popoutButton, reloadButton)
+  previewActions.append(sceneSwitcher.element, popoutButton, reloadButton)
   previewBar.append(previewActions)
   // 게임 스테이지 — 16:9 고정 대신 패널을 '덮는'(cover) 방식. iframe(게임 창)을 패널보다
   // 크게 키워 중앙 정렬하고 넘치는 가장자리는 overflow로 잘라낸다 → 레터박스(빈 검정) 없이
@@ -1297,46 +1303,33 @@ export const createEditorApp = ({
     }
   })
   document.body.append(stylePipelinePanel.backdrop)
-  let mapSwitcherButtons: Array<{ id: string; button: HTMLButtonElement }> = []
-  // 게임이 보고/선택한 현재 맵의 탭을 금색으로 강조한다(표시 전용). rpg는 연결 전 기본 맵(town).
+  // 게임이 보고/선택한 현재 맵을 맵 전환기에 표시한다(표시 전용). rpg는 연결 전 기본 맵(town).
   const updateSceneTabs = (): void => {
-    const activeId =
-      currentMapId ?? (game.adapter.id === 'my-sample-rpg' ? 'town' : undefined)
-    for (const { id, button } of mapSwitcherButtons) {
-      button.className = id === activeId ? SCENE_TAB_ACTIVE : SCENE_TAB
+    sceneSwitcher.setActive(currentMapId ?? (game.adapter.id === 'my-sample-rpg' ? 'town' : undefined))
+  }
+  const handleSceneSelect = (entry: SceneSwitcherEntry): void => {
+    if (game.adapter.id === 'my-sample-rpg') {
+      iframe.contentWindow?.postMessage({ type: 'editor:switch-scene', sceneId: entry.id }, '*')
+      return
     }
+    if (game.adapter.id !== 'crypt-crawler') currentMapId = entry.id
+    // legend 등 씬 되보고가 없는 게임은 탭으로 게임 맵만 바꾸고 트리는 전체 보기를 유지한다 —
+    // 인게임에서 다른 맵으로 이동해도 생성 NPC가 트리에서 사라지지 않게(현재 맵은 '· 현재 맵'으로 표시).
+    iframe.contentWindow?.postMessage(
+      { type: 'editor:goto-map', mapId: entry.id, mapName: entry.label },
+      '*'
+    )
+    renderTree()
+    render()
+    updateSceneTabs()
   }
   const renderMapSwitcher = (): void => {
-    const isRpg = game.adapter.id === 'my-sample-rpg'
-    const entries: Array<{ id: string; label: string; icon: EditorIconName }> = isRpg
-      ? previewScenes
-      : game.maps.map((map) => ({ id: map.id, label: map.name, icon: 'map' as const }))
-    mapSwitcherButtons = entries.map((entry) => {
-      const button = el('button', SCENE_TAB) as HTMLButtonElement
-      button.append(editorIcon(entry.icon, 12), el('span', '', entry.label))
-      button.type = 'button'
-      button.addEventListener('click', () => {
-        if (isRpg) {
-          iframe.contentWindow?.postMessage(
-            { type: 'editor:switch-scene', sceneId: entry.id },
-            '*'
-          )
-          return
-        }
-        if (game.adapter.id !== 'crypt-crawler') currentMapId = entry.id
-        // legend 등 씬 되보고가 없는 게임은 탭으로 게임 맵만 바꾸고 트리는 전체 보기를 유지한다 —
-        // 인게임에서 다른 맵으로 이동해도 생성 NPC가 트리에서 사라지지 않게(현재 맵은 '· 현재 맵'으로 표시).
-        iframe.contentWindow?.postMessage(
-          { type: 'editor:goto-map', mapId: entry.id, mapName: entry.label },
-          '*'
-        )
-        renderTree()
-        render()
-        updateSceneTabs()
-      })
-      return { id: entry.id, button }
-    })
-    mapSwitcher.replaceChildren(...mapSwitcherButtons.map((b) => b.button))
+    sceneSwitcher.setEntries(
+      game.adapter.id,
+      game.adapter.id === 'my-sample-rpg'
+        ? previewScenes
+        : game.maps.map((map) => ({ id: map.id, label: map.name, icon: 'map' as const }))
+    )
     updateSceneTabs()
   }
   renderMapSwitcher()

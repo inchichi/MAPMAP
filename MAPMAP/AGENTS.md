@@ -9,10 +9,12 @@
 - `docs/architecture.md`: Read this when you decide module ownership, dependency direction, or where new code should live.
 - `docs/tech-stack.md`: Read this when you need to check the tech stack, supported platforms, build flow, or tool choice. Check this first for new libraries, build pipeline changes, or client/server boundary decisions.
 - `docs/coding-standards.md`: Read this before writing or changing code. Check this first when you add a new source file or need to make style decisions.
+- `docs/feature-modules.md`: Read this before you add a new game feature (weapon motion, skill, effect, monster pattern, UI window). New features must be built as their own module, following this guide.
 - `docs/testing-strategy.md`: Read this when you plan validation work or add or change tests.
 - `docs/git-rules.md`: Read this for branch, commit, merge, and release work.
 - `docs/lua-controller-api.md`: Read this when you write or change Lua character controllers or the Lua controller bridge. Treat it and `src/game/lua/luaControllerApi.ts` as the Lua-facing contract.
 - `docs/scenario-interpreter-decision.md`: Read this before adding scenario/cutscene execution. It fixes where the scenario interpreter lives (TS host, not Lua) and why.
+- `docs/boss-rl-design.md`: Read this when you work on the trial boss, the boss fight simulator, player bots, or boss RL training. It is the decision log for that work.
 
 # AI Agent Rules
 

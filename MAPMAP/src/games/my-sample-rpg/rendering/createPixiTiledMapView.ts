@@ -41,7 +41,7 @@ import { createMapOverlay } from './createMapOverlay'
 import { createNpcDialogueOverlay } from './createNpcDialogueOverlay'
 import type { MonsterAnimationTextures } from './monsterAnimationTextures'
 import {
-  BOSS_DAMAGE_MULTIPLIER,
+  getBossDamageMultiplier,
   BOSS_RENDER_SCALE_MULTIPLIER,
   MONSTER_HP_MULTIPLIER,
   getBossHpMultiplier
@@ -76,7 +76,7 @@ import { createEditorPlacement } from './mapView/editorPlacement'
 import { createMapTileLayers } from './mapView/tileLayers'
 import { createMapLightLayer } from './mapView/mapLightLayer'
 import { BLIZZARD_MOVE_SPEED_MULTIPLIER } from '../poisonFog'
-import { isBossSummonCharacterId } from '../bossSkills'
+import { getBossKey, isBossSummonCharacterId } from '../bossSkills'
 import { createWindowStack } from './createWindowStack'
 import {
   CAMERA_DEFAULT_ZOOM,
@@ -412,8 +412,8 @@ export const createPixiTiledMapView = async ({
   const getMonsterCombatStateOptions = (character: CharacterState) =>
     isBossCharacterId(character.id)
       ? {
-          hpMultiplier: getBossHpMultiplier(character.appearanceType),
-          damageMultiplier: BOSS_DAMAGE_MULTIPLIER
+          hpMultiplier: getBossHpMultiplier(getBossKey(character)),
+          damageMultiplier: getBossDamageMultiplier(getBossKey(character))
         }
       : { hpMultiplier: MONSTER_HP_MULTIPLIER }
   const getMonsterRenderScaleMultiplier = (characterId: string) =>

@@ -15,7 +15,8 @@ const SCENE_INTRO_MESSAGES: Record<string, string> = {
   'frost-village': '서리목',
   'frozen-lake': '얼어붙은 호수',
   'ice-cave-1f': '얼음 동굴',
-  'ice-cave-2f': '얼음 제단'
+  'ice-cave-2f': '얼음 제단',
+  'boss-arena': '시험장'
 }
 
 export const getSceneIntroMessage = (sceneId: string): string =>

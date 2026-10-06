@@ -153,7 +153,11 @@ put_2x2('well_roof', 13, 19, '우물')
 assert_free(34, 20, 2, 1, '벤치')
 put('object', 34, 20, LPC['town_prop_bench_r0c0'])
 put('object', 35, 20, LPC['town_prop_bench_r0c1'])
-put_2x2('logpile', 8, 12, '장작더미')
+# 장작더미: 타일 이름(logpile_r?c?)과 실제 그림 조각이 어긋나 있어 그림 기준으로 놓는다.
+assert_free(8, 12, 2, 2, '장작더미')
+put('object_upper', 8, 12, LPC['town_prop_logpile_r0c1'])
+put('object', 8, 13, LPC['town_prop_logpile_r1c1'])
+put('object', 9, 13, LPC['town_prop_logpile_r0c0'])
 put_2x2('cart', 15, 12, '짐수레')
 
 # ---------------------------------------------------------------- 잔디↔자갈 경계 다시 맞추기

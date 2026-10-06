@@ -31,6 +31,7 @@ This document is a short guide for module boundaries and code placement.
 - `src/game/playerProgression.ts`: level-up rewards, stat-point spending, monster skill-point rewards, skill-user-level and mana-cap helpers, and level-based skill-point spending for the player profile.
 - `src/game/playerStatEffects.ts`: derived player stat effects for physical attack, movement speed, and evade chance.
 - `src/game/sceneIntro.ts`: scene-id to localized intro text mapping for the temporary map transition banner.
+- `src/games/my-sample-rpg/bossTraining/`: headless trial-boss fight simulator, rule-based player bots (novice/normal/expert), and the fun score used for boss RL. Pure TS, no DOM or Pixi. Reuses `bossSkills.ts`. See `docs/boss-rl-design.md`.
 - `src/game/tiled/`: TMX/TSX parsing, tile metadata, and event-layer data extraction.
 - `src/game/tiled/createNpcCharactersFromEventLayers.ts`: translate `character` object-layer events plus `controller.*`, `monster.level`, and optional `displayText` TMX properties into shared NPC character state.
 - `src/game/tiled/createMapPortalsFromEventLayers.ts`: translate `portal` object-layer events into scene transition data for map exits and entrances.
@@ -59,7 +60,7 @@ This document is a short guide for module boundaries and code placement.
 - `src/rendering/mapView/`: parts of the live world scene. Each `createX(ctx)` module gets the shared state it needs through `ctx` (values, getters, setters) and returns the functions the scene uses.
   - Map: `tileLayers` (tile layers, flowing water, coin piles), `mapLightLayer` (light glows), `editorPlacement` (editor placement mode and placed NPCs).
   - Characters: `characterNodes` (boot-time render nodes and label layers), `characterSprites` (LPC sprites and per-frame sprite, badge, and bar sync), `playerGearVisuals` (weapon and protect shield sprites), `characterMessages`, `characterDamageTexts`.
-  - Player: `playerActions` (roll, skills, slash/smash/protect effects, footsteps), `playerCombatEffects` (projectiles and magic), `playerRewards` (experience, quest rewards, consumables), `environmentHazards` (poison fog, blizzard, status pills).
+  - Player: `playerActions` (roll, skills, slash/smash/protect effects, footsteps), `playerThrustAttack` (spear thrust effect, thrust range, and thrust hit timing), `playerCombatEffects` (projectiles and magic), `playerRewards` (experience, quest rewards, consumables), `environmentHazards` (poison fog, blizzard, status pills).
   - Monsters and combat: `monsterBehavior` (animation modes, pig behavior, knockback), `combat` (hit areas, damage, monster respawn, player death and respawn), `bossEncounter`, `monsterDrops`.
   - World flow: `movement` (camera, collision, corner assist), `sceneTransitions` (portals and waystones), `npcInteractions` (scenario, waystone, quest dialogue, shop opening), `editorEventApply` (editor event drafts and Lua scripts).
   - UI and input: `uiOverlays` (creates HUD, windows, shops, trackers), `uiState` (window open/close, audio, quest log updates), `overlayControls` (close-all, map expand, key binding capture), `inputHandlers` (keyboard, wheel, resize, visibility), `frameUpdate` (per-frame update loop).
@@ -97,6 +98,8 @@ This document is a short guide for module boundaries and code placement.
 - Use `engine.self.get_controller_config()` when Lua needs TMX-authored per-character settings such as dialogue lists or small behavior flags.
 
 ## Boundary Rules
+
+- Build each new feature as its own module. See `docs/feature-modules.md`.
 
 - Keep browser DOM code out of `src/game/` when possible.
 - Prefer pure data and pure functions in game logic so tests stay small and stable.

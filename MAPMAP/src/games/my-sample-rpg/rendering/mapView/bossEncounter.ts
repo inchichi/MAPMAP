@@ -15,25 +15,44 @@ import type { BossHealthView } from '../createBossHealthOverlay'
 import { getMonsterDisplayName } from '../../monsterDisplayName'
 import {
   BOSS_FIRST_SKILL_DELAY_MILLISECONDS,
+  CHARGE_DASH_MILLISECONDS,
+  CHARGE_WINDUP_MILLISECONDS,
+  CHARGED_BLAST_CHANNEL_MILLISECONDS,
+  CHARGED_BLAST_STAGGER_MILLISECONDS,
+  createChargedBlast,
+  createChargeLane,
+  createFanShot,
   createGroundSlam,
+  createMeteorShower,
   createPoisonPuddle,
+  createRingBurst,
   createWaterPillars,
+  FAN_SHOT_WINDUP_MILLISECONDS,
+  getBossHazardCenter,
   getBossHazardDamage,
   getBossKey,
   getBossPresentation,
   getBossSkillCooldown,
+  getBossSkillGap,
   getBossSkillShout,
   getBossSkills,
   getBossSummonPrefix,
+  getChargePath,
+  getFanShotCount,
+  getMeteorCount,
   getSummonCountPerCast,
   getTonguePullVector,
   isBossEnraged,
   MAX_ACTIVE_SUMMONS,
+  METEOR_WARNING_MILLISECONDS,
   pickBossSkill,
+  RING_BURST_WARNING_MILLISECONDS,
+  shouldInterruptChargedBlast,
   tickBossHazards,
   TONGUE_PULL_DURATION_MILLISECONDS,
   TONGUE_PULL_WINDUP_MILLISECONDS,
   type BossHazard,
+  type BossHazardKind,
   type BossSkillKind
 } from '../../bossSkills'
 import { BOSS_SHOUT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, isBossCharacterId } from './constants'
@@ -75,6 +94,14 @@ export type BossEncounterContext = {
     options?: { preserveFacing?: boolean; ignoreMonsterBlocking?: boolean }
   ) => unknown
 }
+
+const DODGEABLE_BOSS_HAZARD_KINDS = new Set<BossHazardKind>([
+  'water-pillar',
+  'ring-burst',
+  'charge-lane',
+  'fan-shot',
+  'meteor'
+])
 
 export const createBossEncounter = (ctx: BossEncounterContext) => {
   const {
@@ -128,6 +155,19 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
         line: Graphics
       }
     | undefined
+  // 돌진: 준비 동안 길을 그리고, 그다음 보스를 그 길로 옮긴다(피해는 길 위의 위험 지대가 준다)
+  let bossCharge:
+    | {
+        bossId: string
+        startedAt: number
+        lastAt: number
+        vector: { x: number; y: number }
+        from: { x: number; y: number }
+        line: Graphics
+      }
+    | undefined
+  // 기 모으기: 모으는 동안 깎인 보스 체력을 보고 끊는다
+  let bossChannel: { bossId: string; hazardId: string; startHp: number; until: number } | undefined
 
   // ---------------------------------------------------------------- 보스 특수 기술(bossSkills.ts)
   // 보스가 어그로 중일 때 근접 공격보다 먼저 확인한다. 썼으면 true(그 틈에 근접 공격은 미룬다).
@@ -171,6 +211,20 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
     if (skill.kind === 'summon' && !summonBossMinions(boss, now, enraged)) {
       return false
     }
+    // 기술이 많은 보스는 기술이 끝난 뒤 다른 기술도 잠깐 쉰다
+    const gap = getBossSkillGap(getBossKey(boss))
+    if (gap > 0) {
+      const busyUntil =
+        now +
+        (skill.kind === 'charge'
+          ? CHARGE_WINDUP_MILLISECONDS + CHARGE_DASH_MILLISECONDS
+          : skill.kind === 'charged-blast'
+            ? CHARGED_BLAST_CHANNEL_MILLISECONDS
+            : 0)
+      for (const kind of Object.keys(readyAt) as BossSkillKind[]) {
+        readyAt[kind] = Math.max(readyAt[kind] ?? 0, busyUntil + gap)
+      }
+    }
     // 무엇이 올지 외치고 몸이 번쩍인다(기술 예고)
     showCharacterDamageText(
       boss.id,
@@ -206,6 +260,44 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
         return true
       case 'summon':
         return true
+      case 'ring-burst':
+        addBossHazards([createRingBurst(`${boss.id}:${++bossHazardSequence}`, bossCenter.x, bossCenter.y, now)])
+        return true
+      case 'charge':
+        startBossCharge(boss.id, bossCenter, playerCenter, now)
+        return true
+      case 'fan-shot':
+        addBossHazards(
+          createFanShot(`${boss.id}:${++bossHazardSequence}`, bossCenter, playerCenter, getFanShotCount(enraged), now)
+        )
+        return true
+      case 'meteor-shower':
+        addBossHazards(
+          createMeteorShower(`${boss.id}:${++bossHazardSequence}`, playerCenter, getMeteorCount(enraged), now, Math.random)
+        )
+        return true
+      case 'charged-blast': {
+        const blast = createChargedBlast(`${boss.id}:${++bossHazardSequence}`, bossCenter.x, bossCenter.y, now)
+        addBossHazards([blast])
+        bossChannel = {
+          bossId: boss.id,
+          hazardId: blast.id,
+          startHp: combat?.currentHp ?? 0,
+          until: blast.armedAt
+        }
+        // 모으는 내내 몸이 번쩍인다
+        bossFlashUntilById.set(boss.id, blast.armedAt)
+        return true
+      }
+    }
+  }
+
+  // 돌진·기 모으기처럼 오래 걸리는 기술 동안 보스를 제자리에 묶는다(근접 공격·추격·다른 기술을 막는다).
+  // 맵 화면의 몬스터 행동은 attackUntil 이 남아 있으면 공격 자세로 서 있기만 한다.
+  function holdBossUntil(bossId: string, until: number): void {
+    const state = monsterPigBehaviorStates.get(bossId)
+    if (state && state.attackUntilMilliseconds < until) {
+      monsterPigBehaviorStates.set(bossId, { ...state, attackUntilMilliseconds: until })
     }
   }
 
@@ -294,8 +386,8 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
     for (const hazard of hazards) {
       const graphics = new Graphics()
       graphics.label = `boss-hazard:${hazard.id}`
-      // 바닥 무늬: 모든 캐릭터 아래(깊이 정렬 층의 맨 아래)
-      graphics.zIndex = -100000
+      // 바닥 무늬: 모든 캐릭터 아래(깊이 정렬 층의 맨 아래). 날아가는 탄은 모두의 위.
+      graphics.zIndex = hazard.velocity ? 100000 : -100000
       graphics.position.set(hazard.x * map.tileWidth, hazard.y * map.tileHeight)
       getDepthSortedLayer()?.addChild(graphics)
       bossHazardGraphicsById.set(hazard.id, graphics)
@@ -308,6 +400,81 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
     const radiusY = radiusX * 0.62
     const armed = now >= hazard.armedAt
     graphics.clear()
+    if (hazard.kind === 'ring-burst') {
+      const innerX = (hazard.innerRadiusTiles ?? 0) * map.tileWidth
+      const innerY = innerX * 0.62
+      if (!armed) {
+        // 경고: 바깥 고리가 차오르고, 안쪽 안전한 자리는 밝은 테두리로 남는다
+        const t = 1 - (hazard.armedAt - now) / RING_BURST_WARNING_MILLISECONDS
+        graphics.ellipse(0, 0, radiusX, radiusY)
+        graphics.fill({ color: 0xb03a5a, alpha: 0.12 + 0.3 * t })
+        graphics.ellipse(0, 0, innerX, innerY)
+        graphics.cut()
+        graphics.ellipse(0, 0, radiusX, radiusY)
+        graphics.stroke({ color: 0xff7a9a, width: 3, alpha: 0.95 })
+        graphics.ellipse(0, 0, innerX, innerY)
+        graphics.stroke({ color: 0xfff0c0, width: 2, alpha: 0.9 })
+        return
+      }
+      const burst = 1 - (hazard.expiresAt - now) / 400
+      graphics.ellipse(0, 0, radiusX, radiusY)
+      graphics.fill({ color: 0xff6a8a, alpha: 0.6 * (1 - burst) })
+      graphics.ellipse(0, 0, innerX, innerY)
+      graphics.cut()
+      return
+    }
+    if (hazard.kind === 'charge-lane') {
+      // 길 표시는 돌진 선(updateBossCharge)이 그린다. 보스가 지나는 순간 흙먼지만 인다.
+      if (armed) {
+        graphics.ellipse(0, 0, radiusX, radiusY)
+        graphics.fill({ color: 0xd8a860, alpha: 0.45 })
+      }
+      return
+    }
+    if (hazard.kind === 'fan-shot') {
+      // 날아가는 붉은 구슬(바닥 위로 조금 띄운다). 쏘기 전에는 보스 앞에서 커진다.
+      const grow = armed ? 1 : Math.max(0.2, 1 - (hazard.armedAt - now) / FAN_SHOT_WINDUP_MILLISECONDS)
+      const y = -map.tileHeight * 0.6
+      graphics.circle(0, y, radiusX * 1.6 * grow)
+      graphics.fill({ color: 0xff5a3a, alpha: 0.3 })
+      graphics.circle(0, y, radiusX * grow)
+      graphics.fill({ color: 0xffd0a0, alpha: 0.95 })
+      return
+    }
+    if (hazard.kind === 'meteor') {
+      if (!armed) {
+        // 경고: 떨어질 자리의 그림자가 짙어지고, 끝 무렵 돌이 위에서 내려온다
+        const t = Math.max(0, 1 - (hazard.armedAt - now) / METEOR_WARNING_MILLISECONDS)
+        graphics.ellipse(0, 0, radiusX, radiusY)
+        graphics.stroke({ color: 0xffa040, width: 2, alpha: 0.9 })
+        graphics.ellipse(0, 0, radiusX * Math.max(0.15, t), radiusY * Math.max(0.15, t))
+        graphics.fill({ color: 0x301808, alpha: 0.45 })
+        if (t > 0.6) {
+          graphics.circle(0, -map.tileHeight * 5 * (1 - t) / 0.4, radiusX * 0.35)
+          graphics.fill({ color: 0xff8a30, alpha: 0.95 })
+        }
+        return
+      }
+      const burst = 1 - (hazard.expiresAt - now) / 400
+      graphics.ellipse(0, 0, radiusX * (0.7 + burst * 0.4), radiusY * (0.7 + burst * 0.4))
+      graphics.fill({ color: 0xff8a30, alpha: 0.6 * (1 - burst) })
+      return
+    }
+    if (hazard.kind === 'charged-blast') {
+      if (!armed) {
+        // 경고: 넓은 붉은 원이 천천히 차오른다 — 빠져나가거나 끊을 시간
+        const t = 1 - (hazard.armedAt - now) / CHARGED_BLAST_CHANNEL_MILLISECONDS
+        graphics.ellipse(0, 0, radiusX, radiusY)
+        graphics.stroke({ color: 0xff3030, width: 3, alpha: 0.6 + 0.4 * Math.abs(Math.sin(now / 120)) })
+        graphics.ellipse(0, 0, radiusX * Math.max(0.05, t), radiusY * Math.max(0.05, t))
+        graphics.fill({ color: 0xc01818, alpha: 0.35 })
+        return
+      }
+      const burst = 1 - (hazard.expiresAt - now) / 450
+      graphics.ellipse(0, 0, radiusX, radiusY)
+      graphics.fill({ color: 0xfff0e0, alpha: 0.75 * (1 - burst) })
+      return
+    }
     if (hazard.kind === 'poison-puddle') {
       if (!armed) {
         // 경고: 독이 날아가 떨어질 자리 — 점점 차오르는 테두리
@@ -384,7 +551,10 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
     graphics.fill({ color: 0xffffff, alpha: 0.7 * (1 - burst * 0.7) })
   }
 
+  // 맵 화면이 매 프레임 부른다. 돌진·기 모으기도 위험 지대와 함께 여기서 흘린다.
   function updateBossHazards(now: number): void {
+    updateBossCharge(now)
+    updateBossChannel(now)
     if (bossHazards.length === 0) {
       return
     }
@@ -393,7 +563,8 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
       bossHazards,
       player.position.x + player.collisionSize.width / 2,
       player.position.y + player.collisionSize.height / 2,
-      now
+      now,
+      isWallAtTilePoint
     )
     const liveIds = new Set(tick.hazards.map((hazard) => hazard.id))
     for (const [id, graphics] of bossHazardGraphicsById) {
@@ -406,26 +577,146 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
     for (const hazard of bossHazards) {
       const graphics = bossHazardGraphicsById.get(hazard.id)
       if (graphics) {
+        if (hazard.velocity) {
+          const center = getBossHazardCenter(hazard, now)
+          graphics.position.set(center.x * map.tileWidth, center.y * map.tileHeight)
+        }
         drawBossHazard(graphics, hazard, now)
       }
     }
     for (const kind of tick.damageKinds) {
-      // 물기둥은 공격이라 구르기·방어로 피할 수 있다(보스를 출처로). 독 웅덩이는 바닥 독이라 못 막는다.
+      // 물기둥·시험 보스의 공격 기술은 구르기·방어로 피할 수 있다(보스를 출처로). 독 웅덩이는 바닥 독이라,
+      // 기 모으기는 빠져나가거나 끊으라는 기술이라 못 막는다.
       const boss = getCharacterStates().find((character) => isBossCharacterId(character.id))
       applyDamageToPlayer(
         getBossHazardDamage(kind, getPlayerProfile().hp.max),
         now,
-        kind === 'water-pillar' ? boss : undefined
+        DODGEABLE_BOSS_HAZARD_KINDS.has(kind) ? boss : undefined
       )
     }
   }
 
+  function isWallAtTilePoint(x: number, y: number): boolean {
+    return isWallTileAt(wallTiles, Math.floor(x), Math.floor(y))
+  }
+
+  function removeBossHazard(hazardId: string): void {
+    bossHazardGraphicsById.get(hazardId)?.destroy()
+    bossHazardGraphicsById.delete(hazardId)
+    bossHazards = bossHazards.filter((hazard) => hazard.id !== hazardId)
+  }
+
+  function startBossCharge(
+    bossId: string,
+    bossCenter: { x: number; y: number },
+    playerCenter: { x: number; y: number },
+    now: number
+  ): void {
+    clearBossCharge()
+    const path = getChargePath(bossCenter, playerCenter, isWallAtTilePoint)
+    addBossHazards(createChargeLane(`${bossId}:${++bossHazardSequence}`, bossCenter, path, now))
+    const line = new Graphics()
+    line.label = 'boss-charge'
+    line.zIndex = -99999
+    getDepthSortedLayer()?.addChild(line)
+    bossCharge = {
+      bossId,
+      startedAt: now + CHARGE_WINDUP_MILLISECONDS,
+      lastAt: now + CHARGE_WINDUP_MILLISECONDS,
+      vector: { x: path.direction.x * path.distanceTiles, y: path.direction.y * path.distanceTiles },
+      from: bossCenter,
+      line
+    }
+  }
+
+  // 돌진: 준비 동안 갈 길을 붉은 띠로 보여 주고, 그다음 짧은 시간에 보스를 그 길 끝까지 옮긴다.
+  function updateBossCharge(now: number): void {
+    if (!bossCharge) {
+      return
+    }
+    const charge = bossCharge
+    const end = charge.startedAt + CHARGE_DASH_MILLISECONDS
+    if (isMonsterCombatStateDefeated(charge.bossId) || now >= end + 150) {
+      clearBossCharge()
+      return
+    }
+    holdBossUntil(charge.bossId, end + 150)
+    if (now < charge.startedAt) {
+      const t = 1 - (charge.startedAt - now) / CHARGE_WINDUP_MILLISECONDS
+      const fromX = charge.from.x * map.tileWidth
+      const fromY = charge.from.y * map.tileHeight
+      const toX = (charge.from.x + charge.vector.x) * map.tileWidth
+      const toY = (charge.from.y + charge.vector.y) * map.tileHeight
+      charge.line.clear()
+      charge.line.moveTo(fromX, fromY)
+      charge.line.lineTo(toX, toY)
+      charge.line.stroke({ color: 0xc03030, width: map.tileWidth * 1.6, alpha: 0.18 + 0.22 * t, cap: 'round' })
+      charge.line.moveTo(fromX, fromY)
+      charge.line.lineTo(fromX + (toX - fromX) * t, fromY + (toY - fromY) * t)
+      charge.line.stroke({ color: 0xff6a5a, width: 3, alpha: 0.9, cap: 'round' })
+      return
+    }
+    charge.line.clear()
+    // 프레임이 느려도 갈 거리는 다 채운다(혀 당기기와 같은 방식)
+    const step = (Math.min(now, end) - charge.lastAt) / CHARGE_DASH_MILLISECONDS
+    if (step > 0) {
+      tryMoveCharacter(charge.bossId, charge.vector.x * step, charge.vector.y * step, {
+        ignoreMonsterBlocking: true
+      })
+    }
+    charge.lastAt = Math.min(now, end)
+  }
+
+  function clearBossCharge(): void {
+    bossCharge?.line.destroy()
+    bossCharge = undefined
+  }
+
+  // 기 모으기: 보스를 묶어 두고, 그동안 깎인 체력이 넉넉하면 끊는다(터질 지대를 지우고 보스가 휘청인다).
+  function updateBossChannel(now: number): void {
+    if (!bossChannel) {
+      return
+    }
+    const channel = bossChannel
+    const combat = monsterCombatStates.get(channel.bossId)
+    if (!combat || isMonsterDefeated(combat) || now >= channel.until) {
+      bossChannel = undefined
+      return
+    }
+    holdBossUntil(channel.bossId, channel.until)
+    if (!shouldInterruptChargedBlast(channel.startHp, combat.currentHp, combat.maxHp)) {
+      return
+    }
+    bossChannel = undefined
+    removeBossHazard(channel.hazardId)
+    bossFlashUntilById.set(channel.bossId, now)
+    showCharacterDamageText(channel.bossId, '끊었다!', BOSS_SHOUT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE)
+    const state = monsterPigBehaviorStates.get(channel.bossId)
+    if (state) {
+      monsterPigBehaviorStates.set(channel.bossId, {
+        ...state,
+        attackUntilMilliseconds: 0,
+        hitReactionUntilMilliseconds: now + CHARGED_BLAST_STAGGER_MILLISECONDS
+      })
+    }
+    // 휘청이는 동안은 기술도 쓰지 않는다
+    const readyAt = bossSkillReadyAtById.get(channel.bossId)
+    if (readyAt) {
+      for (const kind of Object.keys(readyAt) as BossSkillKind[]) {
+        readyAt[kind] = Math.max(readyAt[kind] ?? 0, now + CHARGED_BLAST_STAGGER_MILLISECONDS)
+      }
+    }
+  }
+
+  // 돌진·기 모으기도 위험 지대에 딸려 있어 함께 거둔다.
   function clearBossHazards(): void {
     for (const graphics of bossHazardGraphicsById.values()) {
       graphics.destroy()
     }
     bossHazardGraphicsById.clear()
     bossHazards = []
+    clearBossCharge()
+    bossChannel = undefined
   }
 
   function startBossTonguePull(

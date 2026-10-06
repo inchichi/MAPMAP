@@ -47,6 +47,7 @@ const CASES: ReadonlyArray<string> = [
   'frozen-lake',
   'ice-cave-1f',
   'ice-cave-2f',
+  'boss-arena',
   'unknown',
   '',
   'Town',

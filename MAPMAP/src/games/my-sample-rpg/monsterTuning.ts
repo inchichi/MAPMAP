@@ -13,8 +13,20 @@ const BOSS_HP_EXTRA_BY_APPEARANCE_TYPE: Record<string, number> = {
   monster_frog_king: 3.5,
   monster_swamp_priest: 4,
   monster_troll_chief: 3.5,
-  monster_frost_witch: 4
+  monster_frost_witch: 4,
+  // 시험 보스(트롤 족장 외형을 빌림): 보스 전투 시뮬레이터(scripts/simulate-boss-fight.ts)로 실력별 목표
+  // 승률과 1~2분 싸움에 맞춘 값 — docs/boss-rl-design.md 의 "Balance"
+  boss_trial: 4
 }
 
-export const getBossHpMultiplier = (appearanceType: string): number =>
-  BOSS_HP_MULTIPLIER * (BOSS_HP_EXTRA_BY_APPEARANCE_TYPE[appearanceType] ?? 1)
+// 열쇠는 보스 키(bossSkills.getBossKey) — 대부분 외형과 같고, 외형을 빌린 보스(시험 보스 등)만 다르다.
+export const getBossHpMultiplier = (bossKey: string): number =>
+  BOSS_HP_MULTIPLIER * (BOSS_HP_EXTRA_BY_APPEARANCE_TYPE[bossKey] ?? 1)
+
+// 시험 보스는 기술이 7가지라 근접 공격까지 2배면 싸움이 근접 피해로만 끝났다(시뮬레이터 측정).
+const BOSS_DAMAGE_MULTIPLIER_BY_KEY: Record<string, number> = {
+  boss_trial: 1
+}
+
+export const getBossDamageMultiplier = (bossKey: string): number =>
+  BOSS_DAMAGE_MULTIPLIER_BY_KEY[bossKey] ?? BOSS_DAMAGE_MULTIPLIER

@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   createInitialPlayerEquipment,
   getPlayerEquipmentItemDefinitionById,
-  getPlayerEquipmentItemDefinitionBySlotId
+  getPlayerEquipmentItemDefinitionBySlotId,
+  isEquippedPlayerWeaponThrust
 } from './playerEquipment'
 
 describe('createInitialPlayerEquipment', () => {
@@ -124,5 +125,28 @@ describe('createInitialPlayerEquipment', () => {
       'armor',
       'hat'
     ])
+  })
+})
+
+describe('isEquippedPlayerWeaponThrust', () => {
+  const equipWeapon = (weaponId: string) => {
+    const equipment = createInitialPlayerEquipment()
+
+    return {
+      slots: equipment.slots.map((slot) =>
+        slot.id === 'weapon'
+          ? { ...slot, item: { id: weaponId, label: weaponId, level: 1, description: '' } }
+          : slot
+      )
+    }
+  }
+
+  it('treats the long spear as a thrust weapon', () => {
+    expect(isEquippedPlayerWeaponThrust(equipWeapon('long-spear'))).toBe(true)
+  })
+
+  it('treats swords and the starter weapon as slash weapons', () => {
+    expect(isEquippedPlayerWeaponThrust(createInitialPlayerEquipment())).toBe(false)
+    expect(isEquippedPlayerWeaponThrust(equipWeapon('iron-sword'))).toBe(false)
   })
 })

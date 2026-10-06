@@ -13,6 +13,12 @@ export type BossSkillKind =
   // 3장: 트롤 족장의 내려찍기(보스 둘레 충격파), 서리 마녀의 얼음 가시(물기둥과 같은 틀)
   | 'ground-slam'
   | 'ice-spike'
+  // 시험의 수호자(시험 보스): 도넛, 돌진, 부채꼴 탄, 유성우, 기 모으기
+  | 'ring-burst'
+  | 'charge'
+  | 'fan-shot'
+  | 'meteor-shower'
+  | 'charged-blast'
 
 export type BossSkillDefinition = {
   kind: BossSkillKind
@@ -27,7 +33,9 @@ export type BossSkillDefinition = {
 const BOSS_KEY_BY_CHARACTER_ID: Record<string, string> = {
   '말캉이-보스': 'boss_slime_king',
   '꿀꿀이-보스': 'boss_pig_king',
-  '꿀꿀이대장-보스': 'boss_pig_captain'
+  '꿀꿀이대장-보스': 'boss_pig_captain',
+  // 시험 보스는 트롤 족장의 외형을 빌린다
+  '시험의 수호자-보스': 'boss_trial'
 }
 
 export const getBossKey = (boss: { id: string; appearanceType: string }): string =>
@@ -61,8 +69,26 @@ const BOSS_SKILLS_BY_APPEARANCE_TYPE: Record<string, readonly BossSkillDefinitio
   monster_frost_witch: [
     { kind: 'summon', cooldownMilliseconds: 15000, minRangeTiles: 0, maxRangeTiles: 12 },
     { kind: 'ice-spike', cooldownMilliseconds: 5000, minRangeTiles: 0, maxRangeTiles: 10 }
+  ],
+  // 시험 보스(강화학습 실험용): 패턴마다 피하는 법이 다르다. 내려찍기는 가까우면, 도넛은 멀면,
+  // 돌진은 일직선에 서 있으면, 유성우는 멈춰 있으면 맞는다. 기 모으기는 빠져나가거나 때려서 끊는다.
+  boss_trial: [
+    { kind: 'charged-blast', cooldownMilliseconds: 22000, minRangeTiles: 0, maxRangeTiles: 5 },
+    { kind: 'tongue-pull', cooldownMilliseconds: 9000, minRangeTiles: 3, maxRangeTiles: 7 },
+    { kind: 'charge', cooldownMilliseconds: 8000, minRangeTiles: 3, maxRangeTiles: 9 },
+    { kind: 'ring-burst', cooldownMilliseconds: 9000, minRangeTiles: 0, maxRangeTiles: 5 },
+    { kind: 'meteor-shower', cooldownMilliseconds: 15000, minRangeTiles: 0, maxRangeTiles: 12 },
+    { kind: 'fan-shot', cooldownMilliseconds: 4500, minRangeTiles: 2, maxRangeTiles: 10 },
+    { kind: 'ground-slam', cooldownMilliseconds: 6000, minRangeTiles: 0, maxRangeTiles: 3 }
   ]
 }
+
+// 기술 하나를 쓰고 나서 다른 기술도 이만큼 쉰다. 기술이 많은 보스가 기술을 몰아 쏟지 않게.
+const BOSS_SKILL_GAP_MILLISECONDS_BY_KEY: Record<string, number> = {
+  boss_trial: 1600
+}
+
+export const getBossSkillGap = (bossKey: string): number => BOSS_SKILL_GAP_MILLISECONDS_BY_KEY[bossKey] ?? 0
 
 // 보스의 칭호(등장 배너·체력바), 분노(체력 절반 아래) 때 외침, 쓰러질 때 남기는 말. 열쇠는 getBossKey.
 export type BossPresentation = {
@@ -118,6 +144,10 @@ const BOSS_PRESENTATION_BY_APPEARANCE_TYPE: Record<string, BossPresentation> = {
       '남쪽 불의 산에서… 두 번째 종이 울릴 거야.',
       '그 종이 울리면… 이 땅은 다시 얼음과 불의 시대로…'
     ]
+  },
+  boss_trial: {
+    title: '시험장의 수호자',
+    enrageLine: '이제부터가 진짜 시험이다!'
   }
 }
 
@@ -131,7 +161,12 @@ export const BOSS_SKILL_SHOUTS: Record<BossSkillKind, string> = {
   'water-pillar': '물이여, 솟아라!',
   summon: '일어나라…',
   'ground-slam': '쿵!',
-  'ice-spike': '얼어붙어라!'
+  'ice-spike': '얼어붙어라!',
+  'ring-burst': '어디로 도망치느냐!',
+  charge: '비켜라!',
+  'fan-shot': '받아라!',
+  'meteor-shower': '하늘이 무너진다!',
+  'charged-blast': '힘을… 모은다…'
 }
 
 // 같은 기술이라도 보스마다 외침이 다르다(소환 등).
@@ -177,15 +212,28 @@ export const pickBossSkill = (
   )
 
 // ---------------------------------------------------------------- 바닥 위험 지대
-export type BossHazardKind = 'poison-puddle' | 'water-pillar' | 'ground-slam' | 'ice-spike'
+export type BossHazardKind =
+  | 'poison-puddle'
+  | 'water-pillar'
+  | 'ground-slam'
+  | 'ice-spike'
+  | 'ring-burst'
+  | 'charge-lane'
+  | 'fan-shot'
+  | 'meteor'
+  | 'charged-blast'
 
 export type BossHazard = {
   id: string
   kind: BossHazardKind
-  // 가운데(칸 좌표, 소수)
+  // 가운데(칸 좌표, 소수). 움직이는 것(탄)은 armedAt 때의 자리.
   x: number
   y: number
   radiusTiles: number
+  // 도넛: 가운데에서 이만큼 안쪽은 안전하다
+  innerRadiusTiles?: number
+  // 탄: armedAt 부터 이 속도(칸/초)로 날아가고, 한 번 맞히거나 벽에 닿으면 사라진다
+  velocity?: { x: number; y: number }
   // 이때부터 피해를 준다(그 전은 경고 표시)
   armedAt: number
   expiresAt: number
@@ -265,8 +313,191 @@ export const createWaterPillars = (
   }))
 }
 
-export const isPointInBossHazard = (hazard: BossHazard, x: number, y: number): boolean =>
-  Math.hypot(x - hazard.x, y - hazard.y) <= hazard.radiusTiles
+// ---------------------------------------------------------------- 시험 보스의 기술
+// 도넛: 보스 둘레 큰 고리가 터지고 안쪽은 안전하다 — 내려찍기와 반대로 붙어야 산다.
+export const RING_BURST_WARNING_MILLISECONDS = 1100
+export const RING_BURST_BURST_MILLISECONDS = 400
+export const RING_BURST_RADIUS_TILES = 4.6
+export const RING_BURST_INNER_RADIUS_TILES = 1.8
+
+export const createRingBurst = (id: string, x: number, y: number, now: number): BossHazard => ({
+  id,
+  kind: 'ring-burst',
+  x,
+  y,
+  radiusTiles: RING_BURST_RADIUS_TILES,
+  innerRadiusTiles: RING_BURST_INNER_RADIUS_TILES,
+  armedAt: now + RING_BURST_WARNING_MILLISECONDS,
+  expiresAt: now + RING_BURST_WARNING_MILLISECONDS + RING_BURST_BURST_MILLISECONDS,
+  nextTickAt: now + RING_BURST_WARNING_MILLISECONDS
+})
+
+// 돌진: 갈 길을 먼저 보여 주고(준비) 그 길을 빠르게 달린다. 플레이어를 지나 조금 더 간다 — 옆으로 비켜야 한다.
+export const CHARGE_WINDUP_MILLISECONDS = 800
+export const CHARGE_DASH_MILLISECONDS = 350
+export const CHARGE_MAX_DISTANCE_TILES = 9
+export const CHARGE_OVERSHOOT_TILES = 2
+export const CHARGE_LANE_RADIUS_TILES = 0.9
+const CHARGE_LANE_SPACING_TILES = 0.8
+// 길의 칸 하나가 보스가 지나간 뒤에도 잠깐 피해를 준다
+const CHARGE_LANE_HIT_MILLISECONDS = 120
+
+// 돌진할 방향(단위 벡터)과 거리. 벽(isBlocked)에 닿으면 그 앞에서 멈춘다.
+export const getChargePath = (
+  boss: { x: number; y: number },
+  player: { x: number; y: number },
+  isBlocked: (x: number, y: number) => boolean
+): { direction: { x: number; y: number }; distanceTiles: number } => {
+  const dx = player.x - boss.x
+  const dy = player.y - boss.y
+  const length = Math.hypot(dx, dy) || 1
+  const direction = { x: dx / length, y: dy / length }
+  const wanted = Math.min(CHARGE_MAX_DISTANCE_TILES, length + CHARGE_OVERSHOOT_TILES)
+  let distanceTiles = 0
+  while (
+    distanceTiles + 0.25 <= wanted &&
+    !isBlocked(boss.x + direction.x * (distanceTiles + 0.25), boss.y + direction.y * (distanceTiles + 0.25))
+  ) {
+    distanceTiles += 0.25
+  }
+  return { direction, distanceTiles }
+}
+
+// 돌진 길 위에 늘어선 작은 지대들. 보스가 그 칸을 지나는 순간에 차례로 피해를 준다.
+export const createChargeLane = (
+  idPrefix: string,
+  from: { x: number; y: number },
+  path: { direction: { x: number; y: number }; distanceTiles: number },
+  now: number
+): BossHazard[] => {
+  const dashStartAt = now + CHARGE_WINDUP_MILLISECONDS
+  const count = Math.max(1, Math.ceil(path.distanceTiles / CHARGE_LANE_SPACING_TILES))
+  return Array.from({ length: count + 1 }, (_, index) => {
+    const distance = Math.min(path.distanceTiles, index * CHARGE_LANE_SPACING_TILES)
+    const armedAt =
+      dashStartAt + Math.round((distance / Math.max(path.distanceTiles, 0.01)) * CHARGE_DASH_MILLISECONDS)
+    return {
+      id: `${idPrefix}:${index}`,
+      kind: 'charge-lane' as const,
+      x: from.x + path.direction.x * distance,
+      y: from.y + path.direction.y * distance,
+      radiusTiles: CHARGE_LANE_RADIUS_TILES,
+      armedAt,
+      expiresAt: armedAt + CHARGE_LANE_HIT_MILLISECONDS,
+      nextTickAt: armedAt
+    }
+  })
+}
+
+// 부채꼴 탄: 플레이어 쪽으로 여러 발을 부채꼴로 쏜다. 탄 사이 틈으로 빠진다.
+export const FAN_SHOT_WINDUP_MILLISECONDS = 350
+export const FAN_SHOT_COUNT = 5
+const FAN_SHOT_SPREAD_RADIANS = 0.26
+export const FAN_SHOT_SPEED_TILES_PER_SECOND = 7
+const FAN_SHOT_LIFETIME_MILLISECONDS = 1800
+export const FAN_SHOT_RADIUS_TILES = 0.4
+
+export const getFanShotCount = (enraged: boolean): number => FAN_SHOT_COUNT + (enraged ? 2 : 0)
+
+export const createFanShot = (
+  idPrefix: string,
+  from: { x: number; y: number },
+  target: { x: number; y: number },
+  count: number,
+  now: number
+): BossHazard[] => {
+  const aim = Math.atan2(target.y - from.y, target.x - from.x)
+  const armedAt = now + FAN_SHOT_WINDUP_MILLISECONDS
+  return Array.from({ length: count }, (_, index) => {
+    const angle = aim + (index - (count - 1) / 2) * FAN_SHOT_SPREAD_RADIANS
+    return {
+      id: `${idPrefix}:${index}`,
+      kind: 'fan-shot' as const,
+      x: from.x,
+      y: from.y,
+      radiusTiles: FAN_SHOT_RADIUS_TILES,
+      velocity: {
+        x: Math.cos(angle) * FAN_SHOT_SPEED_TILES_PER_SECOND,
+        y: Math.sin(angle) * FAN_SHOT_SPEED_TILES_PER_SECOND
+      },
+      armedAt,
+      expiresAt: armedAt + FAN_SHOT_LIFETIME_MILLISECONDS,
+      nextTickAt: armedAt
+    }
+  })
+}
+
+// 유성우: 첫 돌은 플레이어 자리, 나머지는 둘레 아무 데나 시간차로 떨어진다. 멈춰 있으면 맞는다.
+export const METEOR_WARNING_MILLISECONDS = 1000
+export const METEOR_STAGGER_MILLISECONDS = 220
+const METEOR_BURST_MILLISECONDS = 400
+export const METEOR_RADIUS_TILES = 1.2
+const METEOR_SCATTER_TILES = 4.5
+export const METEOR_COUNT = 7
+
+export const getMeteorCount = (enraged: boolean): number => METEOR_COUNT + (enraged ? 3 : 0)
+
+// random 은 0 이상 1 미만(Math.random).
+export const createMeteorShower = (
+  idPrefix: string,
+  target: { x: number; y: number },
+  count: number,
+  now: number,
+  random: () => number
+): BossHazard[] =>
+  Array.from({ length: count }, (_, index) => {
+    const angle = random() * Math.PI * 2
+    const distance = index === 0 ? 0 : Math.sqrt(random()) * METEOR_SCATTER_TILES
+    const armedAt = now + METEOR_WARNING_MILLISECONDS + index * METEOR_STAGGER_MILLISECONDS
+    return {
+      id: `${idPrefix}:${index}`,
+      kind: 'meteor' as const,
+      x: target.x + Math.cos(angle) * distance,
+      y: target.y + Math.sin(angle) * distance,
+      radiusTiles: METEOR_RADIUS_TILES,
+      armedAt,
+      expiresAt: armedAt + METEOR_BURST_MILLISECONDS,
+      nextTickAt: armedAt
+    }
+  })
+
+// 기 모으기: 보스가 멈춰 서서 오래 힘을 모은 뒤 넓게 터뜨린다(아주 아프다). 범위 밖으로 나가거나,
+// 모으는 동안 보스 체력을 일정 비율 깎으면 끊기고 보스가 한동안 휘청인다.
+export const CHARGED_BLAST_CHANNEL_MILLISECONDS = 2200
+const CHARGED_BLAST_BURST_MILLISECONDS = 450
+export const CHARGED_BLAST_RADIUS_TILES = 4.2
+export const CHARGED_BLAST_INTERRUPT_HP_RATIO = 0.05
+export const CHARGED_BLAST_STAGGER_MILLISECONDS = 1800
+
+export const createChargedBlast = (id: string, x: number, y: number, now: number): BossHazard => ({
+  id,
+  kind: 'charged-blast',
+  x,
+  y,
+  radiusTiles: CHARGED_BLAST_RADIUS_TILES,
+  armedAt: now + CHARGED_BLAST_CHANNEL_MILLISECONDS,
+  expiresAt: now + CHARGED_BLAST_CHANNEL_MILLISECONDS + CHARGED_BLAST_BURST_MILLISECONDS,
+  nextTickAt: now + CHARGED_BLAST_CHANNEL_MILLISECONDS
+})
+
+export const shouldInterruptChargedBlast = (startHp: number, currentHp: number, maxHp: number): boolean =>
+  startHp - currentHp >= maxHp * CHARGED_BLAST_INTERRUPT_HP_RATIO
+
+// ---------------------------------------------------------------- 위험 지대 판정
+// 지금 가운데 — 탄은 armedAt 부터 날아간다.
+export const getBossHazardCenter = (hazard: BossHazard, now: number): { x: number; y: number } => {
+  if (!hazard.velocity) {
+    return { x: hazard.x, y: hazard.y }
+  }
+  const seconds = Math.max(0, now - hazard.armedAt) / 1000
+  return { x: hazard.x + hazard.velocity.x * seconds, y: hazard.y + hazard.velocity.y * seconds }
+}
+
+export const isPointInBossHazard = (hazard: BossHazard, x: number, y: number, now: number): boolean => {
+  const center = getBossHazardCenter(hazard, now)
+  const distance = Math.hypot(x - center.x, y - center.y)
+  return distance <= hazard.radiusTiles && distance >= (hazard.innerRadiusTiles ?? 0)
+}
 
 // 웅덩이는 한 번에 최대 체력의 6%(최소 2), 물기둥은 18%(최소 4). 보스 레벨이 아니라 체력 비율이라
 // 어느 레벨에 와도 "두세 번 맞으면 아프다"가 같다.
@@ -274,11 +505,20 @@ const BOSS_HAZARD_DAMAGE_RATIO: Record<BossHazardKind, number> = {
   'poison-puddle': 0.06,
   'water-pillar': 0.18,
   'ice-spike': 0.16,
-  'ground-slam': 0.2
+  'ground-slam': 0.2,
+  'ring-burst': 0.2,
+  'charge-lane': 0.22,
+  'fan-shot': 0.07,
+  meteor: 0.14,
+  // 끊거나 빠져나갈 시간이 넉넉한 대신 맞으면 반 가까이 깎인다
+  'charged-blast': 0.45
 }
 
 export const getBossHazardDamage = (kind: BossHazardKind, maxHp: number): number =>
-  Math.max(kind === 'poison-puddle' ? 2 : 4, Math.round(maxHp * BOSS_HAZARD_DAMAGE_RATIO[kind]))
+  Math.max(
+    kind === 'poison-puddle' || kind === 'fan-shot' ? 2 : 4,
+    Math.round(maxHp * BOSS_HAZARD_DAMAGE_RATIO[kind])
+  )
 
 export type BossHazardTick = {
   hazards: BossHazard[]
@@ -287,11 +527,13 @@ export type BossHazardTick = {
 }
 
 // 시간을 흘려 끝난 위험 지대를 지우고, 플레이어(칸 좌표)가 서 있는 무장된 지대의 피해를 정한다.
+// 탄은 벽(isBlocked)에 닿거나 플레이어를 한 번 맞히면 사라진다.
 export const tickBossHazards = (
   hazards: readonly BossHazard[],
   playerX: number,
   playerY: number,
-  now: number
+  now: number,
+  isBlocked: (x: number, y: number) => boolean = () => false
 ): BossHazardTick => {
   const damageKinds = new Set<BossHazardKind>()
   const next: BossHazard[] = []
@@ -299,11 +541,23 @@ export const tickBossHazards = (
     if (hazard.expiresAt <= now) {
       continue
     }
+    if (hazard.velocity && hazard.armedAt <= now) {
+      const center = getBossHazardCenter(hazard, now)
+      if (isBlocked(center.x, center.y)) {
+        continue
+      }
+      if (isPointInBossHazard(hazard, playerX, playerY, now)) {
+        damageKinds.add(hazard.kind)
+        continue
+      }
+      next.push(hazard)
+      continue
+    }
     if (hazard.armedAt > now || hazard.nextTickAt > now) {
       next.push(hazard)
       continue
     }
-    if (isPointInBossHazard(hazard, playerX, playerY)) {
+    if (isPointInBossHazard(hazard, playerX, playerY, now)) {
       damageKinds.add(hazard.kind)
     }
     next.push({

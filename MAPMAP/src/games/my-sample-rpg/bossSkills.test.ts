@@ -1,24 +1,35 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  CHARGE_DASH_MILLISECONDS,
+  CHARGE_WINDUP_MILLISECONDS,
+  FAN_SHOT_SPEED_TILES_PER_SECOND,
   POISON_PUDDLE_TICK_MILLISECONDS,
   POISON_PUDDLE_WARNING_MILLISECONDS,
   TONGUE_PULL_STOP_DISTANCE_TILES,
   WATER_PILLAR_WARNING_MILLISECONDS,
+  createChargedBlast,
+  createChargeLane,
+  createFanShot,
   createGroundSlam,
+  createMeteorShower,
   createPoisonPuddle,
+  createRingBurst,
   createWaterPillars,
   getBossHazardDamage,
   getBossKey,
   getBossPresentation,
   getBossSkillShout,
   getBossSkillCooldown,
+  getBossSkillGap,
+  getChargePath,
   getSummonCountPerCast,
   isBossEnraged,
   getBossSummonPrefix,
   getTonguePullVector,
   isBossSummonCharacterId,
   pickBossSkill,
+  shouldInterruptChargedBlast,
   tickBossHazards
 } from './bossSkills'
 
@@ -127,5 +138,69 @@ describe('boss skills', () => {
     expect(getBossKey({ id: '늪지기 거대개구리-보스', appearanceType: 'monster_frog_king' })).toBe('monster_frog_king')
     expect(pickBossSkill('boss_slime_king', 5, {}, 0)?.kind).toBe('summon')
     expect(getBossPresentation('boss_pig_captain')?.deathLines?.join(' ')).toContain('용암')
+  })
+
+  it('gives the trial boss many skills, spaced out by a shared gap', () => {
+    const key = getBossKey({ id: '시험의 수호자-보스', appearanceType: 'monster_troll_chief' })
+    expect(key).toBe('boss_trial')
+    expect(getBossSkillGap(key)).toBeGreaterThan(0)
+    expect(getBossSkillGap('monster_troll_chief')).toBe(0)
+    // 가까우면 기 모으기, 멀면 돌진이 먼저(목록 순서)
+    expect(pickBossSkill(key, 2, {}, 0)?.kind).toBe('charged-blast')
+    expect(pickBossSkill(key, 8, {}, 0)?.kind).toBe('charge')
+    expect(getBossPresentation(key)?.title).toBeDefined()
+  })
+
+  it('makes the ring burst safe only near the boss', () => {
+    const ring = createRingBurst('r', 10, 10, 0)
+    expect(tickBossHazards([ring], 10.5, 10, ring.armedAt).damageKinds).toEqual([])
+    expect(tickBossHazards([ring], 13, 10, ring.armedAt).damageKinds).toEqual(['ring-burst'])
+    expect(tickBossHazards([ring], 20, 10, ring.armedAt).damageKinds).toEqual([])
+  })
+
+  it('charges past the player but stops before a wall, hitting the lane as it passes', () => {
+    const open = getChargePath({ x: 0, y: 0 }, { x: 4, y: 0 }, () => false)
+    expect(open.direction).toEqual({ x: 1, y: 0 })
+    expect(open.distanceTiles).toBe(6)
+    const walled = getChargePath({ x: 0, y: 0 }, { x: 4, y: 0 }, (x) => x >= 3)
+    expect(walled.distanceTiles).toBe(2.75)
+
+    const lane = createChargeLane('c', { x: 0, y: 0 }, open, 0)
+    const dashStart = CHARGE_WINDUP_MILLISECONDS
+    // 준비 중에는 길 위에 서 있어도 다치지 않는다
+    expect(tickBossHazards(lane, 4, 0, dashStart - 1).damageKinds).toEqual([])
+    // 길 끝은 돌진이 끝날 때 맞는다
+    expect(lane.at(-1)?.armedAt).toBe(dashStart + CHARGE_DASH_MILLISECONDS)
+    expect(tickBossHazards(lane, 6, 0, dashStart + CHARGE_DASH_MILLISECONDS).damageKinds).toEqual(['charge-lane'])
+    // 옆으로 비키면 맞지 않는다
+    expect(tickBossHazards(lane, 3, 2, dashStart + CHARGE_DASH_MILLISECONDS / 2).damageKinds).toEqual([])
+  })
+
+  it('flies fan shots outward, hitting once and vanishing at walls', () => {
+    const shots = createFanShot('f', { x: 0, y: 0 }, { x: 10, y: 0 }, 5, 0)
+    expect(shots).toHaveLength(5)
+    const middle = shots[2]
+    const secondsToPlayer = 3 / FAN_SHOT_SPEED_TILES_PER_SECOND
+    const hitAt = middle.armedAt + secondsToPlayer * 1000
+    const tick = tickBossHazards([middle], 3, 0, hitAt)
+    expect(tick.damageKinds).toEqual(['fan-shot'])
+    expect(tick.hazards).toEqual([])
+    expect(tickBossHazards([middle], 3, 5, hitAt).hazards).toHaveLength(1)
+    expect(tickBossHazards([middle], 3, 5, hitAt, (x) => x >= 2).hazards).toEqual([])
+  })
+
+  it('drops the first meteor on the player and the rest later around them', () => {
+    const meteors = createMeteorShower('m', { x: 10, y: 10 }, 4, 0, () => 0.5)
+    expect(meteors[0]).toMatchObject({ x: 10, y: 10 })
+    expect(meteors[1].armedAt).toBeGreaterThan(meteors[0].armedAt)
+    expect(tickBossHazards([meteors[0]], 10, 10, meteors[0].armedAt).damageKinds).toEqual(['meteor'])
+  })
+
+  it('interrupts the charged blast once the boss loses enough hp', () => {
+    const blast = createChargedBlast('b', 0, 0, 0)
+    expect(blast.armedAt).toBeGreaterThan(2000)
+    expect(shouldInterruptChargedBlast(1000, 990, 1000)).toBe(false)
+    expect(shouldInterruptChargedBlast(1000, 950, 1000)).toBe(true)
+    expect(getBossHazardDamage('charged-blast', 100)).toBeGreaterThan(getBossHazardDamage('ground-slam', 100))
   })
 })

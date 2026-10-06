@@ -20,8 +20,10 @@ from swamp_mapkit import (LPC, S, SwampMap, catmull, character, dist_to_path, np
 W, H = 44, 36
 OUT = 'src/games/my-sample-rpg/assets/maps/frost-village.tmx'
 TOWN_TMX = 'src/games/my-sample-rpg/assets/maps/town.tmx'
-LOGPILE = [[LPC['town_prop_logpile_r0c0'], LPC['town_prop_logpile_r0c1']],
-           [LPC['town_prop_logpile_r1c0'], LPC['town_prop_logpile_r1c1']]]
+# 장작더미: 타일 이름(logpile_r?c?)과 실제 그림 조각이 어긋나 있어 그림 기준으로 맞춘다.
+# 위 왼쪽 = 솟은 통나무 끝, 아래 = 단면 더미(왼쪽)·옆면(오른쪽). r1c0 은 통나무 한 토막이라 쓰지 않는다.
+LOGPILE = [[LPC['town_prop_logpile_r0c1'], 0],
+           [LPC['town_prop_logpile_r1c1'], LPC['town_prop_logpile_r0c0']]]
 FENCE = [LPC['town_prop_fence_h_l'], LPC['town_prop_fence_h_m'], LPC['town_prop_fence_h_r']]
 
 SOUTH_EXIT = (21, 35, 3, 1)

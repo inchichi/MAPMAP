@@ -41,6 +41,7 @@ BODY_FRAME = 64
 ANIMS = {
     'walk': {'cell': 128, 'frames': 9},
     'slash': {'cell': 192, 'frames': 6},
+    'halfslash': {'cell': 128, 'frames': 6},
     'thrust': {'cell': 192, 'frames': 8},
     'shoot': {'cell': 128, 'frames': 13},
     'hurt': {'cell': 128, 'frames': 6},
@@ -103,9 +104,51 @@ def load_layer(layer, anim):
     path = layer['path'].format(anim=anim)
     full = os.path.join(SS, path)
     if not os.path.exists(full):
+        if anim in POSE_BORROW_ANIMS:
+            return borrow_pose_layer(layer, anim)
         return None
     used_files.add(path)
     return recolor(Image.open(full).convert('RGBA'), layer['material'], layer['color'])
+
+
+# LPC 에 반베기(halfslash) 그림이 없는 옷(가죽 갑옷·사슬 갑옷)은, 반베기 각 프레임마다 몸 자세가
+# 가장 비슷한 다른 동작의 프레임을 골라 그 옷 그림을 빌려 온다(몸 64px 시트, 같은 방향 행끼리 비교).
+POSE_BORROW_ANIMS = {'halfslash'}
+POSE_SOURCE_ANIMS = ('walk', 'slash', 'thrust', 'spellcast', 'shoot', 'run', 'idle')
+POSE_BODY = 'body/bodies/male/{anim}.png'
+
+
+def borrow_pose_layer(layer, anim):
+    target_path = os.path.join(SS, POSE_BODY.format(anim=anim))
+    if not os.path.exists(target_path):
+        return None
+    target = Image.open(target_path).convert('RGBA')
+    sources = []
+    for source_anim in POSE_SOURCE_ANIMS:
+        body_path = os.path.join(SS, POSE_BODY.format(anim=source_anim))
+        layer_path = os.path.join(SS, layer['path'].format(anim=source_anim))
+        if os.path.exists(body_path) and os.path.exists(layer_path):
+            used_files.add(layer['path'].format(anim=source_anim))
+            sources.append((Image.open(body_path).convert('RGBA'),
+                            recolor(Image.open(layer_path).convert('RGBA'), layer['material'], layer['color'])))
+    if not sources:
+        return None
+    size = BODY_FRAME
+    out = Image.new('RGBA', target.size, (0, 0, 0, 0))
+    for r in range(4):
+        for c in range(target.width // size):
+            want = target.crop((c * size, r * size, (c + 1) * size, (r + 1) * size)).tobytes()
+            best = None
+            for body, img in sources:
+                for sc in range(body.width // size):
+                    box = (sc * size, r * size, (sc + 1) * size, (r + 1) * size)
+                    got = body.crop(box).tobytes()
+                    # 알파(몸 실루엣)가 다른 픽셀 수
+                    score = sum(1 for i in range(3, len(want), 4) if (want[i] > 0) != (got[i] > 0))
+                    if best is None or score < best[0]:
+                        best = (score, img.crop(box))
+            out.alpha_composite(best[1], (c * size, r * size))
+    return out
 
 
 def compose(layers, anim):
@@ -167,9 +210,10 @@ GEAR = {
 # 무기: 아이템 id → (LPC 시트 정의, 색 변형, 공격 동작). 정의 파일의 레이어 zPos 로
 # 몸(10)보다 뒤/앞을 가른다.
 WEAPON_ITEMS = {
-    'basic-sword': ('weapons/sword/weapon_sword_arming.json', 'iron', 'slash'),
-    'bronze-sword': ('weapons/sword/weapon_sword_arming.json', 'bronze', 'slash'),
-    'iron-sword': ('weapons/sword/weapon_sword_arming.json', 'steel', 'slash'),
+    # 검: 들어 올렸다 크게 내려 베는 반베기(halfslash). 기존 베기(slash)는 앞 절반이 거의 멈춰 있다.
+    'basic-sword': ('weapons/sword/weapon_sword_arming.json', 'iron', 'halfslash'),
+    'bronze-sword': ('weapons/sword/weapon_sword_arming.json', 'bronze', 'halfslash'),
+    'iron-sword': ('weapons/sword/weapon_sword_arming.json', 'steel', 'halfslash'),
     'battle-axe': ('weapons/blunt/weapon_blunt_waraxe.json', 'waraxe', 'slash'),
     'spiked-mace': ('weapons/blunt/weapon_blunt_mace.json', 'mace', 'slash'),
     'quick-dagger': ('weapons/sword/weapon_sword_dagger.json', 'dagger', 'slash'),
@@ -179,7 +223,7 @@ WEAPON_ITEMS = {
     'hunting-bow': ('weapons/ranged/bow/weapon_ranged_bow_normal.json', 'medium', 'shoot'),
 }
 CUSTOM_ANIM_BASE = {'slash_128': 'slash', 'slash_oversize': 'slash', 'thrust_oversize': 'thrust',
-                    'thrust_128': 'thrust', 'walk_128': 'walk'}
+                    'thrust_128': 'thrust', 'walk_128': 'walk', 'halfslash_128': 'halfslash'}
 BODY_Z = 10
 
 

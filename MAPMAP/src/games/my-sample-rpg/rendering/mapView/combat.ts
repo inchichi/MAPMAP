@@ -12,7 +12,7 @@ import type { GameSoundEffects } from '../createGameSoundEffects'
 import { AnimatedSprite } from 'pixi.js'
 import { PLAYER_CHARACTER_ID } from '../../characterState'
 import type { CharacterMoveDirection, CharacterState } from '../../characterState'
-import { getEquippedPlayerDefense } from '../../playerEquipment'
+import { getEquippedPlayerDefense, isEquippedPlayerWeaponThrust } from '../../playerEquipment'
 import { type PlayerInventory } from '../../playerInventory'
 import { PLAYER_SMASH_SKILL_ID } from '../../playerSmashSkill'
 import { recordMonsterDefeatQuestProgress, type QuestLogState } from '../../questLog'
@@ -27,6 +27,7 @@ import { DEFAULT_MONSTER_DEATH_SOUND, getMonsterCatalogEntry, type MonsterBehavi
 import { isBossSummonCharacterId } from '../../bossSkills'
 import { BOSS_RETRY_RESPAWN_DELAY_MILLISECONDS, DAMAGE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, MONSTER_ATTACK_RANGE_TOUCH_TOLERANCE_TILES, MONSTER_CONTACT_DAMAGE_COOLDOWN_MILLISECONDS, MONSTER_CONTACT_DAMAGE_TOUCH_TOLERANCE_TILES, MONSTER_RESPAWN_DELAY_MILLISECONDS, PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES, PLAYER_DAMAGE_INVULNERABILITY_MILLISECONDS, PLAYER_RESPAWN_DELAY_MILLISECONDS, SLASH_VFX_HIT_PADDING_PIXELS, WHITE_SLASH_WIDE_FRAME_BOUNDS, isBossCharacterId } from './constants'
 import { getMonsterBehaviorConfig } from './nodes'
+import { PLAYER_THRUST_ATTACK_PROBE_DISTANCE_IN_TILES, isPlayerThrustHitWindowOpen } from './playerThrustAttack'
 import { createCollisionRectFromCharacter } from './tiles'
 import { type MonsterPigAnimationMode, type MonsterPigBehaviorState, type PlayerHitReactionState, type RenderedCharacterNode } from './types'
 
@@ -573,7 +574,11 @@ export const createCombat = (ctx: CombatContext) => {
     const mitigatedDamage = sourceCharacter
       ? Math.max(1, nextDamage - getEquippedPlayerDefense(getCurrentPlayerEquipment()))
       : nextDamage
-    const nextHp = Math.max(0, playerProfile.hp.current - mitigatedDamage)
+    // 시험장(시험 보스 실험용)에서는 체력이 줄지 않는다 — 피해 숫자만 띄운다.
+    const nextHp =
+      sceneId === 'boss-arena'
+        ? playerProfile.hp.current
+        : Math.max(0, playerProfile.hp.current - mitigatedDamage)
     const damageMessage =
       nextHp === 0 ? `-${mitigatedDamage}\n쓰러졌다!` : `-${mitigatedDamage}`
 
@@ -744,6 +749,13 @@ export const createCombat = (ctx: CombatContext) => {
 
     const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
     const playerSlashEffectSprite = getPlayerSlashEffectSprite()
+    const isThrust = isEquippedPlayerWeaponThrust(getCurrentPlayerEquipment())
+    if (
+      isThrust &&
+      !isPlayerThrustHitWindowOpen(now - (getPlayerAttackStartedAtMilliseconds() ?? now))
+    ) {
+      return
+    }
     const targetCharacter = playerSlashEffectSprite
       ? resolveClosestMonsterInCollisionRect(
           createSlashEffectHitRect(playerSlashEffectSprite)
@@ -754,7 +766,9 @@ export const createCombat = (ctx: CombatContext) => {
           canReceiveInteraction: (character) =>
             isMonsterCharacter(character) &&
             !isMonsterCombatStateDefeated(character.id),
-          interactionProbeDistanceInTiles: PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES
+          interactionProbeDistanceInTiles: isThrust
+            ? PLAYER_THRUST_ATTACK_PROBE_DISTANCE_IN_TILES
+            : PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES
         })
 
     if (targetCharacter) {

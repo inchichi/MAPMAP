@@ -2,9 +2,6 @@ import { TextStyle } from 'pixi.js'
 import { PLAYER_EQUIPMENT_ITEM_DEFINITIONS } from '../../playerEquipment'
 import { type CollisionRect } from '../characterCollision'
 import { type TileTextureFrameSource } from '../tiledMapRenderResources'
-import blacksmithPortraitUrl from '../../assets/portraits/blacksmith-mozarchan.png'
-import potionMerchantPortraitUrl from '../../assets/portraits/potion-merchant.png'
-import santaPortraitUrl from '../../assets/portraits/santa.png'
 import { POTION_ITEM_DEFINITIONS } from '../../potionShop'
 import { type PlayerEquipmentAppearanceConfig, type PlayerWeaponAppearanceConfig } from './types'
 
@@ -123,14 +120,6 @@ export const POTION_SHOP_NPC_IDS = new Set([POTION_SHOP_NPC_ID, 'camp_merchant']
 export const HERBALIST_SHOP_NPC_IDS: ReadonlySet<string> = new Set(['odi', 'irma'])
 export const HERBALIST_SHOP_ID = 'herbalist'
 // tiny-dungeon-16 의 두건 쓴 약초꾼 얼굴(상점 초상화)
-
-// 비주얼노벨 대화창을 쓰는 NPC → 초상화 이미지. 여기 등록된 NPC 는 머리 위 말풍선 대신
-// 하단 대화창으로 대사를 보여준다. (우선 대장장이 모차르찬부터)
-export const NPC_PORTRAITS: Record<string, string> = {
-  [BLACKSMITH_SHOP_NPC_ID]: blacksmithPortraitUrl,
-  [POTION_SHOP_NPC_ID]: potionMerchantPortraitUrl,
-  santa: santaPortraitUrl
-}
 
 // 시나리오 reward 노드는 item_id 만 담는다. 인벤토리 표시는 라벨이 필요하므로
 // 기존 정의(포션·장비)에서 해석하고, 모르는 id 는 id 그대로 노출한다.
