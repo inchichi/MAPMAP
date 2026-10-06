@@ -197,19 +197,27 @@ export const BOSS_FIRST_SKILL_DELAY_MILLISECONDS = 3000
 export const getBossSkills = (appearanceType: string): readonly BossSkillDefinition[] =>
   BOSS_SKILLS_BY_APPEARANCE_TYPE[appearanceType] ?? []
 
-// 지금 쓸 기술 — 쿨다운이 끝났고 거리가 맞는 것 중 목록 앞의 것. readyAt 에 없는 기술은 바로 쓸 수 있다.
-export const pickBossSkill = (
+// 지금 쓸 수 있는 기술 — 쿨다운이 끝났고 거리가 맞는 것(목록 순서). readyAt 에 없는 기술은 바로 쓸 수 있다.
+export const getReadyBossSkills = (
   appearanceType: string,
   distanceTiles: number,
   readyAtByKind: Partial<Record<BossSkillKind, number>>,
   now: number
-): BossSkillDefinition | undefined =>
-  getBossSkills(appearanceType).find(
+): BossSkillDefinition[] =>
+  getBossSkills(appearanceType).filter(
     (skill) =>
       (readyAtByKind[skill.kind] ?? 0) <= now &&
       distanceTiles >= skill.minRangeTiles &&
       distanceTiles <= skill.maxRangeTiles
   )
+
+// 지금 쓸 기술 — 쓸 수 있는 것 중 목록 앞의 것
+export const pickBossSkill = (
+  appearanceType: string,
+  distanceTiles: number,
+  readyAtByKind: Partial<Record<BossSkillKind, number>>,
+  now: number
+): BossSkillDefinition | undefined => getReadyBossSkills(appearanceType, distanceTiles, readyAtByKind, now)[0]
 
 // ---------------------------------------------------------------- 바닥 위험 지대
 export type BossHazardKind =

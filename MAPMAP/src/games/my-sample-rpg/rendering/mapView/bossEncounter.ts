@@ -57,6 +57,7 @@ import {
 } from '../../bossSkills'
 import { BOSS_SHOUT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, isBossCharacterId } from './constants'
 import type { MonsterPigBehaviorState, RenderedCharacterNode } from './types'
+import { createTrialBossPolicy } from './trialBossPolicy'
 
 export type BossEncounterContext = {
   app: Application
@@ -168,6 +169,13 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
     | undefined
   // 기 모으기: 모으는 동안 깎인 보스 체력을 보고 끊는다
   let bossChannel: { bossId: string; hazardId: string; startHp: number; until: number } | undefined
+  // 시험 보스의 기술 선택(학습한 정책)
+  const trialBossPolicy = createTrialBossPolicy({
+    monsterCombatStates,
+    monsterPigBehaviorStates,
+    getPlayerProfile,
+    isPlayerRolling
+  })
 
   // ---------------------------------------------------------------- 보스 특수 기술(bossSkills.ts)
   // 보스가 어그로 중일 때 근접 공격보다 먼저 확인한다. 썼으면 true(그 틈에 근접 공격은 미룬다).
@@ -187,6 +195,7 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
         ])
       )
       bossSkillReadyAtById.set(boss.id, readyAt)
+      trialBossPolicy.forgetBoss(boss.id)
     }
     announceBoss(boss)
     const combat = monsterCombatStates.get(boss.id)
@@ -203,7 +212,13 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
     if (getPlayerProfile().hp.current === 0) {
       return false
     }
-    const skill = pickBossSkill(getBossKey(boss), distance, readyAt, now)
+    // 시험 보스는 학습한 정책이, 나머지는 목록 순서대로 고른다
+    const policyKind = trialBossPolicy.handles(boss)
+      ? trialBossPolicy.pickSkill(boss, bossCenter, playerCenter, readyAt, bossHazards.length, now)
+      : undefined
+    const skill = trialBossPolicy.handles(boss)
+      ? getBossSkills(getBossKey(boss)).find((candidate) => candidate.kind === policyKind)
+      : pickBossSkill(getBossKey(boss), distance, readyAt, now)
     if (!skill) {
       return false
     }
@@ -847,6 +862,7 @@ export const createBossEncounter = (ctx: BossEncounterContext) => {
       monsterRespawnAtById.delete(character.id)
     }
     bossSkillReadyAtById.delete(bossId)
+    trialBossPolicy.forgetBoss(bossId)
     clearBossHazards()
     clearBossTonguePull()
   }

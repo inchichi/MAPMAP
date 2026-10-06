@@ -3,52 +3,29 @@
 //   - 행동: 0 = 기술 안 씀(쫓아가서 근접 공격), 1~7 = 기술(목록 순서). 못 쓰는 기술은 마스크로 막는다.
 //   - 보상: 싸움이 끝날 때 재미 점수(0~1), 그 전에는 0.
 // 상대 봇의 실력은 판마다 뽑고 정책에게는 알려 주지 않는다 — 플레이어가 어떤지 관찰로 알아내야 한다.
-import { getBossSkills, isBossEnraged, type BossSkillKind } from '../bossSkills'
+import type { BossSkillKind } from '../bossSkills'
 import {
   createFightState,
   createSeededRandom,
   getAvailableBossSkills,
-  getDistance,
   getFightOutcome,
   getFightResult,
   isPlayerRolling,
-  SIM_TIME_LIMIT_MILLISECONDS,
   beginFightStep,
   finishFightStep,
-  TRIAL_BOSS_KEY,
   type FightOutcome,
   type FightSetup,
   type FightState
 } from './bossFightSim'
+import {
+  BOSS_POLICY_ACTIONS,
+  buildBossObservation,
+  createRecentDamageWindow,
+  getBossActionMask,
+  NONE_ACTION_HOLD_MILLISECONDS
+} from './bossObservation'
 import { scoreFightFun, type FunBreakdown } from './fightEvaluation'
 import { createPlayerBot, PLAYER_BOT_SKILLS, type PlayerBot, type PlayerBotTier } from './playerBots'
-
-const SKILLS = getBossSkills(TRIAL_BOSS_KEY)
-export const BOSS_ENV_ACTIONS: readonly string[] = ['none', ...SKILLS.map((skill) => skill.kind)]
-// "안 씀"을 고르면 이만큼은 다시 묻지 않는다(50ms마다 묻지 않게)
-export const NONE_ACTION_HOLD_MILLISECONDS = 500
-const RECENT_WINDOW_MILLISECONDS = 10_000
-const LONGEST_COOLDOWN_MILLISECONDS = Math.max(...SKILLS.map((skill) => skill.cooldownMilliseconds))
-
-// 관찰 벡터의 칸 이름(순서가 곧 계약이다 — 바꾸면 학습한 정책을 다시 학습해야 한다)
-export const BOSS_ENV_OBSERVATION_NAMES: readonly string[] = [
-  'player_dx',
-  'player_dy',
-  'player_distance',
-  'player_hp',
-  'boss_hp',
-  'boss_enraged',
-  'player_potions',
-  'player_rolling',
-  'player_roll_ready',
-  'boss_melee_ready',
-  'hazard_count',
-  'fight_time',
-  'player_damage_taken_recent',
-  'boss_damage_taken_recent',
-  ...SKILLS.flatMap((skill) => [`${skill.kind}_cooldown`, `${skill.kind}_in_range`]),
-  ...BOSS_ENV_ACTIONS.map((action) => `last_action_${action}`)
-]
 
 export type BossEnvStep = {
   observation: number[]
@@ -72,7 +49,37 @@ export type BossEnvConfig = {
   tiers: readonly PlayerBotTier[]
 }
 
-const getTotalPlayerDamage = (state: FightState): number =>
+// 결정 순간의 관찰. 학습 환경과 시뮬레이터 화면(networkBossPolicy)이 같이 쓴다.
+export const getFightObservation = (
+  state: FightState,
+  startingPotions: number,
+  lastAction: number,
+  recent: { player: number; boss: number }
+): number[] => {
+  const { player, boss, now } = state
+  return buildBossObservation({
+    boss,
+    player,
+    playerHp: player.hp,
+    playerMaxHp: player.maxHp,
+    bossHp: boss.hp,
+    bossMaxHp: boss.maxHp,
+    potionRatio: startingPotions > 0 ? player.potions / startingPotions : 0,
+    playerRolling: isPlayerRolling(state),
+    playerRollReady: player.rollReadyAt <= now,
+    bossMeleeReady: boss.nextMeleeAt <= now,
+    hazardCount: state.hazards.length,
+    fightMilliseconds: now,
+    recentPlayerDamage: recent.player,
+    recentBossDamage: recent.boss,
+    skillCooldownLeft: Object.fromEntries(
+      Object.entries(boss.skillReadyAt).map(([kind, readyAt]) => [kind, (readyAt ?? 0) - now])
+    ),
+    lastAction
+  })
+}
+
+export const getTotalPlayerDamage = (state: FightState): number =>
   Object.values(state.stats.damageTakenByKind).reduce((sum, value) => sum + value, 0)
 
 export const createBossEnv = (config: BossEnvConfig) => {
@@ -84,42 +91,14 @@ export const createBossEnv = (config: BossEnvConfig) => {
   let lastAction = 0
   let decisions = 0
   // 최근 피해를 재려고 결정 순간마다 누적 피해를 적어 둔다
-  let samples: Array<{ at: number; playerDamage: number; bossDamage: number }> = []
+  let recentDamage = createRecentDamageWindow()
 
   const getObservation = (): number[] => {
-    const { player, boss, now } = state
-    const playerDamage = getTotalPlayerDamage(state)
-    const bossDamage = boss.maxHp - boss.hp
-    samples = [...samples.filter((sample) => now - sample.at <= RECENT_WINDOW_MILLISECONDS), { at: now, playerDamage, bossDamage }]
-    const oldest = samples[0]
-    const distance = getDistance(boss, player)
-    return [
-      (player.x - boss.x) / 10,
-      (player.y - boss.y) / 10,
-      distance / 10,
-      player.hp / player.maxHp,
-      boss.hp / boss.maxHp,
-      isBossEnraged(boss.hp, boss.maxHp) ? 1 : 0,
-      config.setup.potions > 0 ? player.potions / config.setup.potions : 0,
-      isPlayerRolling(state) ? 1 : 0,
-      player.rollReadyAt <= now ? 1 : 0,
-      boss.nextMeleeAt <= now ? 1 : 0,
-      Math.min(1, state.hazards.length / 20),
-      now / SIM_TIME_LIMIT_MILLISECONDS,
-      (playerDamage - oldest.playerDamage) / player.maxHp,
-      (bossDamage - oldest.bossDamage) / boss.maxHp,
-      ...SKILLS.flatMap((skill) => [
-        Math.min(1, Math.max(0, (boss.skillReadyAt[skill.kind] ?? 0) - now) / LONGEST_COOLDOWN_MILLISECONDS),
-        distance >= skill.minRangeTiles && distance <= skill.maxRangeTiles ? 1 : 0
-      ]),
-      ...BOSS_ENV_ACTIONS.map((_, index) => (index === lastAction ? 1 : 0))
-    ]
+    const recent = recentDamage(state.now, getTotalPlayerDamage(state), state.boss.maxHp - state.boss.hp)
+    return getFightObservation(state, config.setup.potions, lastAction, recent)
   }
 
-  const getActionMask = (): boolean[] => {
-    const available = new Set<string>(getAvailableBossSkills(state))
-    return BOSS_ENV_ACTIONS.map((action, index) => index === 0 || available.has(action))
-  }
+  const getActionMask = (): boolean[] => getBossActionMask(getAvailableBossSkills(state))
 
   // 다음 결정 순간이나 싸움 끝까지 흘린다. 그 사이 보스는 기술을 쓰지 않는다(쫓아가서 근접 공격).
   // 결정 순간은 한 칸의 두 단계 사이(beginFightStep 뒤)라서, 돌아올 때 그 칸은 아직 끝나지 않았다.
@@ -165,14 +144,14 @@ export const createBossEnv = (config: BossEnvConfig) => {
       nextDecisionAt = 0
       lastAction = 0
       decisions = 0
-      samples = []
+      recentDamage = createRecentDamageWindow()
       return advance()
     },
     // 결정 순간에서 행동 하나로 그 칸을 마치고 다음 결정 순간까지 간다. 막힌 행동은 "안 씀"으로 본다.
     step: (action: number): BossEnvStep => {
-      const kind = getActionMask()[action] ? BOSS_ENV_ACTIONS[action] : 'none'
+      const kind = getActionMask()[action] ? BOSS_POLICY_ACTIONS[action] : 'none'
       decisions += 1
-      lastAction = BOSS_ENV_ACTIONS.indexOf(kind)
+      lastAction = BOSS_POLICY_ACTIONS.indexOf(kind)
       if (kind === 'none') {
         nextDecisionAt = state.now + NONE_ACTION_HOLD_MILLISECONDS
       }

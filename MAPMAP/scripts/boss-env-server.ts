@@ -8,7 +8,8 @@
 import { readFileSync } from 'node:fs'
 import { createInterface } from 'node:readline'
 
-import { BOSS_ENV_ACTIONS, BOSS_ENV_OBSERVATION_NAMES, createBossEnv } from '../src/games/my-sample-rpg/bossTraining/bossEnv'
+import { BOSS_OBSERVATION_NAMES, BOSS_POLICY_ACTIONS } from '../src/games/my-sample-rpg/bossTraining/bossObservation'
+import { createBossEnv } from '../src/games/my-sample-rpg/bossTraining/bossEnv'
 import type { PlayerBotTier } from '../src/games/my-sample-rpg/bossTraining/playerBots'
 import { createBossArenaSetup, type BossArenaData } from './boss-arena-setup'
 
@@ -28,7 +29,7 @@ createInterface({ input: process.stdin }).on('line', (line) => {
   } else if (message.cmd === 'step') {
     send(env.step(message.action ?? 0))
   } else if (message.cmd === 'spec') {
-    send({ observationNames: BOSS_ENV_OBSERVATION_NAMES, actions: BOSS_ENV_ACTIONS })
+    send({ observationNames: BOSS_OBSERVATION_NAMES, actions: BOSS_POLICY_ACTIONS })
   } else {
     send({ error: `unknown cmd ${message.cmd}` })
   }

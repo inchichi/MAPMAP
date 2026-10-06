@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>보스 RL 시뮬레이터</title>
+  </head>
+  <body>
+    <header>
+      <h1>시험 보스 RL 시뮬레이터</h1>
+      <label>보스
+        <select id="policy">
+          <option value="model" selected>강화학습 정책</option>
+          <option value="rule">규칙 기반</option>
+          <option value="random">무작위</option>
+        </select>
+      </label>
+      <label>비교
+        <select id="compare">
+          <option value="none">없음</option>
+          <option value="rule" selected>규칙 기반</option>
+          <option value="model">강화학습 정책</option>
+          <option value="random">무작위</option>
+        </select>
+      </label>
+      <label>상대 봇
+        <select id="tier">
+          <option value="novice">초보</option>
+          <option value="normal" selected>보통</option>
+          <option value="expert">고수</option>
+        </select>
+      </label>
+      <label>seed <input id="seed" type="number" value="12345" /></label>
+      <button id="random-seed" title="무작위 seed">🎲</button>
+      <label>속도
+        <select id="speed">
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+          <option value="8">8×</option>
+          <option value="16">16×</option>
+        </select>
+      </label>
+      <button id="play">⏸ 멈춤</button>
+      <button id="step" title="한 칸(50ms) — → 키">한 칸</button>
+      <button id="restart">다시</button>
+      <button id="next">다음 판</button>
+      <label><input id="auto-next" type="checkbox" /> 끝나면 다음 판</label>
+      <label title="npm run rl:pull -- &lt;run&gt; 으로 서버에서 가져온 정책이 여기 뜬다">학습 결과
+        <select id="policy-source"></select>
+      </label>
+      <label title="다른 곳에 있는 정책 JSON">파일
+        <input id="policy-file" type="file" accept=".json,application/json" />
+      </label>
+    </header>
+    <main>
+      <div class="legend">
+        <span>보스: 트롤 족장 (붉은빛 = 분노, 보랏빛 = 기 모으기)</span>
+        <span>플레이어 봇: 기사 (깜빡임 = 맞은 뒤 무적)</span>
+        <span><i style="background:#ff8a3d"></i>내려찍기</span>
+        <span><i style="background:#ff4fa3"></i>고리 폭발</span>
+        <span><i style="background:#ffd23f"></i>돌진</span>
+        <span><i style="background:#7df9ff"></i>부채꼴 탄</span>
+        <span><i style="background:#ff5a36"></i>유성</span>
+        <span><i style="background:#c77dff"></i>기 모으기</span>
+        <span>점선 = 예고(안쪽이 차오르면 터짐) · Space 재생/멈춤 · → 한 칸</span>
+      </div>
+      <div id="panels"></div>
+      <section id="batch">
+        <h2>일괄 평가 (화면 없이, 위에서 고른 정책들 × 실력 3종)</h2>
+        <label>실력마다 <input id="batch-count" type="number" value="100" min="1" /> 판</label>
+        <button id="batch-run">돌리기</button>
+        <div id="batch-output" class="muted"></div>
+      </section>
+    </main>
+    <script type="module" src="/src/games/my-sample-rpg/bossSimViewer/main.ts"></script>
+  </body>
+</html>

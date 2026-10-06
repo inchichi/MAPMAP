@@ -16,6 +16,7 @@
     "lua:sync": "npm run lua:fetch && npm run lua:build",
     "lua:bridge:test": "tsc --noEmit && vitest run --config vitest.lua-bridge.config.ts",
     "lua:test": "node scripts/fetch-lua-tests.mjs && node scripts/test-lua-wasm.mjs",
+    "rl:pull": "bash scripts/pull-boss-policy.sh",
     "rl:build": "vite-node scripts/export-boss-arena.ts && esbuild scripts/boss-env-server.ts --bundle --platform=node --format=esm --target=node20 --outfile=rl/dist/boss-env-server.mjs"
   },
   "devDependencies": {

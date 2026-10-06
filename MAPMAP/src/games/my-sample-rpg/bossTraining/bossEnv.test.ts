@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { ruleBasedBossPolicy, type FightSetup } from './bossFightSim'
-import { BOSS_ENV_ACTIONS, BOSS_ENV_OBSERVATION_NAMES, createBossEnv } from './bossEnv'
+import { createBossEnv } from './bossEnv'
+import { BOSS_OBSERVATION_NAMES, BOSS_POLICY_ACTIONS } from './bossObservation'
 import { runFight, scoreFightFun } from './fightEvaluation'
 
 const setup: FightSetup = {
@@ -23,8 +24,8 @@ describe('boss RL environment', () => {
   it('describes every observation slot and masks only real skills', () => {
     const env = createBossEnv({ setup, tiers: ['normal'] })
     const first = env.reset(1)
-    expect(first.observation).toHaveLength(BOSS_ENV_OBSERVATION_NAMES.length)
-    expect(first.actionMask).toHaveLength(BOSS_ENV_ACTIONS.length)
+    expect(first.observation).toHaveLength(BOSS_OBSERVATION_NAMES.length)
+    expect(first.actionMask).toHaveLength(BOSS_POLICY_ACTIONS.length)
     // "안 씀"은 언제나 고를 수 있고, 첫 결정 순간에는 기술도 하나 이상 열려 있다
     expect(first.actionMask[0]).toBe(true)
     expect(first.actionMask.slice(1).some(Boolean)).toBe(true)
@@ -51,6 +52,6 @@ describe('boss RL environment', () => {
     const blocked = first.actionMask.findIndex((allowed) => !allowed)
     expect(blocked).toBeGreaterThan(0)
     const next = env.step(blocked)
-    expect(next.observation[BOSS_ENV_OBSERVATION_NAMES.indexOf('last_action_none')]).toBe(1)
+    expect(next.observation[BOSS_OBSERVATION_NAMES.indexOf('last_action_none')]).toBe(1)
   })
 })

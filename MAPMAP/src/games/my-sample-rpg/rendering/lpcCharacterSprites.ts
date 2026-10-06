@@ -32,7 +32,7 @@ export const LPC_CENTER_X = manifest.centerX
 export const LPC_WALK_CYCLE_FRAMES = 8
 export const LPC_WALK_FRAMES_PER_SECOND = 11
 
-const sheetUrl = (fileName: string): string => {
+export const sheetUrl = (fileName: string): string => {
   const url = SHEET_URLS[`../assets/characters/lpc/${fileName}`]
 
   if (!url) {

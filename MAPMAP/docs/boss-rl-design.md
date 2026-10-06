@@ -29,6 +29,9 @@ Update it whenever a decision changes. Add new decisions to the log with a date.
 | 2026-10-06 | The policy does not see the bot tier. | It must read the player from the fight (damage taken recently, HP, potions), like it would with a real player. |
 | 2026-10-06 | Pin `stable-baselines3` and `sb3-contrib` to 2.7.1 and `gymnasium` to 1.2.3 on the server. | 2.8+ needs torch >= 2.8 and would replace the shared `~/venv` torch 2.5.1 (CUDA 12.1). 2.7.1 only adds packages. |
 | 2026-10-06 | Train on the CPU by default (`--device cpu`). | The policy is a 64×64 MLP. The Node simulators are the bottleneck. |
+| 2026-10-06 | Run the trained policy in the game as plain TypeScript math from exported JSON weights. | It is only 3 small layers, so no ML runtime is needed. A test checks that TS and PyTorch give the same scores and actions on 60 recorded decisions. |
+| 2026-10-06 | The training env and the game build the observation with one shared function (`bossObservation.ts`). | If they compute it differently, the policy acts strangely in the game without any error. After the move, 60 recorded decisions gave the same observation (largest difference 3e-8). |
+| 2026-10-06 | Add a standalone simulator page (`boss-sim.html`), separate from the game and the editor. | To watch what the policy does in the same simulator it trained in, not in the live game where the arena keeps the player at full HP. |
 
 ## Trial Boss
 
@@ -180,6 +183,7 @@ What is still off, and why it is left as is:
 | Date | Run | Steps | Envs | Speed | Notes |
 |---|---|---|---|---|---|
 | 2026-10-06 | `smoke` | 100k | 16 | 5,800 steps/s (24 s) | Pipeline check. Mean fight reward went from 0.63 to 0.69. |
+| 2026-10-06 | `main-20m` | 20M | 32 | 8,200 steps/s (41 min) | Mean fight reward went from 0.65 to 0.76 and stayed flat after about 8M steps. The model is on the server in `~/boss-rl/runs/main-20m/` and on the dev PC in `rl/runs/main-20m/` (git-ignored). |
 
 Evaluation on the server (200 fights per tier, seed 12345):
 
@@ -190,6 +194,65 @@ Evaluation on the server (200 fights per tier, seed 12345):
 | expert | 98% ✗ / 0.73 | 94% ✓ / 0.72 |
 
 The smoke model is not a result. It only shows that learning moves the numbers in the right direction.
+
+`main-20m` against the rule-based boss (500 fights per tier, seed 12345, deterministic policy):
+
+| Tier | Rule boss: win / length / fun | `main-20m`: win / length / fun |
+|---|---|---|
+| novice | 10% / 38 s / 0.52 | 60% / 51 s / **0.76** |
+| normal | 62% ✓ / 42 s / 0.70 | 82% / 44 s / **0.76** |
+| expert | 98% / 42 s / 0.73 | 98% / 43 s / **0.74** |
+
+Skills per fight:
+
+| Tier | Rule boss | `main-20m` |
+|---|---|---|
+| novice | ground-slam 3.6, ring-burst 3.3, meteor 2.5, charged-blast 2.2 | ring-burst 5.8, meteor 3.0, ground-slam 2.6, charged-blast 1.8 |
+| expert | ground-slam 4.1, ring-burst 4.0, meteor 2.9, charged-blast 2.3, fan-shot 0.6 | ground-slam 5.1, ring-burst 4.2, meteor 3.0, charged-blast 2.0, fan-shot 1.1 |
+
+What the policy learned:
+- **It adapts to the player without being told the tier.** Against novices it swaps ground-slam, which hurts players who stay close, for ring-burst, which is harmless to them. That keeps novices alive and makes fights longer and closer. Against experts it does the opposite and uses more ground-slam and fan-shot.
+- **The fun score went up for every tier**, and the most for novices (0.52 → 0.76).
+- **It overshoots the win-rate targets.** Novices now win 60% (target 30-50%) and normal players win 82% (target 55-75%). Expert stays at 98%. The reward is only the fun score, and its closeness part prefers close player wins. The planned win-rate term was not added yet.
+- Charge and tongue-pull are still almost never used, because the bots stay close.
+
+Next change to the reward: add a per-tier win-rate term so the policy aims for the target band. Its weight should adjust during training, raised while a tier's rolling win rate is outside its band and lowered when it is inside (a Lagrangian-style controller). A fixed per-episode bonus or penalty for winning only pushes the win rate to 0% or 100%.
+
+## Policy In The Game
+
+- The trial boss (`boss_trial`) picks skills with the trained policy. Every other boss still uses the rule (first available skill).
+- Files:
+  - `src/games/my-sample-rpg/assets/boss/trial-boss-policy.json`: exported weights (`rl/export_policy.py`), plus 60 sample decisions used by the test
+  - `bossTraining/bossObservation.ts`: the 36 observation slots and 8 actions, shared with the training env
+  - `bossTraining/bossPolicyNetwork.ts`: forward pass and masked argmax (deterministic, same as `evaluate.py`)
+  - `rendering/mapView/trialBossPolicy.ts`: per-fight memory (start time, last action, "no skill" hold, damage taken) and the call into the network. `bossEncounter.ts` asks it instead of `pickBossSkill` for the trial boss.
+- If the JSON does not match the current observation and action layout, the game logs a warning and falls back to the rule.
+- Two observation slots are not known in the game, so they are filled with fixed values: potions left = full, and roll ready = "not rolling right now".
+- **In `boss-arena` the player's HP never drops**, so the policy always sees a healthy player who takes no damage. It then plays as if the player were strong. To test how it adapts to a weak player, turn the arena's infinite HP off (`combat.ts`, the `boss-arena` check in `applyDamageToPlayer`).
+- To ship a new policy:
+
+```bash
+# on the server
+~/venv/bin/python export_policy.py runs/<run>/model.zip runs/<run>/trial-boss-policy.json
+# on the dev PC
+scp capstone:boss-rl/runs/<run>/trial-boss-policy.json src/games/my-sample-rpg/assets/boss/
+npx vitest run src/games/my-sample-rpg/bossTraining
+```
+
+- Checked on 2026-10-06 in a headless browser: in about 30 s of moving around the arena, the `main-20m` policy used ring-burst, charged-blast, ground-slam, and meteor-shower, with no errors.
+
+## Simulator Page
+
+- Open `http://localhost:5173/boss-sim.html` while `npm run dev` is running. It does not need the game or the editor.
+- Code: `src/games/my-sample-rpg/bossSimViewer/` (`main.ts` for the page, `fightPlayback.ts` for one fight, `drawFight.ts` for the canvas, `arenaSprites.ts` for the game art). It uses the same simulator, bots, and policy as training.
+- It draws the real `boss-arena` tilemap and the game sprites: the LPC knight with the starter sword for the player bot, and the troll chief sheet at the game's boss scale (×2) for the boss. Hazards are simple colored shapes, not the game's effects.
+- Two panels play the same seed and the same bot tier with two boss policies (default: RL policy vs rule-based). The bot uses the same random numbers in both panels, so any difference comes from the boss policy.
+- Each panel shows hazards (dashed = warning, filled = hitting), skill cooldowns, the last decision with the policy's action probabilities (masked softmax of the scores), an event log, and the fun score when the fight ends.
+- To watch a policy trained on the server, pull it first. `npm run rl:pull` lists the runs on the server. `npm run rl:pull -- <run>` runs `export_policy.py` on the server and copies the JSON (and `progress.csv`) to `rl/runs/<run>/` on this PC. The "학습 결과" dropdown lists every `rl/runs/*/trial-boss-policy.json`. It does not change the game's copy.
+- "파일" loads a policy JSON from anywhere else.
+- "일괄 평가" runs many fights per tier without drawing and shows win rate, length, HP left, fun, and skill use. Seeds start at the seed in the toolbar.
+- `bossTraining/networkBossPolicy.ts` wraps the exported network as a simulator `BossPolicy`. It follows the env's decision rule (500 ms hold after "none"), and a test checks that it plays the same fight as the env.
+- `bossTraining/bossArena.ts` turns the arena map into a `FightSetup`. Scripts and the page share it.
 
 ## Training Server
 
@@ -224,6 +287,7 @@ cd ~/boss-rl
 
 1. ~~Decide the balance knobs.~~ Done on 2026-10-06 (see Balance).
 2. ~~Build the Node ↔ Python bridge and a Gymnasium environment.~~ Done on 2026-10-06.
-3. ~~Install the RL packages on the server.~~ Done on 2026-10-06. Next: a real training run (millions of steps), then compare with `evaluate.py`.
-4. Export the policy and load it into the game for the trial boss.
-5. Optional: self-play, where the player is also trained.
+3. ~~Install the RL packages on the server.~~ Done on 2026-10-06. ~~First real training run.~~ Done on 2026-10-06 (`main-20m`, see Training Results).
+4. Add the per-tier win-rate term to the reward and train again.
+5. ~~Export the policy and load it into the game for the trial boss.~~ Done on 2026-10-06 (see Policy In The Game).
+6. Optional: self-play, where the player is also trained.
