@@ -30,6 +30,8 @@ const WEAPON_SKILLS_BY_ID: ReadonlyMap<string, WeaponSkill> = new Map(
 export type PlayerWeaponSkillTriggerResult = 'cast' | 'not-ready' | 'blocked' | 'not-weapon-skill'
 
 export type PlayerWeaponSkillsContext = {
+  // 쿨타임을 시작했다 — 하단 HUD 스킬 칸의 남은 시간 표시(skillCooldowns.ts)
+  recordSkillCooldown: (skillId: string, now: number, durationMilliseconds: number) => void
   map: ParsedTiledMap
   lpcMagic: LpcMagicEffects
   playerProfile: PlayerProfile
@@ -170,6 +172,7 @@ export const createPlayerWeaponSkills = (ctx: PlayerWeaponSkillsContext) => {
     }
 
     readyAtBySkillId.set(skillId, now + definition.cooldownMilliseconds)
+    ctx.recordSkillCooldown(skillId, now, definition.cooldownMilliseconds)
     return 'cast'
   }
 

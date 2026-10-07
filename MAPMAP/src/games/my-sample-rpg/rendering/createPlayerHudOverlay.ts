@@ -12,6 +12,7 @@ import {
   getPlayerEquipmentItemDefinitionById
 } from '../lua/luaGameLogic'
 import type { PlayerInventory } from '../playerInventory'
+import { formatSkillCooldownSeconds, type SkillCooldownView } from './mapView/skillCooldowns'
 import {
   type PlayerQuickslots
 } from '../playerQuickslots'
@@ -39,6 +40,8 @@ type CreatePlayerHudOverlayInput = {
   getSkillSlots: () => PlayerSkillSlots
   onRequestQuickslotChange: (nextQuickslots: PlayerQuickslots) => void
   onRequestSkillSlotsChange: (nextSkillSlots: PlayerSkillSlots) => void
+  // 스킬 칸 쿨타임(남은 시간·진행도) — 없으면 쓸 수 있는 상태(skillCooldowns.ts)
+  getSkillCooldown: (skillId: string) => SkillCooldownView | undefined
 }
 
 export type PlayerHudOverlay = {
@@ -157,7 +160,8 @@ export const createPlayerHudOverlay = ({
   getQuickslots,
   getSkillSlots,
   onRequestQuickslotChange,
-  onRequestSkillSlotsChange
+  onRequestSkillSlotsChange,
+  getSkillCooldown
 }: CreatePlayerHudOverlayInput): PlayerHudOverlay => {
   const overlayRoot = document.createElement('div')
   const panel = document.createElement('section')
@@ -189,6 +193,7 @@ export const createPlayerHudOverlay = ({
   const skillButtons: HTMLButtonElement[] = []
   const skillIcons: HTMLSpanElement[] = []
   const skillHotkeyLabels: HTMLSpanElement[] = []
+  const skillCooldownOverlays: HTMLSpanElement[] = []
   const skillNameLabels: HTMLSpanElement[] = []
   const skillDescriptionLabels: HTMLSpanElement[] = []
   const consumableButtons: HTMLButtonElement[] = []
@@ -313,8 +318,15 @@ export const createPlayerHudOverlay = ({
     descriptionLabel.className = 'player-hud-overlay__skill-description'
     descriptionLabel.textContent = ''
 
-    skillButton.append(hotkeyLabel, skillIcon, nameLabel, descriptionLabel)
+    // 쿨타임: 12시부터 시계 방향으로 걷히는 어두운 덮개 + 남은 초
+    const cooldownOverlay = document.createElement('span')
+    cooldownOverlay.className = 'player-hud-overlay__skill-cooldown'
+    cooldownOverlay.setAttribute('aria-hidden', 'true')
+    cooldownOverlay.hidden = true
+
+    skillButton.append(hotkeyLabel, skillIcon, nameLabel, descriptionLabel, cooldownOverlay)
     skillGrid.append(skillButton)
+    skillCooldownOverlays.push(cooldownOverlay)
 
     skillButtons.push(skillButton)
     skillIcons.push(skillIcon)
@@ -380,9 +392,11 @@ export const createPlayerHudOverlay = ({
     element.style.backgroundRepeat = 'no-repeat'
     element.style.backgroundPosition = '0 0'
     element.style.backgroundSize = '100% 100%'
-    element.style.backgroundColor = 'rgba(255, 249, 238, 0.9)'
-    element.style.border = '1px solid rgba(111, 89, 58, 0.34)'
-    element.style.boxShadow = 'inset 0 1px 0 rgba(255, 255, 255, 0.7)'
+    // 고전 클래식 HUD — 나무판에 파인 어두운 홈 칸(아이콘이 또렷하게 뜬다)
+    element.style.backgroundColor = '#24180c'
+    element.style.border = '2px solid'
+    element.style.borderColor = '#120b04 #8a6338 #8a6338 #120b04'
+    element.style.boxShadow = 'inset 0 2px 4px rgba(0, 0, 0, 0.55)'
   }
 
   const clearFrame = (element: HTMLElement) => {
@@ -963,6 +977,16 @@ export const createPlayerHudOverlay = ({
       nameLabel.hidden = Boolean(skill)
       descriptionLabel.hidden = Boolean(skill)
       renderSkillIcon(skillIcon, skill?.iconUrl, skill ? 1 : 0.92)
+
+      const cooldownOverlay = skillCooldownOverlays[index]
+      const cooldown = skillSlot ? getSkillCooldown(skillSlot.skillId) : undefined
+
+      cooldownOverlay.hidden = !cooldown
+      skillButton.classList.toggle('player-hud-overlay__skill-slot--cooling', Boolean(cooldown))
+      if (cooldown) {
+        cooldownOverlay.style.setProperty('--cooldown-progress', `${cooldown.progress * 360}deg`)
+        cooldownOverlay.textContent = formatSkillCooldownSeconds(cooldown.remainingMilliseconds)
+      }
     }
 
     const quickslots = getQuickslots()

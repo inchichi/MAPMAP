@@ -5331,3 +5331,120 @@ body.game-root--map-focused > :not(.game-root):not(.app-shell) {
 .boss-health-overlay {
   width: min(460px, calc((100vw - 32px) / var(--ui-scale, 1)));
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   하단 HUD — 고전 클래식 테마. 짙은 나무판 + 황동 안쪽 테두리 + 번지지 않는 그림자,
+   칸은 판에 파인 어두운 홈(TS 인라인), 게이지는 어두운 홈 안의 광택 막대, 제목은 금색.
+   색·테두리·그림자만 바꾼다 — 배치·드래그·퀵슬롯 로직은 그대로. */
+.player-hud-overlay__info-section,
+.player-hud-overlay__status-section,
+.player-hud-overlay__skill-section,
+.player-hud-overlay__consumable-section {
+  border: 3px solid #1e1309;
+  border-radius: 0;
+  background: linear-gradient(180deg, #5c3f23 0%, #4a321b 55%, #3b2714 100%);
+  box-shadow:
+    inset 0 0 0 2px #9a6f3c,
+    inset 0 3px 0 2px rgba(255, 214, 150, 0.18),
+    3px 3px 0 rgba(0, 0, 0, 0.4);
+  color: #fff1d2;
+  font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
+  font-synthesis: none;
+}
+
+.player-hud-overlay__section-title,
+.player-hud-overlay__skill-title {
+  color: #ffd75e;
+  text-shadow: 1px 1px 0 #120b04;
+}
+
+.player-hud-overlay__info-label,
+.player-hud-overlay__resource-label,
+.player-hud-overlay__resource-row:first-child .player-hud-overlay__resource-label,
+.player-hud-overlay__resource-row:nth-child(3) .player-hud-overlay__resource-label {
+  color: #e2c18e;
+  text-shadow: 1px 1px 0 #120b04;
+}
+
+.player-hud-overlay__info-value,
+.player-hud-overlay__resource-value,
+.player-hud-overlay__resource-row:first-child .player-hud-overlay__resource-value,
+.player-hud-overlay__resource-row:nth-child(3) .player-hud-overlay__resource-value {
+  color: #fff1d2;
+  text-shadow: 1px 1px 0 #120b04;
+}
+
+.player-hud-overlay__progression-badge {
+  border: 1px solid #94afc6;
+  background: #515f6b;
+  color: #fff1d2;
+}
+
+/* 체력·마나·경험치 — 어두운 홈 안의 광택 막대 */
+.player-hud-overlay__resource-track,
+.player-hud-overlay__resource-row:first-child .player-hud-overlay__resource-track,
+.player-hud-overlay__resource-row:nth-child(3) .player-hud-overlay__resource-track {
+  border: 2px solid;
+  border-color: #120b04 #8a6338 #8a6338 #120b04;
+  border-radius: 0;
+  background: #1a1108;
+}
+
+.player-hud-overlay__resource-fill {
+  border-radius: 0;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* 칸 글씨(단축키·수량·빈 칸 안내)는 홈 위에서 읽히게 밝게 */
+.player-hud-overlay__skill-slot,
+.player-hud-overlay__consumable-slot {
+  border-radius: 0;
+  color: #fff1d2;
+}
+
+.player-hud-overlay__skill-hotkey,
+.player-hud-overlay__consumable-hotkey {
+  z-index: 4;
+  color: #e2c18e;
+  text-shadow: 1px 1px 0 #120b04, -1px -1px 0 #120b04;
+}
+
+.player-hud-overlay__skill-name,
+.player-hud-overlay__consumable-name {
+  color: #8a6338;
+}
+
+.player-hud-overlay__skill-slot:hover,
+.player-hud-overlay__skill-slot:focus-visible,
+.player-hud-overlay__consumable-slot:hover,
+.player-hud-overlay__consumable-slot:focus-visible {
+  border-color: #ffd75e !important;
+  box-shadow: 0 0 0 1px #ffd75e !important;
+}
+
+/* 퀵슬롯에 아이템이 든 칸 — 철빛 테두리 */
+.player-hud-overlay__consumable-slot--filled {
+  border-color: #778d9f #3a444d #3a444d #778d9f !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* 스킬 쿨타임 — 12시부터 시계 방향으로 걷히는 어두운 덮개 + 가운데 남은 초 */
+.player-hud-overlay__skill-cooldown {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(transparent var(--cooldown-progress, 0deg), rgba(8, 4, 1, 0.7) 0);
+  color: #fff1d2;
+  font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
+  font-size: 1rem;
+  line-height: 1;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  pointer-events: none;
+}
+
+.player-hud-overlay__skill-cooldown[hidden] {
+  display: none;
+}
+

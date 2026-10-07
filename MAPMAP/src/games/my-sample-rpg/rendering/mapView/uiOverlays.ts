@@ -3,6 +3,7 @@
 import type { StatusEffectPill } from '../createStatusEffectsOverlay'
 import type { QuestDefinition } from '../../questLog'
 import type { PlayerSkillSlots } from '../../playerSkillSlots'
+import type { SkillCooldownView } from './skillCooldowns'
 import type { PlayerQuickslots } from '../../playerQuickslots'
 import type { PlayerProfile } from '../../playerProfile'
 import type { PlayerInventory } from '../../playerInventory'
@@ -42,6 +43,8 @@ export type UiOverlaysContext = {
   recordAcquiredItemsFromInventoryDelta: (previousInventory: PlayerInventory, nextInventory: PlayerInventory) => void
   // 스킬 창에서 더블클릭한 스킬을 한 번 쓴다(Q·W·E·R 키와 같은 프레임 단계).
   requestPlayerSkillUse: (skillId: string) => void
+  // 하단 HUD 스킬 칸 쿨타임 표시(skillCooldowns.ts)
+  getSkillCooldown: (skillId: string) => SkillCooldownView | undefined
   resetPlayerControlBindings: () => void
   sceneId: string
   setBlacksmithShopOpen: (nextIsOpen: boolean) => void
@@ -119,6 +122,7 @@ export const createUiOverlays = (ctx: UiOverlaysContext) => {
     playerProfile,
     recordAcquiredItemsFromInventoryDelta,
     requestPlayerSkillUse,
+    getSkillCooldown,
     resetPlayerControlBindings,
     sceneId,
     setBlacksmithShopOpen,
@@ -186,6 +190,7 @@ export const createUiOverlays = (ctx: UiOverlaysContext) => {
     getInventory: () => getCurrentPlayerInventory(),
     getQuickslots: () => getCurrentPlayerQuickslots(),
     getSkillSlots: () => getCurrentPlayerSkillSlots(),
+    getSkillCooldown,
     onRequestQuickslotChange: (nextQuickslots) => {
       setCurrentPlayerQuickslots(nextQuickslots)
       onPlayerQuickslotsChange(nextQuickslots)

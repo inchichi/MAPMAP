@@ -70,6 +70,8 @@ import { type RenderedCharacterNode } from './types'
 import { getMagicFacing, type LpcMagicEffects } from './lpcMagicEffects'
 
 export type PlayerCombatEffectsContext = {
+  // 쿨타임을 시작했다 — 하단 HUD 스킬 칸의 남은 시간 표시(skillCooldowns.ts)
+  recordSkillCooldown: (skillId: string, now: number, durationMilliseconds: number) => void
   map: ParsedTiledMap
   // 마법·화살이 겨눌 몬스터를 골랐다 — 머리 위 타겟 표시(combatIndicators.ts)
   onPlayerTargetSelected: (monsterId: string) => void
@@ -103,6 +105,7 @@ export type PlayerCombatEffectsContext = {
 
 export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
   const {
+    recordSkillCooldown,
     onPlayerTargetSelected,
     map,
     lpcMagic,
@@ -606,6 +609,7 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
       skillId,
       now + (PLAYER_MAGIC_SKILL_COOLDOWN_MILLISECONDS[skillId] ?? 1000)
     )
+    recordSkillCooldown(skillId, now, PLAYER_MAGIC_SKILL_COOLDOWN_MILLISECONDS[skillId] ?? 1000)
 
     if (skillId === PLAYER_ICE_BOLT_SKILL_ID) {
       beginPlayerMagicCast(now, prepared.origin, prepared.target, () =>
@@ -660,6 +664,7 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
       skillId,
       now + (PLAYER_BOW_SKILL_COOLDOWN_MILLISECONDS[skillId] ?? 1000)
     )
+    recordSkillCooldown(skillId, now, PLAYER_BOW_SKILL_COOLDOWN_MILLISECONDS[skillId] ?? 1000)
     const aimPoint = target ?? getPlayerFacingPoint(playerCharacter, origin)
     beginPlayerMagicCast(
       now,

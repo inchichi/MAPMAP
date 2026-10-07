@@ -48,6 +48,8 @@ import type { PlayerWeaponSkillTriggerResult } from './playerWeaponSkills'
 import { type PlayerHitReactionState, type SlashVfxRenderResources } from './types'
 
 export type PlayerActionsContext = {
+  // 쿨타임을 시작했다 — 하단 HUD 스킬 칸의 남은 시간 표시(skillCooldowns.ts)
+  recordSkillCooldown: (skillId: string, now: number, durationMilliseconds: number) => void
   characterPixelHeight: number
   characterPixelWidth: number
   gameSoundEffects: GameSoundEffects
@@ -106,6 +108,7 @@ export type PlayerActionsContext = {
 
 export const createPlayerActions = (ctx: PlayerActionsContext) => {
   const {
+    recordSkillCooldown,
     characterPixelHeight,
     characterPixelWidth,
     gameSoundEffects,
@@ -317,6 +320,7 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
 
     setPlayerProtectSkillActiveUntilMilliseconds(now + getPlayerProtectSkillDurationByLevel(protectSkillLevel))
     setPlayerProtectSkillReadyAtMilliseconds(now + PLAYER_PROTECT_SKILL_COOLDOWN_MILLISECONDS)
+    recordSkillCooldown(PLAYER_PROTECT_SKILL_ID, now, PLAYER_PROTECT_SKILL_COOLDOWN_MILLISECONDS)
     if (playerProtectSkillSprite) {
       playerProtectSkillSprite.gotoAndPlay(0)
       playerProtectSkillSprite.visible = true
@@ -348,6 +352,7 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
     setPlayerSmashSkillStartedAtMilliseconds(now)
     setPlayerSmashSkillFacing(playerCharacter.facing)
     setPlayerSmashSkillReadyAtMilliseconds(now + PLAYER_SMASH_SKILL_COOLDOWN_MILLISECONDS)
+    recordSkillCooldown(PLAYER_SMASH_SKILL_ID, now, PLAYER_SMASH_SKILL_COOLDOWN_MILLISECONDS)
     getPlayerSmashSkillHitMonsterIds().clear()
     playPlayerSmashSkillEffect(playerCharacter, now)
     return true
@@ -441,6 +446,7 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
           playerProfile.mp.current + restoreAmount
         )
         setPlayerFocusSkillReadyAtMilliseconds(now + 5000)
+        recordSkillCooldown(PLAYER_FOCUS_SKILL_ID, now, 5000)
         showCharacterDamageText(
           PLAYER_CHARACTER_ID,
           `+${restoreAmount} MP`,

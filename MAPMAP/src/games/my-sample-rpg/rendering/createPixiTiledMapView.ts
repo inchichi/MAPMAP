@@ -38,6 +38,7 @@ import { createMapPortalsFromEventLayers } from '../tiled/createMapPortalsFromEv
 import { createWallTileLookup } from '../tiled/createWallTileLookup'
 import { createTileTexture, type TilesetRenderResources } from './tiledMapRenderResources'
 import { createMapOverlay } from './createMapOverlay'
+import { createSkillCooldownTracker } from './mapView/skillCooldowns'
 import { syncUiScaleCssVariable } from './getResponsiveUiScale'
 import { createCombatIndicators, type CombatIndicators } from './mapView/combatIndicators'
 import {
@@ -543,6 +544,9 @@ export const createPixiTiledMapView = async ({
   const monsterPigAnimationModes = new Map<string, MonsterPigAnimationMode>()
   const monsterPigBehaviorStates = new Map<string, MonsterPigBehaviorState>()
   const monsterCombatStates = new Map<string, MonsterCombatState>()
+  // 스킬 쿨타임(하단 HUD 표시용) — skillCooldowns.ts
+  const skillCooldowns = createSkillCooldownTracker()
+  const recordSkillCooldown = skillCooldowns.start
   // 머리 위 타겟·어그로 표시 — 캐릭터 노드를 만든 뒤에 만든다(아래 messageLayer 준비 후).
   let combatIndicators: CombatIndicators | undefined
   const monsterContactDamageLockedUntilById = new Map<string, number>()
@@ -793,6 +797,7 @@ export const createPixiTiledMapView = async ({
     getPlayerMagicCast,
     spawnMagicImpact
   } = createPlayerCombatEffects({
+    recordSkillCooldown,
     onPlayerTargetSelected: (monsterId) => combatIndicators?.markTarget(monsterId, performance.now()),
     map,
     lpcMagic,
@@ -836,6 +841,7 @@ export const createPixiTiledMapView = async ({
     triggerPlayerSkillById,
     triggerPlayerSkillFromSlotIndex
   } = createPlayerActions({
+    recordSkillCooldown,
     characterPixelHeight,
     characterPixelWidth,
     gameSoundEffects,
@@ -1159,6 +1165,7 @@ export const createPixiTiledMapView = async ({
     onPotionMerchantInventoryChange,
     playerProfile,
     recordAcquiredItemsFromInventoryDelta,
+    getSkillCooldown: (skillId) => skillCooldowns.get(skillId, performance.now()),
     requestPlayerSkillUse: (skillId) => {
       if (playerProfile.hp.current > 0) {
         triggeredSkillIds.add(skillId)
@@ -1322,11 +1329,26 @@ export const createPixiTiledMapView = async ({
       return false
     }
 
+    // 닫힌 창(스킬 창 등) 안의 버튼에 포커스가 남아도 게임 키(Q·이동·F 등)를 막지 않는다.
+    if (target.getClientRects().length === 0) {
+      return false
+    }
+
     return (
       target.closest(
         'button, input, textarea, select, [contenteditable="true"]'
       ) !== null
     )
+  }
+
+  // UI 버튼을 누르거나 끌어 놓은 뒤 포커스가 버튼에 남으면 게임 키가 버튼으로 가 무시된다 — 바로 놓는다.
+  // (글자 입력칸은 그대로 둔다.)
+  const releaseUiButtonFocus = () => {
+    const focused = document.activeElement
+
+    if (focused instanceof HTMLButtonElement) {
+      focused.blur()
+    }
   }
 
   controllerRuntime.syncCharacters(characterStates)
@@ -1734,6 +1756,7 @@ export const createPixiTiledMapView = async ({
     triggerPlayerWeaponSkill,
     updatePlayerWeaponSkills
   } = createPlayerWeaponSkills({
+    recordSkillCooldown,
     map,
     lpcMagic,
     playerProfile,
@@ -2138,6 +2161,8 @@ export const createPixiTiledMapView = async ({
     passive: false
   })
   window.addEventListener('wheel', handleWindowWheel, { passive: false })
+  window.addEventListener('pointerup', releaseUiButtonFocus)
+  window.addEventListener('dragend', releaseUiButtonFocus)
   document.addEventListener('visibilitychange', handleVisibilityChange)
   app.ticker.add(updateCharacters)
   app.ticker.add(updateCombatIndicators, undefined, UPDATE_PRIORITY.UTILITY)
@@ -2244,6 +2269,8 @@ export const createPixiTiledMapView = async ({
     window.removeEventListener('resize', handleWindowResize)
     viewportElement.removeEventListener('wheel', handleViewportWheel)
     window.removeEventListener('wheel', handleWindowWheel)
+    window.removeEventListener('pointerup', releaseUiButtonFocus)
+    window.removeEventListener('dragend', releaseUiButtonFocus)
     document.removeEventListener('visibilitychange', handleVisibilityChange)
     destroyEditorPlacement()
     app.ticker.remove(updateCharacters)
