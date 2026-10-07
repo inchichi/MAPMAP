@@ -400,7 +400,7 @@ export const drawWorldMap = (
   target.restore()
 }
 
-// 플레이어 표시 위치(세계 지도 전체에 대한 0~1) — 지금 지역 아이콘 바로 위
+// 플레이어 표시 위치(세계 지도 전체에 대한 0~1) — 캐릭터 발이 지금 지역 원 아이콘(7칸) 위쪽에 살짝 걸치는 곳
 export const getWorldMapMarkerRatio = (sceneId: string): { x: number; y: number } | undefined => {
   const region = getWorldMapRegion(sceneId)
 
@@ -409,7 +409,7 @@ export const getWorldMapMarkerRatio = (sceneId: string): { x: number; y: number 
   }
 
   const center = getRegionCenter(region)
-  return { x: center.x / ART_WIDTH, y: (center.y - 9) / ART_HEIGHT }
+  return { x: center.x / ART_WIDTH, y: (center.y - 1) / ART_HEIGHT }
 }
 
 // 마우스가 올라간 지역(가 본 곳만) — 툴팁용. ratio 는 세계 지도 전체에 대한 0~1.
