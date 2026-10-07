@@ -17,7 +17,7 @@ import { BOW_SKILLS } from './weaponSkills/bowSkills'
 import { STAFF_SKILLS } from './weaponSkills/staffSkills'
 import { SWORD_SKILLS } from './weaponSkills/swordSkills'
 import { getDistance, getDistanceToSegment, type Point, type WeaponSkill, type WeaponSkillWorld } from './weaponSkills/weaponSkill'
-import { createWeaponSkillEffects } from './weaponSkills/weaponSkillEffects'
+import type { SkillFx } from './skillFx'
 import type { LpcMagicEffects } from './lpcMagicEffects'
 
 const WEAPON_SKILLS_BY_ID: ReadonlyMap<string, WeaponSkill> = new Map(
@@ -30,6 +30,8 @@ const WEAPON_SKILLS_BY_ID: ReadonlyMap<string, WeaponSkill> = new Map(
 export type PlayerWeaponSkillTriggerResult = 'cast' | 'not-ready' | 'blocked' | 'not-weapon-skill'
 
 export type PlayerWeaponSkillsContext = {
+  // 스킬 그림 효과(공유) — 이 모듈이 매 프레임 갱신하고 사망·씬 정리 때 지운다
+  skillFx: SkillFx
   // 쿨타임을 시작했다 — 하단 HUD 스킬 칸의 남은 시간 표시(skillCooldowns.ts)
   recordSkillCooldown: (skillId: string, now: number, durationMilliseconds: number) => void
   map: ParsedTiledMap
@@ -69,7 +71,7 @@ export type PlayerWeaponSkillsContext = {
 
 export const createPlayerWeaponSkills = (ctx: PlayerWeaponSkillsContext) => {
   const { map } = ctx
-  const effects = createWeaponSkillEffects({ getDepthSortedLayer: ctx.getDepthSortedLayer, tileHeight: map.tileHeight })
+  const effects = ctx.skillFx
   const readyAtBySkillId = new Map<string, number>()
   let scheduledActions: { at: number; action: (now: number) => void }[] = []
 

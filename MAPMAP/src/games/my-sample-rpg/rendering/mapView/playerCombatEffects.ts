@@ -13,6 +13,7 @@ import {
   type TextStyle
 } from 'pixi.js'
 import { type LpcAnimationName } from '../lpcCharacterSprites'
+import type { SkillFx } from './skillFx'
 import { PLAYER_CHARACTER_ID } from '../../characterState'
 import type { CharacterState } from '../../characterState'
 import { getEquippedPlayerAttackBonus, getEquippedPlayerWeaponAttackKind } from '../../playerEquipment'
@@ -70,6 +71,8 @@ import { type RenderedCharacterNode } from './types'
 import { getMagicFacing, type LpcMagicEffects } from './lpcMagicEffects'
 
 export type PlayerCombatEffectsContext = {
+  // 명중 번쩍임·에너지볼 그림(픽셀 이펙트 시트) — skillFx.ts
+  skillFx: SkillFx
   // 쿨타임을 시작했다 — 하단 HUD 스킬 칸의 남은 시간 표시(skillCooldowns.ts)
   recordSkillCooldown: (skillId: string, now: number, durationMilliseconds: number) => void
   map: ParsedTiledMap
@@ -105,6 +108,7 @@ export type PlayerCombatEffectsContext = {
 
 export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
   const {
+    skillFx,
     recordSkillCooldown,
     onPlayerTargetSelected,
     map,
@@ -154,11 +158,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     }
   >()
   let playerProjectileCounter = 0
-  // 명중 순간의 짧은 빛 번짐(에너지볼트). 수명이 끝나면 지운다.
-  const activeProjectileImpacts: Array<{
-    sprite: Container
-    startedAtMilliseconds: number
-  }> = []
   let playerMagicAttackReadyAtMilliseconds = 0
 
   const createArrowProjectileSprite = (rotation: number): Container => {
@@ -185,51 +184,34 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     return container
   }
 
-  const createEnergyBallProjectileSprite = (): Container => {
-    const container = new Container()
-    const glow = new Graphics()
-    glow.circle(0, 0, 8)
-    glow.fill({ color: 0x7fd4ff, alpha: 0.35 })
-    const core = new Graphics()
-    core.circle(0, 0, 4.5)
-    core.fill({ color: 0xe8f7ff })
-    core.stroke({ color: 0x9fe0ff, width: 1.5 })
-    container.addChild(glow, core)
-    return container
+  // 지팡이 기본 공격 발사체 — 에너지볼 그림(Ninja Adventure, 4프레임 반복). 볼트는 보랏빛으로 물들이고 진행 방향으로 돌린다.
+  const createEnergyBallProjectileSprite = (tint?: number, rotation = 0): Container => {
+    const sprite = new AnimatedSprite(skillFx.textures['energy-ball'])
+    sprite.anchor.set(0.5)
+    sprite.scale.set(2)
+    sprite.rotation = rotation
+    sprite.roundPixels = true
+    sprite.animationSpeed = 0.25
+    if (tint !== undefined) {
+      sprite.tint = tint
+    }
+    sprite.play()
+    return sprite
   }
 
-  // 에너지볼트: 꼬리가 긴 보랏빛 마력 화살. 오른쪽(+x)을 향해 그린 뒤 진행 방향으로 회전한다.
-  const createEnergyBoltProjectileSprite = (rotation: number): Container => {
-    const container = new Container()
-    const tail = new Graphics()
-    tail.poly([-18, 0, -4, -3.5, 4, 0, -4, 3.5])
-    tail.fill({ color: 0x9b7bff, alpha: 0.45 })
-    const glow = new Graphics()
-    glow.ellipse(1, 0, 9, 6)
-    glow.fill({ color: 0xb79bff, alpha: 0.4 })
-    const core = new Graphics()
-    core.ellipse(2, 0, 5, 2.6)
-    core.fill({ color: 0xf4efff })
-    core.stroke({ color: 0xc9b6ff, width: 1 })
-    container.addChild(tail, glow, core)
-    container.rotation = rotation
-    return container
-  }
+  const createEnergyBoltProjectileSprite = (rotation: number): Container =>
+    createEnergyBallProjectileSprite(0xc9b6ff, rotation)
 
   const MAGIC_IMPACT_DURATION_MILLISECONDS = 260
   // 명중 순간의 빛 번짐(색·크기는 마법마다).
+  // 명중 순간의 번쩍임 — 스파크 그림에 마법 색을 입힌다(크기는 반지름에 맞춘 정수 배율).
   const spawnMagicImpact = (x: number, y: number, now: number, color: number, radius = 10) => {
-    const container = new Container()
-    const burst = new Graphics()
-    burst.circle(0, 0, radius)
-    burst.fill({ color, alpha: 0.55 })
-    burst.circle(0, 0, radius * 0.4)
-    burst.fill({ color: 0xffffff })
-    container.addChild(burst)
-    container.position.set(x, y)
-    container.zIndex = Math.round(y + map.tileHeight * 2)
-    getDepthSortedLayer()?.addChild(container)
-    activeProjectileImpacts.push({ sprite: container, startedAtMilliseconds: now })
+    skillFx.play('spark', { x, y }, now, {
+      scale: Math.max(1, Math.round(radius / 7)),
+      centered: true,
+      tint: color,
+      durationMilliseconds: MAGIC_IMPACT_DURATION_MILLISECONDS
+    })
   }
 
   const spawnPlayerProjectile = (
@@ -914,19 +896,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
 
   // 매 프레임: 발사체 이동 → 벽/사거리/몬스터 판정 → 스프라이트 동기화.
   const updatePlayerProjectiles = (now: number, deltaMilliseconds: number) => {
-    for (let index = activeProjectileImpacts.length - 1; index >= 0; index -= 1) {
-      const impact = activeProjectileImpacts[index]
-      const progress =
-        (now - impact.startedAtMilliseconds) / MAGIC_IMPACT_DURATION_MILLISECONDS
-      if (progress >= 1) {
-        impact.sprite.removeFromParent()
-        impact.sprite.destroy({ children: true })
-        activeProjectileImpacts.splice(index, 1)
-        continue
-      }
-      impact.sprite.scale.set(1 + progress * 1.6)
-      impact.sprite.alpha = 1 - progress
-    }
 
     for (const [projectileId, projectile] of activePlayerProjectiles) {
       // 유도: 대상이 살아 있으면 그쪽으로 꺾고 조준 링을 따라 붙인다. 쓰러지면 직진.
@@ -1042,11 +1011,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     for (const projectileId of [...activePlayerProjectiles.keys()]) {
       removePlayerProjectile(projectileId)
     }
-    for (const impact of activeProjectileImpacts) {
-      impact.sprite.removeFromParent()
-      impact.sprite.destroy({ children: true })
-    }
-    activeProjectileImpacts.length = 0
   }
 
   return {

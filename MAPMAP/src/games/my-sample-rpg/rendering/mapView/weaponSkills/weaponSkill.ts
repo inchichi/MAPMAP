@@ -3,7 +3,7 @@
 import type { LpcMagicEffects } from '../lpcMagicEffects'
 import type { CharacterMoveDirection, CharacterState } from '../../../characterState'
 import type { CollisionRect } from '../../characterCollision'
-import type { WeaponSkillEffects } from './weaponSkillEffects'
+import type { SkillFx } from '../skillFx'
 
 export type Point = { x: number; y: number }
 
@@ -47,7 +47,8 @@ export type WeaponSkillCast = {
   tileWidth: number
   tileHeight: number
   world: WeaponSkillWorld
-  effects: WeaponSkillEffects
+  // 스킬 그림 효과(픽셀 이펙트 시트) — skillFx.ts
+  effects: SkillFx
   // 마법 손그림(Extended LPC Magic Pack) — 지팡이 스킬이 쓴다
   magic: LpcMagicEffects
   // delayMilliseconds 뒤에 action 을 실행한다(여러 번 때리기, 늦게 떨어지는 공격). 사망·씬 이동 때 취소된다.

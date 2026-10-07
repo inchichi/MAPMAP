@@ -46,8 +46,11 @@ import { EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, PLAYER_PROTECT_SKIL
 import { getFacingFromRollVector, isCharacterOnGrass } from './tiles'
 import type { PlayerWeaponSkillTriggerResult } from './playerWeaponSkills'
 import { type PlayerHitReactionState, type SlashVfxRenderResources } from './types'
+import type { SkillFx } from './skillFx'
 
 export type PlayerActionsContext = {
+  // 집중(오라)·돌진(흙먼지) 그림 효과 — skillFx.ts
+  skillFx: SkillFx
   // 쿨타임을 시작했다 — 하단 HUD 스킬 칸의 남은 시간 표시(skillCooldowns.ts)
   recordSkillCooldown: (skillId: string, now: number, durationMilliseconds: number) => void
   characterPixelHeight: number
@@ -108,6 +111,7 @@ export type PlayerActionsContext = {
 
 export const createPlayerActions = (ctx: PlayerActionsContext) => {
   const {
+    skillFx,
     recordSkillCooldown,
     characterPixelHeight,
     characterPixelWidth,
@@ -164,6 +168,15 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
     setPlayerSmashSkillSegments,
     setPlayerSmashSkillStartedAtMilliseconds
   } = ctx
+
+  // 플레이어 발밑(맵 픽셀) — 흙먼지·오라를 바닥에 놓는다
+  const getPlayerFeet = () => {
+    const player = getCharacterStateById(PLAYER_CHARACTER_ID)
+    return {
+      x: player.position.x * map.tileWidth + characterPixelWidth / 2,
+      y: player.position.y * map.tileHeight + characterPixelHeight
+    }
+  }
 
   const triggerPlayerRoll = (
     vector: PlayerRollVector,
@@ -424,9 +437,11 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
                 : { x: 0, y: 1 }
         const dashVector =
           getRollVectorFromPressedDirections() ?? facingVector
+        const dashStart = getPlayerFeet()
         didTrigger = triggerPlayerRoll(dashVector, now)
         if (didTrigger) {
           setPlayerAttackQueuedAfterRoll(true)
+          skillFx.play('dust-ring', dashStart, now, { scale: 2, durationMilliseconds: 400 })
         }
         break
       }
@@ -446,6 +461,7 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
           playerProfile.mp.current + restoreAmount
         )
         setPlayerFocusSkillReadyAtMilliseconds(now + 5000)
+        skillFx.play('aura', getPlayerFeet(), now, { scale: 2, tint: 0x9fdcff, durationMilliseconds: 600 })
         recordSkillCooldown(PLAYER_FOCUS_SKILL_ID, now, 5000)
         showCharacterDamageText(
           PLAYER_CHARACTER_ID,

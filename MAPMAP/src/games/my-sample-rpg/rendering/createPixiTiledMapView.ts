@@ -87,6 +87,7 @@ import { createCharacterMessages } from './mapView/characterMessages'
 import { createCharacterDamageTexts } from './mapView/characterDamageTexts'
 import { createMonsterDrops } from './mapView/monsterDrops'
 import { createLpcMagicEffects, loadLpcMagicTextures } from './mapView/lpcMagicEffects'
+import { createSkillFx, loadSkillFxTextures } from './mapView/skillFx'
 import { createMiniMapSnapshot } from './mapView/miniMapSnapshot'
 import { createEditorPlacement } from './mapView/editorPlacement'
 import { createMapTileLayers } from './mapView/tileLayers'
@@ -212,12 +213,14 @@ export const createPixiTiledMapView = async ({
     slashVfxTextures,
     protectVfxTextures,
     lpcMagicTextures,
+    skillFxTextures,
     catalogMonsterAnimationTextures
   ] = await Promise.all([
     loadTextureSafe(TINY_DUNGEON_TILESET_IMAGE_URL),
     loadSlashVfxTextures(),
     loadProtectVfxTextures(),
     loadLpcMagicTextures(),
+    loadSkillFxTextures(),
     // LPC 몬스터(그림체 통일): 종류 목록은 monsterCatalog.ts, 출처는 assets/monsters/lpc/CREDITS.txt
     Promise.all(MONSTER_CATALOG.map((entry) => loadLpcMonsterTextures(entry.spec)))
   ])
@@ -777,6 +780,12 @@ export const createPixiTiledMapView = async ({
     getDepthSortedLayer: () => depthSortedLayer,
     tileHeight: map.tileHeight
   })
+  // 검·도끼·활 스킬, 명중·상태 이상, 집중·돌진의 그림 효과(코드 도형 대신 픽셀 이펙트 시트) — skillFx.ts
+  const skillFx = createSkillFx({
+    textures: skillFxTextures,
+    getDepthSortedLayer: () => depthSortedLayer,
+    tileHeight: map.tileHeight
+  })
   const {
     applyMonsterDamageOverTime,
     clearMagicEffects,
@@ -797,6 +806,7 @@ export const createPixiTiledMapView = async ({
     getPlayerMagicCast,
     spawnMagicImpact
   } = createPlayerCombatEffects({
+    skillFx,
     recordSkillCooldown,
     onPlayerTargetSelected: (monsterId) => combatIndicators?.markTarget(monsterId, performance.now()),
     map,
@@ -841,6 +851,7 @@ export const createPixiTiledMapView = async ({
     triggerPlayerSkillById,
     triggerPlayerSkillFromSlotIndex
   } = createPlayerActions({
+    skillFx,
     recordSkillCooldown,
     characterPixelHeight,
     characterPixelWidth,
@@ -1756,6 +1767,7 @@ export const createPixiTiledMapView = async ({
     triggerPlayerWeaponSkill,
     updatePlayerWeaponSkills
   } = createPlayerWeaponSkills({
+    skillFx,
     recordSkillCooldown,
     map,
     lpcMagic,

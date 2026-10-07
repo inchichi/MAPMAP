@@ -2,5 +2,5 @@ Extended LPC Magic Pack
 author: Daniel Eddeland (daneeklu) — https://opengameart.org/users/daneeklu
 license: CC-BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0/) / GPL 3.0 (dual licensed)
 source: https://opengameart.org/content/extended-lpc-magic-pack (magic_pack.zip)
-used for: player magic visuals (src/games/my-sample-rpg/assets/vfx/lpc-magic/): fire lion (fireball, meteor), lightning claw (chain lightning), ice spikes (ice bolt), ice tentacle (blizzard). Unmodified sheets.
+used for: player magic visuals (src/games/my-sample-rpg/assets/vfx/lpc-magic/): fire lion (fireball, meteor), lightning claw (chain lightning), ice spikes (ice bolt), ice tentacle (blizzard), earth spikes row 2 of spikes.png (axe ground-splitter skill). Unmodified sheets.
 downloaded: 2026-10-07

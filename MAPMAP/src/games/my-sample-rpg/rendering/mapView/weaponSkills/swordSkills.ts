@@ -1,5 +1,5 @@
 // 검 계열 스킬(1장 스매시는 playerActions·combat 의 기존 구현). 2장 십자 베기, 3장 섬광 일섬.
-import { SKILL_COLOR, offsetPoint, rotateDirection, scaleDamage, type WeaponSkill } from './weaponSkill'
+import { offsetPoint, rotateDirection, scaleDamage, type WeaponSkill } from './weaponSkill'
 
 // 2장: 네 방향으로 3칸 검기. 둘러싸였을 때 모두 벤다.
 const CROSS_SLASH: WeaponSkill = {
@@ -7,9 +7,18 @@ const CROSS_SLASH: WeaponSkill = {
   cast: ({ now, baseDamage, origin, direction, tileWidth, world, effects }) => {
     const hitIds = new Set<string>()
     world.playPlayerAttackMotion(now)
+    // 가운데 X자 베기 + 네 방향으로 날아가는 검기
+    effects.play('slash-double', origin, now, { scale: 3, centered: true, durationMilliseconds: 300 })
     for (const turn of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
-      const end = offsetPoint(origin, rotateDirection(direction, turn), tileWidth * 3)
-      effects.streak(origin, end, SKILL_COLOR.steel, 6, 320, now)
+      const way = rotateDirection(direction, turn)
+      const end = offsetPoint(origin, way, tileWidth * 3)
+      effects.play('slash-curved', offsetPoint(origin, way, tileWidth * 0.6), now, {
+        to: end,
+        rotation: Math.atan2(way.y, way.x),
+        scale: 2,
+        durationMilliseconds: 320,
+        fadeOut: true
+      })
       for (const monster of world.getMonstersNearSegment(origin, end, tileWidth * 0.6)) {
         hitIds.add(monster.id)
       }
@@ -30,16 +39,29 @@ const FLASH_STRIKE: WeaponSkill = {
     const movedTiles = world.movePlayer(direction, 4)
     const end = offsetPoint(origin, direction, tileWidth * Math.max(1, movedTiles))
     const targets = world.getMonstersNearSegment(origin, end, tileWidth * 0.8)
-    effects.streak(origin, end, SKILL_COLOR.gold, 10, 380, now)
+    const angle = Math.atan2(direction.y, direction.x)
+    // 지나간 길에 칸마다 차례로 베기 자국, 도착점에 번쩍임
+    for (let tile = 0; tile <= Math.max(1, movedTiles); tile += 1) {
+      const point = offsetPoint(origin, direction, tileWidth * tile)
+      schedule(tile * 30, (at) =>
+        effects.play('cut', point, at, { rotation: angle, scale: 2, centered: true, durationMilliseconds: 260 })
+      )
+    }
+    effects.play('spark', end, now, { scale: 2, centered: true, durationMilliseconds: 320 })
     world.playPlayerAttackMotion(now)
     for (const monster of targets) {
       world.hitMonster(monster.id, baseDamage, now)
     }
     schedule(300, (later) => {
-      effects.streak(end, origin, SKILL_COLOR.steel, 4, 260, later)
       const liveIds = new Set(world.getLiveMonsters().map((monster) => monster.id))
       for (const monster of targets) {
         if (liveIds.has(monster.id)) {
+          // 뒤늦게 터지는 두 번째 베기
+          effects.play('slash-double', world.getMonsterCenter(monster), later, {
+            scale: 2,
+            centered: true,
+            durationMilliseconds: 260
+          })
           world.hitMonster(monster.id, scaleDamage(baseDamage, 0.5), later)
         }
       }

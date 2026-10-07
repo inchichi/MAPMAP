@@ -6,3 +6,4 @@ bytes: 43304286
 sha256: 706cc799af8b9be5cbf529b69e9c8ed472f46b897f240197db64b6cf5adf759a
 imported: 2026-09-08
 reproduce: python3 scripts/import-ninja-adventure.py
+used for: weapon skill and action effects (src/games/my-sample-rpg/assets/vfx/ninja-fx/): circular-slash, slash-double, slash-double-curved, slash-curved, cut, spark, spark-circle, ring-orange, smoke, dust-ring, aura, energy-ball. Copied unmodified from the pack's FX sheets.
