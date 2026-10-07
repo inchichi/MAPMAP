@@ -56,8 +56,19 @@ export const createQuestTrackerOverlay = ({
   overlayRoot.append(panel)
   mountElement.append(overlayRoot)
 
+  let lastQuestLog: ReturnType<typeof getQuestLog> | undefined
+  let lastUiScale = 0
+
   const syncFrame = () => {
-    const trackerItems = getVisibleQuestTrackers(getQuestLog())
+    // 퀘스트 로그는 바뀔 때마다 새 객체가 된다 — 같은 객체·같은 배율이면 목록 계산부터 건너뛴다(매 프레임 불린다).
+    const questLog = getQuestLog()
+    const currentUiScale = getResponsiveUiScale()
+    if (questLog === lastQuestLog && currentUiScale === lastUiScale) {
+      return
+    }
+    lastQuestLog = questLog
+    lastUiScale = currentUiScale
+    const trackerItems = getVisibleQuestTrackers(questLog)
     const isVisible = trackerItems.length > 0
     const uiScale = getResponsiveUiScale()
     const renderSignature = isVisible

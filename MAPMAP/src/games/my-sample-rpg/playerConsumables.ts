@@ -28,7 +28,16 @@ type UsePlayerQuickslotConsumableInput = {
   quickslots: PlayerQuickslots
   quickslotIndex: number
 }
-const PLAYER_POTION_RESTORE_AMOUNT = 10
+// 포션별 회복량. 등급 포션(중급 Lv15~, 상급 Lv38~)은 그 장의 최대 체력·마나에 맞춘 값(docs/game-balance.md).
+// assets/lua/player-consumables.lua 의 POTION_RESTORE 와 같아야 한다.
+export const PLAYER_POTION_RESTORE: Record<string, { resource: 'hp' | 'mp'; amount: number }> = {
+  'health-potion': { resource: 'hp', amount: 10 },
+  'mana-potion': { resource: 'mp', amount: 10 },
+  'health-potion-medium': { resource: 'hp', amount: 60 },
+  'mana-potion-medium': { resource: 'mp', amount: 40 },
+  'health-potion-large': { resource: 'hp', amount: 150 },
+  'mana-potion-large': { resource: 'mp', amount: 80 }
+}
 
 export const usePlayerInventoryConsumable = ({
   profile,
@@ -41,43 +50,28 @@ export const usePlayerInventoryConsumable = ({
     return undefined
   }
 
+  const restore = PLAYER_POTION_RESTORE[item.id]
+
+  if (restore) {
+    const resource = profile[restore.resource]
+
+    return {
+      profile: {
+        ...profile,
+        [restore.resource]: {
+          ...resource,
+          current: Math.min(resource.max, resource.current + restore.amount)
+        }
+      },
+      inventory: consumeInventorySlot({
+        inventory,
+        slotIndex,
+        item
+      })
+    }
+  }
+
   switch (item.id) {
-    case 'health-potion':
-      return {
-        profile: {
-          ...profile,
-          hp: {
-            ...profile.hp,
-            current: Math.min(
-              profile.hp.max,
-              profile.hp.current + PLAYER_POTION_RESTORE_AMOUNT
-            )
-          }
-        },
-        inventory: consumeInventorySlot({
-          inventory,
-          slotIndex,
-          item
-        })
-      }
-    case 'mana-potion':
-      return {
-        profile: {
-          ...profile,
-          mp: {
-            ...profile.mp,
-            current: Math.min(
-              profile.mp.max,
-              profile.mp.current + PLAYER_POTION_RESTORE_AMOUNT
-            )
-          }
-        },
-        inventory: consumeInventorySlot({
-          inventory,
-          slotIndex,
-          item
-        })
-      }
     case 'antidote-incense':
     case 'warming-tea':
       // 해독 향·생강차는 능력치를 바꾸지 않는다 — 하나를 쓰고, 독안개·눈보라 면역 시간은 화면(poisonFog)이 잰다.

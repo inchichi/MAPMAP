@@ -22,7 +22,8 @@ import { type MapPortal } from '../../tiled/createMapPortalsFromEventLayers'
 import { type TilesetRenderResources } from '../tiledMapRenderResources'
 import type { MonsterAnimationTextures } from '../monsterAnimationTextures'
 import { isBossSummonCharacterId } from '../../bossSkills'
-import { MESSAGE_PANEL_BORDER_SIZE, MONSTER_LEVEL_BADGE_STYLE, PLAYER_ARMOR_EQUIPMENT_CONFIG, PLAYER_ATTACK_TRAIL_SPRITE_COUNT, PLAYER_HELMET_EQUIPMENT_CONFIG, PLAYER_NAME_BADGE_STYLE, PORTAL_INSIDE_WORLD_SCALE, PROTECT_VFX_ANIMATION_SPEED, PROTECT_VFX_SCALE, SIGN_POST_APPEARANCE_TYPE, SIGN_POST_LABEL_STYLE } from './constants'
+import { createPortalVortexSprite } from './portalVortex'
+import { MESSAGE_PANEL_BORDER_SIZE, MONSTER_LEVEL_BADGE_STYLE, PLAYER_ARMOR_EQUIPMENT_CONFIG, PLAYER_ATTACK_TRAIL_SPRITE_COUNT, PLAYER_HELMET_EQUIPMENT_CONFIG, PLAYER_NAME_BADGE_STYLE, PROTECT_VFX_ANIMATION_SPEED, PROTECT_VFX_SCALE, SIGN_POST_APPEARANCE_TYPE, SIGN_POST_LABEL_STYLE } from './constants'
 import { createMonsterHealthBar, createPlayerResourceBar, createQuestBadgeSprite, getMonsterBehaviorConfig } from './nodes'
 import { resolveCharacterTexture } from './tiles'
 import { type MonsterPigAnimationMode, type MonsterPigBehaviorState, type ProtectVfxRenderResources, type RenderedCharacterNode, type RenderedPortalNode } from './types'
@@ -47,7 +48,6 @@ export type CharacterNodesContext = {
   monsterPigBehaviorStates: Map<string, MonsterPigBehaviorState>
   monsterSpawnStates: Map<string, CharacterState>
   playerProfile: PlayerProfile
-  portalInsideTexture: Texture
   protectVfxTextures: ProtectVfxRenderResources
   questNewTexture: Texture
   renderedCharacters: Map<string, RenderedCharacterNode>
@@ -88,7 +88,6 @@ export const createCharacterNodes = (ctx: CharacterNodesContext) => {
     monsterPigBehaviorStates,
     monsterSpawnStates,
     playerProfile,
-    portalInsideTexture,
     protectVfxTextures,
     questNewTexture,
     renderedCharacters,
@@ -374,52 +373,36 @@ export const createCharacterNodes = (ctx: CharacterNodesContext) => {
 
   for (const portal of mapPortals) {
     const container = new Container()
-    const baseSprite = new Sprite(resolveMapPortalTexture(portal.appearanceType))
-    const coreSprite = new Sprite(portalInsideTexture)
+    const portalRect = {
+      x: portal.position.x * map.tileWidth,
+      y: portal.position.y * map.tileHeight,
+      width: portal.collisionSize.width * map.tileWidth,
+      height: portal.collisionSize.height * map.tileHeight
+    }
+    // 메이플 포탈 같은 빛 소용돌이(portalVortex.ts). 동굴 입구는 입구 그림 앞에 소용돌이를 세운다.
+    const vortexSprite = createPortalVortexSprite(portalRect, {
+      width: map.pixelWidth,
+      height: map.pixelHeight
+    })
     container.label = `portal:${portal.id}:container`
     container.sortableChildren = true
-    baseSprite.label = `portal:${portal.id}:base`
-    baseSprite.roundPixels = true
-    baseSprite.zIndex = 0
-    coreSprite.label = `portal:${portal.id}:core`
-    coreSprite.anchor.set(0.5, 0.5)
-    coreSprite.scale.set(PORTAL_INSIDE_WORLD_SCALE)
-    coreSprite.roundPixels = true
-    coreSprite.zIndex = 1
-    const isCaveEntrancePortal = portal.appearanceType === 'cave_entrance'
+    vortexSprite.label = `portal:${portal.id}:vortex`
+    vortexSprite.zIndex = 1
 
-    if (isCaveEntrancePortal) {
-      baseSprite.scale.set(0.24)
-      container.position.set(
-        portal.position.x * map.tileWidth - 32,
-        portal.position.y * map.tileHeight
-      )
-      container.addChild(baseSprite)
-    } else if (portal.appearanceType === 'stairs_stone_step_base_00') {
-      container.position.set(
-        portal.position.x * map.tileWidth,
-        portal.position.y * map.tileHeight
-      )
-      baseSprite.scale.set(portal.collisionSize.width, portal.collisionSize.height)
-      coreSprite.position.set(
-        (portal.collisionSize.width * map.tileWidth) / 2,
-        (portal.collisionSize.height * map.tileHeight) / 2
-      )
-      container.addChild(baseSprite, coreSprite)
-    } else {
-      baseSprite.scale.set(portal.collisionSize.width, portal.collisionSize.height)
-      container.position.set(
-        portal.position.x * map.tileWidth,
-        portal.position.y * map.tileHeight
-      )
-      container.addChild(baseSprite)
+    if (portal.appearanceType === 'cave_entrance') {
+      const caveSprite = new Sprite(resolveMapPortalTexture(portal.appearanceType))
+      caveSprite.label = `portal:${portal.id}:base`
+      caveSprite.roundPixels = true
+      caveSprite.scale.set(0.24)
+      caveSprite.position.set(portalRect.x - 32, portalRect.y)
+      container.addChild(caveSprite)
     }
-    container.zIndex = Math.round(
-      (portal.position.y + portal.collisionSize.height) * map.tileHeight
-    )
+
+    container.addChild(vortexSprite)
+    container.zIndex = Math.round(portalRect.y + portalRect.height)
     renderedPortals.set(portal.id, {
       container,
-      sprite: baseSprite
+      sprite: vortexSprite
     })
     depthSortedLayer.addChild(container)
   }

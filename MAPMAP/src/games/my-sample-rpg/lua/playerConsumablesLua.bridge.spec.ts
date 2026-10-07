@@ -124,6 +124,26 @@ describe('playerConsumablesLua (real wasm)', () => {
       })
     )
 
+    // ── 등급 포션: 회복량 표(PLAYER_POTION_RESTORE / POTION_RESTORE)가 같아야 한다 ──
+    const profileHurt = { ...profile, hp: { current: 50, max: 300 }, mp: { current: 10, max: 120 } }
+    for (const id of [
+      'health-potion-medium',
+      'mana-potion-medium',
+      'health-potion-large',
+      'mana-potion-large'
+    ]) {
+      const tierInventory = setPlayerInventorySlot({
+        inventory: createInitialPlayerInventory({ slotCount: 2 }),
+        slotIndex: 0,
+        item: { id, label: id, quantity: 2 }
+      })
+      expect(
+        lua.usePlayerInventoryConsumable({ profile: profileHurt, inventory: tierInventory, slotIndex: 0 })
+      ).toEqual(
+        usePlayerInventoryConsumable({ profile: profileHurt, inventory: tierInventory, slotIndex: 0 })
+      )
+    }
+
     // ── usePlayerInventoryConsumable: mana-potion (quantity = 1 → clear slot) ──
     const invWithManaPotion = setPlayerInventorySlot({
       inventory: createInitialPlayerInventory({ slotCount: 2 }),

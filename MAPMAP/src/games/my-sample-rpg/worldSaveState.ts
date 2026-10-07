@@ -17,6 +17,9 @@ export type WorldSaveState = {
   defeatedBossIdsBySceneId: Record<string, string[]>
   // 손을 대 발견한 귀환 표지석 id(waystones.ts). 버전 1 에 나중에 더한 필드 — 없으면 빈 목록.
   discoveredWaystoneIds: string[]
+  // 한 번이라도 들어가 본 씬 id(worldMap.ts — 세계 지도에서 안 가 본 지역은 안개로 가린다).
+  // 버전 1 에 나중에 더한 필드 — 없으면 빈 목록.
+  visitedSceneIds: string[]
 }
 
 const QUEST_STATUSES: ReadonlySet<string> = new Set([
@@ -89,6 +92,7 @@ export const serializeWorldSaveState = (input: {
   collectedCoinTileKeysBySceneId: Record<string, string[]>
   defeatedBossIdsBySceneId?: Record<string, string[]>
   discoveredWaystoneIds?: string[]
+  visitedSceneIds?: string[]
 }): string =>
   JSON.stringify({
     version: WORLD_SAVE_STATE_VERSION,
@@ -96,7 +100,8 @@ export const serializeWorldSaveState = (input: {
     questProgressByQuestId: input.questLog.progressByQuestId,
     collectedCoinTileKeysBySceneId: input.collectedCoinTileKeysBySceneId,
     defeatedBossIdsBySceneId: input.defeatedBossIdsBySceneId ?? {},
-    discoveredWaystoneIds: input.discoveredWaystoneIds ?? []
+    discoveredWaystoneIds: input.discoveredWaystoneIds ?? [],
+    visitedSceneIds: input.visitedSceneIds ?? []
   } satisfies WorldSaveState)
 
 export const parseStoredWorldSaveState = (
@@ -147,6 +152,9 @@ export const parseStoredWorldSaveState = (
     defeatedBossIdsBySceneId: normalizeCollectedCoinTileKeys(parsed.defeatedBossIdsBySceneId),
     discoveredWaystoneIds: Array.isArray(parsed.discoveredWaystoneIds)
       ? [...new Set(parsed.discoveredWaystoneIds.filter((id): id is string => typeof id === 'string'))]
+      : [],
+    visitedSceneIds: Array.isArray(parsed.visitedSceneIds)
+      ? [...new Set(parsed.visitedSceneIds.filter((id): id is string => typeof id === 'string'))]
       : []
   }
 }

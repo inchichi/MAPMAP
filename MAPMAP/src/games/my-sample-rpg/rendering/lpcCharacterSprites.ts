@@ -1,6 +1,7 @@
 import { Rectangle, Texture } from 'pixi.js'
 
 import manifest from '../assets/characters/lpc/manifest.json'
+import { getPlayerEquipmentItemDefinitionById } from '../playerEquipment'
 import { loadTextureSafe } from './loadTextureSafe'
 
 // LPC 캐릭터(플레이어 은빛 기사·NPC) 시트 로더와 프레임 선택 규칙.
@@ -8,7 +9,7 @@ import { loadTextureSafe } from './loadTextureSafe'
 // 한가운데에 64px 몸 프레임이 있고 발끝은 몸 프레임의 (32, 62).
 
 export type LpcDirection = 'up' | 'left' | 'down' | 'right'
-export type LpcAnimationName = 'walk' | 'slash' | 'halfslash' | 'thrust' | 'shoot' | 'hurt'
+export type LpcAnimationName = 'walk' | 'slash' | 'halfslash' | 'thrust' | 'shoot' | 'hurt' | 'spellcast'
 
 export type LpcAnimationFrames = {
   cell: number
@@ -116,17 +117,29 @@ const PLAYER = manifest.player as unknown as {
   weapons: Record<string, WeaponEntry>
 }
 
-// 무기의 공격 동작(검 = 반베기, 도끼·철퇴·단검 = 베기, 창·지팡이 = 찌르기, 활 = 쏘기). 맨손은 베기.
+// 장비마다 제 몸 그림을 쓴다(등급 장비는 scripts/generate-tier-gear-sheets.py 가 1등급 그림의 색을 바꿔 만든다).
+// 제 그림이 없는 장비만 정의의 appearanceId(기존 장비) 그림을 빌린다.
+const toAppearanceId = (itemId: string): string =>
+  PLAYER.gear[itemId] || PLAYER.weapons[itemId]
+    ? itemId
+    : getPlayerEquipmentItemDefinitionById(itemId)?.appearanceId ?? itemId
+
+// 동작 한 번의 프레임 수(manifest 의 LPC 시트 규격).
+export const getLpcAnimationFrameCount = (animation: LpcAnimationName): number =>
+  manifest.anims[animation].frames
+
+// 무기의 공격 동작(검 = 반베기, 도끼 = 베기, 지팡이 = 찌르기, 활 = 쏘기). 맨손은 베기.
 export const getLpcPlayerAttackAnimation = (weaponId: string | undefined): LpcAnimationName =>
-  ((weaponId && PLAYER.weapons[weaponId]?.attack) as LpcAnimationName | undefined) ?? 'slash'
+  ((weaponId && PLAYER.weapons[toAppearanceId(weaponId)]?.attack) as LpcAnimationName | undefined) ??
+  'slash'
 
 // 이 동작에서 각 레이어가 쓸 시트 파일(없으면 그 레이어는 숨긴다).
 export const getLpcPlayerLayerFiles = (
   look: LpcPlayerLook,
   animation: LpcAnimationName
 ): Record<LpcPlayerLayerSlot, string | undefined> => {
-  const gear = (id: string | undefined) => (id ? PLAYER.gear[id] : undefined)
-  const weapon = look.weaponId ? PLAYER.weapons[look.weaponId] : undefined
+  const gear = (id: string | undefined) => (id ? PLAYER.gear[toAppearanceId(id)] : undefined)
+  const weapon = look.weaponId ? PLAYER.weapons[toAppearanceId(look.weaponId)] : undefined
   const hat = gear(look.hatId)
 
   return {

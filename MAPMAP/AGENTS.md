@@ -10,6 +10,7 @@
 - `docs/tech-stack.md`: Read this when you need to check the tech stack, supported platforms, build flow, or tool choice. Check this first for new libraries, build pipeline changes, or client/server boundary decisions.
 - `docs/coding-standards.md`: Read this before writing or changing code. Check this first when you add a new source file or need to make style decisions.
 - `docs/weapon-balance.md`: Read this when you change weapon stats, melee motions, or weapon skills. It holds the risk-reward balance rule and the weapon-line skill list (one skill per line per chapter; later unlocks are stronger).
+- `docs/game-balance.md`: Read this when you change levels, stats, skill points, MP, monster scaling, or equipment numbers. It holds the current progression formulas, level bands, and known balance problems.
 - `docs/feature-modules.md`: Read this before you add a new game feature (weapon motion, skill, effect, monster pattern, UI window). New features must be built as their own module, following this guide.
 - `docs/testing-strategy.md`: Read this when you plan validation work or add or change tests.
 - `docs/git-rules.md`: Read this for branch, commit, merge, and release work.

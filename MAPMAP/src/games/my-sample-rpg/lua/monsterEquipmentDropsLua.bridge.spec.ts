@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { rollMonsterEquipmentDrop } from '../monsterEquipmentDrops'
+import { rollMonsterDrop } from '../monsterEquipmentDrops'
 import {
   createMonsterEquipmentDropsLua,
   type MonsterEquipmentDropsLua
@@ -32,23 +32,19 @@ const createDrops = async (): Promise<MonsterEquipmentDropsLua> => {
   })
 }
 
-// 각 시퀀스는 [확률 게이트 값, 인덱스 값] 순으로 소비된다.
-// 확률 실패(>=0.9), 확률 통과 + 낮은/중간/높은 인덱스, 경계(0.999..)를 두루 다룬다.
+// 각 시퀀스는 [종류 값, 한 등급 아래 값, 인덱스 값] 순으로 소비된다(보스는 등급 값을 건너뛴다).
+// 장비(<0.2)·포션(<0.45)·없음, 등급 낮춤 여부, 인덱스 처음/중간/끝/클램프를 두루 다룬다.
 const SEQUENCES: number[][] = [
-  [0.9, 0.0], // 확률 실패(정확히 0.9)
-  [0.95, 0.5], // 확률 실패(높음)
-  [1.0, 0.999], // 확률 실패(최대)
-  [0.0, 0.0], // 통과 + 인덱스 0
-  [0.5, 0.0], // 통과 + 인덱스 0
-  [0.89, 0.0833], // 통과 + 낮은 인덱스
-  [0.1, 0.25], // 통과 + 중간 인덱스
-  [0.4, 0.5], // 통과 + 중간 인덱스
-  [0.0, 0.75], // 통과 + 높은 인덱스
-  [0.5, 0.999], // 통과 + 높은 인덱스(경계)
-  [0.0, 1.0], // 통과 + 인덱스 클램프(=count-1)
-  [0.899999, 0.9999999], // 통과 + 마지막 인덱스 경계
-  [0.123, 0.456], // 통과 + 임의 중간
-  [0.7, 0.333333] // 통과 + 임의 중간
+  [0.45, 0.0, 0.0], // 없음(경계)
+  [0.95, 0.5, 0.5], // 없음
+  [0.0, 0.9, 0.0], // 장비 + 제 등급 + 인덱스 0
+  [0.19, 0.1, 0.5], // 장비 + 한 등급 아래 + 중간
+  [0.1, 0.25, 0.999], // 장비 + 제 등급(경계) + 끝
+  [0.0, 0.0, 1.0], // 장비 + 한 등급 아래 + 인덱스 클램프
+  [0.2, 0.9, 0.0], // 포션(경계) + 제 등급 + 처음
+  [0.3, 0.1, 0.75], // 포션 + 한 등급 아래
+  [0.44, 0.5, 0.9999999], // 포션 + 끝 경계
+  [0.123, 0.456, 0.333333] // 임의
 ]
 
 const createSequenceRng = (values: number[]): (() => number) => {
@@ -74,14 +70,22 @@ describe('monsterEquipmentDropsLua (real wasm bridge)', () => {
     drops = await createDrops()
 
     for (const sequence of SEQUENCES) {
-      const luaResult = drops.rollMonsterEquipmentDrop(
-        createSequenceRng(sequence)
-      )
-      const referenceResult = rollMonsterEquipmentDrop(
-        createSequenceRng(sequence)
-      )
+      for (const monsterLevel of [1, 12, 18, 30, 40, 49]) {
+        for (const isBoss of [false, true]) {
+          const luaResult = drops.rollMonsterDrop({
+            monsterLevel,
+            isBoss,
+            random: createSequenceRng(sequence)
+          })
+          const referenceResult = rollMonsterDrop({
+            monsterLevel,
+            isBoss,
+            random: createSequenceRng(sequence)
+          })
 
-      expect(luaResult).toEqual(referenceResult)
+          expect(luaResult).toEqual(referenceResult)
+        }
+      }
     }
   })
 })

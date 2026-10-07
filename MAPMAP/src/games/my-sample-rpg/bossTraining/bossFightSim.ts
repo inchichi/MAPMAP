@@ -39,6 +39,8 @@ import {
   PLAYER_ROLL_DURATION_MILLISECONDS
 } from '../playerRoll'
 
+import { getPlayerSwordReach } from '../playerMeleeReach'
+
 export const SIM_STEP_MILLISECONDS = 50
 export const SIM_TIME_LIMIT_MILLISECONDS = 180_000
 export const TRIAL_BOSS_KEY = 'boss_trial'
@@ -49,8 +51,9 @@ const PLAYER_MOVE_TILES_PER_SECOND = 8
 // mapView/constants: 공격 동작 320ms + 쿨다운 300ms, 맞은 뒤 무적 600ms
 const PLAYER_ATTACK_INTERVAL_MILLISECONDS = 620
 const PLAYER_DAMAGE_INVULNERABILITY_MILLISECONDS = 600
-// 공격 탐지 거리(1.2칸) + 보스 몸 반쯤
-export const PLAYER_ATTACK_REACH_TILES = 1.6
+// 게임의 검 사거리(playerMeleeReach.ts 의 무기 범위 표) + 보스 몸 반쯤
+const BOSS_HALF_BODY_TILES = 0.4
+export const PLAYER_ATTACK_REACH_TILES = getPlayerSwordReach().reachInTiles + BOSS_HALF_BODY_TILES
 // monsterCatalog 의 monster_troll_chief(시험 보스 외형)
 const BOSS_CHASE_TILES_PER_SECOND = 2.2
 export const BOSS_MELEE_RANGE_TILES = 1.8 + 0.14

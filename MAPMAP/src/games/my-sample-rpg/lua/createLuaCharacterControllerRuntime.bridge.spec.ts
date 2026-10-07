@@ -18,8 +18,7 @@ import {
 } from '../monsterRewardsLua'
 import {
   getMonsterExperienceDropAmount,
-  getMonsterGoldDropAmount,
-  getMonsterSkillPointDropAmount
+  getMonsterGoldDropAmount
 } from '../monsterRewards'
 import { createLuaPlayerStatEffects } from '../playerStatEffectsLua'
 import {
@@ -594,9 +593,6 @@ end
         )
         expect(luaRewards.getMonsterExperienceDropAmount(level)).toBe(
           getMonsterExperienceDropAmount(level)
-        )
-        expect(luaRewards.getMonsterSkillPointDropAmount(level)).toBe(
-          getMonsterSkillPointDropAmount(level)
         )
       }
     } finally {

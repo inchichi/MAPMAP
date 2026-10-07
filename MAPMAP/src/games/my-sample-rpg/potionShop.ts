@@ -38,7 +38,15 @@ type SellPotionShopItemInput = {
 }
 
 export type PotionShopItemDefinition = {
-  id: 'health-potion' | 'mana-potion' | 'antidote-incense' | 'warming-tea'
+  id:
+    | 'health-potion'
+    | 'mana-potion'
+    | 'health-potion-medium'
+    | 'mana-potion-medium'
+    | 'health-potion-large'
+    | 'mana-potion-large'
+    | 'antidote-incense'
+    | 'warming-tea'
   label: string
   description: string
   price: number
@@ -61,6 +69,31 @@ export const POTION_ITEM_DEFINITIONS: PotionShopItemDefinition[] = [
     description: '마나를 회복하는 물약',
     price: 15
   },
+  // 등급 포션 — 2장(Lv15~)·3장(Lv38~) 몬스터가 떨어뜨리고, 상인도 판다.
+  {
+    id: 'health-potion-medium',
+    label: '중급 체력 포션',
+    description: '체력을 60 회복하는 물약',
+    price: 60
+  },
+  {
+    id: 'mana-potion-medium',
+    label: '중급 마나 포션',
+    description: '마나를 40 회복하는 물약',
+    price: 70
+  },
+  {
+    id: 'health-potion-large',
+    label: '상급 체력 포션',
+    description: '체력을 150 회복하는 물약',
+    price: 160
+  },
+  {
+    id: 'mana-potion-large',
+    label: '상급 마나 포션',
+    description: '마나를 80 회복하는 물약',
+    price: 180
+  },
   {
     // 2장: 갈대골 약초꾼 오디가 만든다. 피우면 한동안 독안개 피해를 막는다(playerFogImmunity).
     id: 'antidote-incense',
@@ -81,11 +114,14 @@ export const POTION_MERCHANT_STOCK_ITEM_IDS: readonly PotionShopItemDefinition['
   'health-potion',
   'mana-potion'
 ]
+// 약초꾼(2장 갈대골 오디·3장 서리목 이르마)은 중급 포션도 판다. 상급 포션은 몬스터 드롭으로만 얻는다.
 export const HERBALIST_STOCK_ITEM_IDS: readonly PotionShopItemDefinition['id'][] = [
   'antidote-incense',
   'warming-tea',
   'health-potion',
-  'mana-potion'
+  'mana-potion',
+  'health-potion-medium',
+  'mana-potion-medium'
 ]
 const POTION_ITEM_DEFINITION_BY_ID: Map<string, PotionShopItemDefinition> = new Map(
   POTION_ITEM_DEFINITIONS.map((definition) => [definition.id, definition] as const)

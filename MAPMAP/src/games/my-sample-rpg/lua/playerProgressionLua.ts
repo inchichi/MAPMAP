@@ -12,12 +12,16 @@ import {
 } from '../playerProfile'
 // 원본 playerProgression.ts가 소유한 공개 상수(단일 출처: TS). Lua엔 인자로 전달한다.
 import {
+  PLAYER_BASE_MAX_MANA,
   PLAYER_LEVEL_UP_HP_BONUS,
+  PLAYER_LEVEL_UP_MP_BONUS,
+  PLAYER_LEVEL_UP_SKILL_POINTS,
   PLAYER_LEVEL_UP_STAT_POINTS
 } from '../playerProgression'
 import {
   PLAYER_BASE_INTELLIGENCE_STAT,
-  PLAYER_INTELLIGENCE_MP_BONUS_PER_POINT
+  PLAYER_INTELLIGENCE_MP_BONUS_PER_POINT,
+  getPlayerStatMaxUsefulValue
 } from '../playerStatEffects'
 
 import {
@@ -31,10 +35,6 @@ export type PlayerProgressionLua = {
     profile: PlayerProfile,
     levels?: number
   ) => PlayerProfile
-  grantPlayerSkillPoints: (
-    profile: PlayerProfile,
-    gainedSkillPoints: number
-  ) => PlayerProfile
   spendPlayerStatPoint: (
     profile: PlayerProfile,
     statId: PlayerStatId
@@ -46,11 +46,24 @@ export type PlayerProgressionLua = {
   getPlayerSkillPointCost: (skill: PlayerSkillSlot) => number
   getPlayerSkillLevelLabel: (skill: PlayerSkillSlot) => string
   getPlayerSkillUserLevel: (totalSkillPointsEarned: number) => number
-  getPlayerMaxManaBySkillUserLevel: (skillUserLevel: number) => number
   getPlayerMaxManaForProfile: (
-    profile: Pick<PlayerProfile, 'stats' | 'totalSkillPointsEarned'>
+    profile: Pick<PlayerProfile, 'level' | 'stats'>
   ) => number
   close: () => void
+}
+
+// 최대 마나 공식에 쓰는 TS 상수 묶음(Lua 의 mana 인자).
+const PLAYER_MANA_CONSTANTS = {
+  base_max_mana: PLAYER_BASE_MAX_MANA,
+  level_up_mp_bonus: PLAYER_LEVEL_UP_MP_BONUS,
+  base_intelligence_stat: PLAYER_BASE_INTELLIGENCE_STAT,
+  intelligence_mp_bonus_per_point: PLAYER_INTELLIGENCE_MP_BONUS_PER_POINT
+}
+
+// JSON 은 Infinity 를 못 실으므로 상한 없는 스탯은 -1 로 넘긴다.
+const maxUsefulStatValueForLua = (statId: PlayerStatId): number => {
+  const value = getPlayerStatMaxUsefulValue(statId)
+  return Number.isFinite(value) ? value : -1
 }
 
 export const createPlayerProgressionLua = async (
@@ -70,18 +83,9 @@ export const createPlayerProgressionLua = async (
         levels,
         PLAYER_MAX_LEVEL,
         PLAYER_LEVEL_UP_STAT_POINTS,
-        PLAYER_LEVEL_UP_HP_BONUS
-      ),
-    grantPlayerSkillPoints: (
-      profile: PlayerProfile,
-      gainedSkillPoints: number
-    ): PlayerProfile =>
-      host.callJson<PlayerProfile>(
-        'progression_grant_skill_points',
-        profile,
-        gainedSkillPoints,
-        PLAYER_BASE_INTELLIGENCE_STAT,
-        PLAYER_INTELLIGENCE_MP_BONUS_PER_POINT
+        PLAYER_LEVEL_UP_HP_BONUS,
+        PLAYER_LEVEL_UP_SKILL_POINTS,
+        PLAYER_LEVEL_UP_MP_BONUS
       ),
     spendPlayerStatPoint: (
       profile: PlayerProfile,
@@ -91,8 +95,8 @@ export const createPlayerProgressionLua = async (
         'progression_spend_stat_point',
         profile,
         statId,
-        PLAYER_BASE_INTELLIGENCE_STAT,
-        PLAYER_INTELLIGENCE_MP_BONUS_PER_POINT
+        maxUsefulStatValueForLua(statId),
+        PLAYER_MANA_CONSTANTS
       )
 
       return result === null ? undefined : result
@@ -118,19 +122,13 @@ export const createPlayerProgressionLua = async (
         'progression_skill_user_level',
         totalSkillPointsEarned
       ),
-    getPlayerMaxManaBySkillUserLevel: (skillUserLevel: number): number =>
-      host.callJson<number>(
-        'progression_max_mana_by_skill_user_level',
-        skillUserLevel
-      ),
     getPlayerMaxManaForProfile: (
-      profile: Pick<PlayerProfile, 'stats' | 'totalSkillPointsEarned'>
+      profile: Pick<PlayerProfile, 'level' | 'stats'>
     ): number =>
       host.callJson<number>(
         'progression_max_mana_for_profile',
         profile,
-        PLAYER_BASE_INTELLIGENCE_STAT,
-        PLAYER_INTELLIGENCE_MP_BONUS_PER_POINT
+        PLAYER_MANA_CONSTANTS
       ),
     close: (): void => {
       if (!input.host) {

@@ -66,6 +66,8 @@ export type CreatePixiTiledMapViewInput = {
   // 귀환 표지석(waystones.ts): 발견한 표지석 목록과, 처음 손을 댔을 때 알림
   getDiscoveredWaystoneIds: () => readonly string[]
   onWaystoneDiscovered: (waystoneId: string) => void
+  // 한 번이라도 가 본 씬 id — 세계 지도(M)에서 안 가 본 지역은 안개로 가린다.
+  getVisitedSceneIds: () => readonly string[]
   onMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   onPotionMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   onHerbalistInventoryChange: (nextInventory: PlayerInventory) => void

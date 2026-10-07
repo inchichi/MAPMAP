@@ -11,10 +11,15 @@ afterEach(() => {
 })
 
 describe('getResponsiveUiScale', () => {
-  it('기준 해상도(1600×900) 이상에서는 최대 배율로 고정된다', () => {
-    setWindowSize(1920, 1080)
-
+  it('큰 화면에서는 게임 화면처럼 창 크기에 비례해 계속 커진다 — 2560·4K 에서 UI가 작아지지 않게', () => {
+    setWindowSize(1600, 900)
     expect(getResponsiveUiScale()).toBeCloseTo(1.2)
+
+    setWindowSize(2560, 1440)
+    expect(getResponsiveUiScale()).toBeCloseTo(1.6 * 1.2)
+
+    setWindowSize(3840, 2160)
+    expect(getResponsiveUiScale()).toBeCloseTo(2.4 * 1.2)
   })
 
   it('작은 창에서는 창 크기에 비례해 계속 줄어든다 — 에디터 프리뷰 iframe에서 HUD가 잘리지 않게', () => {

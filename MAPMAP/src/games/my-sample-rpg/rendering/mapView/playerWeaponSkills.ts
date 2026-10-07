@@ -14,16 +14,14 @@ import type { MonsterCombatState } from '../../monsterCombat'
 import { getFacingDirection } from './meleeMotions/meleeMotion'
 import { AXE_SKILLS } from './weaponSkills/axeSkills'
 import { BOW_SKILLS } from './weaponSkills/bowSkills'
-import { DAGGER_SKILLS } from './weaponSkills/daggerSkills'
-import { MACE_SKILLS } from './weaponSkills/maceSkills'
-import { SPEAR_SKILLS } from './weaponSkills/spearSkills'
 import { STAFF_SKILLS } from './weaponSkills/staffSkills'
 import { SWORD_SKILLS } from './weaponSkills/swordSkills'
 import { getDistance, getDistanceToSegment, type Point, type WeaponSkill, type WeaponSkillWorld } from './weaponSkills/weaponSkill'
 import { createWeaponSkillEffects } from './weaponSkills/weaponSkillEffects'
+import type { LpcMagicEffects } from './lpcMagicEffects'
 
 const WEAPON_SKILLS_BY_ID: ReadonlyMap<string, WeaponSkill> = new Map(
-  [...SWORD_SKILLS, ...SPEAR_SKILLS, ...AXE_SKILLS, ...MACE_SKILLS, ...DAGGER_SKILLS, ...BOW_SKILLS, ...STAFF_SKILLS].map(
+  [...SWORD_SKILLS, ...AXE_SKILLS, ...BOW_SKILLS, ...STAFF_SKILLS].map(
     (skill) => [skill.id, skill]
   )
 )
@@ -33,6 +31,7 @@ export type PlayerWeaponSkillTriggerResult = 'cast' | 'not-ready' | 'blocked' | 
 
 export type PlayerWeaponSkillsContext = {
   map: ParsedTiledMap
+  lpcMagic: LpcMagicEffects
   playerProfile: PlayerProfile
   monsterCombatStates: Map<string, MonsterCombatState>
   getCurrentPlayerEquipment: () => PlayerEquipment
@@ -159,6 +158,7 @@ export const createPlayerWeaponSkills = (ctx: PlayerWeaponSkillsContext) => {
       tileHeight: map.tileHeight,
       world,
       effects,
+      magic: ctx.lpcMagic,
       schedule: (delayMilliseconds, action) => {
         scheduledActions.push({ at: now + delayMilliseconds, action })
       }

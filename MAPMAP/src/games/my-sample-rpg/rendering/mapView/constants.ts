@@ -19,18 +19,6 @@ export const MONSTER_EQUIPMENT_DROP_IMAGE_URL_BY_DROP_ID: Record<string, string>
     '../../assets/weapons/lpc/weapon-icon-battle-axe.png',
     import.meta.url
   ).href,
-  'long-spear_drop': new URL(
-    '../../assets/weapons/lpc/weapon-icon-long-spear.png',
-    import.meta.url
-  ).href,
-  'quick-dagger_drop': new URL(
-    '../../assets/weapons/lpc/weapon-icon-quick-dagger.png',
-    import.meta.url
-  ).href,
-  'spiked-mace_drop': new URL(
-    '../../assets/weapons/lpc/weapon-icon-spiked-mace.png',
-    import.meta.url
-  ).href,
   'magic-staff_drop': new URL(
     '../../assets/weapons/lpc/weapon-icon-magic-staff.png',
     import.meta.url
@@ -57,6 +45,95 @@ export const MONSTER_EQUIPMENT_DROP_IMAGE_URL_BY_DROP_ID: Record<string, string>
   ).href,
   Iron_Helmet_drop: new URL(
     '../../assets/characters/lpc/gear-icon-Iron_Helmet.png',
+    import.meta.url
+  ).href,
+  // 등급 장비·포션 드롭(monsterEquipmentDrops.ts)
+  'temple-sword_drop': new URL(
+    '../../assets/weapons/lpc/weapon-icon-temple-sword.png',
+    import.meta.url
+  ).href,
+  'temple-axe_drop': new URL(
+    '../../assets/weapons/lpc/weapon-icon-temple-axe.png',
+    import.meta.url
+  ).href,
+  'temple-bow_drop': new URL(
+    '../../assets/weapons/lpc/weapon-icon-temple-bow.png',
+    import.meta.url
+  ).href,
+  'temple-staff_drop': new URL(
+    '../../assets/weapons/lpc/weapon-icon-temple-staff.png',
+    import.meta.url
+  ).href,
+  'temple-armor_drop': new URL(
+    '../../assets/characters/lpc/gear-icon-temple-armor.png',
+    import.meta.url
+  ).href,
+  'temple-helmet_drop': new URL(
+    '../../assets/characters/lpc/gear-icon-temple-helmet.png',
+    import.meta.url
+  ).href,
+  'temple-boots_drop': new URL(
+    '../../assets/characters/lpc/gear-icon-temple-boots.png',
+    import.meta.url
+  ).href,
+  'temple-charm_drop': new URL(
+    '../../assets/characters/lpc/gear-icon-temple-charm.png',
+    import.meta.url
+  ).href,
+  'frost-sword_drop': new URL(
+    '../../assets/weapons/lpc/weapon-icon-frost-sword.png',
+    import.meta.url
+  ).href,
+  'frost-axe_drop': new URL(
+    '../../assets/weapons/lpc/weapon-icon-frost-axe.png',
+    import.meta.url
+  ).href,
+  'frost-bow_drop': new URL(
+    '../../assets/weapons/lpc/weapon-icon-frost-bow.png',
+    import.meta.url
+  ).href,
+  'frost-staff_drop': new URL(
+    '../../assets/weapons/lpc/weapon-icon-frost-staff.png',
+    import.meta.url
+  ).href,
+  'frost-armor_drop': new URL(
+    '../../assets/characters/lpc/gear-icon-frost-armor.png',
+    import.meta.url
+  ).href,
+  'frost-helmet_drop': new URL(
+    '../../assets/characters/lpc/gear-icon-frost-helmet.png',
+    import.meta.url
+  ).href,
+  'frost-boots_drop': new URL(
+    '../../assets/characters/lpc/gear-icon-frost-boots.png',
+    import.meta.url
+  ).href,
+  'frost-charm_drop': new URL(
+    '../../assets/characters/lpc/gear-icon-frost-charm.png',
+    import.meta.url
+  ).href,
+  'health-potion_drop': new URL(
+    '../../assets/items/potion-icon-health-potion.png',
+    import.meta.url
+  ).href,
+  'mana-potion_drop': new URL(
+    '../../assets/items/potion-icon-mana-potion.png',
+    import.meta.url
+  ).href,
+  'health-potion-medium_drop': new URL(
+    '../../assets/items/potion-icon-health-potion-medium.png',
+    import.meta.url
+  ).href,
+  'mana-potion-medium_drop': new URL(
+    '../../assets/items/potion-icon-mana-potion-medium.png',
+    import.meta.url
+  ).href,
+  'health-potion-large_drop': new URL(
+    '../../assets/items/potion-icon-health-potion-large.png',
+    import.meta.url
+  ).href,
+  'mana-potion-large_drop': new URL(
+    '../../assets/items/potion-icon-mana-potion-large.png',
     import.meta.url
   ).href
 }
@@ -134,7 +211,8 @@ export const GRASS_TILE_TYPES = new Set(['garden_round_mid_01'])
 export const GAME_VIEWPORT_WIDTH = 960
 export const GAME_VIEWPORT_HEIGHT = 540
 export const CAMERA_DEFAULT_ZOOM = 1.1
-export const CAMERA_MIN_ZOOM = 0.8
+// 휠로 기본보다 멀리 볼 수 없게 한다 — 줄이면 도트가 작아져 화면 전체가 달라 보였다(확대는 그대로).
+export const CAMERA_MIN_ZOOM = CAMERA_DEFAULT_ZOOM
 export const CAMERA_MAX_ZOOM = 2
 export const CAMERA_ZOOM_WHEEL_SPEED = 0.0015
 // 일반 몬스터는 쓰러지고 이만큼 뒤에 다시 생긴다(종류 공통).
@@ -144,7 +222,6 @@ export const isBossCharacterId = (characterId: string): boolean => characterId.e
 // 퀘스트에 아직 필요한 보스는 영영 사라지지 않고 이만큼 뒤에 다시 생긴다.
 export const BOSS_RETRY_RESPAWN_DELAY_MILLISECONDS = 30000
 export const MONSTER_CONTACT_DAMAGE_COOLDOWN_MILLISECONDS = 900
-export const PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES = 1.2
 export const DAMAGE_TEXT_FLOAT_DISTANCE = 16
 export const DAMAGE_TEXT_DURATION_MILLISECONDS = 1000
 export const EVADE_TEXT_DURATION_MILLISECONDS = 700
@@ -154,9 +231,7 @@ export const DAMAGE_TEXT_OFFSET_Y = 8
 export const MONSTER_CONTACT_DAMAGE_TOUCH_TOLERANCE_TILES = 0.14
 export const MONSTER_ATTACK_RANGE_TOUCH_TOLERANCE_TILES = 0.14
 export const PLAYER_RESPAWN_DELAY_MILLISECONDS = 3000
-export const PLAYER_HIT_REACTION_DURATION_MILLISECONDS = 180
 export const PLAYER_DAMAGE_INVULNERABILITY_MILLISECONDS = 600
-export const PLAYER_HIT_REACTION_MAX_OFFSET_PIXELS = 6
 export const PLAYER_PROTECT_SKILL_COOLDOWN_MILLISECONDS = 4600
 // 떨어진 돈: 동굴 바닥 금화와 같은 LPC 금화 더미 타일(town-32 gid 1109~1112, 동전 몇 개 → 쌓인 더미).
 export const MONSTER_GOLD_DROP_PILE_GIDS: readonly number[] = [1109, 1110, 1111, 1112]
@@ -302,9 +377,6 @@ export const PLAYER_NAME_BADGE_FOOT_OFFSET = 6
 export const PLAYER_STATUS_STACK_CLEARANCE = 6
 export const PLAYER_ATTACK_ROTATION_OFFSET = 1.15
 export const PLAYER_ATTACK_SCALE_BOOST = 0.06
-export const PLAYER_ATTACK_SLASH_EFFECT_SCALE_X = 0.23
-export const PLAYER_ATTACK_SLASH_EFFECT_SCALE_Y = 0.23
-export const PLAYER_ATTACK_SLASH_EFFECT_ANIMATION_SPEED = 0.6
 export const PLAYER_WEAPON_PLACEMENT_RIGHT = {
   x: 23,
   y: 21,
@@ -329,24 +401,6 @@ export const PLAYER_WEAPON_APPEARANCE_CONFIG_BY_ITEM_ID: Record<
     imageUrl: new URL('../../assets/weapons/weapon-axe.png', import.meta.url).href,
     worldScale: 0.085,
     idleOffsetX: -5,
-    idleOffsetY: 4
-  },
-  'long-spear': {
-    imageUrl: new URL('../../assets/weapons/weapon-spear.png', import.meta.url).href,
-    worldScale: 0.085,
-    idleOffsetX: -2,
-    idleOffsetY: 3
-  },
-  'quick-dagger': {
-    imageUrl: new URL('../../assets/weapons/weapon-dagger.png', import.meta.url).href,
-    worldScale: 0.085,
-    idleOffsetX: -2,
-    idleOffsetY: 1
-  },
-  'spiked-mace': {
-    imageUrl: new URL('../../assets/weapons/weapon-mace.png', import.meta.url).href,
-    worldScale: 0.085,
-    idleOffsetX: -4,
     idleOffsetY: 4
   },
   'magic-staff': {
@@ -416,11 +470,6 @@ export const PLAYER_EQUIPMENT_APPEARANCE_CONFIG_BY_ITEM_ID: Record<
     ...PLAYER_HELMET_EQUIPMENT_CONFIG
   }
 }
-export const PORTAL_INSIDE_IMAGE_URL = new URL(
-  '../../assets/tilesets/portal_inside.png',
-  import.meta.url
-).href
-export const PORTAL_INSIDE_WORLD_SCALE = 0.08
 export const SCENE_INTRO_VISIBLE_DURATION_MILLISECONDS = 3000
 export const PLAYER_ATTACK_DURATION_MILLISECONDS = 320
 export const PLAYER_ATTACK_COOLDOWN_MILLISECONDS = 300

@@ -6,7 +6,8 @@ import type { CharacterState } from '../../characterState'
 import { isMonsterDefeated, type MonsterCombatState } from '../../monsterCombat'
 import type { MonsterAnimationTextures } from '../monsterAnimationTextures'
 import { type MonsterBehaviorConfig } from '../monsterCatalog'
-import { PLAYER_HIT_REACTION_DURATION_MILLISECONDS, isBossCharacterId } from './constants'
+import { isBossCharacterId } from './constants'
+import { PLAYER_HIT_STAGGER_MILLISECONDS } from './playerHitStagger'
 import { getMonsterBehaviorConfig, isStationaryMonster } from './nodes'
 import { type MonsterPigAnimationMode, type MonsterPigBehaviorState, type PlayerHitReactionState } from './types'
 
@@ -258,7 +259,7 @@ export const createMonsterBehavior = (ctx: MonsterBehaviorContext) => {
       directionX: direction.x,
       directionY: direction.y,
       startedAtMilliseconds: now,
-      expiresAtMilliseconds: now + PLAYER_HIT_REACTION_DURATION_MILLISECONDS
+      expiresAtMilliseconds: now + PLAYER_HIT_STAGGER_MILLISECONDS
     })
   }
 

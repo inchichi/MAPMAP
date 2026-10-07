@@ -1,5 +1,6 @@
 // 무기 계열 스킬의 공통 계약. 스킬 하나 = cast 함수 하나(weaponSkills/<계열>Skills.ts).
 // 무기 확인·쿨다운·MP·예약 타격·정리는 playerWeaponSkills.ts 가 맡고, 스킬은 "누구를 어떻게 때리나"만 정한다.
+import type { LpcMagicEffects } from '../lpcMagicEffects'
 import type { CharacterMoveDirection, CharacterState } from '../../../characterState'
 import type { CollisionRect } from '../../characterCollision'
 import type { WeaponSkillEffects } from './weaponSkillEffects'
@@ -47,6 +48,8 @@ export type WeaponSkillCast = {
   tileHeight: number
   world: WeaponSkillWorld
   effects: WeaponSkillEffects
+  // 마법 손그림(Extended LPC Magic Pack) — 지팡이 스킬이 쓴다
+  magic: LpcMagicEffects
   // delayMilliseconds 뒤에 action 을 실행한다(여러 번 때리기, 늦게 떨어지는 공격). 사망·씬 이동 때 취소된다.
   schedule: (delayMilliseconds: number, action: (now: number) => void) => void
 }

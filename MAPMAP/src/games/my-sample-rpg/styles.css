@@ -81,7 +81,8 @@ body {
   display: none !important;
 }
 
-body.game-root--map-focused > :not(.game-root) {
+/* 게임은 .app-shell 안에 있다 — 그 껍데기까지 숨기면 펼친 지도도 같이 사라진다. */
+body.game-root--map-focused > :not(.game-root):not(.app-shell) {
   display: none !important;
 }
 
@@ -155,6 +156,10 @@ body.game-root--map-focused > :not(.game-root) {
 
 .world-map-overlay__panel--expanded {
   cursor: zoom-out;
+  /* 세계 지도 — 가방·스킬 창과 같은 나무 액자 + 철 모서리(패널 바깥에 그린다) */
+  border: 3px solid #f6e7c4;
+  border-image: url('./assets/spritesheets/ui-window-frame.png') 25 / 25px / 16px round;
+  image-rendering: pixelated;
 }
 
 .world-map-overlay__frame {
@@ -174,10 +179,106 @@ body.game-root--map-focused > :not(.game-root) {
   border-radius: 50%;
 }
 
-/* 좌상단 원형 미니맵(+'월드맵' 라벨)은 편집 흐름과 무관하게 시선만 분산시켜 숨긴다.
-   렌더링·동기화 로직은 그대로 두고 표시만 끈다(펼친 월드맵 패널은 영향 없음). */
-.world-map-overlay__panel--collapsed {
-  display: none !important;
+/* 세계 지도 툴팁(메이플 지도처럼 지역 위에 마우스를 올리면) — 이름 + 맵 미리보기 */
+.world-map-overlay__tooltip {
+  position: fixed;
+  z-index: 3;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border: 2px solid #6d4b27;
+  background: #fff1d2;
+  box-shadow: inset 0 0 0 2px #c58747, 3px 3px 0 rgba(0, 0, 0, 0.4);
+  color: #4a3218;
+  font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.world-map-overlay__tooltip[hidden],
+.world-map-overlay__tooltip-image[hidden] {
+  display: none;
+}
+
+.world-map-overlay__tooltip-image {
+  display: block;
+  width: 120px;
+  border: 2px solid #6d4b27;
+  image-rendering: pixelated;
+}
+
+.world-map-overlay__tooltip-title {
+  text-align: center;
+}
+
+/* 세계 지도의 현재 위치 — 깜빡이는 금색 점 */
+@keyframes world-map-current-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.world-map-overlay__viewport--blink {
+  animation: world-map-current-blink 0.9s steps(1, end) infinite;
+}
+
+/* 좌상단 미니맵 위 줄 — 지역 이름 + −/+ (나무 액자 창과 같은 팔레트). 위치·배율은 TS가 정한다. */
+.world-map-overlay__zoom-bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transform-origin: top left;
+  pointer-events: auto;
+  font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
+  font-synthesis: none;
+}
+
+.world-map-overlay__zoom-bar[hidden] {
+  display: none;
+}
+
+.world-map-overlay__zoom-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px 6px;
+  border: 2px solid #6d4b27;
+  background: #fff1d2;
+  color: #4a3218;
+  font-size: 0.78rem;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.world-map-overlay__zoom-button {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid #6d4b27;
+  background: #c58747;
+  box-shadow: inset 0 2px 0 #dca465, inset 0 -2px 0 #a3703a;
+  color: #fff1d2;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  text-shadow: 1px 1px 0 #6d4b27;
+}
+
+.world-map-overlay__zoom-button:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.world-map-overlay__zoom-button:disabled {
+  background: #cdb48c;
+  border-color: #a08a68;
+  box-shadow: none;
+  color: #f3e6c8;
+  text-shadow: none;
+  cursor: default;
 }
 
 .world-map-overlay__panel:focus-visible,
@@ -206,11 +307,12 @@ body.game-root--map-focused > :not(.game-root) {
   left: 8px;
   top: 8px;
   z-index: 2;
-  padding: 2px 6px;
-  border: 1px solid rgba(244, 231, 197, 0.5);
-  background: rgba(23, 19, 17, 0.88);
-  color: #f4e7c5;
-  font-size: 0.8rem;
+  padding: 4px 8px;
+  border: 2px solid #6d4b27;
+  background: #fff1d2;
+  color: #4a3218;
+  font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
+  font-size: 0.9rem;
   letter-spacing: 0.08em;
   line-height: 1;
   text-transform: uppercase;
@@ -4408,225 +4510,160 @@ body.game-root--map-focused > :not(.game-root) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   U키 장비 모달 다크 테마 오버라이드 — .player-equipment-overlay 스코프 한정.
-   I키 인벤토리(공유 클래스)는 영향받지 않는다. 색상/배경/테두리/그림자만 변경,
-   슬롯·드래그·해제 로직과 레이아웃은 그대로다. 빈 슬롯 인라인 스타일(TS)을
-   덮어야 하는 hover/장착 상태만 !important를 쓴다. */
+   가방(I)·장비(U)·스킬(K) 창 — 고전 픽셀 RPG '나무 액자 + 철 모서리' 테마.
+   창 테두리는 아이템 칸·HUD와 같은 Kenney Pixel Adventure 에셋(ui-window-frame.png,
+   uipack_rpg_sheet의 panel_beigeLight를 잘라낸 것)을 9-slice로 쓴다. 나무 테두리는
+   border-image-outset으로 패널 바깥에 그려서 레이아웃은 그대로다.
+   색은 그 에셋의 팔레트만 쓴다: 진갈 #6d4b27 · 나무 #c58747 · 짙은 나무 #a3703a ·
+   종이 #fff1d2 · 철 #515f6b/#778d9f/#94afc6. 모서리는 각지게, 그림자는 번지지 않게.
+   색상/배경/테두리 표현만 바꾼다 — 슬롯·탭·드래그·강화 로직과 레이아웃은 그대로.
+   TS 인라인 빈 칸 스타일을 덮어야 하는 상태만 !important를 쓴다. */
+
 /* 창을 열어도 화면을 가리지 않는다 — 다른 창·퀵슬롯과 함께 쓸 수 있게(배경 클릭도 게임으로 간다). */
-.player-equipment-overlay__backdrop {
+.player-equipment-overlay__backdrop,
+.player-inventory-overlay .player-inventory-overlay__backdrop,
+.player-skill-overlay .player-skill-overlay__backdrop {
   background: transparent;
 }
 
-.player-equipment-overlay .player-inventory-overlay__panel {
-  background: linear-gradient(180deg, #2a2a2d 0%, #1f1f22 100%);
-  border: 1px solid rgba(217, 168, 92, 0.55);
-  border-radius: 16px;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.65),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  color: #d4d4d4;
+/* 창 — 종이 바탕 + 나무 액자. 가방 TS가 backgroundImage: none 을 인라인으로 넣어서 색만 쓴다. */
+.player-equipment-overlay .player-inventory-overlay__panel,
+.player-inventory-overlay .player-inventory-overlay__panel,
+.player-skill-overlay .player-skill-overlay__panel {
+  background: #fff1d2;
+  border: 3px solid #fff1d2;
+  border-radius: 0;
+  border-image: url('./assets/spritesheets/ui-window-frame.png') 25 / 25px / 16px round;
+  box-shadow: none;
+  color: #4a3218;
+  text-shadow: none;
+  image-rendering: pixelated;
+  font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
+  font-synthesis: none;
 }
 
-.player-equipment-overlay .player-inventory-overlay__title {
-  color: #f3d88b;
+/* 제목줄 — 짙은 나무색 밑줄. */
+.player-equipment-overlay .player-inventory-overlay__header,
+.player-inventory-overlay .player-inventory-overlay__header,
+.player-skill-overlay .player-skill-overlay__header {
+  background: transparent;
+  border-bottom: 3px solid #a3703a;
+  border-radius: 0;
 }
 
 .player-equipment-overlay .player-inventory-overlay__header {
-  border-bottom: 1px solid rgba(217, 168, 92, 0.25);
   padding-bottom: 6px;
 }
 
-.player-equipment-overlay .player-inventory-overlay__equipment-title {
-  color: #f3d88b;
-}
-
-.player-equipment-overlay .player-inventory-overlay__equipment-summary {
-  color: #a8a8a8;
-}
-
-/* 캐릭터 프리뷰 카드(중앙) — 인라인 빈 슬롯 색을 덮는다. */
-.player-equipment-overlay .player-inventory-overlay__equipment-center {
-  background-color: #1a1a1a !important;
-  border: 1px solid rgba(217, 168, 92, 0.35) !important;
-  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35) !important;
-  color: #d4d4d4;
-}
-
-.player-equipment-overlay .player-inventory-overlay__equipment-center-name {
-  color: #f3d88b;
-}
-
-.player-equipment-overlay .player-inventory-overlay__equipment-center-job,
-.player-equipment-overlay .player-inventory-overlay__equipment-center-level,
-.player-equipment-overlay .player-inventory-overlay__equipment-center-set {
-  color: #a8a8a8;
-}
-
-/* 장비 슬롯 — 텍스트/라벨 톤. */
-.player-equipment-overlay .player-inventory-overlay__equipment-slot {
-  color: #d4d4d4;
-}
-
-.player-equipment-overlay .player-inventory-overlay__equipment-slot-label {
-  color: #c9a86a;
-}
-
-.player-equipment-overlay
-  .player-inventory-overlay__equipment-slot--empty
-  .player-inventory-overlay__equipment-slot-item {
-  color: #8a8a8a;
-}
-
-.player-equipment-overlay .player-inventory-overlay__equipment-slot:hover,
-.player-equipment-overlay .player-inventory-overlay__equipment-slot:focus-visible {
-  background-color: #252526 !important;
-  border-color: rgba(217, 168, 92, 0.6) !important;
-  box-shadow: 0 0 8px rgba(217, 168, 92, 0.22) !important;
-}
-
-/* 장착된 슬롯은 살짝 강조 — 빈 슬롯과 구분. */
-.player-equipment-overlay .player-inventory-overlay__equipment-slot--filled {
-  background-image: linear-gradient(180deg, #2d2d30 0%, #202023 100%) !important;
-  border-color: rgba(217, 168, 92, 0.55) !important;
-}
-
-.player-equipment-overlay
-  .player-inventory-overlay__equipment-slot--filled
-  .player-inventory-overlay__equipment-slot-icon {
-  filter: drop-shadow(0 0 6px rgba(217, 168, 92, 0.25));
-}
-
-/* 닫기 버튼 — 다크 기본 + hover 시 VSCode 레드. */
-.player-equipment-overlay__close.player-stat-overlay__close {
-  background: #2d2d30;
-  border: 1px solid rgba(217, 168, 92, 0.35);
-  color: #d4d4d4;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
-}
-
-.player-equipment-overlay__close.player-stat-overlay__close:hover,
-.player-equipment-overlay__close.player-stat-overlay__close:focus-visible {
-  background: #c04234;
-  border-color: #e06c5f;
-  color: #ffffff;
-}
-
-/* 하단 안내 문구. */
-.player-equipment-overlay__footer {
-  color: #9d9d9d;
-  font-size: 11px;
-}
-
-/* 아이템 툴팁도 같은 다크 톤으로. */
-.player-equipment-overlay .player-inventory-overlay__tooltip {
-  background: #1f1f22;
-  border: 1px solid rgba(217, 168, 92, 0.35);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
-  color: #d4d4d4;
-}
-
-.player-equipment-overlay .player-inventory-overlay__tooltip-name {
-  color: #f3d88b;
-}
-
-.player-equipment-overlay .player-inventory-overlay__tooltip-meta,
-.player-equipment-overlay .player-inventory-overlay__tooltip-description {
-  color: #a8a8a8;
-}
-
-.player-equipment-overlay .player-inventory-overlay__tooltip-hint {
-  color: #d9a85c;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   I키 인벤토리(가방) 다크 테마 오버라이드 — .player-inventory-overlay 루트 스코프.
-   (U키 장비창은 루트가 .player-equipment-overlay라 이 블록의 영향을 받지 않는다.)
-   색상/테두리/그림자/상태 표현만 변경 — 슬롯·탭·드래그 로직과 레이아웃은 그대로. */
-/* 창을 열어도 화면을 가리지 않는다 — 다른 창·퀵슬롯과 함께 쓸 수 있게. */
-.player-inventory-overlay .player-inventory-overlay__backdrop {
-  background: transparent;
-}
-
-@keyframes inventory-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.player-inventory-overlay .player-inventory-overlay__panel {
-  background: #252526;
-  border: 1px solid rgba(215, 161, 74, 0.6);
-  border-radius: 12px;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), 0 18px 36px rgba(0, 0, 0, 0.45);
-  color: #d4d4d4;
-  animation: inventory-fade-in 150ms ease-out;
-}
-
-/* 헤더 — 어두운 바 + 골드 하단 경계선 + 🎒 프리픽스(표시 전용 ::before). */
 .player-inventory-overlay .player-inventory-overlay__header {
-  background: #1e1e1e;
-  border-bottom: 1px solid rgba(215, 161, 74, 0.55);
-  border-radius: 10px 10px 0 0;
   padding: 6px 10px;
 }
 
-.player-inventory-overlay .player-inventory-overlay__title {
-  color: #f0d8a8;
+.player-skill-overlay .player-skill-overlay__header {
+  padding-bottom: 8px;
 }
 
+.player-equipment-overlay .player-inventory-overlay__title,
+.player-equipment-overlay .player-inventory-overlay__equipment-title,
+.player-inventory-overlay .player-inventory-overlay__title,
+.player-skill-overlay .player-skill-overlay__title,
+.player-skill-overlay .player-skill-overlay__info-name,
+.player-skill-overlay .player-skill-overlay__skill-name {
+  color: #6d4b27;
+}
 
-/* 소지금/소지 수 — 골드 강조. */
+/* 보조 글씨. */
+.player-equipment-overlay .player-inventory-overlay__equipment-summary,
+.player-equipment-overlay__footer,
+.player-inventory-overlay .player-inventory-overlay__summary,
+.player-inventory-overlay .player-inventory-overlay__empty-state,
+.player-inventory-overlay .player-inventory-overlay__footer,
+.player-skill-overlay .player-skill-overlay__info-hint,
+.player-skill-overlay .player-skill-overlay__skill-description,
+.player-skill-overlay .player-skill-overlay__footer {
+  color: #8a6338;
+}
+
+.player-equipment-overlay__footer {
+  font-size: 11px;
+}
+
 .player-inventory-overlay .player-inventory-overlay__summary {
-  color: #d7a14a;
   font-size: 0.78rem;
 }
 
-/* 탭 — 비활성 차콜 / 선택 브론즈 틴트. */
+/* 나무 버튼 — 닫기·탭·강화. 위는 밝은 나무, 아래는 짙은 나무 띠로 튀어나와 보이게. */
+.player-equipment-overlay__close.player-stat-overlay__close,
+.player-inventory-overlay .player-inventory-overlay__close,
+.player-skill-overlay .player-skill-overlay__close,
+.player-skill-overlay .player-skill-overlay__skill-action {
+  background: #c58747;
+  border: 3px solid #6d4b27;
+  border-radius: 0;
+  box-shadow: inset 0 3px 0 #dca465, inset 0 -3px 0 #a3703a;
+  color: #fff1d2;
+  font-weight: 400;
+  text-shadow: 1px 1px 0 #6d4b27;
+}
+
+.player-equipment-overlay__close.player-stat-overlay__close:hover,
+.player-equipment-overlay__close.player-stat-overlay__close:focus-visible,
+.player-inventory-overlay .player-inventory-overlay__close:hover,
+.player-inventory-overlay .player-inventory-overlay__close:focus-visible,
+.player-skill-overlay .player-skill-overlay__close:hover,
+.player-skill-overlay .player-skill-overlay__close:focus-visible {
+  background: #b5452f;
+  border-color: #5a1f14;
+  box-shadow: inset 0 3px 0 #d0654c, inset 0 -3px 0 #8a3020;
+}
+
+/* 닫기 버튼 크기 — 퀘스트 창 닫기와 같은 32px(46px 는 작은 가방 머리줄에 비해 너무 컸다). */
+.player-inventory-overlay .player-inventory-overlay__close {
+  width: 32px;
+  height: 32px;
+  top: 4px;
+  right: 4px;
+}
+
+/* 탭 — 안 고른 탭은 짙은 나무, 고른 탭은 밝은 나무 + 종이색 글씨. */
 .player-inventory-overlay .player-inventory-overlay__tab {
-  background: #2d2d30;
-  border: 1px solid #444444;
-  color: #999999;
+  background: #a3703a;
+  border: 2px solid #6d4b27;
+  border-radius: 0;
+  box-shadow: none;
+  color: #e8cfa0;
 }
 
 .player-inventory-overlay .player-inventory-overlay__tab--active {
-  background: #3c2f23;
-  border-color: #d7a14a;
-  color: #f0d8a8;
-  box-shadow: none;
+  background: #c58747;
+  border-color: #6d4b27;
+  box-shadow: inset 0 2px 0 #dca465;
+  color: #fff1d2;
+  text-shadow: 1px 1px 0 #6d4b27;
 }
 
 .player-inventory-overlay .player-inventory-overlay__tab:focus-visible {
-  outline: 2px solid rgba(215, 161, 74, 0.6);
+  outline: 2px solid #94afc6;
 }
 
-/* 슬롯 — hover 시 골드 테두리(인라인 스타일을 덮기 위해 !important). */
-.player-inventory-overlay .player-inventory-overlay__slot {
-  color: #d4d4d4;
+/* 아이템 칸 — 짙은 나무에 파인 홈(위·왼쪽 진갈, 아래·오른쪽 밝은 나무). 빈 칸 색은 TS 인라인. */
+.player-inventory-overlay .player-inventory-overlay__slot,
+.player-equipment-overlay .player-inventory-overlay__equipment-slot {
+  border-radius: 0;
+  color: #fff1d2;
 }
 
+/* 칸 hover — 철빛 테두리를 커서처럼. */
 .player-inventory-overlay .player-inventory-overlay__slot:hover,
-.player-inventory-overlay .player-inventory-overlay__slot:focus-visible {
-  background-color: #252526 !important;
-  border-color: #d7a14a !important;
-  box-shadow: 0 0 10px rgba(215, 161, 74, 0.3) !important;
-}
-
-/* 빈 슬롯 — 점선 + 낮은 존재감. */
-.player-inventory-overlay .player-inventory-overlay__slot--empty {
-  border-style: dashed !important;
-  border-color: rgba(120, 120, 120, 0.45) !important;
+.player-inventory-overlay .player-inventory-overlay__slot:focus-visible,
+.player-equipment-overlay .player-inventory-overlay__equipment-slot:hover,
+.player-equipment-overlay .player-inventory-overlay__equipment-slot:focus-visible {
+  border-color: #94afc6 !important;
+  box-shadow: 0 0 0 2px #515f6b !important;
 }
 
 .player-inventory-overlay .player-inventory-overlay__slot--empty .player-inventory-overlay__slot-icon {
   opacity: 0.3;
-}
-
-/* 아이템 아이콘 — hover 시 살짝 확대. */
-.player-inventory-overlay .player-inventory-overlay__slot-icon {
-  transition: transform 150ms ease;
 }
 
 .player-inventory-overlay .player-inventory-overlay__slot:hover .player-inventory-overlay__slot-icon {
@@ -4634,565 +4671,421 @@ body.game-root--map-focused > :not(.game-root) {
   transform: translate(-50%, -50%) scale(1.05);
 }
 
-/* 닫기 버튼 — 원형 레드. 퀘스트 창 닫기와 같은 32px(46px 는 작은 가방 머리줄에 비해 너무 컸다). */
-.player-inventory-overlay .player-inventory-overlay__close {
-  width: 32px;
-  height: 32px;
-  top: 4px;
-  right: 4px;
-  background: #c94c4c;
-  border-radius: 999px;
-  box-shadow: 0 0 8px rgba(201, 76, 76, 0.4);
-  transition: background 140ms ease;
+/* 장비창 — 캐릭터 프리뷰도 같은 나무 홈(인라인 빈 칸 색을 덮는다). */
+.player-equipment-overlay .player-inventory-overlay__equipment-center {
+  background-color: #a3703a !important;
+  border: 3px solid !important;
+  border-color: #6d4b27 #c58747 #c58747 #6d4b27 !important;
+  border-radius: 0;
+  box-shadow: none !important;
+  color: #fff1d2;
 }
 
-.player-inventory-overlay .player-inventory-overlay__close:hover,
-.player-inventory-overlay .player-inventory-overlay__close:focus-visible {
-  background: #e35d5d;
+.player-equipment-overlay .player-inventory-overlay__equipment-center-name {
+  color: #fff1d2;
+  text-shadow: 1px 1px 0 #6d4b27;
 }
 
-/* 보조 텍스트/빈 상태/하단 안내. */
-.player-inventory-overlay .player-inventory-overlay__empty-state,
-.player-inventory-overlay .player-inventory-overlay__footer {
-  color: #9d9d9d;
+.player-equipment-overlay .player-inventory-overlay__equipment-center-job,
+.player-equipment-overlay .player-inventory-overlay__equipment-center-level,
+.player-equipment-overlay .player-inventory-overlay__equipment-center-set {
+  color: #f0d9ac;
 }
 
-/* 아이템 툴팁(선택/hover 상세) — 같은 다크 톤. */
+.player-equipment-overlay .player-inventory-overlay__equipment-slot-label {
+  color: #fff1d2;
+  text-shadow: 1px 1px 0 #6d4b27;
+}
+
+.player-equipment-overlay
+  .player-inventory-overlay__equipment-slot--empty
+  .player-inventory-overlay__equipment-slot-item {
+  color: #e2c18e;
+}
+
+/* 장착된 칸 — 철 테두리로 빈 칸과 구분. */
+.player-equipment-overlay .player-inventory-overlay__equipment-slot--filled {
+  border-color: #778d9f #515f6b #515f6b #778d9f !important;
+}
+
+/* 아이템 툴팁 — 작은 나무 액자. */
+.player-equipment-overlay .player-inventory-overlay__tooltip,
 .player-inventory-overlay .player-inventory-overlay__tooltip {
-  background: #1f1f22;
-  border: 1px solid rgba(215, 161, 74, 0.35);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
-  color: #d4d4d4;
+  background: #fff1d2;
+  border: 3px solid #6d4b27;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 3px #c58747, 3px 3px 0 rgba(43, 28, 12, 0.45);
+  color: #4a3218;
+  text-shadow: none;
 }
 
+.player-equipment-overlay .player-inventory-overlay__tooltip-name,
 .player-inventory-overlay .player-inventory-overlay__tooltip-name {
-  color: #f3d88b;
+  color: #6d4b27;
 }
 
+.player-equipment-overlay .player-inventory-overlay__tooltip-meta,
+.player-equipment-overlay .player-inventory-overlay__tooltip-description,
 .player-inventory-overlay .player-inventory-overlay__tooltip-meta,
 .player-inventory-overlay .player-inventory-overlay__tooltip-description {
-  color: #a8a8a8;
+  color: #8a6338;
 }
 
+.player-equipment-overlay .player-inventory-overlay__tooltip-hint,
 .player-inventory-overlay .player-inventory-overlay__tooltip-hint {
-  color: #d7a14a;
+  color: #3f6e8c;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   K키 스킬 모달 다크 테마 오버라이드 — .player-skill-overlay 루트 스코프 한정.
-   (스탯 오버레이는 .player-stat-overlay라 공유 규칙이 있어도 이 블록은 영향 없음.)
-   색상/배경/테두리/그림자/상태 표현만 변경 — 강화·포인트·드래그 로직과 레이아웃은 그대로. */
-/* 창을 열어도 화면을 가리지 않는다 — 스킬을 아래 퀵슬롯으로 끌어 놓을 수 있게. */
-.player-skill-overlay .player-skill-overlay__backdrop {
-  background: transparent;
-}
-
-/* 드래그로 파란 텍스트 선택 하이라이트가 뜨지 않게 골드 틴트로. */
+/* 스킬창 — 드래그로 파란 텍스트 선택 하이라이트가 뜨지 않게 나무색 틴트로. */
 .player-skill-overlay ::selection {
-  background: rgba(217, 168, 92, 0.3);
+  background: rgba(197, 135, 71, 0.35);
 }
 
-/* 모달 컨테이너 — 차콜 그라데이션 + 브론즈 테두리. */
-.player-skill-overlay .player-skill-overlay__panel {
-  background: linear-gradient(180deg, #2a2a2d 0%, #1f1f22 100%);
-  border: 1px solid rgba(217, 168, 92, 0.55);
-  border-radius: 16px;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.65),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  color: #d4d4d4;
-}
-
-/* 제목 영역 — 골드 제목 + 하단 구분선. */
-.player-skill-overlay .player-skill-overlay__header {
-  border-bottom: 1px solid rgba(217, 168, 92, 0.25);
-  padding-bottom: 8px;
-}
-
-.player-skill-overlay .player-skill-overlay__title {
-  color: #f3d88b;
-}
-
-/* 남은 포인트 — 골드 알약 배지. */
+/* 남은 포인트 — 철판 배지. */
 .player-skill-overlay .player-skill-overlay__summary {
   display: inline-grid;
   place-items: center;
-  background: rgba(217, 168, 92, 0.12);
-  border: 1px solid rgba(217, 168, 92, 0.35);
-  color: #d9a85c;
-  border-radius: 999px;
+  background: #515f6b;
+  border: 2px solid #94afc6;
+  border-radius: 0;
+  color: #fff1d2;
   padding: 3px 8px;
 }
 
-/* 캐릭터 정보 카드 — 다크 카드. */
-.player-skill-overlay .player-skill-overlay__info-card {
-  background: #1a1a1a;
-  border: 1px solid rgba(217, 168, 92, 0.28);
-  border-radius: 10px;
-  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
-}
-
-.player-skill-overlay .player-skill-overlay__info-name {
-  color: #f3d88b;
+/* 캐릭터 정보·스킬 줄 — 종이 위에 덧댄 양피지 띠. */
+.player-skill-overlay .player-skill-overlay__info-card,
+.player-skill-overlay .player-skill-overlay__skill-row {
+  background: #f7e2b8;
+  border: 2px solid #a3703a;
+  border-radius: 0;
+  box-shadow: inset 0 2px 0 #fff6e0;
+  color: #4a3218;
 }
 
 .player-skill-overlay .player-skill-overlay__info-job,
-.player-skill-overlay .player-skill-overlay__info-level {
-  color: #d4d4d4;
+.player-skill-overlay .player-skill-overlay__info-level,
+.player-skill-overlay .player-skill-overlay__skill-level {
+  color: #4a3218;
 }
 
-.player-skill-overlay .player-skill-overlay__info-hint {
-  color: #9d9d9d;
-}
-
-/* 스킬 리스트 카드 — 다크 카드 + 골드 hover. */
-.player-skill-overlay .player-skill-overlay__skill-row {
-  background: #1a1a1a;
-  border: 1px solid rgba(217, 168, 92, 0.28);
-  border-radius: 10px;
-  color: #d4d4d4;
-}
-
+/* 스킬 줄 hover — 진갈 테두리 + 밝은 종이. */
 .player-skill-overlay .player-skill-overlay__skill-row:hover,
 .player-skill-overlay .player-skill-overlay__skill-row:focus-visible {
   filter: none;
-  background: #252526;
-  border-color: rgba(217, 168, 92, 0.55);
-  box-shadow: 0 0 8px rgba(217, 168, 92, 0.18);
+  background: #fff6e0;
+  border-color: #6d4b27;
+  box-shadow: 0 0 0 1px #6d4b27;
 }
 
-.player-skill-overlay .player-skill-overlay__skill-name {
-  color: #f3d88b;
-}
-
-.player-skill-overlay .player-skill-overlay__skill-description {
-  color: #a8a8a8;
-}
-
-.player-skill-overlay .player-skill-overlay__skill-level {
-  color: #d4d4d4;
-}
-
-/* 스킬 아이콘 슬롯 — 다크 박스 + hover 골드 글로우. */
+/* 스킬 아이콘 — 나무 홈. */
 .player-skill-overlay .player-skill-overlay__skill-icon {
-  background-color: #252526;
-  border: 1px solid rgba(217, 168, 92, 0.25);
-  border-radius: 8px;
-  transition: filter 150ms ease;
+  background-color: #a3703a;
+  border: 3px solid;
+  border-color: #6d4b27 #c58747 #c58747 #6d4b27;
+  border-radius: 0;
 }
 
-.player-skill-overlay .player-skill-overlay__skill-row:hover .player-skill-overlay__skill-icon {
-  filter: drop-shadow(0 0 6px rgba(217, 168, 92, 0.25));
-}
-
-/* 단축키 배지 — 다크 슬롯. */
+/* 단축키 배지 — 철판. */
 .player-skill-overlay .player-skill-overlay__skill-hotkey {
-  background: #252526;
-  border: 1px solid rgba(217, 168, 92, 0.25);
-  border-radius: 6px;
-  color: #d4d4d4;
-}
-
-/* 강화 버튼 — 활성(강화 가능)은 골드 그라데이션, 잠김/MAX는 비활성 톤.
-   row에 --locked가 붙으면(포인트 부족·잠김·MAX) 비활성으로 표시. */
-.player-skill-overlay .player-skill-overlay__skill-action {
-  background: linear-gradient(180deg, #d9a85c 0%, #9a6a2f 100%);
-  border: 1px solid rgba(243, 216, 139, 0.75);
-  border-radius: 8px;
-  color: #1e1e1e;
-  font-weight: 700;
-  transition: filter 140ms ease, box-shadow 140ms ease;
+  background: #515f6b;
+  border: 2px solid;
+  border-color: #94afc6 #3a444d #3a444d #94afc6;
+  border-radius: 0;
+  color: #fff1d2;
 }
 
 .player-skill-overlay .player-skill-overlay__skill-row:hover .player-skill-overlay__skill-action {
   filter: brightness(1.08);
-  box-shadow: 0 0 8px rgba(217, 168, 92, 0.28);
 }
 
+/* 잠김/MAX(row --locked) — 바랜 나무. */
 .player-skill-overlay .player-skill-overlay__skill-row--locked .player-skill-overlay__skill-action {
-  background: #2d2d30;
-  border: 1px solid #3c3c3c;
-  color: #777777;
-  opacity: 0.65;
+  background: #cdb48c;
+  border-color: #a08a68;
+  box-shadow: none;
+  color: #f3e6c8;
+  text-shadow: none;
   cursor: not-allowed;
   filter: none;
-  box-shadow: none;
-}
-
-/* 닫기 버튼 — 다크 기본 + hover 시 레드. */
-.player-skill-overlay .player-skill-overlay__close {
-  background: #2d2d30;
-  border: 1px solid rgba(217, 168, 92, 0.35);
-  border-radius: 8px;
-  color: #d4d4d4;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
-}
-
-.player-skill-overlay .player-skill-overlay__close:hover,
-.player-skill-overlay .player-skill-overlay__close:focus-visible {
-  background: #c04234;
-  border-color: #e06c5f;
-  color: #ffffff;
-}
-
-/* 하단 안내 문구. */
-.player-skill-overlay .player-skill-overlay__footer {
-  color: #9d9d9d;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   B키 퀘스트 일지 다크 테마 오버라이드 — .quest-log-overlay 루트 스코프 한정.
-   색상/배경/테두리/그림자/상태 표현만 변경 — 수락·포기·추적 로직과 레이아웃은 그대로.
+   B키 퀘스트 창 · S키 스탯 창 — 가방·장비·스킬 창과 같은 '나무 액자 + 철 모서리' 테마.
+   창 테두리는 ui-window-frame.png 9-slice(패널 바깥에 그려 레이아웃은 그대로), 색은 그 에셋 팔레트만 쓴다:
+   진갈 #6d4b27 · 나무 #c58747 · 짙은 나무 #a3703a · 종이 #fff1d2 · 철 #515f6b/#94afc6.
+   색상/배경/테두리 표현만 바꾼다 — 수락·포기·추적·스탯 강화 로직과 레이아웃은 그대로.
    다른 창과 함께 쓰도록 화면을 어둡게 가리는 막은 두지 않는다. */
-@keyframes quest-log-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+
+/* 창 — 종이 바탕 + 나무 액자 */
+.quest-log-overlay .quest-log-overlay__panel,
+.player-stat-overlay .player-stat-overlay__panel {
+  background: #fff1d2;
+  border: 3px solid #fff1d2;
+  border-radius: 0;
+  border-image: url('./assets/spritesheets/ui-window-frame.png') 25 / 25px / 16px round;
+  box-shadow: none;
+  color: #4a3218;
+  image-rendering: pixelated;
+  font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
+  font-synthesis: none;
 }
 
-/* 퀘스트 창 외곽 — 차콜 패널 + 브론즈 테두리. */
-.quest-log-overlay .quest-log-overlay__panel {
-  background: #252526;
-  border: 1px solid #4a3a22;
-  border-radius: 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-  color: #d4d4d4;
-}
-
-.quest-log-overlay[aria-hidden='false'] .quest-log-overlay__panel {
-  animation: quest-log-fade-in 180ms ease-out;
-}
-
-/* 드래그 시 파란 텍스트 선택 하이라이트 방지. */
-.quest-log-overlay ::selection {
-  background: rgba(215, 161, 74, 0.3);
-}
-
-/* 헤더 — 골드 제목 + 하단 구분선 + 📜 프리픽스(표시 전용). */
-.quest-log-overlay .quest-log-overlay__header {
-  border-bottom: 1px solid rgba(215, 161, 74, 0.3);
-  padding-bottom: 8px;
-}
-
-.quest-log-overlay .quest-log-overlay__title {
-  color: #e7c27d;
-  font-size: 1.05rem;
-}
-
-
-.quest-log-overlay .quest-log-overlay__summary,
-.quest-log-overlay .quest-log-overlay__detail-meta {
-  color: #9a9a9a;
-}
-
-/* 닫기 버튼 — 원형 브론즈 + hover 시 골드 채움. */
-.quest-log-overlay .quest-log-overlay__close {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #3a2f1e;
-  border: 1px solid #d7a14a;
-  color: #e7c27d;
-  transition: background 140ms ease, color 140ms ease;
-}
-
-.quest-log-overlay .quest-log-overlay__close:hover,
-.quest-log-overlay .quest-log-overlay__close:focus-visible {
-  background: #d7a14a;
-  color: #1e1e1e;
-}
-
-/* 지역 탭 — 다크 톤. */
-.quest-log-overlay .quest-log-overlay__tab {
-  background: #2d2d30;
-  border: 1px solid #3a3a3a;
-  color: #c9a86a;
-  border-radius: 6px;
-}
-
-/* 좌측 퀘스트 목록 컨테이너. */
-.quest-log-overlay .quest-log-overlay__quest-list {
-  background: #1f1f1f;
-  border: 1px solid #3a3a3a;
-  border-radius: 8px;
-}
-
-/* 퀘스트 카드. */
-.quest-log-overlay .quest-log-overlay__quest-row {
-  min-height: 40px;
-  border-radius: 8px;
-  border: 1px solid #3a3a3a;
-  background: #1a1a1a;
-  color: #d4d4d4;
-}
-
-.quest-log-overlay .quest-log-overlay__quest-row:hover {
-  border-color: rgba(215, 161, 74, 0.55);
-  background: #252526;
-}
-
-.quest-log-overlay .quest-log-overlay__quest-row--active {
-  border: 1px solid #d7a14a;
-  background: #252526;
-  box-shadow: 0 0 12px rgba(215, 161, 74, 0.25);
-}
-
-/* 빈 상태 — 중앙 정렬 다크 카드. */
-.quest-log-overlay .quest-log-overlay__empty-state {
-  background: #1a1a1a;
-  border: 1px solid #3a3a3a;
-  border-radius: 8px;
-  color: #9a9a9a;
-}
-
-/* 우측 상세 패널. */
-.quest-log-overlay .quest-log-overlay__detail-pane {
-  background: #1e1e1e;
-  border: 1px solid #3a3a3a;
-  border-radius: 10px;
-}
-
-.quest-log-overlay .quest-log-overlay__detail-empty {
-  color: #9a9a9a;
-}
-
-.quest-log-overlay .quest-log-overlay__detail-title {
-  color: #e7c27d;
-}
-
-.quest-log-overlay .quest-log-overlay__description {
-  color: #c4c4c4;
-}
-
-/* 캐릭터 초상화 슬롯. */
-.quest-log-overlay .quest-log-overlay__portrait {
-  border: 1px solid rgba(215, 161, 74, 0.3);
-  background-color: #252526;
-  border-radius: 6px;
-}
-
-/* 목표 항목 카드. */
-.quest-log-overlay .quest-log-overlay__objective-row {
-  background: #252526;
-  border: 1px solid #3a3a3a;
-  border-radius: 6px;
-  color: #d4d4d4;
-}
-
-/* 하단 액션 버튼(추적/포기). */
-.quest-log-overlay .quest-log-overlay__tracker-toggle,
-.quest-log-overlay .quest-log-overlay__abandon,
-.quest-log-overlay .quest-log-overlay__confirm-abandon,
-.quest-log-overlay .quest-log-overlay__confirm-cancel {
-  background: #2d2d30;
-  border: 1px solid #3c3c3c;
-  border-radius: 6px;
-  color: #d4d4d4;
-  transition: background 140ms ease, border-color 140ms ease;
-}
-
-.quest-log-overlay .quest-log-overlay__tracker-toggle:hover,
-.quest-log-overlay .quest-log-overlay__confirm-cancel:hover {
-  background: #37373d;
-  border-color: rgba(215, 161, 74, 0.5);
-}
-
-.quest-log-overlay .quest-log-overlay__tracker-toggle--active {
-  background: #2f3a24;
-  border-color: rgba(140, 180, 90, 0.55);
-  color: #b9d68a;
-}
-
-/* 포기 버튼 — 위험 톤. */
-.quest-log-overlay .quest-log-overlay__abandon,
-.quest-log-overlay .quest-log-overlay__confirm-abandon {
-  border-color: rgba(192, 66, 52, 0.55);
-  color: #e08a7e;
-}
-
-.quest-log-overlay .quest-log-overlay__abandon:hover,
-.quest-log-overlay .quest-log-overlay__confirm-abandon:hover {
-  background: #c04234;
-  border-color: #e06c5f;
-  color: #ffffff;
-}
-
-/* 포기 확인 패널. */
-.quest-log-overlay .quest-log-overlay__confirm {
-  background: #1f1817;
-  border: 1px solid rgba(192, 66, 52, 0.4);
-  border-radius: 8px;
-}
-
-.quest-log-overlay .quest-log-overlay__confirm-text {
-  color: #e08a7e;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   S키 상태/스탯 창 다크 테마 오버라이드 — .player-stat-overlay 루트 스코프 한정.
-   (스킬 오버레이와 공유하던 베이지 기본값을 이 스코프에서 차콜로 덮는다.)
-   색상/배경/테두리/그림자/상태 표현만 변경 — 스탯 강화·계산 로직과 레이아웃은 그대로.
-   backdrop은 TS가 열림 시에만 표시(hidden 토글)하므로 닫힘 시 dim이 남지 않는다. */
 .player-stat-overlay--sidebar .player-stat-overlay__backdrop {
   background: transparent;
 }
 
-@keyframes stat-overlay-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* 드래그 시 파란 텍스트 선택 하이라이트 방지. */
+/* 드래그 시 파란 텍스트 선택 하이라이트 방지 — 나무색 틴트 */
+.quest-log-overlay ::selection,
 .player-stat-overlay ::selection {
-  background: rgba(217, 168, 92, 0.3);
+  background: rgba(197, 135, 71, 0.35);
 }
 
-/* 상태창 컨테이너 — 차콜 그라데이션 + 브론즈 테두리. */
-.player-stat-overlay .player-stat-overlay__panel {
-  background: linear-gradient(180deg, #2a2a2d 0%, #1f1f22 100%);
-  border: 1px solid rgba(217, 168, 92, 0.55);
-  border-radius: 16px;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.65),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  color: #d4d4d4;
-  animation: stat-overlay-fade-in 160ms ease-out;
-}
-
-/* 제목 영역 — 골드 제목 + 하단 구분선. */
+/* 제목줄 — 짙은 나무색 밑줄 */
+.quest-log-overlay .quest-log-overlay__header,
 .player-stat-overlay .player-stat-overlay__header {
-  border-bottom: 1px solid rgba(217, 168, 92, 0.25);
+  border-bottom: 3px solid #a3703a;
   padding-bottom: 8px;
 }
 
-.player-stat-overlay .player-stat-overlay__title {
-  color: #f3d88b;
+.quest-log-overlay .quest-log-overlay__title,
+.quest-log-overlay .quest-log-overlay__detail-title,
+.player-stat-overlay .player-stat-overlay__title,
+.player-stat-overlay .player-stat-overlay__info-name {
+  color: #6d4b27;
 }
 
-/* 요약(남은 포인트 등) — 골드 알약 배지. */
+.quest-log-overlay .quest-log-overlay__title {
+  font-size: 1.05rem;
+}
+
+/* 보조 글씨 */
+.quest-log-overlay .quest-log-overlay__summary,
+.quest-log-overlay .quest-log-overlay__detail-meta,
+.quest-log-overlay .quest-log-overlay__detail-empty,
+.player-stat-overlay .player-stat-overlay__info-hint,
+.player-stat-overlay .player-stat-overlay__stat-label,
+.player-stat-overlay .player-stat-overlay__stat-description,
+.player-stat-overlay .player-stat-overlay__footer {
+  color: #8a6338;
+}
+
+/* 닫기 — 나무 버튼, hover 시 붉은 나무 */
+.quest-log-overlay .quest-log-overlay__close,
+.player-stat-overlay .player-stat-overlay__close {
+  background: #c58747;
+  border: 3px solid #6d4b27;
+  border-radius: 0;
+  box-shadow: inset 0 3px 0 #dca465, inset 0 -3px 0 #a3703a;
+  color: #fff1d2;
+  text-shadow: 1px 1px 0 #6d4b27;
+}
+
+.quest-log-overlay .quest-log-overlay__close {
+  width: 32px;
+  height: 32px;
+}
+
+.quest-log-overlay .quest-log-overlay__close:hover,
+.quest-log-overlay .quest-log-overlay__close:focus-visible,
+.player-stat-overlay .player-stat-overlay__close:hover,
+.player-stat-overlay .player-stat-overlay__close:focus-visible {
+  background: #b5452f;
+  border-color: #5a1f14;
+  box-shadow: inset 0 3px 0 #d0654c, inset 0 -3px 0 #8a3020;
+  color: #fff1d2;
+}
+
+/* 퀘스트 — 진행 중/완료 탭: 안 고른 탭은 짙은 나무, 고른 탭은 밝은 나무 */
+.quest-log-overlay .quest-log-overlay__tab {
+  background: #a3703a;
+  border: 2px solid #6d4b27;
+  border-radius: 0;
+  box-shadow: none;
+  color: #e8cfa0;
+}
+
+.quest-log-overlay .quest-log-overlay__tab--active {
+  background: #c58747;
+  box-shadow: inset 0 2px 0 #dca465;
+  color: #fff1d2;
+  text-shadow: 1px 1px 0 #6d4b27;
+}
+
+/* 퀘스트 — 목록·상세·빈 상태는 종이 위 양피지 칸 */
+.quest-log-overlay .quest-log-overlay__quest-list,
+.quest-log-overlay .quest-log-overlay__detail-pane,
+.quest-log-overlay .quest-log-overlay__empty-state {
+  background: #f7e2b8;
+  border: 2px solid #a3703a;
+  border-radius: 0;
+  box-shadow: inset 0 2px 0 #fff6e0;
+  color: #8a6338;
+}
+
+/* 퀘스트 한 줄 — 종이 띠, hover·선택은 진갈 테두리 */
+.quest-log-overlay .quest-log-overlay__quest-row {
+  min-height: 40px;
+  border: 2px solid #c58747;
+  border-radius: 0;
+  background: #fff1d2;
+  color: #4a3218;
+}
+
+.quest-log-overlay .quest-log-overlay__quest-row:hover {
+  border-color: #6d4b27;
+  background: #fff6e0;
+}
+
+.quest-log-overlay .quest-log-overlay__quest-row--active {
+  border: 2px solid #6d4b27;
+  background: #fff6e0;
+  box-shadow: 0 0 0 2px #c58747;
+}
+
+.quest-log-overlay .quest-log-overlay__description {
+  color: #4a3218;
+}
+
+/* 의뢰인 초상화 — 나무 홈 */
+.quest-log-overlay .quest-log-overlay__portrait {
+  border: 3px solid;
+  border-color: #6d4b27 #c58747 #c58747 #6d4b27;
+  border-radius: 0;
+  background-color: #a3703a;
+}
+
+/* 목표 한 줄 */
+.quest-log-overlay .quest-log-overlay__objective-row {
+  background: #fff1d2;
+  border: 2px solid #c58747;
+  border-radius: 0;
+  color: #4a3218;
+}
+
+/* 하단 버튼(추적·포기·확인) — 나무 버튼 */
+.quest-log-overlay .quest-log-overlay__tracker-toggle,
+.quest-log-overlay .quest-log-overlay__abandon,
+.quest-log-overlay .quest-log-overlay__confirm-abandon,
+.quest-log-overlay .quest-log-overlay__confirm-cancel {
+  background: #c58747;
+  border: 3px solid #6d4b27;
+  border-radius: 0;
+  box-shadow: inset 0 3px 0 #dca465, inset 0 -3px 0 #a3703a;
+  color: #fff1d2;
+  text-shadow: 1px 1px 0 #6d4b27;
+}
+
+.quest-log-overlay .quest-log-overlay__tracker-toggle:hover,
+.quest-log-overlay .quest-log-overlay__confirm-cancel:hover {
+  filter: brightness(1.08);
+}
+
+/* 추적 중 — 초록 나무 */
+.quest-log-overlay .quest-log-overlay__tracker-toggle--active {
+  background: #6f9a3e;
+  border-color: #34501c;
+  box-shadow: inset 0 3px 0 #8fbb5a, inset 0 -3px 0 #557a2c;
+}
+
+/* 포기 — 붉은 나무 */
+.quest-log-overlay .quest-log-overlay__abandon,
+.quest-log-overlay .quest-log-overlay__confirm-abandon {
+  background: #b5452f;
+  border-color: #5a1f14;
+  box-shadow: inset 0 3px 0 #d0654c, inset 0 -3px 0 #8a3020;
+}
+
+.quest-log-overlay .quest-log-overlay__abandon:hover,
+.quest-log-overlay .quest-log-overlay__confirm-abandon:hover {
+  filter: brightness(1.1);
+}
+
+/* 포기 확인 칸 */
+.quest-log-overlay .quest-log-overlay__confirm {
+  background: #fbe3d6;
+  border: 2px solid #b5452f;
+  border-radius: 0;
+}
+
+.quest-log-overlay .quest-log-overlay__confirm-text {
+  color: #8a3020;
+}
+
+/* 스탯 — 남은 포인트: 철판 배지 */
 .player-stat-overlay .player-stat-overlay__summary {
   display: inline-grid;
   place-items: center;
-  background: rgba(217, 168, 92, 0.12);
-  border: 1px solid rgba(217, 168, 92, 0.35);
-  color: #d9a85c;
-  border-radius: 999px;
+  background: #515f6b;
+  border: 2px solid #94afc6;
+  border-radius: 0;
+  color: #fff1d2;
   padding: 3px 8px;
 }
 
-/* 닫기 버튼 — 다크 기본 + hover 레드. */
-.player-stat-overlay .player-stat-overlay__close {
-  background: #2d2d30;
-  border: 1px solid rgba(217, 168, 92, 0.35);
-  border-radius: 8px;
-  color: #d4d4d4;
-  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
-}
-
-.player-stat-overlay .player-stat-overlay__close:hover,
-.player-stat-overlay .player-stat-overlay__close:focus-visible {
-  background: #c04234;
-  border-color: #e06c5f;
-  color: #ffffff;
-}
-
-/* 캐릭터 정보 카드 — 다크 카드. */
-.player-stat-overlay .player-stat-overlay__info-card {
-  background: #1a1a1a;
-  border: 1px solid rgba(217, 168, 92, 0.28);
-  border-radius: 10px;
-  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
-}
-
-.player-stat-overlay .player-stat-overlay__info-name {
-  color: #f3d88b;
+/* 스탯 — 캐릭터 정보·능력치 줄: 양피지 띠 */
+.player-stat-overlay .player-stat-overlay__info-card,
+.player-stat-overlay .player-stat-overlay__stat-row {
+  background: #f7e2b8;
+  border: 2px solid #a3703a;
+  border-radius: 0;
+  box-shadow: inset 0 2px 0 #fff6e0;
+  color: #4a3218;
 }
 
 .player-stat-overlay .player-stat-overlay__info-job,
 .player-stat-overlay .player-stat-overlay__info-level {
-  color: #d4d4d4;
-}
-
-.player-stat-overlay .player-stat-overlay__info-hint {
-  color: #9d9d9d;
-}
-
-/* 능력치 행 — 다크 카드 + 골드 hover. */
-.player-stat-overlay .player-stat-overlay__stat-row {
-  background: #1a1a1a;
-  border: 1px solid rgba(217, 168, 92, 0.18);
-  border-radius: 8px;
-  color: #d4d4d4;
+  color: #4a3218;
 }
 
 .player-stat-overlay .player-stat-overlay__stat-row:hover:not(:disabled),
 .player-stat-overlay .player-stat-overlay__stat-row:focus-visible {
   filter: none;
-  background: #252526;
-  border-color: rgba(217, 168, 92, 0.45);
-}
-
-.player-stat-overlay .player-stat-overlay__stat-label {
-  color: #a8a8a8;
-}
-
-.player-stat-overlay .player-stat-overlay__stat-description {
-  color: #9d9d9d;
+  background: #fff6e0;
+  border-color: #6d4b27;
+  box-shadow: 0 0 0 1px #6d4b27;
 }
 
 .player-stat-overlay .player-stat-overlay__stat-value {
-  color: #f3d88b;
-  font-weight: 700;
+  color: #6d4b27;
+  font-weight: 400;
 }
 
-/* 추천 강화 스탯 — 은은한 골드 강조. */
+/* 추천 강화 스탯 — 철빛 테두리 */
 .player-stat-overlay .player-stat-overlay__stat-row--recommended {
-  border-color: rgba(217, 168, 92, 0.5);
-  background: #20201c;
+  border-color: #778d9f;
+  box-shadow: inset 0 2px 0 #fff6e0, 0 0 0 1px #94afc6;
 }
 
-/* 강화 버튼 — 강화 가능(잠김 아님)은 골드, 잠김은 비활성. */
+/* 강화 버튼 — 나무 버튼, 잠김은 바랜 나무 */
 .player-stat-overlay .player-stat-overlay__stat-action {
-  background: linear-gradient(180deg, #d9a85c 0%, #9a6a2f 100%);
-  border: 1px solid rgba(243, 216, 139, 0.75);
-  border-radius: 8px;
-  color: #1e1e1e;
-  font-weight: 700;
-  transition: filter 140ms ease, box-shadow 140ms ease;
+  background: #c58747;
+  border: 2px solid #6d4b27;
+  border-radius: 0;
+  box-shadow: inset 0 2px 0 #dca465, inset 0 -2px 0 #a3703a;
+  color: #fff1d2;
+  font-weight: 400;
+  text-shadow: 1px 1px 0 #6d4b27;
 }
 
 .player-stat-overlay .player-stat-overlay__stat-row:hover:not(:disabled) .player-stat-overlay__stat-action {
   filter: brightness(1.08);
-  box-shadow: 0 0 8px rgba(217, 168, 92, 0.28);
 }
 
 .player-stat-overlay .player-stat-overlay__stat-row--locked .player-stat-overlay__stat-action {
-  background: #2d2d30;
-  border: 1px solid #3c3c3c;
-  color: #777777;
-  opacity: 0.65;
+  background: #cdb48c;
+  border-color: #a08a68;
+  box-shadow: none;
+  color: #f3e6c8;
+  text-shadow: none;
   cursor: not-allowed;
   filter: none;
-  box-shadow: none;
 }
 
-/* 하단 안내 문구. */
-.player-stat-overlay .player-stat-overlay__footer {
-  color: #9d9d9d;
-}
-
-/* 스킬·스탯 목록 스크롤바 — 더 있다는 걸 알 수 있게 금색 얇은 막대 */
+/* 스킬·스탯 목록 스크롤바 — 더 있다는 걸 알 수 있게 나무색 얇은 막대 */
 .player-stat-overlay__stat-grid,
 .player-skill-overlay__skill-grid {
   scrollbar-width: thin;
-  scrollbar-color: rgba(217, 168, 92, 0.75) rgba(255, 255, 255, 0.06);
+  scrollbar-color: #a3703a rgba(109, 75, 39, 0.12);
 }
 
 /* 아이템이 든 칸은 밝은 양피지색 — 검은 칸에서는 쇠·가죽처럼 어두운 장비 아이콘이 묻혀 보이지 않았다.
@@ -5347,4 +5240,94 @@ body.game-root--map-focused > :not(.game-root) {
 
 .player-inventory-overlay .player-inventory-overlay__close-icon {
   font-size: 1.1rem;
+}
+
+/* 스킬 창 종류별 탭(공통·검·도끼·활·지팡이) — 스크롤 대신 종류별로 묶는다. 모양은 가방 창 탭과 같은 차콜/브론즈. */
+.player-skill-overlay .player-skill-overlay__panel-body {
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+.player-skill-overlay__tab-bar {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  justify-content: start;
+  gap: 4px;
+}
+
+.player-skill-overlay__tab {
+  display: grid;
+  place-items: center;
+  min-height: 26px;
+  padding: 3px 14px 4px;
+  border: 2px solid #6d4b27;
+  border-radius: 0;
+  background: #a3703a;
+  color: #e8cfa0;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.player-skill-overlay__tab--active {
+  background: #c58747;
+  border-color: #6d4b27;
+  box-shadow: inset 0 2px 0 #dca465;
+  color: #fff1d2;
+  text-shadow: 1px 1px 0 #6d4b27;
+}
+
+.player-skill-overlay__tab:focus-visible {
+  outline: 2px solid #94afc6;
+  outline-offset: 2px;
+}
+
+.player-skill-overlay__skill-row[hidden] {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   UI 배율 맞춤 — getResponsiveUiScale 로 직접 키우지 않던 UI 를 같은 배율(--ui-scale)로 키운다.
+   (큰 화면에서 HUD·창은 커지는데 이것들만 1600px 화면 크기에 머물러 아주 작아 보였다.)
+   CSS 로 자리를 잡는 것은 zoom, 마우스 위치로 JS 가 자리를 잡는 툴팁은 크기만 transform 으로 키운다. */
+.scene-intro-overlay__panel,
+.status-effects-overlay,
+.boss-health-overlay,
+.blacksmith-shop-overlay__panel,
+.potion-shop-overlay__quantity-dialog-card {
+  zoom: var(--ui-scale, 1);
+}
+
+.player-inventory-overlay__tooltip,
+.world-map-overlay__tooltip {
+  transform: scale(var(--ui-scale, 1));
+  transform-origin: top left;
+}
+
+/* zoom 한 UI 안에서 화면 크기(100vw/100vh)로 정한 한도는 zoom 만큼 다시 커진다 — 배율로 나눠 화면 안에 머물게 한다. */
+.blacksmith-shop-overlay__panel,
+.blacksmith-shop-overlay__panel-body {
+  max-height: calc((100vh - 24px) / var(--ui-scale, 1));
+}
+
+.blacksmith-shop-overlay__panel {
+  width: min(1000px, calc((100vw - 24px) / var(--ui-scale, 1)));
+}
+
+.blacksmith-shop-overlay__panel--selection {
+  width: min(680px, calc((100vw - 24px) / var(--ui-scale, 1)));
+}
+
+.blacksmith-shop-overlay__panel--workshop {
+  width: min(560px, calc((100vw - 24px) / var(--ui-scale, 1)));
+}
+
+.scene-intro-overlay__panel {
+  min-width: min(320px, calc((100vw - 24px) / var(--ui-scale, 1)));
+  max-width: min(420px, calc((100vw - 24px) / var(--ui-scale, 1)));
+}
+
+.boss-health-overlay {
+  width: min(460px, calc((100vw - 32px) / var(--ui-scale, 1)));
 }

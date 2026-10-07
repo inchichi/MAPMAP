@@ -14,6 +14,9 @@ const WATER_FILL_TILE_TYPE_PATTERN = /^cave_fill_(Water(?:_[A-Za-z]+)*)_(\d+)$/
 // 그보다 넓은 곳(못, 웅덩이)은 한 방향으로 쏠리지 않고 잔잔하게 일렁이기만 한다.
 const WATER_CHANNEL_MAX_WIDTH_TILES = 4
 const WATER_CHANNEL_MIN_LENGTH_TILES = 4
+// 이어진 물 덩어리에서 넓은(못) 칸이 이 비율 이상이면 덩어리 전체를 고인 물로 본다.
+// 못 가장자리의 좁은 귀퉁이만 물길로 흘러 못 안에 곧은 이음매가 생기던 것을 막는다.
+const POND_MIN_WIDE_CELL_RATIO = 0.5
 
 // 물결 무늬 텍스처는 타일 4x4칸 크기(32px 타일이면 128px, 2의 거듭제곱)로 만들어
 // 반복(repeat) 샘플링 + 배칭이 되게 한다.
@@ -101,8 +104,8 @@ const FLOWING_WATER_MOTION_PROFILE: WaterSurfaceMotionProfile = [
 const STILL_WATER_MOTION_PROFILE: WaterSurfaceMotionProfile = [
   {
     flowSpeed: 0,
-    driftX: 2,
-    driftY: 0.75,
+    driftX: 0.8,
+    driftY: 0.3,
     swayAmplitude: 2.5,
     swayPeriodSeconds: 9,
     alphaBase: 0.85,
@@ -111,8 +114,8 @@ const STILL_WATER_MOTION_PROFILE: WaterSurfaceMotionProfile = [
   },
   {
     flowSpeed: 0,
-    driftX: -1.5,
-    driftY: 1,
+    driftX: -0.6,
+    driftY: 0.4,
     swayAmplitude: 2,
     swayPeriodSeconds: 6.5,
     alphaBase: 0.5,
@@ -290,6 +293,23 @@ export const classifyWaterFlowDirections = (
       width >= Math.max(WATER_CHANNEL_MIN_LENGTH_TILES, height * 2)
     ) {
       orientations[index] = 2
+    }
+  })
+
+  const componentCellCounts = new Int32Array(componentTopRows.length)
+  const componentWideCellCounts = new Int32Array(componentTopRows.length)
+
+  cells.forEach((_, index) => {
+    componentCellCounts[componentIds[index]] += 1
+    if (orientations[index] === 0) {
+      componentWideCellCounts[componentIds[index]] += 1
+    }
+  })
+  cells.forEach((_, index) => {
+    const componentId = componentIds[index]
+
+    if (componentWideCellCounts[componentId] >= componentCellCounts[componentId] * POND_MIN_WIDE_CELL_RATIO) {
+      orientations[index] = 0
     }
   })
 
@@ -827,8 +847,9 @@ export const createFlowingWaterSurface = ({
         sprites,
         flow: zone.flow,
         layerIndex,
-        // 구역마다 위상을 달리해 못과 물길이 똑같이 숨 쉬지 않게 한다.
-        phase: zoneIndex * 2.39 + layerIndex * 1.13,
+        // 물길은 구역마다 위상을 달리해 똑같이 숨 쉬지 않게 하고, 고인 물은 얕은 곳·깊은 곳이 같은
+        // 위상으로 움직여 경계에서 물결이 끊기지 않게 한다.
+        phase: (zone.flow.x !== 0 || zone.flow.y !== 0 ? zoneIndex * 2.39 : 0) + layerIndex * 1.13,
         patternWidth: texture.width,
         patternHeight: texture.height
       })

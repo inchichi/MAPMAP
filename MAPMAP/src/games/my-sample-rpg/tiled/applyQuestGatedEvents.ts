@@ -10,7 +10,9 @@ const HIDDEN_WHEN_COMPLETED_PROPERTY = 'quest.hiddenWhenCompleted'
 
 export const applyQuestGatedEvents = (
   map: ParsedTiledMap,
-  questLog: QuestLogState
+  questLog: QuestLogState,
+  // 테스트 모드(?tester): 퀘스트로 잠긴 포탈도 열어 둔다 — 진행 없이 모든 지역을 돌아볼 수 있게. NPC 는 그대로 진행을 따른다.
+  options: { openQuestGatedPortals?: boolean } = {}
 ): ParsedTiledMap => {
   const isCompleted = (questId: unknown) =>
     typeof questId === 'string' &&
@@ -24,7 +26,11 @@ export const applyQuestGatedEvents = (
         const requires = event.properties[REQUIRES_COMPLETED_PROPERTY]
         const hiddenWhen = event.properties[HIDDEN_WHEN_COMPLETED_PROPERTY]
 
-        if (requires !== undefined && !isCompleted(requires)) {
+        if (
+          requires !== undefined &&
+          !isCompleted(requires) &&
+          !(options.openQuestGatedPortals && event.className === 'portal')
+        ) {
           return false
         }
 

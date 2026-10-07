@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { PLAYER_ATTACK_DURATION_MILLISECONDS } from '../constants'
 import { createFrontHitRect, isMeleeMotionHitWindowOpen, type MeleeMotionOrigin } from './meleeMotion'
 import { CLEAVE_MOTION } from './cleave'
-import { QUICK_SLASH_MOTION } from './quickSlash'
 
 const createOrigin = (directionX: number, directionY: number): MeleeMotionOrigin => ({
   x: 100,
@@ -24,10 +23,6 @@ describe('isMeleeMotionHitWindowOpen', () => {
     expect(isMeleeMotionHitWindowOpen(CLEAVE_MOTION, hitStart)).toBe(true)
     expect(isMeleeMotionHitWindowOpen(CLEAVE_MOTION, PLAYER_ATTACK_DURATION_MILLISECONDS + 50)).toBe(true)
     expect(isMeleeMotionHitWindowOpen(CLEAVE_MOTION, PLAYER_ATTACK_DURATION_MILLISECONDS + 100)).toBe(false)
-  })
-
-  it('lets the dagger attack again sooner than the axe', () => {
-    expect(QUICK_SLASH_MOTION.cooldownMilliseconds).toBeLessThan(CLEAVE_MOTION.cooldownMilliseconds)
   })
 })
 

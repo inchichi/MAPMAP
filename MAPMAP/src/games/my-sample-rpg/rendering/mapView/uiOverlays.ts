@@ -6,7 +6,7 @@ import type { PlayerSkillSlots } from '../../playerSkillSlots'
 import type { PlayerQuickslots } from '../../playerQuickslots'
 import type { PlayerProfile } from '../../playerProfile'
 import type { PlayerInventory } from '../../playerInventory'
-import type { PlayerEquipment } from '../../playerEquipment'
+import { getEquippedPlayerWeaponLine, type PlayerEquipment } from '../../playerEquipment'
 import type { BossHealthView } from '../createBossHealthOverlay'
 import type { CharacterState } from '../../characterState'
 import { type PlayerControlBindingId, type PlayerControlBindings } from '../../playerControls'
@@ -40,6 +40,8 @@ export type UiOverlaysContext = {
   onPotionMerchantInventoryChange: (nextInventory: PlayerInventory) => void
   playerProfile: PlayerProfile
   recordAcquiredItemsFromInventoryDelta: (previousInventory: PlayerInventory, nextInventory: PlayerInventory) => void
+  // 스킬 창에서 더블클릭한 스킬을 한 번 쓴다(Q·W·E·R 키와 같은 프레임 단계).
+  requestPlayerSkillUse: (skillId: string) => void
   resetPlayerControlBindings: () => void
   sceneId: string
   setBlacksmithShopOpen: (nextIsOpen: boolean) => void
@@ -116,6 +118,7 @@ export const createUiOverlays = (ctx: UiOverlaysContext) => {
     onPotionMerchantInventoryChange,
     playerProfile,
     recordAcquiredItemsFromInventoryDelta,
+    requestPlayerSkillUse,
     resetPlayerControlBindings,
     sceneId,
     setBlacksmithShopOpen,
@@ -256,7 +259,9 @@ export const createUiOverlays = (ctx: UiOverlaysContext) => {
     onRequestProfileChange: (nextProfile) => {
       Object.assign(playerProfile, nextProfile)
       syncPlayerUiOverlays()
-    }
+    },
+    getEquippedWeaponLine: () => getEquippedPlayerWeaponLine(getCurrentPlayerEquipment()),
+    onRequestUseSkill: requestPlayerSkillUse
   }))
   setPlayerShopOverlay(createBlacksmithShopOverlay({
     mountElement,

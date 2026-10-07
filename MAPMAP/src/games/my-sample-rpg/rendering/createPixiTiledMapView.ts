@@ -38,6 +38,16 @@ import { createMapPortalsFromEventLayers } from '../tiled/createMapPortalsFromEv
 import { createWallTileLookup } from '../tiled/createWallTileLookup'
 import { createTileTexture, type TilesetRenderResources } from './tiledMapRenderResources'
 import { createMapOverlay } from './createMapOverlay'
+import { syncUiScaleCssVariable } from './getResponsiveUiScale'
+import { createCombatIndicators, type CombatIndicators } from './mapView/combatIndicators'
+import {
+  drawWorldMap,
+  getWorldMapMarkerRatio,
+  getWorldMapRegionAt,
+  getWorldMapThumbnailUrl,
+  WORLD_MAP_ART_SIZE
+} from './worldMapView'
+import { getSceneIntroMessage } from '../sceneIntro'
 import { createNpcDialogueOverlay } from './createNpcDialogueOverlay'
 import type { MonsterAnimationTextures } from './monsterAnimationTextures'
 import {
@@ -52,6 +62,7 @@ import { createGameSoundEffects } from './createGameSoundEffects'
 import { type AudioSettings } from './createPauseMenuOverlay'
 import { createBossEncounter } from './mapView/bossEncounter'
 import { createFrameUpdate } from './mapView/frameUpdate'
+import { createPlayerHitStagger } from './mapView/playerHitStagger'
 import { createInputHandlers } from './mapView/inputHandlers'
 import { createOverlayControls } from './mapView/overlayControls'
 import { createSceneTransitions } from './mapView/sceneTransitions'
@@ -74,6 +85,8 @@ import { createPlayerCombatEffects } from './mapView/playerCombatEffects'
 import { createCharacterMessages } from './mapView/characterMessages'
 import { createCharacterDamageTexts } from './mapView/characterDamageTexts'
 import { createMonsterDrops } from './mapView/monsterDrops'
+import { createLpcMagicEffects, loadLpcMagicTextures } from './mapView/lpcMagicEffects'
+import { createMiniMapSnapshot } from './mapView/miniMapSnapshot'
 import { createEditorPlacement } from './mapView/editorPlacement'
 import { createMapTileLayers } from './mapView/tileLayers'
 import { createMapLightLayer } from './mapView/mapLightLayer'
@@ -90,7 +103,6 @@ import {
   PLAYER_WEAPON_APPEARANCE_CONFIG_BY_ITEM_ID,
   PLAYER_WEAPON_TILE_FRAME_SOURCE,
   PLAYER_WEAPON_TILE_LOCAL_ID,
-  PORTAL_INSIDE_IMAGE_URL,
   SCENE_INTRO_VISIBLE_DURATION_MILLISECONDS,
   TINY_DUNGEON_TILESET_IMAGE_URL,
   isBossCharacterId
@@ -156,6 +168,7 @@ export const createPixiTiledMapView = async ({
   onBossDefeated,
   getDiscoveredWaystoneIds,
   onWaystoneDiscovered,
+  getVisitedSceneIds,
   onMerchantInventoryChange,
   onPotionMerchantInventoryChange,
   onHerbalistInventoryChange,
@@ -194,16 +207,16 @@ export const createPixiTiledMapView = async ({
   let scaledMapPixelWidth = Math.round(map.pixelWidth * cameraZoom)
   let scaledMapPixelHeight = Math.round(map.pixelHeight * cameraZoom)
   const [
-    portalInsideTexture,
     tinyDungeonWeaponImageTexture,
     slashVfxTextures,
     protectVfxTextures,
+    lpcMagicTextures,
     catalogMonsterAnimationTextures
   ] = await Promise.all([
-    loadTextureSafe(PORTAL_INSIDE_IMAGE_URL),
     loadTextureSafe(TINY_DUNGEON_TILESET_IMAGE_URL),
     loadSlashVfxTextures(),
     loadProtectVfxTextures(),
+    loadLpcMagicTextures(),
     // LPC 몬스터(그림체 통일): 종류 목록은 monsterCatalog.ts, 출처는 assets/monsters/lpc/CREDITS.txt
     Promise.all(MONSTER_CATALOG.map((entry) => loadLpcMonsterTextures(entry.spec)))
   ])
@@ -245,8 +258,6 @@ export const createPixiTiledMapView = async ({
 
   tinyDungeonWeaponImageTexture.source.scaleMode = 'nearest'
   tinyDungeonWeaponImageTexture.source.addressMode = 'clamp-to-edge'
-  portalInsideTexture.source.scaleMode = 'nearest'
-  portalInsideTexture.source.addressMode = 'clamp-to-edge'
   for (const texture of playerWeaponAppearanceTexturesByItemId.values()) {
     texture.source.scaleMode = 'nearest'
     texture.source.addressMode = 'clamp-to-edge'
@@ -265,11 +276,13 @@ export const createPixiTiledMapView = async ({
     antialias: false,
     autoDensity: true,
     backgroundColor: 0x171311,
-    height: scaledMapPixelHeight,
+    // 화면(뷰포트) 크기만 그린다 — 맵 전체를 그리고 브라우저 스크롤로 자르면 화면 밖까지 매 프레임 그려 무겁고,
+    // 스크롤 카메라가 그리기와 어긋나 버벅였다. 카메라는 world 를 옮겨 따라간다(movement.ts).
+    height: GAME_VIEWPORT_HEIGHT,
     preference: 'webgl',
     roundPixels: true,
     resolution: window.devicePixelRatio || 1,
-    width: scaledMapPixelWidth
+    width: GAME_VIEWPORT_WIDTH
   })
   app.ticker.maxFPS = 60
 
@@ -282,8 +295,6 @@ export const createPixiTiledMapView = async ({
 
   viewportElement.className = 'game-viewport'
   sceneElement.className = 'game-scene'
-  sceneElement.style.width = `${scaledMapPixelWidth}px`
-  sceneElement.style.height = `${scaledMapPixelHeight}px`
   sceneElement.append(app.canvas)
   viewportElement.append(sceneElement)
   mountElement.replaceChildren(viewportElement)
@@ -361,6 +372,7 @@ export const createPixiTiledMapView = async ({
   let currentPlayerSkillSlots = playerSkillSlots
   let currentPlayerControlBindings = playerControlBindings
   const triggeredSkillSlotIndexes = new Set<number>()
+  const triggeredSkillIds = new Set<string>()
   let currentQuestLog = questLog
   // Phase 2 읽기 채널: 마지막으로 Lua 에 밀어넣은 스냅샷(변경 시에만 재푸시하기 위한 dirty 체크).
   let lastPushedSnapshotJson = ''
@@ -386,7 +398,6 @@ export const createPixiTiledMapView = async ({
   let playerWeaponSprite: Sprite | undefined
   let playerArmorSprite: Sprite | undefined
   let playerHelmetSprite: Sprite | undefined
-  let playerSlashEffectSprite: AnimatedSprite | undefined
   let playerProtectSkillSprite: AnimatedSprite | undefined
   let playerProtectSkillActiveUntilMilliseconds = 0
   let playerProtectSkillReadyAtMilliseconds = 0
@@ -429,6 +440,7 @@ export const createPixiTiledMapView = async ({
     playerAttackQueuedAfterRoll = false
     triggeredActions.clear()
     triggeredSkillSlotIndexes.clear()
+    triggeredSkillIds.clear()
   }
   let isPlayerUiOpen = false
   let isPlayerStatOpen = false
@@ -531,6 +543,8 @@ export const createPixiTiledMapView = async ({
   const monsterPigAnimationModes = new Map<string, MonsterPigAnimationMode>()
   const monsterPigBehaviorStates = new Map<string, MonsterPigBehaviorState>()
   const monsterCombatStates = new Map<string, MonsterCombatState>()
+  // 머리 위 타겟·어그로 표시 — 캐릭터 노드를 만든 뒤에 만든다(아래 messageLayer 준비 후).
+  let combatIndicators: CombatIndicators | undefined
   const monsterContactDamageLockedUntilById = new Map<string, number>()
   const monsterRespawnAtById = new Map<string, number>()
   let bossHealthOverlay = { syncFrame: () => {}, destroy: () => {} }
@@ -588,13 +602,35 @@ export const createPixiTiledMapView = async ({
   const grassTiles = createGrassTileLookup(map)
   let isSlowedByBlizzard = false
   let handleMapOverlayExpandedChange = (_isExpanded: boolean) => {}
+  // 미니맵용 지형 그림(맵을 불러온 뒤 타일 데이터로 한 번 그린다 — miniMapSnapshot.ts)
+  let miniMapSnapshot: HTMLCanvasElement | undefined
   const mapOverlay = createMapOverlay({
     mountElement,
-    cameraElement: viewportElement,
-    sourceCanvas: app.canvas,
+    title: getSceneIntroMessage(sceneId) || '지도',
+    worldMap: {
+      columns: WORLD_MAP_ART_SIZE.width,
+      rows: WORLD_MAP_ART_SIZE.height,
+      draw: (target, width, height) =>
+        drawWorldMap(target, width, height, {
+          currentSceneId: sceneId,
+          visitedSceneIds: new Set([...getVisitedSceneIds(), sceneId])
+        }),
+      getMarkerRatio: () => getWorldMapMarkerRatio(sceneId),
+      getHoverInfo: (ratio) => {
+        const region = getWorldMapRegionAt(ratio, new Set([...getVisitedSceneIds(), sceneId]))
+
+        return region
+          ? {
+              title: getSceneIntroMessage(region.sceneId),
+              imageUrl: getWorldMapThumbnailUrl(region.sceneId)
+            }
+          : undefined
+      }
+    },
+    // 미니맵은 게임 화면을 매 프레임 읽지 않고, 맵을 처음 그린 뒤 찍어 둔 지형 그림을 쓴다.
+    getSourceCanvas: () => miniMapSnapshot,
     mapPixelWidth: map.pixelWidth,
     mapPixelHeight: map.pixelHeight,
-    getSceneScale: () => cameraZoom,
     getFocusPoint: () => {
       const focusCharacter = characterStates.find(
         (candidateCharacter) => candidateCharacter.id === cameraTargetCharacterId
@@ -626,14 +662,19 @@ export const createPixiTiledMapView = async ({
     )
 
     viewportElement.style.transform = `scale(${displayScale})`
+    syncUiScaleCssVariable()
+    // 게임 화면(960x540)을 CSS 로 늘리면 그려 둔 그림이 통째로 늘어나 도트·이름표가 흐려진다.
+    // 렌더러 해상도를 실제로 보이는 크기(DPR x 화면 배율)에 맞춰 캔버스 한 칸 = 화면 한 픽셀이 되게 한다.
+    const renderResolution = (window.devicePixelRatio || 1) * displayScale
+
+    if (Math.abs(app.renderer.resolution - renderResolution) > 0.001) {
+      app.renderer.resize(GAME_VIEWPORT_WIDTH, GAME_VIEWPORT_HEIGHT, renderResolution)
+    }
   }
   const syncCameraZoomLayout = () => {
     scaledMapPixelWidth = Math.round(map.pixelWidth * cameraZoom)
     scaledMapPixelHeight = Math.round(map.pixelHeight * cameraZoom)
     world.scale.set(cameraZoom)
-    app.renderer.resize(scaledMapPixelWidth, scaledMapPixelHeight)
-    sceneElement.style.width = `${scaledMapPixelWidth}px`
-    sceneElement.style.height = `${scaledMapPixelHeight}px`
   }
   const setCameraZoom = (nextCameraZoom: number) => {
     const clampedCameraZoom = clampCameraZoom(nextCameraZoom)
@@ -702,7 +743,7 @@ export const createPixiTiledMapView = async ({
     const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
     // 쿨다운은 휘두르기가 끝난 뒤부터 센다(동작 320ms + 기본 300ms ≈ 0.62초에 한 번).
     // 예전엔 시작부터 세어 0.3초마다 — 동작이 끝나기도 전에 다음 공격이 나갔다.
-    // 무기별 모션은 쿨다운이 다르다(단검은 짧고 도끼·철퇴는 길다).
+    // 무기별 모션은 쿨다운이 다르다(도끼는 검보다 길다).
     playerAttackReadyAtMilliseconds =
       now +
       PLAYER_ATTACK_DURATION_MILLISECONDS +
@@ -726,6 +767,12 @@ export const createPixiTiledMapView = async ({
   }
 
   // 발사체 비주얼은 전용 아트가 아직 없어 Graphics 로 그린다(골드 드랍 동전과 같은 방식).
+  // 마법 손그림(Extended LPC Magic Pack) — 마법 공격·마법 스킬·지팡이 스킬이 같이 쓴다
+  const lpcMagic = createLpcMagicEffects({
+    textures: lpcMagicTextures,
+    getDepthSortedLayer: () => depthSortedLayer,
+    tileHeight: map.tileHeight
+  })
   const {
     applyMonsterDamageOverTime,
     clearMagicEffects,
@@ -746,7 +793,9 @@ export const createPixiTiledMapView = async ({
     getPlayerMagicCast,
     spawnMagicImpact
   } = createPlayerCombatEffects({
+    onPlayerTargetSelected: (monsterId) => combatIndicators?.markTarget(monsterId, performance.now()),
     map,
+    lpcMagic,
     wallTiles,
     gameSoundEffects,
     renderedCharacters,
@@ -755,7 +804,6 @@ export const createPixiTiledMapView = async ({
     characterPixelWidth,
     characterPixelHeight,
     applyDamageToMonster: (...args) => applyDamageToMonster(...args),
-    createPixelCollisionRectFromCharacter: (...args) => createPixelCollisionRectFromCharacter(...args),
     getCharacterPixelCenter: (...args) => getCharacterPixelCenter(...args),
     getCharacterStateById,
     isMonsterCharacter: (...args) => isMonsterCharacter(...args),
@@ -777,7 +825,6 @@ export const createPixiTiledMapView = async ({
   })
   const {
     clearPlayerProtectSkillEffectSprite,
-    clearPlayerSlashEffectSprite,
     clearPlayerSmashSkillEffectSprites,
     isPlayerRolling,
     startPlayerWeaponAttackMotion,
@@ -786,6 +833,7 @@ export const createPixiTiledMapView = async ({
     syncPlayerFootsteps,
     syncPlayerSmashSkillVisual,
     triggerPlayerRollFromPressedDirection,
+    triggerPlayerSkillById,
     triggerPlayerSkillFromSlotIndex
   } = createPlayerActions({
     characterPixelHeight,
@@ -821,7 +869,6 @@ export const createPixiTiledMapView = async ({
     getPlayerProtectSkillReadyAtMilliseconds: () => playerProtectSkillReadyAtMilliseconds,
     getPlayerRollReadyAtMilliseconds: () => playerRollReadyAtMilliseconds,
     getPlayerRollState: () => playerRollState,
-    getPlayerSlashEffectSprite: () => playerSlashEffectSprite,
     getPlayerSmashSkillFacing: () => playerSmashSkillFacing,
     getPlayerSmashSkillOrigin: () => playerSmashSkillOrigin,
     getPlayerSmashSkillReadyAtMilliseconds: () => playerSmashSkillReadyAtMilliseconds,
@@ -859,9 +906,6 @@ export const createPixiTiledMapView = async ({
     },
     setPlayerRollState: (value) => {
       playerRollState = value
-    },
-    setPlayerSlashEffectSprite: (value) => {
-      playerSlashEffectSprite = value
     },
     setPlayerSmashSkillFacing: (value) => {
       playerSmashSkillFacing = value
@@ -1115,6 +1159,11 @@ export const createPixiTiledMapView = async ({
     onPotionMerchantInventoryChange,
     playerProfile,
     recordAcquiredItemsFromInventoryDelta,
+    requestPlayerSkillUse: (skillId) => {
+      if (playerProfile.hp.current > 0) {
+        triggeredSkillIds.add(skillId)
+      }
+    },
     resetPlayerControlBindings,
     sceneId,
     setBlacksmithShopOpen,
@@ -1215,7 +1264,10 @@ export const createPixiTiledMapView = async ({
       statusEffectsOverlay = value
     }
   })
-  const npcDialogueOverlay = createNpcDialogueOverlay({ mountElement })
+  const npcDialogueOverlay = createNpcDialogueOverlay({
+    mountElement,
+    getViewportElement: () => viewportElement
+  })
   // 인게임 시나리오 에디터 런처는 제거했다 — 콘텐츠 생성은 별도 에디터 페이지(/editor.html)가 담당한다.
 
   const syncRuntimeWarningBanner = () => {
@@ -1282,6 +1334,37 @@ export const createPixiTiledMapView = async ({
 
   messageLayer.label = 'layer:messages'
   messageLayer.sortableChildren = true
+  combatIndicators = createCombatIndicators({
+    layer: messageLayer,
+    getMonsterHeadAnchor: (monsterId) => {
+      const renderNode = renderedCharacters.get(monsterId)
+
+      if (!renderNode || isMonsterCombatStateDefeated(monsterId)) {
+        return undefined
+      }
+
+      // 이름·레벨 이름표 바로 위(이름표가 없으면 머리 위)
+      const labelTop = renderNode.levelBadge?.visible ? renderNode.levelBadge.position.y : -8
+      return {
+        x: renderNode.container.position.x + renderNode.sprite.width / 2,
+        y: renderNode.container.position.y + labelTop
+      }
+    },
+    getAggroedMonsterIds: () =>
+      [...monsterPigBehaviorStates]
+        .filter(([, behaviorState]) => behaviorState.isAggroed)
+        .map(([monsterId]) => monsterId),
+    getPlayerCenter: () => {
+      const player = getCharacterStateById(PLAYER_CHARACTER_ID)
+
+      return {
+        x: player.position.x * map.tileWidth + characterPixelWidth / 2,
+        y: player.position.y * map.tileHeight + characterPixelHeight / 2
+      }
+    },
+    isPlayerAlive: () => playerProfile.hp.current > 0
+  })
+  const updateCombatIndicators = () => combatIndicators?.update(performance.now())
   app.stage.addChild(world)
 
   const appliedAtlasUrl = loadPlacementsForMap(sceneId).find(item => item.visible !== false && item.themeSettings)?.themeSettings?.tilesetImageUrl
@@ -1328,7 +1411,8 @@ export const createPixiTiledMapView = async ({
     // 첫 화면에서 맨몸이 깜빡이지 않게 현재 장비의 걷기·공격 시트를 미리 불러 둔다.
     const look = getPlayerLook()
     const preload: Array<[string, LpcAnimationName]> = []
-    for (const animation of ['walk', getLpcPlayerAttackAnimation(look.weaponId)] as const) {
+    // 마법 시전(spellcast)은 지팡이를 든 뒤 처음 쓸 때 끊기지 않게 미리 불러 둔다.
+    for (const animation of ['walk', getLpcPlayerAttackAnimation(look.weaponId), 'spellcast'] as const) {
       for (const file of Object.values(getLpcPlayerLayerFiles(look, animation))) {
         if (file) {
           preload.push([file, animation])
@@ -1419,7 +1503,7 @@ export const createPixiTiledMapView = async ({
     getCurrentQuestLog: () => currentQuestLog,
     getDepthSortedLayer: () => depthSortedLayer,
     getPlayerRollState: () => playerRollState,
-    getPlayerHitReactionState: () => playerHitReactionState,
+    getPlayerDamageInvulnerableUntilMilliseconds: () => playerDamageInvulnerableUntilMilliseconds,
     setPlayerHitReactionState: (value) => {
       playerHitReactionState = value
     }
@@ -1476,7 +1560,6 @@ export const createPixiTiledMapView = async ({
     monsterPigBehaviorStates,
     monsterSpawnStates,
     playerProfile,
-    portalInsideTexture,
     protectVfxTextures,
     questNewTexture,
     renderedCharacters,
@@ -1534,7 +1617,6 @@ export const createPixiTiledMapView = async ({
   const {
     applyDamageToMonster,
     applyDamageToPlayer,
-    createPixelCollisionRectFromCharacter,
     getCharacterPixelCenter,
     getMonsterDistanceToPlayer,
     isMonsterCharacter,
@@ -1549,6 +1631,7 @@ export const createPixiTiledMapView = async ({
     resolvePlayerAttackDamage,
     resolvePlayerSmashSkillDamage
   } = createCombat({
+    onPlayerHitMonster: (monsterId, now) => combatIndicators?.markTarget(monsterId, now),
     // 사망·부활 때 마법 효과와 함께 무기 스킬의 예약 타격·효과도 지운다.
     clearMagicEffects: () => {
       clearMagicEffects()
@@ -1556,7 +1639,6 @@ export const createPixiTiledMapView = async ({
     },
     clearPlayerProjectiles,
     clearPlayerProtectSkillEffectSprite,
-    clearPlayerSlashEffectSprite,
     clearPlayerSmashSkillEffectSprites,
     clearPressedInputState,
     createMonsterPigBehaviorState,
@@ -1600,7 +1682,6 @@ export const createPixiTiledMapView = async ({
     spawnMonsterGoldDrop: (...args) => spawnMonsterGoldDrop(...args),
     getCurrentPlayerEquipment: () => currentPlayerEquipment,
     getCurrentQuestLog: () => currentQuestLog,
-    getPlayerSlashEffectSprite: () => playerSlashEffectSprite,
     getPlayerSmashSkillHitMonsterIds: () => playerSmashSkillHitMonsterIds,
     getPlayerSmashSkillSegments: () => playerSmashSkillSegments,
     getPlayerSmashSkillStartedAtMilliseconds: () => playerSmashSkillStartedAtMilliseconds,
@@ -1654,6 +1735,7 @@ export const createPixiTiledMapView = async ({
     updatePlayerWeaponSkills
   } = createPlayerWeaponSkills({
     map,
+    lpcMagic,
     playerProfile,
     monsterCombatStates,
     getCurrentPlayerEquipment: () => currentPlayerEquipment,
@@ -1856,6 +1938,9 @@ export const createPixiTiledMapView = async ({
     viewportElement,
     wallTiles,
     getCameraZoom: () => cameraZoom,
+    setCameraOffset: (x, y) => {
+      world.position.set(-x, -y)
+    },
     getScaledMapPixelHeight: () => scaledMapPixelHeight,
     getScaledMapPixelWidth: () => scaledMapPixelWidth,
     getCharacterStates: () => characterStates,
@@ -1863,9 +1948,18 @@ export const createPixiTiledMapView = async ({
       characterStates = value
     }
   })
+  // 피격 경직(맞은 반대쪽으로 밀려나고 잠깐 조작 불가) — playerHitStagger.ts
+  const playerHitStagger = createPlayerHitStagger({
+    getPlayerHitReactionState: () => playerHitReactionState,
+    setPlayerHitReactionState: (value) => {
+      playerHitReactionState = value
+    },
+    tryMoveCharacter
+  })
   const {
     updateCharacters
   } = createFrameUpdate({
+    stepPlayerHitStagger: playerHitStagger.step,
     app,
     updatePlayerWeaponSkills,
     applyDamageToPlayer,
@@ -1939,8 +2033,10 @@ export const createPixiTiledMapView = async ({
     syncRuntimeWarningBanner,
     triggerPlayerAttack,
     triggerPlayerSkillFromSlotIndex,
+    triggerPlayerSkillById,
     triggeredActions,
     triggeredSkillSlotIndexes,
+    triggeredSkillIds,
     tryMoveCharacter,
     tryUseBossSkill,
     updateBossFlashes,
@@ -1972,6 +2068,7 @@ export const createPixiTiledMapView = async ({
     handleKeyDown,
     handleKeyUp,
     handleViewportWheel,
+    handleWindowWheel,
     handleVisibilityChange,
     handleWindowBlur,
     handleWindowResize
@@ -2040,8 +2137,10 @@ export const createPixiTiledMapView = async ({
   viewportElement.addEventListener('wheel', handleViewportWheel, {
     passive: false
   })
+  window.addEventListener('wheel', handleWindowWheel, { passive: false })
   document.addEventListener('visibilitychange', handleVisibilityChange)
   app.ticker.add(updateCharacters)
+  app.ticker.add(updateCombatIndicators, undefined, UPDATE_PRIORITY.UTILITY)
   app.ticker.add(mapOverlay.syncFrame, undefined, UPDATE_PRIORITY.UTILITY)
   app.ticker.add(playerHudOverlay.syncFrame, undefined, UPDATE_PRIORITY.UTILITY)
   app.ticker.add(
@@ -2067,6 +2166,7 @@ export const createPixiTiledMapView = async ({
   syncAllCharacterSprites()
   syncQuestNpcBadges()
   syncViewportDisplayScale()
+  miniMapSnapshot = createMiniMapSnapshot(map, tilesetResources)
   centerCameraOnCharacter(getCharacterStateById(cameraTargetCharacterId))
   showSceneIntroBanner()
   runSceneEnterAutoTurnIns()
@@ -2143,6 +2243,7 @@ export const createPixiTiledMapView = async ({
     window.removeEventListener('blur', handleWindowBlur)
     window.removeEventListener('resize', handleWindowResize)
     viewportElement.removeEventListener('wheel', handleViewportWheel)
+    window.removeEventListener('wheel', handleWindowWheel)
     document.removeEventListener('visibilitychange', handleVisibilityChange)
     destroyEditorPlacement()
     app.ticker.remove(updateCharacters)
@@ -2157,6 +2258,8 @@ export const createPixiTiledMapView = async ({
       }
     }
     waterRippleTexturesByKey.clear()
+    app.ticker.remove(updateCombatIndicators)
+    combatIndicators?.clear()
     app.ticker.remove(mapOverlay.syncFrame)
     app.ticker.remove(playerHudOverlay.syncFrame)
     app.ticker.remove(playerInventoryOverlay.syncFrame)

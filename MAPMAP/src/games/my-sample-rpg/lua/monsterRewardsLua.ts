@@ -12,7 +12,6 @@ import {
 export type MonsterRewardsLua = {
   getMonsterGoldDropAmount: (monsterLevel: number) => number
   getMonsterExperienceDropAmount: (monsterLevel: number) => number
-  getMonsterSkillPointDropAmount: (monsterLevel: number) => number
   close: () => void
 }
 
@@ -29,8 +28,6 @@ export const createMonsterRewardsLua = async (
       host.callNumber('monster_rewards_gold', monsterLevel),
     getMonsterExperienceDropAmount: (monsterLevel: number): number =>
       host.callNumber('monster_rewards_experience', monsterLevel),
-    getMonsterSkillPointDropAmount: (monsterLevel: number): number =>
-      host.callNumber('monster_rewards_skill_point', monsterLevel),
     close: (): void => {
       host.close()
     }

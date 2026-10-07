@@ -25,7 +25,7 @@ describe('weapon skills through chapter 3', () => {
       ...PLAYER_WEAPON_SKILL_DEFINITIONS.map((definition) => definition.id)
     ]
 
-    for (const weaponLine of ['sword', 'spear', 'axe', 'mace', 'dagger', 'bow', 'staff']) {
+    for (const weaponLine of ['sword', 'axe', 'bow', 'staff']) {
       const chapters = new Set(
         skillIds.filter((skillId) => getPlayerSkillWeaponLine(skillId) === weaponLine).map(getChapter)
       )
@@ -51,14 +51,14 @@ describe('weapon skills through chapter 3', () => {
   })
 
   it('unlocks chapter 2 skills at level 15 and chapter 3 skills at level 38', () => {
-    expect(getPlayerSkillRequiredLevel('lunge')).toBe(1)
-    expect(getPlayerSkillRequiredLevel('spear-sweep')).toBe(15)
-    expect(getPlayerSkillRequiredLevel('thunder-javelin')).toBe(38)
+    expect(getPlayerSkillRequiredLevel('whirlwind')).toBe(1)
+    expect(getPlayerSkillRequiredLevel('ground-splitter')).toBe(15)
+    expect(getPlayerSkillRequiredLevel('execute')).toBe(38)
     expect(getPlayerSkillRequiredLevel(PLAYER_SMASH_SKILL_ID)).toBe(1)
   })
 
   it('refuses to spend a skill point below the unlock level', () => {
-    const skillIndex = getPlayerSkillProfileIndex('spear-sweep') ?? -1
+    const skillIndex = getPlayerSkillProfileIndex('ground-splitter') ?? -1
     const profile = { ...createInitialPlayerProfile(), availableSkillPoints: 3 }
 
     expect(spendPlayerSkillPoint({ ...profile, level: 14 }, skillIndex)).toBeUndefined()

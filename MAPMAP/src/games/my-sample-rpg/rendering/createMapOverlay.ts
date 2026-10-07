@@ -2,11 +2,22 @@ import { getResponsiveUiScale } from './getResponsiveUiScale'
 
 type CreateMapOverlayInput = {
   mountElement: HTMLElement
-  cameraElement: HTMLElement
-  sourceCanvas: HTMLCanvasElement
+  // 미니맵 위 줄에 보이는 지역 이름
+  title: string
+  // M 으로 펼치면 세계 지도(worldMapView.ts)를 그린다 — 칸 수로 가로세로 비율을 정한다.
+  worldMap: {
+    columns: number
+    rows: number
+    draw: (target: CanvasRenderingContext2D, width: number, height: number) => void
+    // 플레이어 점 위치(세계 지도 전체에 대한 0~1). 지도에 없는 곳이면 점을 숨긴다.
+    getMarkerRatio: () => { x: number; y: number } | undefined
+    // 마우스를 올린 지역의 이름·미리보기 그림(가 본 곳만) — 메이플 지도처럼 툴팁으로 보여 준다.
+    getHoverInfo: (ratio: { x: number; y: number }) => { title: string; imageUrl?: string } | undefined
+  }
+  // 미니맵에 그릴 맵 그림(없으면 아직 안 그린다)
+  getSourceCanvas: () => HTMLCanvasElement | undefined
   mapPixelWidth: number
   mapPixelHeight: number
-  getSceneScale: () => number
   getFocusPoint: () => {
     x: number
     y: number
@@ -25,21 +36,41 @@ export type MapOverlay = {
   destroy: () => void
 }
 
-const COLLAPSED_BASE_MAX_SIZE = 220
-const COLLAPSED_SIZE_SCALE = 0.8
-const COLLAPSED_MAX_SIZE = Math.round(COLLAPSED_BASE_MAX_SIZE * COLLAPSED_SIZE_SCALE)
-const COLLAPSED_FOCUS_WORLD_SIZE = 640
+// 미니맵 −/+ (메이플 미니맵처럼): 미니맵은 늘 지금 맵 전체를 보여 주고, 창 크기만 바꾼다.
+// 0 은 접힌 상태(이름 줄만). 고른 단계는 브라우저에 기억한다.
+const MINIMAP_WIDTHS = [0, 140, 200, 280] as const
+const DEFAULT_MINIMAP_SIZE_INDEX = 2
+const MINIMAP_SIZE_STORAGE_KEY = 'my-sample-rpg:minimap-size'
+const MINIMAP_BAR_MIN_WIDTH = 140
 const OVERLAY_MARGIN = 16
-const DISPLAY_BORDER_SHADOW = '0 0 0 2px rgba(244, 231, 197, 0.92), 0 16px 32px rgba(0, 0, 0, 0.45)'
-const FOCUS_MARKER_SIZE = 14
+// 나무 액자 창과 같은 팔레트(진갈·나무·진갈 테두리 + 번지지 않는 그림자)
+const DISPLAY_BORDER_SHADOW =
+  '0 0 0 2px #6d4b27, 0 0 0 5px #c58747, 0 0 0 7px #6d4b27, 4px 4px 0 7px rgba(0, 0, 0, 0.35)'
+const FOCUS_MARKER_SIZE = 10
+// 미니맵 위 지역 이름 + −/+ 줄의 높이와 미니맵까지 간격(나무 테두리 두께 포함)
+const ZOOM_BAR_HEIGHT = 24
+const ZOOM_BAR_GAP = 12
+
+const readStoredMinimapSizeIndex = (): number => {
+  try {
+    const stored = window.localStorage.getItem(MINIMAP_SIZE_STORAGE_KEY)
+    const index = Number(stored)
+
+    return stored !== null && Number.isInteger(index) && index >= 0 && index < MINIMAP_WIDTHS.length
+      ? index
+      : DEFAULT_MINIMAP_SIZE_INDEX
+  } catch {
+    return DEFAULT_MINIMAP_SIZE_INDEX
+  }
+}
 
 export const createMapOverlay = ({
   mountElement,
-  cameraElement,
-  sourceCanvas,
+  title,
+  worldMap,
+  getSourceCanvas,
   mapPixelWidth,
   mapPixelHeight,
-  getSceneScale,
   getFocusPoint,
   onExpandedChange
 }: CreateMapOverlayInput): MapOverlay => {
@@ -50,6 +81,13 @@ export const createMapOverlay = ({
   const previewCanvas = document.createElement('canvas')
   const viewportFrame = document.createElement('div')
   const badgeElement = document.createElement('div')
+  const tooltipElement = document.createElement('div')
+  const tooltipImage = document.createElement('img')
+  const tooltipTitle = document.createElement('div')
+  const zoomBar = document.createElement('div')
+  const zoomTitle = document.createElement('span')
+  const zoomOutButton = document.createElement('button')
+  const zoomInButton = document.createElement('button')
   const previewContext = previewCanvas.getContext('2d')
 
   if (!previewContext) {
@@ -62,6 +100,7 @@ export const createMapOverlay = ({
   let displayHeight = 0
   let backingWidth = 0
   let backingHeight = 0
+  let minimapSizeIndex = readStoredMinimapSizeIndex()
 
   const syncMapFocusMode = () => {
     mountElement.classList.toggle('game-root--map-focused', isExpanded)
@@ -88,7 +127,22 @@ export const createMapOverlay = ({
   previewCanvas.className = 'world-map-overlay__canvas'
   viewportFrame.className = 'world-map-overlay__viewport'
   badgeElement.className = 'world-map-overlay__badge'
-  badgeElement.textContent = '월드맵'
+  badgeElement.textContent = title
+
+  zoomBar.className = 'world-map-overlay__zoom-bar'
+  zoomTitle.className = 'world-map-overlay__zoom-title'
+  zoomTitle.textContent = title
+  for (const [button, label, text] of [
+    [zoomOutButton, '미니맵 작게(끝까지 줄이면 접기)', '−'],
+    [zoomInButton, '미니맵 크게', '+']
+  ] as const) {
+    button.type = 'button'
+    button.className = 'world-map-overlay__zoom-button'
+    button.textContent = text
+    button.title = label
+    button.setAttribute('aria-label', label)
+  }
+  zoomBar.append(zoomTitle, zoomOutButton, zoomInButton)
 
   previewCanvas.setAttribute('aria-hidden', 'true')
   viewportFrame.setAttribute('aria-hidden', 'true')
@@ -96,99 +150,64 @@ export const createMapOverlay = ({
 
   mapFrame.append(previewCanvas, viewportFrame)
   panelButton.append(mapFrame, badgeElement)
-  overlayRoot.append(backdropButton, panelButton)
+  tooltipElement.className = 'world-map-overlay__tooltip'
+  tooltipElement.hidden = true
+  tooltipImage.className = 'world-map-overlay__tooltip-image'
+  tooltipImage.alt = ''
+  tooltipTitle.className = 'world-map-overlay__tooltip-title'
+  tooltipElement.append(tooltipImage, tooltipTitle)
+  overlayRoot.append(backdropButton, panelButton, zoomBar, tooltipElement)
   mountElement.append(overlayRoot)
 
   const shouldShowOverlay = () => isVisible || isExpanded
 
   const syncFrame = () => {
-    if (!shouldShowOverlay() || displayWidth === 0 || displayHeight === 0) {
+    const sourceCanvas = getSourceCanvas()
+    if (!sourceCanvas || !shouldShowOverlay() || displayWidth === 0 || displayHeight === 0) {
       return
     }
 
-    const uiScale = getResponsiveUiScale()
     const focusPoint = getFocusPoint()
-    const sourceScaleX = sourceCanvas.width / mapPixelWidth
-    const sourceScaleY = sourceCanvas.height / mapPixelHeight
     previewContext.setTransform(1, 0, 0, 1, 0, 0)
     previewContext.clearRect(0, 0, backingWidth, backingHeight)
     previewContext.imageSmoothingEnabled = false
 
     if (isExpanded) {
-      previewContext.drawImage(
-        sourceCanvas,
-        0,
-        0,
-        sourceCanvas.width,
-        sourceCanvas.height,
-        0,
-        0,
-        backingWidth,
-        backingHeight
-      )
+      worldMap.draw(previewContext, backingWidth, backingHeight)
 
-      const sceneScale = getSceneScale()
-      const scaleX = displayWidth / (mapPixelWidth * sceneScale)
-      const scaleY = displayHeight / (mapPixelHeight * sceneScale)
-      const viewportWidth = Math.max(
-        1,
-        Math.min(displayWidth, Math.round(cameraElement.clientWidth * scaleX))
-      )
-      const viewportHeight = Math.max(
-        1,
-        Math.min(displayHeight, Math.round(cameraElement.clientHeight * scaleY))
-      )
-      const maxViewportLeft = Math.max(0, displayWidth - viewportWidth)
-      const maxViewportTop = Math.max(0, displayHeight - viewportHeight)
-      const viewportLeft = Math.min(
-        maxViewportLeft,
-        Math.max(0, Math.round(cameraElement.scrollLeft * scaleX))
-      )
-      const viewportTop = Math.min(
-        maxViewportTop,
-        Math.max(0, Math.round(cameraElement.scrollTop * scaleY))
-      )
-
-      viewportFrame.style.left = `${viewportLeft}px`
-      viewportFrame.style.top = `${viewportTop}px`
-      viewportFrame.style.width = `${viewportWidth}px`
-      viewportFrame.style.height = `${viewportHeight}px`
-      viewportFrame.style.borderRadius = '0'
-      viewportFrame.style.background = 'transparent'
-      viewportFrame.style.border = '2px solid rgba(244, 231, 197, 0.95)'
-      viewportFrame.style.boxShadow = '0 0 0 1px rgba(23, 19, 17, 0.78)'
+      // 플레이어 위치 — 미니맵과 같은 금색 점(조금 크게)
+      const expandedMarkerSize = FOCUS_MARKER_SIZE + 4
+      const markerRatio = worldMap.getMarkerRatio()
+      viewportFrame.hidden = !markerRatio
+      viewportFrame.classList.add('world-map-overlay__viewport--blink')
+      viewportFrame.style.left = `${Math.round((markerRatio?.x ?? 0) * displayWidth - expandedMarkerSize / 2)}px`
+      viewportFrame.style.top = `${Math.round((markerRatio?.y ?? 0) * displayHeight - expandedMarkerSize / 2)}px`
+      viewportFrame.style.width = `${expandedMarkerSize}px`
+      viewportFrame.style.height = `${expandedMarkerSize}px`
+      viewportFrame.style.borderRadius = '999px'
+      viewportFrame.style.background = '#ffd75e'
+      viewportFrame.style.border = '2px solid #6d4b27'
+      viewportFrame.style.boxShadow = '0 0 0 2px #fff1d2'
       viewportFrame.style.transform = 'none'
       mapFrame.style.borderRadius = '0'
-      mapFrame.style.background = 'rgba(16, 16, 14, 0.98)'
-      badgeElement.textContent = '월드맵'
-      badgeElement.style.left = '8px'
+      mapFrame.style.background = '#f1ddb2'
+      badgeElement.textContent = '세계 지도'
+      badgeElement.hidden = false
+      // 왼쪽 위에는 지역 카드가 있어 오른쪽 위 빈자리에 둔다.
+      badgeElement.style.left = 'auto'
+      badgeElement.style.right = '8px'
       badgeElement.style.top = '8px'
       badgeElement.style.transform = 'none'
       return
     }
 
-    const focusWindowSize = Math.min(
-      mapPixelWidth,
-      mapPixelHeight,
-      COLLAPSED_FOCUS_WORLD_SIZE
-    )
-    const sourceLeft = clamp(
-      focusPoint.x - focusWindowSize / 2,
-      0,
-      mapPixelWidth - focusWindowSize
-    )
-    const sourceTop = clamp(
-      focusPoint.y - focusWindowSize / 2,
-      0,
-      mapPixelHeight - focusWindowSize
-    )
-
+    // 미니맵 — 지금 맵 전체를 창 크기에 맞춰 그리고, 플레이어를 금색 점으로 찍는다.
     previewContext.drawImage(
       sourceCanvas,
-      sourceLeft * sourceScaleX,
-      sourceTop * sourceScaleY,
-      focusWindowSize * sourceScaleX,
-      focusWindowSize * sourceScaleY,
+      0,
+      0,
+      sourceCanvas.width,
+      sourceCanvas.height,
       0,
       0,
       backingWidth,
@@ -196,12 +215,12 @@ export const createMapOverlay = ({
     )
 
     const focusMarkerLeft = clamp(
-      Math.round(((focusPoint.x - sourceLeft) / focusWindowSize) * displayWidth),
+      Math.round((focusPoint.x / mapPixelWidth) * displayWidth),
       0,
       displayWidth
     )
     const focusMarkerTop = clamp(
-      Math.round(((focusPoint.y - sourceTop) / focusWindowSize) * displayHeight),
+      Math.round((focusPoint.y / mapPixelHeight) * displayHeight),
       0,
       displayHeight
     )
@@ -216,17 +235,18 @@ export const createMapOverlay = ({
     )}px`
     viewportFrame.style.width = `${FOCUS_MARKER_SIZE}px`
     viewportFrame.style.height = `${FOCUS_MARKER_SIZE}px`
+    // 플레이어 표시 — 금색 점
+    viewportFrame.hidden = false
+    viewportFrame.classList.remove('world-map-overlay__viewport--blink')
     viewportFrame.style.borderRadius = '999px'
-    viewportFrame.style.background = 'rgba(244, 231, 197, 0.16)'
-    viewportFrame.style.border = '2px solid rgba(244, 231, 197, 0.98)'
-    viewportFrame.style.boxShadow = '0 0 0 1px rgba(23, 19, 17, 0.78)'
+    viewportFrame.style.background = '#ffd75e'
+    viewportFrame.style.border = '2px solid #6d4b27'
+    viewportFrame.style.boxShadow = '0 0 0 1px #fff1d2'
     viewportFrame.style.transform = 'none'
-    mapFrame.style.borderRadius = '50%'
-    mapFrame.style.background = '#10100e'
-    badgeElement.textContent = '월드맵'
-    badgeElement.style.left = '50%'
-    badgeElement.style.top = `${displayHeight + Math.max(6, Math.round(8 * uiScale))}px`
-    badgeElement.style.transform = 'translateX(-50%)'
+    mapFrame.style.borderRadius = '0'
+    mapFrame.style.background = '#181a22'
+    // 미니맵에서는 위 −/+ 줄이 지역 이름을 보여 준다.
+    badgeElement.hidden = true
   }
 
   const syncLayout = () => {
@@ -243,35 +263,21 @@ export const createMapOverlay = ({
     }
 
     const uiScale = getResponsiveUiScale()
-    const availableWidth = isExpanded
-      ? Math.max(1, window.innerWidth - OVERLAY_MARGIN * 2)
-      : Math.max(
-          1,
-          Math.min(COLLAPSED_MAX_SIZE, window.innerWidth - OVERLAY_MARGIN * 2)
-        )
-    const availableHeight = isExpanded
-      ? Math.max(1, window.innerHeight - OVERLAY_MARGIN * 2)
-      : Math.max(
-          1,
-          Math.min(COLLAPSED_MAX_SIZE, window.innerHeight - OVERLAY_MARGIN * 2)
-        )
-    const scale = isExpanded
-      ? Math.min(availableWidth / mapPixelWidth, availableHeight / mapPixelHeight)
-      : Math.min(1, Math.min(availableWidth, availableHeight) / COLLAPSED_MAX_SIZE)
-    const nextDisplayWidth = isExpanded
-      ? Math.max(1, Math.round(mapPixelWidth * scale))
-      : Math.max(1, Math.round(COLLAPSED_MAX_SIZE * scale))
-    const nextDisplayHeight = isExpanded
-      ? Math.max(1, Math.round(mapPixelHeight * scale))
-      : Math.max(1, Math.round(COLLAPSED_MAX_SIZE * scale))
-    const nextBackingWidth = Math.max(
-      1,
-      Math.round(nextDisplayWidth * (window.devicePixelRatio || 1))
-    )
-    const nextBackingHeight = Math.max(
-      1,
-      Math.round(nextDisplayHeight * (window.devicePixelRatio || 1))
-    )
+    const minimapWidth: number = MINIMAP_WIDTHS[minimapSizeIndex]
+    let nextDisplayWidth = minimapWidth
+    let nextDisplayHeight = Math.round((minimapWidth * mapPixelHeight) / mapPixelWidth)
+
+    if (isExpanded) {
+      const availableWidth = Math.max(1, window.innerWidth - OVERLAY_MARGIN * 2)
+      const availableHeight = Math.max(1, window.innerHeight - OVERLAY_MARGIN * 2)
+      const scale = Math.min(availableWidth / worldMap.columns, availableHeight / worldMap.rows)
+
+      nextDisplayWidth = Math.max(1, Math.round(worldMap.columns * scale))
+      nextDisplayHeight = Math.max(1, Math.round(worldMap.rows * scale))
+    }
+
+    const nextBackingWidth = Math.round(nextDisplayWidth * (window.devicePixelRatio || 1))
+    const nextBackingHeight = Math.round(nextDisplayHeight * (window.devicePixelRatio || 1))
 
     displayWidth = nextDisplayWidth
     displayHeight = nextDisplayHeight
@@ -288,7 +294,9 @@ export const createMapOverlay = ({
     )
     const scaledMargin = Math.round(OVERLAY_MARGIN * uiScale)
     panelButton.style.left = isExpanded ? '50%' : `${scaledMargin}px`
-    panelButton.style.top = isExpanded ? '50%' : `${scaledMargin}px`
+    panelButton.style.top = isExpanded
+      ? '50%'
+      : `${scaledMargin + Math.round((ZOOM_BAR_HEIGHT + ZOOM_BAR_GAP) * uiScale)}px`
     panelButton.style.transformOrigin = isExpanded ? 'center center' : 'top left'
     panelButton.style.transform = isExpanded
       ? 'translate(-50%, -50%)'
@@ -303,10 +311,24 @@ export const createMapOverlay = ({
       isExpanded ? '월드맵 닫기' : '월드맵 열기'
     )
     panelButton.setAttribute('aria-expanded', String(isExpanded))
-    panelButton.title = isExpanded
-      ? '월드맵 닫기'
-      : '월드맵 열기'
+    // 펼친 세계 지도에서는 지역 툴팁을 띄우므로 브라우저 기본 툴팁(title)은 끈다.
+    panelButton.title = isExpanded ? '' : '월드맵 열기'
     backdropButton.hidden = !isExpanded
+    if (!isExpanded) {
+      tooltipElement.hidden = true
+    }
+    // 접힌 미니맵(크기 0)은 이름 줄만 남긴다.
+    panelButton.hidden = !isExpanded && minimapWidth === 0
+
+    // 미니맵 위 지역 이름 + −/+ 줄(펼친 지도에서는 숨긴다)
+    zoomBar.hidden = isExpanded
+    zoomBar.style.left = `${scaledMargin}px`
+    zoomBar.style.top = `${scaledMargin}px`
+    zoomBar.style.height = `${ZOOM_BAR_HEIGHT}px`
+    zoomBar.style.width = `${Math.max(MINIMAP_BAR_MIN_WIDTH, minimapWidth)}px`
+    zoomBar.style.transform = `scale(${uiScale})`
+    zoomOutButton.disabled = minimapSizeIndex <= 0
+    zoomInButton.disabled = minimapSizeIndex >= MINIMAP_WIDTHS.length - 1
 
     previewCanvas.width = backingWidth
     previewCanvas.height = backingHeight
@@ -314,7 +336,8 @@ export const createMapOverlay = ({
     previewCanvas.style.height = '100%'
     mapFrame.style.width = '100%'
     mapFrame.style.height = '100%'
-    mapFrame.style.boxShadow = DISPLAY_BORDER_SHADOW
+    // 펼친 세계 지도는 CSS 나무 액자(.world-map-overlay__panel--expanded)를 쓴다.
+    mapFrame.style.boxShadow = isExpanded ? 'none' : DISPLAY_BORDER_SHADOW
 
     syncFrame()
   }
@@ -355,14 +378,78 @@ export const createMapOverlay = ({
     setVisible(!isVisible)
   }
 
+  // 지도 버튼에 포커스가 남으면 게임 키(이동·F 포탈·M 등)가 버튼으로 가서 무시된다 — 누른 뒤 바로 놓는다.
   const handlePanelClick = (event: MouseEvent) => {
     event.preventDefault()
+    panelButton.blur()
     setExpanded(!isExpanded)
+  }
+
+  const changeMinimapSize = (step: number) => {
+    const nextIndex = clamp(minimapSizeIndex + step, 0, MINIMAP_WIDTHS.length - 1)
+
+    if (nextIndex === minimapSizeIndex) {
+      return
+    }
+
+    minimapSizeIndex = nextIndex
+    try {
+      window.localStorage.setItem(MINIMAP_SIZE_STORAGE_KEY, String(nextIndex))
+    } catch {
+      // 저장할 수 없으면 이번 판에서만 기억한다.
+    }
+    syncLayout()
+  }
+
+  // 버튼에 포커스가 남으면 게임 키(이동·M 등)가 버튼으로 가서 무시된다 — 누른 뒤 바로 놓는다.
+  const handleZoomOutClick = (event: MouseEvent) => {
+    event.preventDefault()
+    zoomOutButton.blur()
+    changeMinimapSize(-1)
+  }
+
+  const handleZoomInClick = (event: MouseEvent) => {
+    event.preventDefault()
+    zoomInButton.blur()
+    changeMinimapSize(1)
   }
 
   const handleBackdropClick = (event: MouseEvent) => {
     event.preventDefault()
+    backdropButton.blur()
     setExpanded(false)
+  }
+
+  const handlePanelMouseMove = (event: MouseEvent) => {
+    if (!isExpanded) {
+      return
+    }
+
+    const rect = mapFrame.getBoundingClientRect()
+    const info = worldMap.getHoverInfo({
+      x: (event.clientX - rect.left) / rect.width,
+      y: (event.clientY - rect.top) / rect.height
+    })
+
+    tooltipElement.hidden = !info
+    panelButton.style.cursor = info ? 'help' : 'zoom-out'
+
+    if (!info) {
+      return
+    }
+
+    if (tooltipTitle.textContent !== info.title) {
+      tooltipTitle.textContent = info.title
+      tooltipImage.hidden = !info.imageUrl
+      tooltipImage.src = info.imageUrl ?? ''
+    }
+
+    tooltipElement.style.left = `${event.clientX + 16}px`
+    tooltipElement.style.top = `${event.clientY + 16}px`
+  }
+
+  const handlePanelMouseLeave = () => {
+    tooltipElement.hidden = true
   }
 
   const handleWindowResize = () => {
@@ -371,6 +458,10 @@ export const createMapOverlay = ({
 
   panelButton.addEventListener('click', handlePanelClick)
   backdropButton.addEventListener('click', handleBackdropClick)
+  zoomOutButton.addEventListener('click', handleZoomOutClick)
+  zoomInButton.addEventListener('click', handleZoomInClick)
+  panelButton.addEventListener('mousemove', handlePanelMouseMove)
+  panelButton.addEventListener('mouseleave', handlePanelMouseLeave)
   window.addEventListener('resize', handleWindowResize)
 
   syncMapFocusMode()
@@ -389,6 +480,10 @@ export const createMapOverlay = ({
       document.body.classList.remove('game-root--map-focused')
       panelButton.removeEventListener('click', handlePanelClick)
       backdropButton.removeEventListener('click', handleBackdropClick)
+      zoomOutButton.removeEventListener('click', handleZoomOutClick)
+      zoomInButton.removeEventListener('click', handleZoomInClick)
+      panelButton.removeEventListener('mousemove', handlePanelMouseMove)
+      panelButton.removeEventListener('mouseleave', handlePanelMouseLeave)
       window.removeEventListener('resize', handleWindowResize)
       overlayRoot.remove()
     }

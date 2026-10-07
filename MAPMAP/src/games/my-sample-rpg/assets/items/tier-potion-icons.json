@@ -1,0 +1,9 @@
+{
+  "size": 16,
+  "items": [
+    "health-potion-medium",
+    "mana-potion-medium",
+    "health-potion-large",
+    "mana-potion-large"
+  ]
+}

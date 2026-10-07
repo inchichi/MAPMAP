@@ -34,6 +34,8 @@ import { getMonsterBehaviorConfig, isStationaryMonster } from './nodes'
 import { type MonsterPigAnimationMode, type MonsterPigBehaviorState, type SceneTransitionRequest } from './types'
 
 export type FrameUpdateContext = {
+  // 피격 경직 중이면 밀어내고 true(그 프레임 플레이어 이동·공격을 건너뛴다) — playerHitStagger.ts
+  stepPlayerHitStagger: (now: number) => boolean
   app: Application
   applyDamageToPlayer: (damage: number, now: number, sourceCharacter?: CharacterState) => boolean
   applyNpcConfigUpdate: (characterId: string, key: string, value: string) => void
@@ -107,8 +109,11 @@ export type FrameUpdateContext = {
   syncRuntimeWarningBanner: () => void
   triggerPlayerAttack: (now: number) => void
   triggerPlayerSkillFromSlotIndex: (skillSlotIndex: number, now: number) => void
+  triggerPlayerSkillById: (skillId: string, now: number) => boolean
   triggeredActions: Set<CharacterAction>
   triggeredSkillSlotIndexes: Set<number>
+  // 스킬 창에서 더블클릭한 스킬 — Q·W·E·R 칸과 같은 프레임 단계에서 한 번 쓴다.
+  triggeredSkillIds: Set<string>
   tryMoveCharacter: (characterId: string, deltaX: number, deltaY: number, options?: { preserveFacing?: boolean; ignoreMonsterBlocking?: boolean; cornerAssist?: boolean; }) => boolean
   tryUseBossSkill: (boss: CharacterState, bossCenter: { x: number; y: number; }, playerCenter: { x: number; y: number; }, distance: number, now: number) => boolean
   updateBossFlashes: (now: number) => void
@@ -135,6 +140,7 @@ export type FrameUpdateContext = {
 
 export const createFrameUpdate = (ctx: FrameUpdateContext) => {
   const {
+    stepPlayerHitStagger,
     app,
     applyDamageToPlayer,
     applyNpcConfigUpdate,
@@ -208,8 +214,10 @@ export const createFrameUpdate = (ctx: FrameUpdateContext) => {
     syncRuntimeWarningBanner,
     triggerPlayerAttack,
     triggerPlayerSkillFromSlotIndex,
+    triggerPlayerSkillById,
     triggeredActions,
     triggeredSkillSlotIndexes,
+    triggeredSkillIds,
     tryMoveCharacter,
     tryUseBossSkill,
     updateBossFlashes,
@@ -249,6 +257,7 @@ export const createFrameUpdate = (ctx: FrameUpdateContext) => {
         stopPlayerFootsteps()
         triggeredActions.clear()
         triggeredSkillSlotIndexes.clear()
+        triggeredSkillIds.clear()
             setLastRuntimeErrorMessage(undefined)
         return
       }
@@ -260,15 +269,20 @@ export const createFrameUpdate = (ctx: FrameUpdateContext) => {
         triggerPlayerSkillFromSlotIndex(skillSlotIndex, now)
       }
       triggeredSkillSlotIndexes.clear()
+      for (const skillId of triggeredSkillIds) {
+        triggerPlayerSkillById(skillId, now)
+      }
+      triggeredSkillIds.clear()
 
       let didPlayerMoveThisFrame = stepPlayerRoll(now)
+      const isPlayerStaggered = playerProfile.hp.current > 0 && stepPlayerHitStagger(now)
 
       for (const character of [...getCharacterStates()]) {
         if (character.id === PLAYER_CHARACTER_ID && playerProfile.hp.current === 0) {
           continue
         }
 
-        if (character.id === PLAYER_CHARACTER_ID && isPlayerRolling(now)) {
+        if (character.id === PLAYER_CHARACTER_ID && (isPlayerRolling(now) || isPlayerStaggered)) {
           continue
         }
 
@@ -690,6 +704,7 @@ export const createFrameUpdate = (ctx: FrameUpdateContext) => {
       gameEventQueue.clear()
       triggeredActions.clear()
       triggeredSkillSlotIndexes.clear()
+      triggeredSkillIds.clear()
 
       const message = error instanceof Error ? error.message : String(error)
 

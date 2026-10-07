@@ -1,5 +1,6 @@
 // 캐릭터 그리기: LPC 스프라이트(플레이어 장비 겹 포함)와 매 프레임 동기화 — 위치·깊이·구르기·피격 반동,
 // 이름표·레벨 배지·퀘스트 배지·자원 막대·몬스터 체력바. 맵 화면의 상태는 ctx 로 받는다.
+import { getPlayerInvulnerableBlinkAlpha } from './playerHitStagger'
 import { Container, Sprite, Texture } from 'pixi.js'
 import type { ParsedTiledMap } from '../../tiled/parseTiledMap'
 import type { PlayerEquipment } from '../../playerEquipment'
@@ -9,6 +10,7 @@ import {
   getLpcAnchor,
   getLpcDirectionFromFacing,
   getLpcPlayerAttackAnimation,
+  getLpcAnimationFrameCount,
   getLpcPlayerLayerFiles,
   getLpcWalkFrameIndex,
   createLpcSheetCache,
@@ -23,7 +25,7 @@ import { type PlayerRollState, type PlayerRollVisualState } from '../../playerRo
 import { getQuestNpcBadgeKindForNpc, type QuestLogState } from '../../questLog'
 import { isMonsterDefeated, type MonsterCombatState } from '../../monsterCombat'
 import { getMonsterDisplayName, getPlayerRollProgress, getPlayerRollVisualState } from '../../lua/luaGameLogic'
-import { LPC_HEAD_CLEARANCE_PIXELS, LPC_MOVING_HOLD_MILLISECONDS, MONSTER_HEALTH_BAR_BORDER_COLOR, MONSTER_HEALTH_BAR_FILL_COLOR, MONSTER_HEALTH_BAR_GAP, MONSTER_HEALTH_BAR_HEIGHT, MONSTER_HEALTH_BAR_TRACK_COLOR, MONSTER_HEALTH_BAR_WIDTH, PLAYER_ATTACK_DURATION_MILLISECONDS, PLAYER_EQUIPMENT_APPEARANCE_CONFIG_BY_ITEM_ID, PLAYER_HEALTH_BAR_BORDER_COLOR, PLAYER_HEALTH_BAR_FILL_COLOR, PLAYER_HEALTH_BAR_GAP, PLAYER_HEALTH_BAR_HEIGHT, PLAYER_HEALTH_BAR_TRACK_COLOR, PLAYER_HEALTH_BAR_WIDTH, PLAYER_HIT_REACTION_DURATION_MILLISECONDS, PLAYER_HIT_REACTION_MAX_OFFSET_PIXELS, PLAYER_MANA_BAR_BORDER_COLOR, PLAYER_MANA_BAR_FILL_COLOR, PLAYER_MANA_BAR_GAP, PLAYER_MANA_BAR_HEIGHT, PLAYER_MANA_BAR_TRACK_COLOR, PLAYER_MANA_BAR_WIDTH, PLAYER_NAME_BADGE_FOOT_OFFSET, PLAYER_STATUS_STACK_CLEARANCE, QUEST_BADGE_Y_OFFSET, SIGN_POST_APPEARANCE_TYPE } from './constants'
+import { LPC_HEAD_CLEARANCE_PIXELS, LPC_MOVING_HOLD_MILLISECONDS, MONSTER_HEALTH_BAR_BORDER_COLOR, MONSTER_HEALTH_BAR_FILL_COLOR, MONSTER_HEALTH_BAR_GAP, MONSTER_HEALTH_BAR_HEIGHT, MONSTER_HEALTH_BAR_TRACK_COLOR, MONSTER_HEALTH_BAR_WIDTH, PLAYER_ATTACK_DURATION_MILLISECONDS, PLAYER_EQUIPMENT_APPEARANCE_CONFIG_BY_ITEM_ID, PLAYER_HEALTH_BAR_BORDER_COLOR, PLAYER_HEALTH_BAR_FILL_COLOR, PLAYER_HEALTH_BAR_GAP, PLAYER_HEALTH_BAR_HEIGHT, PLAYER_HEALTH_BAR_TRACK_COLOR, PLAYER_HEALTH_BAR_WIDTH, PLAYER_MANA_BAR_BORDER_COLOR, PLAYER_MANA_BAR_FILL_COLOR, PLAYER_MANA_BAR_GAP, PLAYER_MANA_BAR_HEIGHT, PLAYER_MANA_BAR_TRACK_COLOR, PLAYER_MANA_BAR_WIDTH, PLAYER_NAME_BADGE_FOOT_OFFSET, PLAYER_STATUS_STACK_CLEARANCE, QUEST_BADGE_Y_OFFSET, SIGN_POST_APPEARANCE_TYPE } from './constants'
 import { getMonsterBehaviorConfig } from './nodes'
 import type { createPlayerCombatEffects } from './playerCombatEffects'
 import { getCharacterDepthSortValue } from './tiles'
@@ -50,7 +52,7 @@ export type CharacterSpritesContext = {
   getCurrentQuestLog: () => QuestLogState
   getDepthSortedLayer: () => Container | undefined
   getPlayerRollState: () => PlayerRollState | undefined
-  getPlayerHitReactionState: () => PlayerHitReactionState | undefined
+  getPlayerDamageInvulnerableUntilMilliseconds: () => number
   setPlayerHitReactionState: (value: PlayerHitReactionState | undefined) => void
 }
 
@@ -76,7 +78,7 @@ export const createCharacterSprites = (ctx: CharacterSpritesContext) => {
     getCurrentQuestLog,
     getDepthSortedLayer,
     getPlayerRollState,
-    getPlayerHitReactionState,
+    getPlayerDamageInvulnerableUntilMilliseconds,
     setPlayerHitReactionState
   } = ctx
 
@@ -195,13 +197,16 @@ export const createCharacterSprites = (ctx: CharacterSpritesContext) => {
         animation = action.animation ?? getLpcPlayerAttackAnimation(look.weaponId)
         frameIndex = getLpcActionFrameIndex(
           action.progress,
-          animation === 'shoot' ? 13 : animation === 'thrust' ? 8 : 6
+          getLpcAnimationFrameCount(animation)
         )
         facing = action.facing
       }
       let files = getLpcPlayerLayerFiles(look, animation)
-      // 동작 시트가 아직 안 불러졌으면 그동안은 걷기 자세로.
-      if (!files.base || !lpcSheetCache.get(files.base, animation)) {
+      // 동작 시트(몸·장비 레이어 전부)가 아직 안 불러졌으면 그동안은 걷기 자세로 — 갑옷이 늦게 와 맨몸이 비치지 않게.
+      const isAnimationReady =
+        files.base !== undefined &&
+        Object.values(files).every((file) => file === undefined || lpcSheetCache.get(file, animation) !== undefined)
+      if (!isAnimationReady) {
         animation = 'walk'
         frameIndex = walkFrameIndex
         files = getLpcPlayerLayerFiles(look, animation)
@@ -249,8 +254,6 @@ export const createCharacterSprites = (ctx: CharacterSpritesContext) => {
       return
     }
 
-    let playerHitReactionOffsetX = 0
-    let playerHitReactionOffsetY = 0
     let monsterRunMotionOffsetX = 0
     let monsterRunMotionOffsetY = 0
     const playerRollVisualState =
@@ -258,26 +261,12 @@ export const createCharacterSprites = (ctx: CharacterSpritesContext) => {
         ? getActivePlayerRollVisualState(now)
         : undefined
 
-    const playerHitReactionState = getPlayerHitReactionState()
-    if (character.id === PLAYER_CHARACTER_ID && playerHitReactionState) {
-      if (playerHitReactionState.expiresAtMilliseconds <= now) {
-        setPlayerHitReactionState(undefined)
-      } else {
-        const elapsedMilliseconds = now - playerHitReactionState.startedAtMilliseconds
-        const progress = Math.min(
-          1,
-          Math.max(0, elapsedMilliseconds / PLAYER_HIT_REACTION_DURATION_MILLISECONDS)
-        )
-        const recoilStrength =
-          PLAYER_HIT_REACTION_MAX_OFFSET_PIXELS * Math.pow(1 - progress, 2)
-
-        playerHitReactionOffsetX = Math.round(
-          playerHitReactionState.directionX * recoilStrength
-        )
-        playerHitReactionOffsetY = Math.round(
-          playerHitReactionState.directionY * recoilStrength
-        )
-      }
+    // 피격: 실제로 밀려나는 건 playerHitStagger.ts 가 맡고, 여기서는 맞은 뒤 무적 시간 동안 깜빡이기만 한다.
+    if (character.id === PLAYER_CHARACTER_ID) {
+      renderNode.container.alpha = getPlayerInvulnerableBlinkAlpha(
+        now,
+        getPlayerDamageInvulnerableUntilMilliseconds()
+      )
     }
 
     const isMonsterCharacter = character.appearanceType.startsWith('monster_')
@@ -324,11 +313,9 @@ export const createCharacterSprites = (ctx: CharacterSpritesContext) => {
     renderNode.container.visible = true
     renderNode.container.position.set(
       character.position.x * map.tileWidth +
-        playerHitReactionOffsetX +
         monsterRunMotionOffsetX +
         monsterSpriteOffsetX,
       character.position.y * map.tileHeight +
-        playerHitReactionOffsetY +
         monsterRunMotionOffsetY +
         monsterSpriteOffsetY
     )

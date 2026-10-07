@@ -12,11 +12,13 @@ import { PLAYER_CHARACTER_ID } from '../../characterState'
 import type { CharacterState } from '../../characterState'
 import { type PlayerInventory } from '../../playerInventory'
 import { recordItemAcquireQuestProgress, type QuestLogState } from '../../questLog'
-import { rollMonsterEquipmentDrop } from '../../monsterEquipmentDrops'
-import { findFirstEmptyPlayerInventorySlotIndex, setPlayerInventorySlot, getPlayerEquipmentItemDefinitionById } from '../../lua/luaGameLogic'
+import { type MonsterEquipmentDropDefinition } from '../../monsterEquipmentDrops'
+import { getPotionShopItemDefinitionById } from '../../potionShop'
+import { findFirstEmptyPlayerInventorySlotIndex, getPlayerEquipmentItemDefinitionById } from '../../lua/luaGameLogic'
 import { doCollisionRectsIntersect } from '../characterCollision'
 import { type TilesetRenderResources } from '../tiledMapRenderResources'
 import { COIN_PILE_PICKUP_HEIGHT, COIN_PILE_PICKUP_WIDTH, DAMAGE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, LEVEL_UP_TEXT_STYLE, MONSTER_EQUIPMENT_DROP_PICKUP_HEIGHT, MONSTER_EQUIPMENT_DROP_PICKUP_WIDTH, MONSTER_EQUIPMENT_DROP_RENDER_SIZE, MONSTER_GOLD_DROP_AMOUNT_TEXT_STYLE, MONSTER_GOLD_DROP_ICON_RADIUS, MONSTER_GOLD_DROP_PICKUP_HEIGHT, MONSTER_GOLD_DROP_PICKUP_WIDTH, MONSTER_GOLD_DROP_PILE_GIDS, MONSTER_GOLD_DROP_PILE_THRESHOLDS, MONSTER_GOLD_DROP_POP_HEIGHT_PIXELS, MONSTER_GOLD_DROP_POP_MILLISECONDS } from './constants'
+import { addQuestItemRewardToInventory } from './questRewards'
 import { type MonsterEquipmentDrop, type MonsterGoldDrop } from './types'
 
 export type MonsterDropsContext = {
@@ -160,7 +162,7 @@ export const createMonsterDrops = (ctx: MonsterDropsContext) => {
 
   function spawnMonsterEquipmentDrop(
     characterId: string,
-    dropDefinition: ReturnType<typeof rollMonsterEquipmentDrop>,
+    dropDefinition: MonsterEquipmentDropDefinition | undefined,
     position: {
       x: number
       y: number
@@ -267,16 +269,19 @@ export const createMonsterDrops = (ctx: MonsterDropsContext) => {
       const equipmentDefinition = getPlayerEquipmentItemDefinitionById(
         drop.itemId
       )
+      const potionDefinition = getPotionShopItemDefinitionById(drop.itemId)
+      const itemLabel = equipmentDefinition?.label ?? potionDefinition?.label
 
-      if (!equipmentDefinition) {
+      if (!itemLabel) {
         continue
       }
 
-      const emptySlotIndex = findFirstEmptyPlayerInventorySlotIndex(
-        getCurrentPlayerInventory()
-      )
+      const inventory = getCurrentPlayerInventory()
+      // 포션은 같은 포션 칸에 쌓고, 장비는 빈 칸 하나를 쓴다.
+      const hasPotionStack =
+        potionDefinition !== undefined && inventory.slots.some((item) => item?.id === drop.itemId)
 
-      if (emptySlotIndex === undefined) {
+      if (!hasPotionStack && findFirstEmptyPlayerInventorySlotIndex(inventory) === undefined) {
         showCharacterDamageText(
           PLAYER_CHARACTER_ID,
           '가방이 가득 찼습니다',
@@ -285,15 +290,13 @@ export const createMonsterDrops = (ctx: MonsterDropsContext) => {
         continue
       }
 
-      setCurrentPlayerInventory(setPlayerInventorySlot({
-        inventory: getCurrentPlayerInventory(),
-        slotIndex: emptySlotIndex,
-        item: {
+      setCurrentPlayerInventory(
+        addQuestItemRewardToInventory(inventory, {
           id: drop.itemId,
-          label: equipmentDefinition.label,
+          label: itemLabel,
           quantity: 1
-        }
-      }))
+        })
+      )
       onPlayerInventoryChange(getCurrentPlayerInventory())
       // 드롭 장비를 주우면 "아이템 획득" 목표 진행을 기록한다.
       setQuestLogWithObjectiveFeedback(
@@ -302,7 +305,7 @@ export const createMonsterDrops = (ctx: MonsterDropsContext) => {
       syncPlayerUiOverlays()
       showCharacterDamageText(
         PLAYER_CHARACTER_ID,
-        `${equipmentDefinition.label} 획득!`,
+        `${itemLabel} 획득!`,
         DAMAGE_TEXT_DURATION_MILLISECONDS,
         LEVEL_UP_TEXT_STYLE
       )

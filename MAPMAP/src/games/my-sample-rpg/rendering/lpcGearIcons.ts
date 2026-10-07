@@ -1,4 +1,5 @@
 import manifest from '../assets/characters/lpc/manifest.json'
+import tierGearIcons from '../assets/characters/lpc/tier-gear-icons.json'
 import weaponIcons from '../assets/weapons/lpc/weapon-icons.json'
 
 // 방어구·투구·신발 아이콘: 그 장비의 LPC 레이어(정면 정지 프레임)를 잘라 모은 한 장
@@ -8,6 +9,11 @@ import weaponIcons from '../assets/weapons/lpc/weapon-icons.json'
 // weapon-icons.png), 키는 'lpc-weapon:<아이템 id>'.
 const GEAR_ICON_ATLAS_URL = new URL(
   '../assets/characters/lpc/gear-icons.png',
+  import.meta.url
+).href
+// 등급 방어구(2·3등급)는 1등급 아이콘의 색만 바꾼 따로 한 장(scripts/generate-tier-gear-icons.py), 키는 같은 'lpc-gear:<id>'.
+const TIER_GEAR_ICON_ATLAS_URL = new URL(
+  '../assets/characters/lpc/tier-gear-icons.png',
   import.meta.url
 ).href
 const WEAPON_ICON_ATLAS_URL = new URL(
@@ -43,5 +49,6 @@ export const LPC_GEAR_ICON_FRAMES: Record<
   IconFrame
 > = Object.fromEntries([
   ...atlasFrames('lpc-gear', GEAR_ICON_ATLAS_URL, manifest.gearIcons.size, manifest.gearIcons.items),
+  ...atlasFrames('lpc-gear', TIER_GEAR_ICON_ATLAS_URL, tierGearIcons.size, tierGearIcons.items),
   ...atlasFrames('lpc-weapon', WEAPON_ICON_ATLAS_URL, weaponIcons.size, weaponIcons.items)
 ])

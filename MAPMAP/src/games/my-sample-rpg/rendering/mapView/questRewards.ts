@@ -4,6 +4,10 @@ import { type QuestItemReward } from '../../questLog'
 export const STACKABLE_QUEST_REWARD_ITEM_IDS = new Set([
   'health-potion',
   'mana-potion',
+  'health-potion-medium',
+  'mana-potion-medium',
+  'health-potion-large',
+  'mana-potion-large',
   'antidote-incense',
   'warming-tea',
   'crystal-ore'

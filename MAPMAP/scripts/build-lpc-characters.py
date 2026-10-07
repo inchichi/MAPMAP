@@ -10,6 +10,10 @@ src/games/my-sample-rpg/assets/characters/lpc/CREDITS.csv 에 사용한 파일 �
   (cd /path/lpc && git sparse-checkout set /spritesheets/ /palette_definitions/ /CREDITS.csv)
   python3 scripts/build-lpc-characters.py /path/lpc
 
+주의: 출력 폴더의 예전 산출물을 지우고 다시 만든다. 게임 폴더에는 다른 스크립트가 만든 그림
+(generate-tier-gear-icons.py 의 등급 아이콘, 장별 NPC 시트 등)도 있으므로, 새 동작·장비만 필요하면
+LPC_OUT=<임시 폴더> 로 따로 빌드해 기존 그림과 비교한 뒤 필요한 파일·manifest 항목만 옮긴다.
+
 출력(assets/characters/lpc/):
   player-base-<동작>.png              — 몸·얼굴·바지·신발·속옷(장비 없는 기본 모습)
   player-hair-<동작>.png              — 머리카락(투구가 덮으면 숨긴다)
@@ -34,7 +38,8 @@ from PIL import Image
 
 LPC = sys.argv[1] if len(sys.argv) > 1 else os.environ.get('LPC_ROOT', '')
 SS = os.path.join(LPC, 'spritesheets')
-OUT = 'src/games/my-sample-rpg/assets/characters/lpc'
+# LPC_OUT 으로 다른 폴더에 빌드해 기존 결과와 비교할 수 있다.
+OUT = os.environ.get('LPC_OUT', 'src/games/my-sample-rpg/assets/characters/lpc')
 BODY_FRAME = 64
 
 # 동작별 칸 크기·프레임 수(LPC 표준 시트 기준). hurt 는 아래 방향 1행뿐이라 4행으로 복제한다.
@@ -44,6 +49,8 @@ ANIMS = {
     'halfslash': {'cell': 128, 'frames': 6},
     'thrust': {'cell': 192, 'frames': 8},
     'shoot': {'cell': 128, 'frames': 13},
+    # 마법 시전(두 팔을 드는 LPC 고전 동작) — 지팡이 기본 공격·마법 스킬
+    'spellcast': {'cell': 64, 'frames': 7},
     'hurt': {'cell': 128, 'frames': 6},
 }
 
@@ -215,12 +222,14 @@ WEAPON_ITEMS = {
     'bronze-sword': ('weapons/sword/weapon_sword_arming.json', 'bronze', 'halfslash'),
     'iron-sword': ('weapons/sword/weapon_sword_arming.json', 'steel', 'halfslash'),
     'battle-axe': ('weapons/blunt/weapon_blunt_waraxe.json', 'waraxe', 'slash'),
-    'spiked-mace': ('weapons/blunt/weapon_blunt_mace.json', 'mace', 'slash'),
-    'quick-dagger': ('weapons/sword/weapon_sword_dagger.json', 'dagger', 'slash'),
-    'long-spear': ('weapons/polearm/weapon_polearm_spear.json', 'iron', 'thrust'),
     # 아이템 아이콘(파란 보주 지팡이)과 맞게 파란 수정 지팡이
     'magic-staff': ('weapons/magic/weapon_magic_crystal.json', 'blue', 'thrust'),
     'hunting-bow': ('weapons/ranged/bow/weapon_ranged_bow_normal.json', 'medium', 'shoot'),
+}
+# 무기마다 추가로 뽑을 동작과 그 동작에서 쓸 원본(정의, 색). 지팡이는 시전(spellcast) 때 두 팔을 들어 올린다 —
+# 수정 지팡이에는 시전 그림이 없어 LPC 에서 유일하게 시전 그림이 있는 파란 보석의 단순 지팡이(simple)를 쓴다.
+WEAPON_EXTRA_ANIMS = {
+    'magic-staff': {'spellcast': ('weapons/magic/weapon_magic_simple.json', 'simple')},
 }
 CUSTOM_ANIM_BASE = {'slash_128': 'slash', 'slash_oversize': 'slash', 'thrust_oversize': 'thrust',
                     'thrust_128': 'thrust', 'walk_128': 'walk', 'halfslash_128': 'halfslash'}
@@ -408,8 +417,10 @@ def main():
         print('gear', item, list(entry['sheets']))
     for item, (definition, variant, attack) in WEAPON_ITEMS.items():
         entry = {'attack': attack, 'back': {}, 'front': {}}
-        for anim in ('walk', 'hurt', attack):
-            back, front = weapon_layers(definition, variant, anim)
+        extra = WEAPON_EXTRA_ANIMS.get(item, {})
+        for anim in ('walk', 'hurt', attack, *extra):
+            anim_definition, anim_variant = extra.get(anim, (definition, variant))
+            back, front = weapon_layers(anim_definition, anim_variant, anim)
             if item == 'hunting-bow' and anim == 'shoot':
                 front.append(L('weapon/ranged/bow/arrow/shoot/arrow.png'))
             for side, layers in (('back', back), ('front', front)):

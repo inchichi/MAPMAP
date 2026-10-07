@@ -26,7 +26,7 @@ end
 -- 레벨업 보상은 progression_grant_level_up_rewards(다른 모듈 전역)에 위임한다 — 이 호스트에
 -- player-progression.lua 가 이미 로드돼 있어야 한다(standalone 래퍼가 의존성으로 로드).
 -- 상수 소유는 TS: max_level/base_exp/per_level_exp 는 경험치 공식용,
--- level_up_stat_points/level_up_hp_bonus 는 레벨업 보상용으로 모두 인자로 전달한다.
+-- level_up_stat_points/level_up_hp_bonus/level_up_skill_points/level_up_mp_bonus 는 레벨업 보상용으로 모두 인자로 전달한다.
 function player_experience_grant(
   profile,
   experience,
@@ -34,7 +34,9 @@ function player_experience_grant(
   base_exp,
   per_level_exp,
   level_up_stat_points,
-  level_up_hp_bonus
+  level_up_hp_bonus,
+  level_up_skill_points,
+  level_up_mp_bonus
 )
   local gained_experience = math.max(0, math.floor(experience))
 
@@ -72,7 +74,9 @@ function player_experience_grant(
       1,
       max_level,
       level_up_stat_points,
-      level_up_hp_bonus
+      level_up_hp_bonus,
+      level_up_skill_points,
+      level_up_mp_bonus
     )
     levels_gained = levels_gained + 1
   end

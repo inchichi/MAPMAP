@@ -55,6 +55,24 @@ describe('applyQuestGatedEvents', () => {
     ])
   })
 
+  it('opens quest-gated portals but not characters when asked (tester mode)', () => {
+    const portalMap = {
+      eventLayers: [
+        {
+          ...map.eventLayers[0],
+          events: [
+            { ...event('north_gate', { 'quest.requiresCompleted': 'q009' }), className: 'portal' },
+            event('shortcut', { 'quest.requiresCompleted': 'q009' })
+          ]
+        }
+      ]
+    } as unknown as ParsedTiledMap
+
+    expect(
+      namesOf(applyQuestGatedEvents(portalMap, questLogWith('active'), { openQuestGatedPortals: true }))
+    ).toEqual(['north_gate'])
+  })
+
   it('changes the gated key only when the gated objects change', () => {
     const before = getQuestGatedEventKey(map, questLogWith('active'))
     expect(getQuestGatedEventKey(map, questLogWith('active'))).toBe(before)

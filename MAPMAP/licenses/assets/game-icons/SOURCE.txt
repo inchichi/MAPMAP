@@ -3,5 +3,5 @@ license: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
 source: https://github.com/game-icons/icons
 used for: skill icons (src/games/my-sample-rpg/assets/skills/*.png and skills/weapon/*.png), recolored and framed
 authors:
-- Lorc (https://lorcblog.blogspot.com): crossed-swords, saber-slash, spear-hook, thrown-spear, axe-swing, groundbreaker, chopped-skull, hammer-drop, impact-point, earth-crack, knife-thrust, backstab, spinning-blades, smash-arrows, striking-arrows, snowing, meteor-impact, piercing-sword, checked-shield, energy-arrow, sprint, meditation, frozen-arrow, fire-ray, lightning-branches, supersonic-arrow, chemical-arrow
-- Delapouite (https://delapouite.com): sun-spear, split-arrows
+- Lorc (https://lorcblog.blogspot.com): crossed-swords, saber-slash, axe-swing, groundbreaker, chopped-skull, smash-arrows, striking-arrows, snowing, meteor-impact, piercing-sword, checked-shield, energy-arrow, sprint, meditation, frozen-arrow, fire-ray, lightning-branches, supersonic-arrow, chemical-arrow
+- Delapouite (https://delapouite.com): split-arrows

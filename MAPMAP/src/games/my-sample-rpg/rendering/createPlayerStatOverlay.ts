@@ -4,6 +4,7 @@ import {
   getPlayerJobPrimaryStatLabel,
   spendPlayerStatPoint
 } from '../lua/luaGameLogic'
+import { getPlayerStatMaxUsefulValue } from '../playerStatEffects'
 import { getResponsiveUiScale } from './getResponsiveUiScale'
 
 type CreatePlayerStatOverlayInput = {
@@ -34,7 +35,7 @@ const STAT_ROWS: StatRowConfig[] = [
   {
     id: 'agility',
     label: '민첩',
-    description: '이동 속도가 점점 빨라집니다'
+    description: `이동 속도가 점점 빨라집니다 (${getPlayerStatMaxUsefulValue('agility')}까지)`
   },
   {
     id: 'intelligence',
@@ -44,7 +45,7 @@ const STAT_ROWS: StatRowConfig[] = [
   {
     id: 'luck',
     label: '행운',
-    description: '회피율이 올라갑니다'
+    description: `회피율이 올라갑니다 (${getPlayerStatMaxUsefulValue('luck')}까지)`
   }
 ]
 
@@ -342,7 +343,9 @@ export const createPlayerStatOverlay = ({
       const value = statValues[index]
       const description = statDescriptions[index]
       const action = statActions[index]
-      const canUpgrade = profile.statPoints > 0
+      const isCapped = profile.stats[stat.id] >= getPlayerStatMaxUsefulValue(stat.id)
+      const canUpgrade = profile.statPoints > 0 && !isCapped
+      const lockReason = isCapped ? '효과가 최대입니다' : '스텟 포인트가 부족합니다'
 
       row.disabled = !canUpgrade
       row.classList.toggle('player-stat-overlay__stat-row--locked', !canUpgrade)
@@ -353,17 +356,17 @@ export const createPlayerStatOverlay = ({
       content.classList.toggle('player-stat-overlay__stat-content--locked', !canUpgrade)
       row.title = canUpgrade
         ? `${stat.label}을 1 올립니다`
-        : '스텟 포인트가 부족합니다'
+        : lockReason
       row.setAttribute(
         'aria-label',
         canUpgrade
           ? `${stat.label} 강화`
-          : `${stat.label} 강화 불가. 스텟 포인트가 부족합니다`
+          : `${stat.label} 강화 불가. ${lockReason}`
       )
       label.textContent = stat.label
       value.textContent = String(profile.stats[stat.id])
       description.textContent = stat.description
-      action.textContent = canUpgrade ? '+1' : '잠김'
+      action.textContent = canUpgrade ? '+1' : isCapped ? '최대' : '잠김'
     }
   }
 

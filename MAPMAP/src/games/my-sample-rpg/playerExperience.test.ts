@@ -39,11 +39,15 @@ describe('grantPlayerExperience', () => {
         ...profile,
         level: 2,
         statPoints: 3,
-        availableSkillPoints: 0,
-        totalSkillPointsEarned: 0,
+        availableSkillPoints: 2,
+        totalSkillPointsEarned: 2,
         hp: {
           current: 28,
           max: 28
+        },
+        mp: {
+          current: 15,
+          max: 15
         },
         experience: {
           current: 10
@@ -67,11 +71,15 @@ describe('grantPlayerExperience', () => {
         ...profile,
         level: 100,
         statPoints: profile.statPoints + 3,
-        availableSkillPoints: profile.availableSkillPoints,
-        totalSkillPointsEarned: profile.totalSkillPointsEarned,
+        availableSkillPoints: profile.availableSkillPoints + 2,
+        totalSkillPointsEarned: profile.totalSkillPointsEarned + 2,
         hp: {
           current: profile.hp.max + 4,
           max: profile.hp.max + 4
+        },
+        mp: {
+          current: profile.mp.max + 3,
+          max: profile.mp.max + 3
         },
         experience: {
           current: 0

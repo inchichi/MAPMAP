@@ -12,8 +12,11 @@ import {
   PLAYER_SKILL_IDS_IN_DISPLAY_ORDER,
   getPlayerSkillDisplayInfoById,
   getPlayerSkillProfileIndex,
-  getPlayerSkillRequiredLevel
+  getPlayerSkillRequiredLevel,
+  getPlayerSkillWeaponLine
 } from '../playerSkills'
+import type { PlayerWeaponLine } from '../playerEquipment'
+import { PLAYER_WEAPON_LINE_LABEL } from '../playerWeaponSkills'
 import { isPlayerSkillUnlockedInProfile } from '../lua/luaGameLogic'
 import { getResponsiveUiScale } from './getResponsiveUiScale'
 
@@ -23,6 +26,10 @@ type CreatePlayerSkillOverlayInput = {
   getIsOpen: () => boolean
   onRequestOpenChange: (isOpen: boolean) => void
   onRequestProfileChange: (nextProfile: PlayerProfile) => void
+  // 창을 열 때 지금 든 무기 계열의 탭을 먼저 보여 준다.
+  getEquippedWeaponLine: () => PlayerWeaponLine | undefined
+  // 스킬 줄을 더블클릭하면 그 스킬을 한 번 쓴다(배움·MP 확인은 게임 쪽에서 Q·W·E·R 키와 똑같이 한다).
+  onRequestUseSkill: (skillId: string) => void
 }
 
 export type PlayerSkillOverlay = {
@@ -34,7 +41,16 @@ const OVERLAY_MARGIN = 16
 const PANEL_MIN_WIDTH = 440
 const PANEL_MAX_WIDTH = 620
 const PANEL_MIN_HEIGHT = 340
-const PANEL_MAX_HEIGHT = 480
+// 탭 하나에 스킬이 많아야 5개라 스크롤 없이 다 보이는 높이
+const PANEL_MAX_HEIGHT = 660
+// 아래 HUD(스킬 Q·W·E·R 칸) 높이 + 바닥 여백. 창이 이 띠를 덮으면 스킬을 끌어 놓을 칸이 가려진다.
+const HUD_RESERVED_HEIGHT = 100
+
+// 스킬 창 탭: 공통 스킬, 그다음 무기 계열(스크롤 대신 종류별로 묶는다)
+type SkillCategory = 'common' | PlayerWeaponLine
+const SKILL_CATEGORY_ORDER: readonly SkillCategory[] = ['common', 'sword', 'axe', 'bow', 'staff']
+const getSkillCategoryLabel = (category: SkillCategory): string =>
+  category === 'common' ? '공통' : PLAYER_WEAPON_LINE_LABEL[category]
 const PANEL_MARGIN = 16
 
 export const createPlayerSkillOverlay = ({
@@ -42,7 +58,9 @@ export const createPlayerSkillOverlay = ({
   profile,
   getIsOpen,
   onRequestOpenChange,
-  onRequestProfileChange
+  onRequestProfileChange,
+  getEquippedWeaponLine,
+  onRequestUseSkill
 }: CreatePlayerSkillOverlayInput): PlayerSkillOverlay => {
   const overlayRoot = document.createElement('div')
   const backdropButton = document.createElement('button')
@@ -59,6 +77,7 @@ export const createPlayerSkillOverlay = ({
   const infoJob = document.createElement('div')
   const infoLevel = document.createElement('div')
   const infoHint = document.createElement('div')
+  const tabBar = document.createElement('div')
   const skillGrid = document.createElement('div')
   const footerElement = document.createElement('div')
   const skillRows: HTMLButtonElement[] = []
@@ -71,8 +90,13 @@ export const createPlayerSkillOverlay = ({
   // 공통 스킬, 그다음 무기 계열마다 해금 레벨 순(playerSkills.ts)
   const visibleSkillEntries = PLAYER_SKILL_IDS_IN_DISPLAY_ORDER.map((skillId) => ({
     skillId,
-    profileSkillIndex: getPlayerSkillProfileIndex(skillId) ?? -1
+    profileSkillIndex: getPlayerSkillProfileIndex(skillId) ?? -1,
+    category: (getPlayerSkillWeaponLine(skillId) ?? 'common') as SkillCategory
   }))
+  const tabButtons = new Map<SkillCategory, HTMLButtonElement>()
+  let activeCategory: SkillCategory = 'common'
+  let wasOpen = false
+  let lastContentKey = ''
   let panelPosition = { left: 0, top: 0 }
   let hasPanelPosition = false
   let dragState:
@@ -130,8 +154,20 @@ export const createPlayerSkillOverlay = ({
   infoHint.textContent = '레벨업마다 스킬 포인트를 사용해 기술을 성장시킵니다'
 
   skillGrid.className = 'player-skill-overlay__skill-grid'
+  tabBar.className = 'player-skill-overlay__tab-bar'
+  tabBar.setAttribute('role', 'tablist')
+  for (const category of SKILL_CATEGORY_ORDER) {
+    const tabButton = document.createElement('button')
+    tabButton.type = 'button'
+    tabButton.className = 'player-skill-overlay__tab'
+    tabButton.setAttribute('role', 'tab')
+    tabButton.textContent = getSkillCategoryLabel(category)
+    tabButton.addEventListener('click', () => selectCategory(category))
+    tabButtons.set(category, tabButton)
+    tabBar.append(tabButton)
+  }
   footerElement.className = 'player-skill-overlay__footer'
-  footerElement.textContent = '클릭해서 스킬 강화 · Esc로 닫기'
+  footerElement.textContent = '강화 버튼으로 강화 · 더블클릭으로 사용 · Q·W·E·R 칸으로 끌어서 장착 · Esc로 닫기'
 
   for (const skillEntry of visibleSkillEntries) {
     const skill = profile.skills[skillEntry.profileSkillIndex]
@@ -186,7 +222,21 @@ export const createPlayerSkillOverlay = ({
   headerRow.append(titleGroup, closeButton)
   closeButton.append(closeIcon)
   infoCard.append(infoName, infoJob, infoLevel, infoHint)
-  panelBody.append(headerRow, infoCard, skillGrid, footerElement)
+  panelBody.append(headerRow, infoCard, tabBar, skillGrid, footerElement)
+
+  // 고른 종류의 스킬만 보인다.
+  function selectCategory(category: SkillCategory) {
+    activeCategory = category
+    for (const [tabCategory, tabButton] of tabButtons) {
+      const isActive = tabCategory === category
+      tabButton.classList.toggle('player-skill-overlay__tab--active', isActive)
+      tabButton.setAttribute('aria-selected', String(isActive))
+    }
+    visibleSkillEntries.forEach((entry, index) => {
+      skillRows[index].hidden = entry.category !== category
+    })
+  }
+  selectCategory(activeCategory)
   panel.append(panelBody)
   overlayRoot.append(backdropButton, panel)
   mountElement.append(overlayRoot)
@@ -263,21 +313,35 @@ export const createPlayerSkillOverlay = ({
     overlayRoot.setAttribute('aria-hidden', String(!isOpen))
 
     if (!isOpen) {
+      wasOpen = false
       stopDragging()
       backdropButton.hidden = true
       panel.hidden = true
       return
     }
 
+    // 열 때마다 지금 든 무기의 탭부터
+    if (!wasOpen) {
+      wasOpen = true
+      const weaponLine = getEquippedWeaponLine()
+      selectCategory(weaponLine && SKILL_CATEGORY_ORDER.includes(weaponLine) ? weaponLine : 'common')
+    }
+
     const availableWidth = Math.max(1, window.innerWidth - OVERLAY_MARGIN * 2)
-    const availableHeight = Math.max(1, window.innerHeight - OVERLAY_MARGIN * 2)
-    const panelWidth = clamp(availableWidth, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH)
-    const panelHeight = clamp(availableHeight, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT)
+    const hudReservedHeight = HUD_RESERVED_HEIGHT * uiScale
+    const availableHeight = Math.max(
+      1,
+      window.innerHeight - OVERLAY_MARGIN * 2 - hudReservedHeight
+    )
+    // 창은 uiScale 만큼 커져 그려지므로, 화면에 남은 공간을 uiScale 로 나눈 크기 안에서 정한다
+    // (큰 화면에서 UI가 커져도 아래 HUD 스킬 칸을 덮지 않게).
+    const panelWidth = clamp(availableWidth / uiScale, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH)
+    const panelHeight = clamp(availableHeight / uiScale, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT)
     const renderedWidth = panelWidth * uiScale
     const renderedHeight = panelHeight * uiScale
     const defaultPosition = clampPanelPosition(
       (window.innerWidth - renderedWidth) / 2,
-      (window.innerHeight - renderedHeight) / 2,
+      (window.innerHeight - hudReservedHeight - renderedHeight) / 2,
       renderedWidth,
       renderedHeight
     )
@@ -302,6 +366,21 @@ export const createPlayerSkillOverlay = ({
 
     panel.style.left = `${panelPosition.left}px`
     panel.style.top = `${panelPosition.top}px`
+
+    // 내용(글자·아이콘·강화 가능 여부)은 프로필이 바뀌었을 때만 다시 쓴다. 매 프레임 다시 쓰면 칸마다
+    // Lua 호출(프로필 전체를 JSON 으로 넘김)이 돌아 창을 끌 때 크게 버벅였다.
+    const contentKey = JSON.stringify([
+      profile.name,
+      profile.job,
+      profile.level,
+      profile.availableSkillPoints,
+      profile.totalSkillPointsEarned,
+      profile.skills.map((skill) => [skill.level, skill.hotkey, skill.label])
+    ])
+    if (contentKey === lastContentKey) {
+      return
+    }
+    lastContentKey = contentKey
 
     infoName.textContent = profile.name
     infoJob.textContent = profile.job
@@ -341,11 +420,9 @@ export const createPlayerSkillOverlay = ({
             : '강화'
 
       row.classList.toggle('player-skill-overlay__skill-row--locked', !canUpgrade)
-      row.classList.toggle(
-        'player-skill-overlay__skill-row--draggable',
-        isPlayerSkillUnlockedInProfile(profile, skillEntry.skillId)
-      )
-      row.draggable = isPlayerSkillUnlockedInProfile(profile, skillEntry.skillId)
+      const isUnlocked = isPlayerSkillUnlockedInProfile(profile, skillEntry.skillId)
+      row.classList.toggle('player-skill-overlay__skill-row--draggable', isUnlocked)
+      row.draggable = isUnlocked
       row.title = canUpgrade
         ? `${skill.label}을 ${skillPointCost} 포인트로 올립니다`
         : isLevelLocked
@@ -411,7 +488,8 @@ export const createPlayerSkillOverlay = ({
     event.dataTransfer.setData(PLAYER_SKILL_DRAG_MIME_TYPE, skillId)
     event.dataTransfer.setData('text/plain', skillId)
 
-    const icon = skillIcons[skillIndex]
+    // skillIcons 는 줄 순서다(프로필 스킬 번호가 아니다) — 다른 탭의 숨은 아이콘을 넘기면 끌리는 그림이 사라진다.
+    const icon = skillIcons[skillRows.indexOf(row)]
 
     if (icon) {
       event.dataTransfer.setDragImage(
@@ -439,11 +517,38 @@ export const createPlayerSkillOverlay = ({
 
     event.preventDefault()
     event.stopPropagation()
+
+    // 강화는 강화 버튼만 — 줄 전체가 강화면 더블클릭(사용)할 때 포인트를 두 번 쓴다.
+    if (!target.closest('.player-skill-overlay__skill-action')) {
+      return
+    }
+
     const skillIndex = Number(skillButton.dataset.playerSkillIndex)
 
     if (!Number.isNaN(skillIndex)) {
       handleSkillClick(skillIndex)
     }
+  }
+
+  const handlePanelDoubleClick = (event: MouseEvent) => {
+    const target = event.target
+
+    if (!(target instanceof Element) || target.closest('.player-skill-overlay__skill-action')) {
+      return
+    }
+
+    const skillButton = target.closest('button[data-player-skill-index]') as
+      | HTMLButtonElement
+      | null
+    const skillId = skillButton?.dataset.playerSkillId
+
+    if (!skillId) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    onRequestUseSkill(skillId)
   }
 
   const handleBackdropPointerDown = (event: PointerEvent) => {
@@ -492,6 +597,7 @@ export const createPlayerSkillOverlay = ({
   closeButton.addEventListener('pointerdown', handleCloseButtonPointerDown)
   closeButton.addEventListener('click', handleCloseButtonClick)
   panel.addEventListener('click', handlePanelClick)
+  panel.addEventListener('dblclick', handlePanelDoubleClick)
   document.addEventListener('keydown', handleGlobalKeyDown, true)
   for (const skillRow of skillRows) {
     skillRow.addEventListener('dragstart', handleSkillRowDragStart)
@@ -511,6 +617,7 @@ export const createPlayerSkillOverlay = ({
     closeButton.removeEventListener('pointerdown', handleCloseButtonPointerDown)
     closeButton.removeEventListener('click', handleCloseButtonClick)
     panel.removeEventListener('click', handlePanelClick)
+    panel.removeEventListener('dblclick', handlePanelDoubleClick)
     document.removeEventListener('keydown', handleGlobalKeyDown, true)
     for (const skillRow of skillRows) {
       skillRow.removeEventListener('dragstart', handleSkillRowDragStart)

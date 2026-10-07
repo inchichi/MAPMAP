@@ -20,6 +20,8 @@ import {
 } from '../playerExperience'
 import {
   PLAYER_LEVEL_UP_HP_BONUS,
+  PLAYER_LEVEL_UP_MP_BONUS,
+  PLAYER_LEVEL_UP_SKILL_POINTS,
   PLAYER_LEVEL_UP_STAT_POINTS
 } from '../playerProgression'
 
@@ -73,7 +75,9 @@ export const createPlayerExperienceLua = async (
         PLAYER_BASE_EXPERIENCE_TO_LEVEL_UP,
         PLAYER_EXPERIENCE_TO_LEVEL_UP_PER_LEVEL,
         PLAYER_LEVEL_UP_STAT_POINTS,
-        PLAYER_LEVEL_UP_HP_BONUS
+        PLAYER_LEVEL_UP_HP_BONUS,
+        PLAYER_LEVEL_UP_SKILL_POINTS,
+        PLAYER_LEVEL_UP_MP_BONUS
       ),
     close: (): void => {
       if (!input.host) {

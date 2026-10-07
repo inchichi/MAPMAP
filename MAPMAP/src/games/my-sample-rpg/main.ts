@@ -63,6 +63,13 @@ import {
   ensurePlayerLoadoutTestGear
 } from './playerLoadout'
 import { createInitialPlayerProfile } from './playerProfile'
+import { reconcilePlayerProfileWithProgressionRules } from './playerProgression'
+import { createTesterPlayer } from './testerPlayer'
+import {
+  alignPlayerSkillsToCurrentList,
+  removeRetiredItems,
+  removeUnknownSkillSlotAssignments
+} from './playerSaveMigration'
 import {
   PLAYER_SAVE_STATE_STORAGE_KEY,
   type PlayerSaveState
@@ -131,7 +138,8 @@ import type {
 } from './rendering/createPixiTiledMapView'
 import './styles.css'
 import { HERBALIST_STOCK_ITEM_IDS } from './potionShop'
-import { STARTING_WAYSTONE_IDS } from './waystones'
+import { STARTING_WAYSTONE_IDS, WAYSTONES } from './waystones'
+import { WORLD_MAP_REGIONS } from './worldMap'
 
 type SceneId =
   | 'town'
@@ -381,23 +389,32 @@ const sceneMusicUrls: Record<SceneId, string> = {
   'ice-cave-2f': huntingGroundMusicUrl,
   'boss-arena': huntingGroundMusicUrl
 }
+// 주소 뒤에 ?tester 를 붙이면 확인용 테스터 플레이어로 시작한다(testerPlayer.ts). 이때는 저장하지 않는다.
+const isTesterMode = new URLSearchParams(window.location.search).has('tester')
+const testerPlayer = isTesterMode ? createTesterPlayer() : undefined
 const storedPlayerSaveState = readStoredPlayerSaveState()
-const playerProfile = storedPlayerSaveState?.profile ?? createInitialPlayerProfile()
-// 예전 저장본에는 나중에 추가된 스킬(마법 스킬 등)이 없다 — 빠진 뒤쪽 칸만 초기값으로 채운다.
-{
-  const initialSkills = createInitialPlayerProfile().skills
-  if (playerProfile.skills.length < initialSkills.length) {
-    playerProfile.skills.push(...initialSkills.slice(playerProfile.skills.length))
-  }
-}
+const playerProfile = testerPlayer
+  ? testerPlayer.profile
+  : storedPlayerSaveState
+    ? // 스킬 칸을 지금 스킬 목록에 이름으로 맞춘 뒤(빠진·늘어난 스킬) 성장 규칙으로 포인트를 다시 계산한다.
+      reconcilePlayerProfileWithProgressionRules({
+        ...storedPlayerSaveState.profile,
+        skills: alignPlayerSkillsToCurrentList(storedPlayerSaveState.profile.skills)
+      })
+    : createInitialPlayerProfile()
 // 저장 시점에 사망(hp 0) 상태였다면 로드 후 갇히지 않도록 체력을 회복해 부활시킨다.
 if (playerProfile.hp.current <= 0) {
   playerProfile.hp.current = playerProfile.hp.max
 }
 let playerEquipment =
-  storedPlayerSaveState?.equipment ?? createInitialPlayerEquipment()
+  testerPlayer?.equipment ?? storedPlayerSaveState?.equipment ?? createInitialPlayerEquipment()
 let playerInventory =
-  storedPlayerSaveState?.inventory ?? createInitialPlayerInventory()
+  testerPlayer?.inventory ?? storedPlayerSaveState?.inventory ?? createInitialPlayerInventory()
+// 게임에서 빠진 장비(창·철퇴·단검)는 예전 저장본의 장비 칸·가방에서 지운다.
+;({ equipment: playerEquipment, inventory: playerInventory } = removeRetiredItems({
+  equipment: playerEquipment,
+  inventory: playerInventory
+}))
 // 곡괭이는 기본 지급 — 시작 아이템 도입 전의 세이브를 로드해도 채굴을 바로 테스트할 수 있게.
 ;({ equipment: playerEquipment, inventory: playerInventory } =
   ensurePlayerLoadoutPickaxe({
@@ -405,15 +422,19 @@ let playerInventory =
     inventory: playerInventory
   }))
 // 테스트용(임시): 무기 종류별 기초 무기와 기초 방어구를 가방에 넣어 둔다 — 없는 것만 채운다.
-;({ equipment: playerEquipment, inventory: playerInventory } =
-  ensurePlayerLoadoutTestGear({
-    equipment: playerEquipment,
-    inventory: playerInventory
-  }))
+// 테스터 플레이어는 이미 계열별 최고 등급 무기를 들고 있어 넣지 않는다.
+if (!testerPlayer) {
+  ;({ equipment: playerEquipment, inventory: playerInventory } =
+    ensurePlayerLoadoutTestGear({
+      equipment: playerEquipment,
+      inventory: playerInventory
+    }))
+}
 let playerQuickslots =
-  storedPlayerSaveState?.quickslots ?? createInitialPlayerQuickslots()
-let playerSkillSlots =
-  storedPlayerSaveState?.skillSlots ?? createInitialPlayerSkillSlots()
+  (testerPlayer ? undefined : storedPlayerSaveState?.quickslots) ?? createInitialPlayerQuickslots()
+let playerSkillSlots = removeUnknownSkillSlotAssignments(
+  (testerPlayer ? undefined : storedPlayerSaveState?.skillSlots) ?? createInitialPlayerSkillSlots()
+)
 let playerControlBindings = readStoredPlayerControlBindings()
 // 저장된 월드 상태(퀘스트 진행 + 마지막 씬) 복원 — 없으면 초기 상태.
 const storedWorldState = ((): ReturnType<typeof parseStoredWorldSaveState> => {
@@ -438,9 +459,15 @@ let collectedCoinTileKeysBySceneId: Record<string, string[]> =
   storedWorldState?.collectedCoinTileKeysBySceneId ?? {}
 let defeatedBossIdsBySceneId: Record<string, string[]> =
   storedWorldState?.defeatedBossIdsBySceneId ?? {}
-let discoveredWaystoneIds: string[] = [
-  ...new Set([...STARTING_WAYSTONE_IDS, ...(storedWorldState?.discoveredWaystoneIds ?? [])])
-]
+// 한 번이라도 가 본 씬(세계 지도에서 안 가 본 지역은 안개). 씬에 들어갈 때마다 더한다.
+// 테스트 모드는 모든 지역을 가 본 것으로 시작한다(저장하지 않는다).
+let visitedSceneIds: string[] = isTesterMode
+  ? WORLD_MAP_REGIONS.map((region) => region.sceneId)
+  : storedWorldState?.visitedSceneIds ?? []
+// 테스트 모드는 귀환 표지석을 전부 찾은 상태로 시작한다(저장하지 않으므로 원래 진행에는 남지 않는다).
+let discoveredWaystoneIds: string[] = isTesterMode
+  ? WAYSTONES.map((waystone) => waystone.id)
+  : [...new Set([...STARTING_WAYSTONE_IDS, ...(storedWorldState?.discoveredWaystoneIds ?? [])])]
 // 에디터가 생성·주입한 동적 퀘스트를 런타임 퀘스트 엔진에 등록하고, 진행도 항목을 채운다.
 // 부팅 전에 questLog를 갱신해야 bootstrapScene이 그걸 렌더러로 넘긴다(배지·추적·완료 전부 작동).
 const applyPendingQuests = (): void => {
@@ -528,11 +555,16 @@ const bootstrapScene = async (
   }
 
   // 퀘스트로 열리고 닫히는 오브젝트(광산 지름길 포탈·낙석 등)를 지금 진행도에 맞춘다.
-  const sceneMap = applyQuestGatedEvents(baseSceneMap, questLog)
+  const sceneMap = applyQuestGatedEvents(baseSceneMap, questLog, {
+    openQuestGatedPortals: isTesterMode
+  })
   activeQuestGatedEventKey = getQuestGatedEventKey(baseSceneMap, questLog)
 
   // 현재 씬을 기억한다 — 에디터가 퀘스트를 라이브로 주입하면 이 씬을 다시 부팅해 반영한다.
   activeSceneId = sceneId
+  if (!visitedSceneIds.includes(sceneId)) {
+    visitedSceneIds = [...visitedSceneIds, sceneId]
+  }
   saveWorldState()
   savePlayerState()
 
@@ -629,6 +661,7 @@ const bootstrapScene = async (
     collectedCoinTileKeys: collectedCoinTileKeysBySceneId[sceneId] ?? [],
     defeatedBossIds: defeatedBossIdsBySceneId[sceneId] ?? [],
     getDiscoveredWaystoneIds: () => discoveredWaystoneIds,
+    getVisitedSceneIds: () => visitedSceneIds,
     onWaystoneDiscovered: (waystoneId) => {
       if (!discoveredWaystoneIds.includes(waystoneId)) {
         discoveredWaystoneIds = [...discoveredWaystoneIds, waystoneId]
@@ -1221,6 +1254,10 @@ function readStoredPlayerSaveState(): PlayerSaveState | undefined {
 // 현재 플레이어 상태를 통째로 저장한다. playerProfile 은 렌더러가 in-place로 갱신하는
 // 동일 객체라, 호출 시점의 최신 레벨·경험치·HP/MP·스탯이 그대로 담긴다.
 function savePlayerState(): void {
+  if (isTesterMode) {
+    return
+  }
+
   try {
     window.localStorage.setItem(
       PLAYER_SAVE_STATE_STORAGE_KEY,
@@ -1244,6 +1281,10 @@ window.setInterval(() => {
 
 // 월드 상태(퀘스트 로그 + 현재 씬)를 저장한다. 씬 진입/퀘스트 변화 때마다 호출.
 function saveWorldState(): void {
+  if (isTesterMode) {
+    return
+  }
+
   try {
     window.localStorage.setItem(
       WORLD_SAVE_STATE_STORAGE_KEY,
@@ -1252,7 +1293,8 @@ function saveWorldState(): void {
         questLog,
         collectedCoinTileKeysBySceneId,
         defeatedBossIdsBySceneId,
-        discoveredWaystoneIds
+        discoveredWaystoneIds,
+        visitedSceneIds
       })
     )
   } catch {

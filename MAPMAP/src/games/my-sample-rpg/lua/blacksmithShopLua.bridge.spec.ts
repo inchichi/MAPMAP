@@ -142,7 +142,7 @@ describe('blacksmithShopLua (real wasm)', () => {
     expect(buyResult.message).toBe('구매했습니다.')
 
     // 여러 슬롯 성공
-    for (const merchantSlotIndex of [0, 1, 5, 10, 19]) {
+    for (const merchantSlotIndex of [0, 1, 5, 10, merchant.slots.length - 1]) {
       expect(
         lua.buyBlacksmithShopItem({
           playerInventory: playerWithGold,

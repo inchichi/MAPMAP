@@ -95,4 +95,22 @@ describe('serializeWorldSaveState / parseStoredWorldSaveState', () => {
     delete legacy.defeatedBossIdsBySceneId
     expect(parseStoredWorldSaveState(JSON.stringify(legacy))?.defeatedBossIdsBySceneId).toEqual({})
   })
+
+  it('round-trips visited scenes and loads older saves without them', () => {
+    const raw = serializeWorldSaveState({
+      sceneId: 'town',
+      questLog: createInitialQuestLog(),
+      collectedCoinTileKeysBySceneId: {},
+      visitedSceneIds: ['town', 'cave']
+    })
+
+    expect(parseStoredWorldSaveState(raw)?.visitedSceneIds).toEqual(['town', 'cave'])
+
+    const malformed = JSON.parse(raw)
+    malformed.visitedSceneIds = ['town', 3, 'town']
+    expect(parseStoredWorldSaveState(JSON.stringify(malformed))?.visitedSceneIds).toEqual(['town'])
+
+    delete malformed.visitedSceneIds
+    expect(parseStoredWorldSaveState(JSON.stringify(malformed))?.visitedSceneIds).toEqual([])
+  })
 })

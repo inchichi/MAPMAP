@@ -23,6 +23,16 @@ import { CAMERA_ZOOM_WHEEL_SPEED } from './constants'
 import { isPlayerRollModifierCode } from './tiles'
 import { type PlayerRollInputState } from './types'
 
+// 브라우저 확대/축소 단축키(Ctrl/⌘ 와 함께)
+const BROWSER_ZOOM_KEY_CODES: ReadonlySet<string> = new Set([
+  'Equal',
+  'Minus',
+  'NumpadAdd',
+  'NumpadSubtract',
+  'Digit0',
+  'Numpad0'
+])
+
 export type InputHandlersContext = {
   app: Application
   cameraTargetCharacterId: string
@@ -125,6 +135,12 @@ export const createInputHandlers = (ctx: InputHandlersContext) => {
   } = ctx
 
   const handleKeyDown = (event: KeyboardEvent) => {
+    // 게임 중에는 브라우저 확대/축소(Ctrl + -/+/0)를 막는다 — 실수로 눌러 화면 전체가 작아지는 일을 막는다.
+    if ((event.ctrlKey || event.metaKey) && BROWSER_ZOOM_KEY_CODES.has(event.code)) {
+      event.preventDefault()
+      return
+    }
+
     if (isEditableUiTarget(event.target)) {
       return
     }
@@ -196,11 +212,8 @@ export const createInputHandlers = (ctx: InputHandlersContext) => {
       if (!event.repeat) {
         event.preventDefault()
 
-        if (mapOverlay.getIsExpanded()) {
-          mapOverlay.setExpanded(false)
-        } else {
-          mapOverlay.toggleVisible()
-        }
+        // M: 좌상단 미니맵은 늘 켜 두고, 전체 지도를 펼치고 닫는다.
+        mapOverlay.toggleExpanded()
       }
 
       return
@@ -218,6 +231,16 @@ export const createInputHandlers = (ctx: InputHandlersContext) => {
         requestPlayerPortalTransition()
       }
 
+      return
+    }
+
+    // 메이플처럼 포탈 위에서 위쪽 이동 키(↑)를 누르면 포탈을 탄다. 포탈 위가 아니면 평소처럼 위로 걷는다.
+    if (
+      code === getCurrentPlayerControlBindings()['move-up'] &&
+      !event.repeat &&
+      requestPlayerPortalTransition()
+    ) {
+      event.preventDefault()
       return
     }
 
@@ -447,7 +470,8 @@ export const createInputHandlers = (ctx: InputHandlersContext) => {
   const handleViewportWheel = (event: WheelEvent) => {
     event.preventDefault()
 
-    if (event.deltaY === 0) {
+    // Ctrl + 휠·터치패드 핀치는 카메라 줌으로 쓰지 않는다(브라우저 줌은 handleWindowWheel 이 막는다).
+    if (event.deltaY === 0 || event.ctrlKey) {
       return
     }
 
@@ -470,10 +494,18 @@ export const createInputHandlers = (ctx: InputHandlersContext) => {
     app.start()
   }
 
+  // 게임 화면 밖(HUD·창 위)에서도 Ctrl + 휠·핀치로 브라우저가 축소되지 않게 막는다.
+  const handleWindowWheel = (event: WheelEvent) => {
+    if (event.ctrlKey) {
+      event.preventDefault()
+    }
+  }
+
   return {
     handleKeyDown,
     handleKeyUp,
     handleViewportWheel,
+    handleWindowWheel,
     handleVisibilityChange,
     handleWindowBlur,
     handleWindowResize

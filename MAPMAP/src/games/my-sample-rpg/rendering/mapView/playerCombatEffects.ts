@@ -67,9 +67,14 @@ import { type CollisionRect } from '../characterCollision'
 import { createGameSoundEffects } from '../createGameSoundEffects'
 import { EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE } from './constants'
 import { type RenderedCharacterNode } from './types'
+import { getMagicFacing, type LpcMagicEffects } from './lpcMagicEffects'
 
 export type PlayerCombatEffectsContext = {
   map: ParsedTiledMap
+  // 마법·화살이 겨눌 몬스터를 골랐다 — 머리 위 타겟 표시(combatIndicators.ts)
+  onPlayerTargetSelected: (monsterId: string) => void
+  // 마법 손그림(Extended LPC Magic Pack) 재생
+  lpcMagic: LpcMagicEffects
   wallTiles: ReturnType<typeof createWallTileLookup>
   gameSoundEffects: ReturnType<typeof createGameSoundEffects>
   renderedCharacters: Map<string, RenderedCharacterNode>
@@ -78,7 +83,6 @@ export type PlayerCombatEffectsContext = {
   characterPixelWidth: number
   characterPixelHeight: number
   applyDamageToMonster: (characterId: string, damage: number, now: number) => void
-  createPixelCollisionRectFromCharacter: (character: CharacterState) => CollisionRect
   getCharacterPixelCenter: (character: CharacterState) => { x: number; y: number }
   getCharacterStateById: (characterId: string) => CharacterState
   isMonsterCharacter: (character: CharacterState) => boolean
@@ -99,7 +103,9 @@ export type PlayerCombatEffectsContext = {
 
 export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
   const {
+    onPlayerTargetSelected,
     map,
+    lpcMagic,
     wallTiles,
     gameSoundEffects,
     renderedCharacters,
@@ -108,7 +114,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     characterPixelWidth,
     characterPixelHeight,
     applyDamageToMonster,
-    createPixelCollisionRectFromCharacter,
     getCharacterPixelCenter,
     getCharacterStateById,
     isMonsterCharacter,
@@ -129,14 +134,13 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
 
   // 무기별 기본 공격 발사체(화살·에너지볼). 이동/수명은 playerProjectile.ts 순수 로직,
   // 여기는 스프라이트·벽/몬스터 판정·데미지 배선만 담당한다.
-  // 에너지볼트(마법 공격)는 targetId 몬스터를 따라가고, reticle 이 그 몬스터 발밑에 조준 표시를 띄운다.
+  // 에너지볼트(마법 공격)는 targetId 몬스터를 따라간다.
   const activePlayerProjectiles = new Map<
     string,
     {
       state: PlayerProjectileState
       sprite: Container
       targetId?: string
-      reticle?: Container
       // 마법 발사체: 명중 시 데미지와 스킬 효과(빙결·폭발)를 이 값으로 처리한다.
       magic?: { skillId?: string; skillLevel: number; damage: number }
       physicalDamage?: number
@@ -209,20 +213,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     return container
   }
 
-  // 조준 표시: 대상 몬스터 발밑의 납작한 링 + 네 귀퉁이 눈금.
-  const createMagicTargetReticle = (): Container => {
-    const container = new Container()
-    const ring = new Graphics()
-    ring.ellipse(0, 0, 15, 6)
-    ring.stroke({ color: 0xc9b6ff, width: 1.5, alpha: 0.9 })
-    for (const [x, y] of [[-19, 0], [19, 0], [0, -8], [0, 8]]) {
-      ring.circle(x, y, 1.5)
-      ring.fill({ color: 0xe9e0ff, alpha: 0.95 })
-    }
-    container.addChild(ring)
-    return container
-  }
-
   const MAGIC_IMPACT_DURATION_MILLISECONDS = 260
   // 명중 순간의 빛 번짐(색·크기는 마법마다).
   const spawnMagicImpact = (x: number, y: number, now: number, color: number, radius = 10) => {
@@ -237,38 +227,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     container.zIndex = Math.round(y + map.tileHeight * 2)
     getDepthSortedLayer()?.addChild(container)
     activeProjectileImpacts.push({ sprite: container, startedAtMilliseconds: now })
-  }
-
-  // 얼음 화살: 하늘색 결정 화살촉 + 서리 꼬리.
-  const createIceBoltProjectileSprite = (rotation: number): Container => {
-    const container = new Container()
-    const tail = new Graphics()
-    tail.poly([-16, 0, -3, -3, 3, 0, -3, 3])
-    tail.fill({ color: 0x9fe0ff, alpha: 0.45 })
-    const shard = new Graphics()
-    shard.poly([-4, -3, 8, 0, -4, 3, -1, 0])
-    shard.fill({ color: 0xe8f9ff })
-    shard.stroke({ color: 0x7fcfff, width: 1 })
-    container.addChild(tail, shard)
-    container.rotation = rotation
-    return container
-  }
-
-  // 불덩이: 겹친 주황·노랑 원 + 뒤로 날리는 불꽃 꼬리.
-  const createFireballProjectileSprite = (rotation: number): Container => {
-    const container = new Container()
-    const tail = new Graphics()
-    tail.poly([-20, 0, -4, -6, 2, 0, -4, 6])
-    tail.fill({ color: 0xff6a2a, alpha: 0.5 })
-    const outer = new Graphics()
-    outer.circle(0, 0, 7.5)
-    outer.fill({ color: 0xff7a2e, alpha: 0.85 })
-    const inner = new Graphics()
-    inner.circle(1, 0, 4)
-    inner.fill({ color: 0xffe08a })
-    container.addChild(tail, outer, inner)
-    container.rotation = rotation
-    return container
   }
 
   const spawnPlayerProjectile = (
@@ -302,9 +260,10 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
         : kind === 'energy-bolt'
           ? createEnergyBoltProjectileSprite(rotation)
           : kind === 'ice-bolt'
-            ? createIceBoltProjectileSprite(rotation)
+            ? // 얼음 화살은 날아가는 그림 없이 맞은 자리에서 얼음 가시가 솟는다(LPC 마법 그림)
+              new Container()
             : kind === 'fireball'
-              ? createFireballProjectileSprite(rotation)
+              ? lpcMagic.createFireLionProjectile(direction)
               : createEnergyBallProjectileSprite()
 
     playerProjectileCounter += 1
@@ -314,29 +273,16 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     sprite.zIndex = Math.round(state.y + map.tileHeight)
     getDepthSortedLayer()?.addChild(sprite)
 
-    let reticle: Container | undefined
-    if (options.targetId) {
-      reticle = createMagicTargetReticle()
-      reticle.label = `${projectileId}:reticle`
-      getDepthSortedLayer()?.addChild(reticle)
-    }
 
     activePlayerProjectiles.set(projectileId, {
       state,
       sprite,
       targetId: options.targetId,
-      reticle,
       magic: options.magic,
       physicalDamage: options.physicalDamage,
       pierceHitIds: options.pierce ? new Set() : undefined,
       poisonSkillLevel: options.poisonSkillLevel
     })
-  }
-
-  // 대상 몬스터의 발밑(조준 링) 좌표.
-  const getMonsterReticlePosition = (monster: CharacterState) => {
-    const rect = createPixelCollisionRectFromCharacter(monster)
-    return { x: rect.x + rect.width / 2, y: rect.y + rect.height }
   }
 
   // ---------------------------------------------------------------- 마법(시전·마법 공격·마법 스킬)
@@ -348,12 +294,8 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     releaseAtMilliseconds: number
     endAtMilliseconds: number
     facing: CharacterState['facing']
-    color: number
-    effect: Container
-    circle: Graphics
-    orb: Graphics
     release?: (now: number) => void
-    // 플레이어 LPC 동작(지팡이 시전 = thrust, 활 = shoot)
+    // 플레이어 LPC 동작(지팡이 시전 = spellcast, 활 = shoot)
     animation: LpcAnimationName
     windupMilliseconds: number
     recoveryMilliseconds: number
@@ -425,36 +367,12 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
       return undefined
     }
 
+    onPlayerTargetSelected(target.id)
     return { playerCharacter, origin, target }
-  }
-
-  // 마법진(발밑 회전 고리 + 룬 점) + 지팡이 끝 마력 구슬.
-  const createPlayerMagicCastEffect = (color: number) => {
-    const effect = new Container()
-    effect.label = 'player:magic-cast'
-    const circle = new Graphics()
-    circle.ellipse(0, 0, 22, 9)
-    circle.stroke({ color, width: 1.5, alpha: 0.9 })
-    circle.ellipse(0, 0, 15, 6)
-    circle.stroke({ color: 0xffffff, width: 1, alpha: 0.55 })
-    for (let index = 0; index < 6; index += 1) {
-      const angle = (Math.PI * 2 * index) / 6
-      circle.circle(Math.cos(angle) * 22, Math.sin(angle) * 9, 1.6)
-      circle.fill({ color: 0xffffff, alpha: 0.9 })
-    }
-    const orb = new Graphics()
-    orb.circle(0, 0, 6)
-    orb.fill({ color, alpha: 0.45 })
-    orb.circle(0, 0, 3)
-    orb.fill({ color: 0xffffff })
-    effect.addChild(circle, orb)
-    getDepthSortedLayer()?.addChild(effect)
-    return { effect, circle, orb }
   }
 
   const beginPlayerMagicCast = (
     now: number,
-    color: number,
     origin: { x: number; y: number },
     target: { x: number; y: number },
     release: (now: number) => void,
@@ -462,7 +380,8 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
       animation?: LpcAnimationName
       windupMilliseconds?: number
       recoveryMilliseconds?: number
-      showMagicCircle?: boolean
+      // 활 쏘기는 시전 소리 없이 동작만
+      playCastSound?: boolean
     } = {}
   ) => {
     const windup = options.windupMilliseconds ?? PLAYER_MAGIC_CAST_WINDUP_MILLISECONDS
@@ -476,37 +395,30 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     setCharacterStates(getCharacterStates().map((character) =>
       character.id === PLAYER_CHARACTER_ID ? { ...playerCharacter, facing } : character
     ))
-    const { effect, circle, orb } = createPlayerMagicCastEffect(color)
-    // 활 쏘기는 마법진·마력 구슬 없이 동작만.
-    effect.visible = options.showMagicCircle ?? true
     playerMagicCast = {
       startedAtMilliseconds: now,
       releaseAtMilliseconds: now + windup,
       endAtMilliseconds: now + windup + recovery,
       facing,
-      color,
-      effect,
-      circle,
-      orb,
       release,
-      animation: options.animation ?? 'thrust',
+      animation: options.animation ?? 'spellcast',
       windupMilliseconds: windup,
       recoveryMilliseconds: recovery
     }
-    if (options.showMagicCircle ?? true) {
+    if (options.playCastSound ?? true) {
       gameSoundEffects.play('playerSkill')
     }
     getSyncPlayerCharacterVisual()(now)
     updatePlayerMagicCast(now)
   }
 
-  // 지팡이 끝(마력 구슬·발사 지점) — LPC 찌르기 동작의 발동 프레임에서 잰 지팡이 머리 위치
+  // 마법이 나가는 곳 — LPC 시전(spellcast) 동작에서 두 손을 가장 높이 든 프레임의 손 사이
   // (캐릭터 중심 기준 픽셀).
   const STAFF_TIP_OFFSET_BY_FACING: Record<string, { x: number; y: number }> = {
-    up: { x: 18, y: -55 },
-    left: { x: -31, y: -35 },
-    down: { x: -3, y: 14 },
-    right: { x: 30, y: -35 }
+    up: { x: 0, y: -30 },
+    left: { x: -12, y: -24 },
+    down: { x: 0, y: -22 },
+    right: { x: 12, y: -24 }
   }
   const getPlayerStaffTipPosition = (facing: CharacterState['facing']) => {
     const center = getCharacterPixelCenter(getCharacterStateById(PLAYER_CHARACTER_ID))
@@ -522,8 +434,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     }
 
     if (getPlayerProfile().hp.current === 0 || now >= cast.endAtMilliseconds) {
-      cast.effect.removeFromParent()
-      cast.effect.destroy({ children: true })
       playerMagicCast = undefined
       return
     }
@@ -534,31 +444,12 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
       release(now)
     }
 
-    const feet = getMonsterReticlePosition(getCharacterStateById(PLAYER_CHARACTER_ID))
-    const windup = Math.min(1, (now - cast.startedAtMilliseconds) / cast.windupMilliseconds)
-    const fade =
-      now < cast.releaseAtMilliseconds
-        ? 1
-        : 1 - (now - cast.releaseAtMilliseconds) / cast.recoveryMilliseconds
-    // 마법진: 발밑에서 펼쳐지며 천천히 돈다(납작한 원이라 회전 대신 점들을 흐르게 보이도록 skew).
-    cast.circle.position.set(feet.x, feet.y - 2)
-    cast.circle.scale.set(0.4 + 0.6 * windup)
-    cast.circle.skew.set(0, Math.sin(now / 160) * 0.12)
-    cast.circle.alpha = 0.95 * fade
-    // 구슬: 모이며 커지다 발동 순간 가장 밝다.
-    const tip = getPlayerStaffTipPosition(cast.facing)
-    cast.orb.position.set(tip.x, tip.y)
-    cast.orb.scale.set(0.5 + windup * 0.9 + 0.08 * Math.sin(now / 40))
-    cast.orb.alpha = fade
-    cast.effect.zIndex = Math.round(feet.y + map.tileHeight)
   }
 
   const clearPlayerMagicCast = () => {
     if (!playerMagicCast) {
       return
     }
-    playerMagicCast.effect.removeFromParent()
-    playerMagicCast.effect.destroy({ children: true })
     playerMagicCast = undefined
   }
 
@@ -635,7 +526,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     playerMagicAttackReadyAtMilliseconds = now + PLAYER_MAGIC_ATTACK_COOLDOWN_MILLISECONDS
     beginPlayerMagicCast(
       now,
-      MAGIC_COLOR.arcane,
       origin,
       target ?? getPlayerFacingPoint(playerCharacter, origin),
       () =>
@@ -657,7 +547,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     playerMagicAttackReadyAtMilliseconds = now + PLAYER_MAGIC_ATTACK_COOLDOWN_MILLISECONDS
     beginPlayerMagicCast(
       now,
-      0xffffff,
       origin,
       target ?? getPlayerFacingPoint(playerCharacter, origin),
       () => {
@@ -668,7 +557,7 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
         animation: 'shoot',
         windupMilliseconds: PLAYER_BOW_DRAW_MILLISECONDS,
         recoveryMilliseconds: PLAYER_BOW_RECOVERY_MILLISECONDS,
-        showMagicCircle: false
+        playCastSound: false
       }
     )
   }
@@ -719,15 +608,15 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     )
 
     if (skillId === PLAYER_ICE_BOLT_SKILL_ID) {
-      beginPlayerMagicCast(now, MAGIC_COLOR.ice, prepared.origin, prepared.target, () =>
+      beginPlayerMagicCast(now, prepared.origin, prepared.target, () =>
         fireHomingMagicProjectile('ice-bolt', targetId, { skillId, skillLevel, damage })
       )
     } else if (skillId === PLAYER_FIREBALL_SKILL_ID) {
-      beginPlayerMagicCast(now, MAGIC_COLOR.fire, prepared.origin, prepared.target, () =>
+      beginPlayerMagicCast(now, prepared.origin, prepared.target, () =>
         fireHomingMagicProjectile('fireball', targetId, { skillId, skillLevel, damage })
       )
     } else {
-      beginPlayerMagicCast(now, MAGIC_COLOR.lightning, prepared.origin, prepared.target, (releaseNow) =>
+      beginPlayerMagicCast(now, prepared.origin, prepared.target, (releaseNow) =>
         releaseChainLightning(targetId, skillLevel, damage, releaseNow)
       )
     }
@@ -774,7 +663,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     const aimPoint = target ?? getPlayerFacingPoint(playerCharacter, origin)
     beginPlayerMagicCast(
       now,
-      0xffffff,
       origin,
       aimPoint,
       () => {
@@ -800,48 +688,20 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
         animation: 'shoot',
         windupMilliseconds: PLAYER_BOW_DRAW_MILLISECONDS,
         recoveryMilliseconds: PLAYER_BOW_RECOVERY_MILLISECONDS,
-        showMagicCircle: false
+        playCastSound: false
       }
     )
     return true
   }
 
   // ---- 체인 라이트닝: 즉발. 지팡이 끝 → 첫 대상 → 가까운 적들로 번개가 튄다 ----
-  const activeLightningArcs: Array<{ graphics: Graphics; startedAtMilliseconds: number }> = []
-  const LIGHTNING_ARC_DURATION_MILLISECONDS = 280
-
-  const drawLightningArc = (
-    graphics: Graphics,
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-    seed: number
-  ) => {
-    // 끝점 사이를 8마디로 나눠 직각 방향으로 흔든 지그재그. seed 로 매번 모양이 달라진다.
-    const points: number[] = []
-    const dx = to.x - from.x
-    const dy = to.y - from.y
-    const length = Math.hypot(dx, dy) || 1
-    const nx = -dy / length
-    const ny = dx / length
-    for (let index = 0; index <= 8; index += 1) {
-      const t = index / 8
-      const jitter =
-        index === 0 || index === 8 ? 0 : Math.sin(seed * 12.9898 + index * 78.233) * 7
-      points.push(from.x + dx * t + nx * jitter, from.y + dy * t + ny * jitter)
-    }
-    graphics.poly(points, false)
-    graphics.stroke({ color: 0x8fb4ff, width: 4, alpha: 0.55 })
-    graphics.poly(points, false)
-    graphics.stroke({ color: 0xfffbe0, width: 1.6, alpha: 1 })
-  }
-
   function releaseChainLightning(
     targetId: string,
     skillLevel: number,
     damage: number,
     now: number
   ) {
-    const { playerCharacter, target } = resolveMagicReleaseTarget(targetId)
+    const { target } = resolveMagicReleaseTarget(targetId)
 
     if (!target) {
       return
@@ -852,20 +712,10 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
       candidates: getLivingMonsterMagicPoints(),
       jumpCount: getChainLightningJumpCount(skillLevel)
     })
-    const graphics = new Graphics()
-    graphics.label = 'player:chain-lightning'
-    let previous = getPlayerStaffTipPosition(playerCharacter.facing)
-    chain.forEach((point, index) => {
-      drawLightningArc(graphics, previous, point, now + index)
-      previous = point
-    })
-    graphics.zIndex = Math.round(Math.max(...chain.map((point) => point.y)) + map.tileHeight * 2)
-    getDepthSortedLayer()?.addChild(graphics)
-    activeLightningArcs.push({ graphics, startedAtMilliseconds: now })
-
+    // 맞은 적마다 번개 발톱이 내리꽂힌다(LPC 마법 그림).
     chain.forEach((point, index) => {
       applyDamageToMonster(point.id, getChainLightningHitDamage(damage, index), now)
-      spawnMagicImpact(point.x, point.y, now, MAGIC_COLOR.lightning, 8)
+      lpcMagic.play('lightning-claw', point.x, point.y + 10, { scale: 0.6, durationMilliseconds: 520 })
     })
   }
 
@@ -878,7 +728,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     burnNextTickAtMilliseconds: number
     burnDamagePerTick: number
     burnIntervalMilliseconds: number
-    frost?: Graphics
   }
   const monsterMagicStatuses = new Map<string, MonsterMagicStatus>()
 
@@ -977,31 +826,7 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
         }
       }
 
-      // 얼음 껍질: 몬스터 발밑~몸통을 덮는 반투명 결정.
-      if (frozen && !status.frost) {
-        const frost = new Graphics()
-        frost.roundRect(-14, -26, 28, 28, 6)
-        frost.fill({ color: 0xcdeeff, alpha: 0.32 })
-        frost.stroke({ color: 0xe8f8ff, width: 1, alpha: 0.8 })
-        frost.poly([-9, -22, -4, -12, -11, -8])
-        frost.fill({ color: 0xffffff, alpha: 0.5 })
-        frost.label = `${monsterId}:frost`
-        getDepthSortedLayer()?.addChild(frost)
-        status.frost = frost
-      }
-      if (status.frost) {
-        if (!frozen) {
-          status.frost.removeFromParent()
-          status.frost.destroy()
-          status.frost = undefined
-        } else {
-          const feet = getMonsterReticlePosition(getCharacterStateById(monsterId))
-          status.frost.position.set(feet.x, feet.y)
-          status.frost.zIndex = Math.round(feet.y + map.tileHeight + 1)
-        }
-      }
-
-      if (defeated || (!frozen && !burning && !status.frost)) {
+      if (defeated || (!frozen && !burning)) {
         if (node) {
           node.sprite.tint = 0xffffff
         }
@@ -1009,31 +834,11 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
       }
     }
 
-    for (let index = activeLightningArcs.length - 1; index >= 0; index -= 1) {
-      const arc = activeLightningArcs[index]
-      const progress = (now - arc.startedAtMilliseconds) / LIGHTNING_ARC_DURATION_MILLISECONDS
-      if (progress >= 1) {
-        arc.graphics.removeFromParent()
-        arc.graphics.destroy()
-        activeLightningArcs.splice(index, 1)
-        continue
-      }
-      // 번쩍임: 처음엔 밝게 깜빡이다 사라진다.
-      arc.graphics.alpha = (1 - progress) * (0.7 + 0.3 * Math.sin(now / 18))
-    }
   }
 
   const clearMagicEffects = () => {
     clearPlayerMagicCast()
-    for (const arc of activeLightningArcs) {
-      arc.graphics.removeFromParent()
-      arc.graphics.destroy()
-    }
-    activeLightningArcs.length = 0
-    for (const status of monsterMagicStatuses.values()) {
-      status.frost?.removeFromParent()
-      status.frost?.destroy()
-    }
+    lpcMagic.clear()
     monsterMagicStatuses.clear()
   }
 
@@ -1055,7 +860,7 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     applyDamageToMonster(targetId, magic.damage, now)
 
     if (state.kind === 'ice-bolt') {
-      spawnMagicImpact(state.x, state.y, now, MAGIC_COLOR.ice, 10)
+      lpcMagic.play('ice-spikes', state.x, state.y + 8, { durationMilliseconds: 520 })
       if (!isMonsterCombatStateDefeated(targetId)) {
         freezeMonster(targetId, getIceBoltFreezeDurationMilliseconds(magic.skillLevel), now)
       }
@@ -1063,7 +868,11 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     }
 
     if (state.kind === 'fireball') {
-      spawnMagicImpact(state.x, state.y, now, MAGIC_COLOR.fire, 22)
+      lpcMagic.play('fire-burst', state.x, state.y + 10, {
+        facing: getMagicFacing(state.direction),
+        scale: 0.6,
+        durationMilliseconds: 560
+      })
       const burn = getFireballBurnDamagePerTick(magic.skillLevel)
       if (!isMonsterCombatStateDefeated(targetId)) {
         igniteMonster(targetId, burn, now)
@@ -1095,8 +904,6 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
     }
     projectile.sprite.removeFromParent()
     projectile.sprite.destroy({ children: true })
-    projectile.reticle?.removeFromParent()
-    projectile.reticle?.destroy({ children: true })
     activePlayerProjectiles.delete(projectileId)
   }
 
@@ -1131,18 +938,8 @@ export const createPlayerCombatEffects = (ctx: PlayerCombatEffectsContext) => {
             center.y,
             deltaMilliseconds
           )
-          const reticlePosition = getMonsterReticlePosition(target)
-          projectile.reticle?.position.set(reticlePosition.x, reticlePosition.y)
-          if (projectile.reticle) {
-            projectile.reticle.zIndex = Math.round(reticlePosition.y - 1)
-            projectile.reticle.rotation = 0
-            projectile.reticle.alpha = 0.75 + 0.25 * Math.sin(now / 90)
-          }
         } else {
           projectile.targetId = undefined
-          projectile.reticle?.removeFromParent()
-          projectile.reticle?.destroy({ children: true })
-          projectile.reticle = undefined
         }
       }
 

@@ -4,8 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   getMonsterExperienceDropAmount,
-  getMonsterGoldDropAmount,
-  getMonsterSkillPointDropAmount
+  getMonsterGoldDropAmount
 } from '../monsterRewards'
 import { createMonsterRewardsLua, type MonsterRewardsLua } from './monsterRewardsLua'
 
@@ -51,9 +50,6 @@ describe('monsterRewardsLua (real wasm bridge)', () => {
       )
       expect(rewards.getMonsterExperienceDropAmount(level)).toBe(
         getMonsterExperienceDropAmount(level)
-      )
-      expect(rewards.getMonsterSkillPointDropAmount(level)).toBe(
-        getMonsterSkillPointDropAmount(level)
       )
     }
   })

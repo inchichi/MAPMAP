@@ -13,9 +13,6 @@ export type PlayerEquipmentIconKey =
   | 'town-crate-sword-right'
   | 'weapon-sword'
   | 'weapon-axe'
-  | 'weapon-spear'
-  | 'weapon-dagger'
-  | 'weapon-mace'
   | 'weapon-staff'
   | 'weapon-bow'
   | 'ui-circle-beige'
@@ -39,12 +36,12 @@ export type PlayerEquipmentItem = {
 // 무기의 기본 공격 방식 — melee: 근접 스윙(기본), bow: 화살 발사, magic: 에너지볼 발사.
 export type PlayerWeaponAttackKind = 'melee' | 'bow' | 'magic'
 
-// 근접 무기의 공격 모션 — slash: 기본 베기, thrust: 창 찌르기, cleave: 도끼 가르기,
-// crush: 철퇴 내려치기, quick-slash: 단검 빠른 긋기. 모션별 판정·이펙트는 rendering/mapView/playerMeleeMotions.ts.
-export type PlayerMeleeMotion = 'slash' | 'thrust' | 'cleave' | 'crush' | 'quick-slash'
+// 근접 무기의 공격 모션 — slash: 기본 베기, cleave: 도끼 가르기.
+// 모션별 판정·이펙트는 rendering/mapView/playerMeleeMotions.ts.
+export type PlayerMeleeMotion = 'slash' | 'cleave'
 
 // 무기 계열 — 직업 대신 이것이 쓸 수 있는 무기 스킬을 정한다(playerSkills.ts).
-export type PlayerWeaponLine = 'sword' | 'spear' | 'axe' | 'mace' | 'dagger' | 'bow' | 'staff'
+export type PlayerWeaponLine = 'sword' | 'axe' | 'bow' | 'staff'
 
 export type PlayerEquipmentItemDefinition = PlayerEquipmentItem & {
   slotId: PlayerEquipmentSlotId
@@ -59,6 +56,9 @@ export type PlayerEquipmentItemDefinition = PlayerEquipmentItem & {
   meleeMotion?: PlayerMeleeMotion
   // 무기 슬롯 아이템의 계열.
   weaponLine?: PlayerWeaponLine
+  // 등급 장비가 색을 바꿔 쓰는 1등급 LPC 그림(scripts/generate-tier-gear-sheets.py 가 이 그림으로 제 몸 그림을 만든다).
+  // 제 몸 그림이 없을 때만 이 그림을 그대로 빌린다.
+  appearanceId?: string
 }
 
 export type PlayerEquipmentSlot = {
@@ -199,51 +199,6 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
     meleeMotion: 'cleave',
     icon: {
       key: 'lpc-weapon:battle-axe',
-      scale: 1
-    }
-  },
-  {
-    id: 'long-spear',
-    attackBonus: 6,
-    slotId: 'weapon',
-    weaponLine: 'spear',
-    label: '장창',
-    level: 2,
-    description: '거리감을 유지하기 좋은 창',
-    price: 280,
-    meleeMotion: 'thrust',
-    icon: {
-      key: 'lpc-weapon:long-spear',
-      scale: 1
-    }
-  },
-  {
-    id: 'quick-dagger',
-    attackBonus: 4,
-    slotId: 'weapon',
-    weaponLine: 'dagger',
-    label: '단검',
-    level: 1,
-    description: '빠른 연속 공격용 무기',
-    price: 180,
-    meleeMotion: 'quick-slash',
-    icon: {
-      key: 'lpc-weapon:quick-dagger',
-      scale: 1
-    }
-  },
-  {
-    id: 'spiked-mace',
-    attackBonus: 9,
-    slotId: 'weapon',
-    weaponLine: 'mace',
-    label: '철퇴',
-    level: 3,
-    description: '강한 타격을 주는 둔기',
-    price: 340,
-    meleeMotion: 'crush',
-    icon: {
-      key: 'lpc-weapon:spiked-mace',
       scale: 1
     }
   },
@@ -407,6 +362,244 @@ export const PLAYER_EQUIPMENT_ITEM_DEFINITIONS: PlayerEquipmentItemDefinition[] 
       key: 'ui-check-beige',
       scale: 1.2
     }
+  },
+  // ── 등급 장비(2등급 = 2장 신전 Lv18, 3등급 = 3장 서리 Lv40) ──
+  // 무기 공격력 = 계열 기준값(1등급 대표 무기) × 등급 배수(3 / 6). 수치 근거는 docs/game-balance.md.
+  {
+    id: 'temple-sword',
+    attackBonus: 18,
+    slotId: 'weapon',
+    weaponLine: 'sword',
+    label: '신전 기사의 검',
+    level: 18,
+    description: '잠긴 신전의 수호자들이 쓰던 검',
+    price: 1080,
+    appearanceId: 'iron-sword',
+    icon: {
+      key: 'lpc-weapon:temple-sword',
+      scale: 1
+    }
+  },
+  {
+    id: 'temple-axe',
+    attackBonus: 21,
+    slotId: 'weapon',
+    weaponLine: 'axe',
+    label: '늪지 전투 도끼',
+    level: 18,
+    description: '잠긴 신전의 수호자들이 쓰던 도끼',
+    price: 1260,
+    meleeMotion: 'cleave',
+    appearanceId: 'battle-axe',
+    icon: {
+      key: 'lpc-weapon:temple-axe',
+      scale: 1
+    }
+  },
+  {
+    id: 'temple-bow',
+    attackBonus: 15,
+    slotId: 'weapon',
+    weaponLine: 'bow',
+    label: '갈대 장궁',
+    level: 18,
+    description: '잠긴 신전의 수호자들이 쓰던 활',
+    price: 900,
+    attackKind: 'bow',
+    appearanceId: 'hunting-bow',
+    icon: {
+      key: 'lpc-weapon:temple-bow',
+      scale: 1
+    }
+  },
+  {
+    id: 'temple-staff',
+    attackBonus: 15,
+    slotId: 'weapon',
+    weaponLine: 'staff',
+    label: '물안개 지팡이',
+    level: 18,
+    description: '잠긴 신전의 수호자들이 쓰던 지팡이',
+    price: 900,
+    attackKind: 'magic',
+    appearanceId: 'magic-staff',
+    icon: {
+      key: 'lpc-weapon:temple-staff',
+      scale: 1
+    }
+  },
+  {
+    id: 'frost-sword',
+    attackBonus: 36,
+    slotId: 'weapon',
+    weaponLine: 'sword',
+    label: '서리 검',
+    level: 40,
+    description: '북쪽 얼음에서 벼린 검',
+    price: 3960,
+    appearanceId: 'iron-sword',
+    icon: {
+      key: 'lpc-weapon:frost-sword',
+      scale: 1
+    }
+  },
+  {
+    id: 'frost-axe',
+    attackBonus: 42,
+    slotId: 'weapon',
+    weaponLine: 'axe',
+    label: '서리 도끼',
+    level: 40,
+    description: '북쪽 얼음에서 벼린 도끼',
+    price: 4620,
+    meleeMotion: 'cleave',
+    appearanceId: 'battle-axe',
+    icon: {
+      key: 'lpc-weapon:frost-axe',
+      scale: 1
+    }
+  },
+  {
+    id: 'frost-bow',
+    attackBonus: 30,
+    slotId: 'weapon',
+    weaponLine: 'bow',
+    label: '서리 활',
+    level: 40,
+    description: '북쪽 얼음에서 벼린 활',
+    price: 3300,
+    attackKind: 'bow',
+    appearanceId: 'hunting-bow',
+    icon: {
+      key: 'lpc-weapon:frost-bow',
+      scale: 1
+    }
+  },
+  {
+    id: 'frost-staff',
+    attackBonus: 30,
+    slotId: 'weapon',
+    weaponLine: 'staff',
+    label: '서리 지팡이',
+    level: 40,
+    description: '북쪽 얼음에서 벼린 지팡이',
+    price: 3300,
+    attackKind: 'magic',
+    appearanceId: 'magic-staff',
+    icon: {
+      key: 'lpc-weapon:frost-staff',
+      scale: 1
+    }
+  },
+  {
+    id: 'temple-armor',
+    defense: 5,
+    slotId: 'armor',
+    label: '신전 사슬 갑옷',
+    level: 18,
+    description: '잠긴 신전의 수호자들이 쓰던 갑옷',
+    price: 750,
+    appearanceId: 'Chain_Armor',
+    icon: {
+      key: 'lpc-gear:temple-armor',
+      scale: 1
+    }
+  },
+  {
+    id: 'temple-helmet',
+    defense: 4,
+    slotId: 'hat',
+    label: '신전 투구',
+    level: 18,
+    description: '잠긴 신전의 수호자들이 쓰던 투구',
+    price: 600,
+    appearanceId: 'Chain_Helmet',
+    icon: {
+      key: 'lpc-gear:temple-helmet',
+      scale: 1
+    }
+  },
+  {
+    id: 'temple-boots',
+    defense: 3,
+    slotId: 'boots',
+    label: '신전 장화',
+    level: 18,
+    description: '잠긴 신전의 수호자들이 쓰던 장화',
+    price: 450,
+    appearanceId: 'leather-boots',
+    icon: {
+      key: 'lpc-gear:temple-boots',
+      scale: 1
+    }
+  },
+  {
+    id: 'temple-charm',
+    defense: 3,
+    slotId: 'accessory',
+    label: '신전 수호 부적',
+    level: 18,
+    description: '잠긴 신전의 수호자들이 쓰던 부적',
+    price: 450,
+    icon: {
+      key: 'lpc-gear:temple-charm',
+      scale: 1
+    }
+  },
+  {
+    id: 'frost-armor',
+    defense: 6,
+    slotId: 'armor',
+    label: '서리 판금 갑옷',
+    level: 40,
+    description: '북쪽 얼음에서 벼린 갑옷',
+    price: 2700,
+    appearanceId: 'Iron_Armor',
+    icon: {
+      key: 'lpc-gear:frost-armor',
+      scale: 1
+    }
+  },
+  {
+    id: 'frost-helmet',
+    defense: 5,
+    slotId: 'hat',
+    label: '서리 투구',
+    level: 40,
+    description: '북쪽 얼음에서 벼린 투구',
+    price: 2250,
+    appearanceId: 'Iron_Helmet',
+    icon: {
+      key: 'lpc-gear:frost-helmet',
+      scale: 1
+    }
+  },
+  {
+    id: 'frost-boots',
+    defense: 4,
+    slotId: 'boots',
+    label: '서리 장화',
+    level: 40,
+    description: '북쪽 얼음에서 벼린 장화',
+    price: 1800,
+    appearanceId: 'leather-boots',
+    icon: {
+      key: 'lpc-gear:frost-boots',
+      scale: 1
+    }
+  },
+  {
+    id: 'frost-charm',
+    defense: 6,
+    slotId: 'accessory',
+    label: '서리 목걸이',
+    level: 40,
+    description: '북쪽 얼음에서 벼린 목걸이',
+    price: 2700,
+    icon: {
+      key: 'lpc-gear:frost-charm',
+      scale: 1
+    }
   }
 ]
 
@@ -521,6 +714,13 @@ export const getEquippedPlayerDefense = (
       : undefined
     return total + (definition?.defense ?? 0)
   }, 0)
+
+// 몬스터에게 맞은 피해에서 방어력을 뺀다. 다만 방어력이 아무리 높아도 원래 피해의
+// PLAYER_MIN_DAMAGE_TAKEN_RATIO 만큼은 들어온다 — 장비를 다 맞추면 무적이 되던 것을 막는다(docs/game-balance.md).
+export const PLAYER_MIN_DAMAGE_TAKEN_RATIO = 0.4
+
+export const getPlayerDamageTaken = (damage: number, defense: number): number =>
+  Math.max(1, Math.ceil(damage * PLAYER_MIN_DAMAGE_TAKEN_RATIO), damage - defense)
 
 export const getPlayerEquipmentItemDefinitionById = (
   itemId: string

@@ -2,15 +2,12 @@
 // 드롭 인덱스 계산은 monster-equipment-drops.lua(Lua VM)에서 한다. 게임 부팅 시 1회 await로 만들고,
 // 이후 동기 호출(원시값 마샬링이라 가볍다). 정의 배열 + 확률 상수는 TS 데이터로 남는다.
 //
-// RNG 호출 순서 보존: TS는 random()을 확률 게이트에 1회 부르고, 통과한 경우에만 인덱스용으로
-// random()을 다시 부른다. 그래서 확률 게이트는 이 래퍼(첫 random())가 담당하고, Lua에는 인덱스
-// 수학만 둔다.
+// 드롭 종류·등급 고르기는 TS rollMonsterDrop 그대로 쓰고, 후보 인덱스 계산만 Lua 에 맡긴다.
 
 import monsterEquipmentDropsLuaSource from '../assets/lua/monster-equipment-drops.lua?raw'
 
 import {
-  MONSTER_EQUIPMENT_DROP_CHANCE,
-  MONSTER_EQUIPMENT_DROP_DEFINITIONS,
+  rollMonsterDrop,
   type MonsterEquipmentDropDefinition
 } from '../monsterEquipmentDrops'
 import {
@@ -19,8 +16,8 @@ import {
 } from './luaLogicHost'
 
 export type MonsterEquipmentDropsLua = {
-  rollMonsterEquipmentDrop: (
-    random?: () => number
+  rollMonsterDrop: (
+    input: Omit<Parameters<typeof rollMonsterDrop>[0], 'pickIndex'>
   ) => MonsterEquipmentDropDefinition | undefined
   close: () => void
 }
@@ -34,23 +31,12 @@ export const createMonsterEquipmentDropsLua = async (
   host.runModule(monsterEquipmentDropsLuaSource, '@monster-equipment-drops.lua')
 
   return {
-    rollMonsterEquipmentDrop: (
-      random: () => number = Math.random
-    ): MonsterEquipmentDropDefinition | undefined => {
-      const chanceRoll = random()
-
-      if (chanceRoll >= MONSTER_EQUIPMENT_DROP_CHANCE) {
-        return undefined
-      }
-
-      const index = host.callNumber(
-        'monster_equipment_drop_index',
-        random(),
-        MONSTER_EQUIPMENT_DROP_DEFINITIONS.length
-      )
-
-      return MONSTER_EQUIPMENT_DROP_DEFINITIONS[index]
-    },
+    rollMonsterDrop: (dropInput) =>
+      rollMonsterDrop({
+        ...dropInput,
+        pickIndex: (indexRoll, count) =>
+          host.callNumber('monster_equipment_drop_index', indexRoll, count)
+      }),
     close: (): void => {
       host.close()
     }

@@ -1,8 +1,7 @@
 -- TS playerProgression.ts → Lua. PlayerProfile(객체)를 받아 레벨업/스탯/스킬 보상 규칙을 계산한다(JSON 마샬링).
 -- 상수 소유는 TS(공식만 Lua): PLAYER_MAX_LEVEL, PLAYER_LEVEL_UP_STAT_POINTS, PLAYER_LEVEL_UP_HP_BONUS,
--- PLAYER_BASE_INTELLIGENCE_STAT, PLAYER_INTELLIGENCE_MP_BONUS_PER_POINT 는 모두 인자로 전달된다.
--- 예외: PLAYER_SKILL_USER_LEVEL_BASE_MANA_BY_LEVEL 은 TS에서 private인 작고 고정된 맵이라 여기 하드코딩한다
---   ({1:12,2:16,3:20,4:24,5:28}, level>5 는 28 + (level-5)*4). TS 동작과 정확히 일치.
+-- PLAYER_LEVEL_UP_SKILL_POINTS, PLAYER_LEVEL_UP_MP_BONUS, PLAYER_BASE_MAX_MANA,
+-- PLAYER_BASE_INTELLIGENCE_STAT, PLAYER_INTELLIGENCE_MP_BONUS_PER_POINT 와 스탯 효과 상한은 모두 인자로 전달된다.
 -- skill_index 는 JS 0-based, Lua skills 배열은 1-based. spend_* 의 실패(undefined)는 json_null 로 반환한다.
 
 -- profile 의 모든 키를 얕게 복사한다(중첩 객체는 호출부에서 새로 만든다 — TS의 spread 패턴).
@@ -41,30 +40,17 @@ function progression_skill_user_level(total_skill_points_earned)
   return math.max(1, math.floor(total_skill_points_earned) + 1)
 end
 
--- ── getPlayerMaxManaBySkillUserLevel ── (작은 고정 맵 하드코딩)
-local SKILL_USER_LEVEL_BASE_MANA_BY_LEVEL = { [1] = 12, [2] = 16, [3] = 20, [4] = 24, [5] = 28 }
-
-function progression_max_mana_by_skill_user_level(skill_user_level)
-  local normalized_level = math.max(1, math.floor(skill_user_level))
-  local base = SKILL_USER_LEVEL_BASE_MANA_BY_LEVEL[normalized_level]
-  if base ~= nil then
-    return base
-  end
-  return SKILL_USER_LEVEL_BASE_MANA_BY_LEVEL[5] + (normalized_level - 5) * 4
+-- ── getPlayerMaxManaForProfile ── 기본 + 레벨당 + 지력 보너스.
+-- mana 는 { base_max_mana, level_up_mp_bonus, base_intelligence_stat, intelligence_mp_bonus_per_point } (TS 상수).
+function progression_max_mana_for_profile(profile, mana)
+  return mana.base_max_mana
+    + (math.max(1, math.floor(profile.level)) - 1) * mana.level_up_mp_bonus
+    + math.max(0, profile.stats.intelligence - mana.base_intelligence_stat) * mana.intelligence_mp_bonus_per_point
 end
 
--- ── getPlayerMaxManaForProfile ──
--- base_intelligence_stat, intelligence_mp_bonus_per_point 는 TS 상수에서 인자로 전달.
-function progression_max_mana_for_profile(profile, base_intelligence_stat, intelligence_mp_bonus_per_point)
-  local skill_user_level = progression_skill_user_level(profile.totalSkillPointsEarned)
-  return progression_max_mana_by_skill_user_level(skill_user_level)
-    + math.max(0, profile.stats.intelligence - base_intelligence_stat) * intelligence_mp_bonus_per_point
-end
-
--- 내부: syncPlayerManaFromSkillProgress — mp.max 가 바뀌면 늘어난 만큼 current 도 올린다.
-local function sync_mana_from_skill_progress(profile, base_intelligence_stat, intelligence_mp_bonus_per_point)
-  local next_mp_max =
-    progression_max_mana_for_profile(profile, base_intelligence_stat, intelligence_mp_bonus_per_point)
+-- 내부: syncPlayerManaFromStats — mp.max 가 바뀌면 늘어난 만큼 current 도 올린다.
+local function sync_mana_from_stats(profile, mana)
+  local next_mp_max = progression_max_mana_for_profile(profile, mana)
 
   if next_mp_max == profile.mp.max then
     return profile
@@ -86,7 +72,9 @@ function progression_grant_level_up_rewards(
   levels,
   max_level,
   level_up_stat_points,
-  level_up_hp_bonus
+  level_up_hp_bonus,
+  level_up_skill_points,
+  level_up_mp_bonus
 )
   local next_levels = math.max(0, math.floor(levels))
   local applied_levels = math.min(next_levels, math.max(0, max_level - profile.level))
@@ -96,46 +84,27 @@ function progression_grant_level_up_rewards(
   end
 
   local next_hp_max = profile.hp.max + applied_levels * level_up_hp_bonus
+  local next_mp_max = profile.mp.max + applied_levels * level_up_mp_bonus
+  local gained_skill_points = applied_levels * level_up_skill_points
 
   local out = shallow_copy(profile)
   out.level = profile.level + applied_levels
   out.statPoints = profile.statPoints + applied_levels * level_up_stat_points
+  out.availableSkillPoints = profile.availableSkillPoints + gained_skill_points
+  out.totalSkillPointsEarned = profile.totalSkillPointsEarned + gained_skill_points
   out.hp = { current = next_hp_max, max = next_hp_max }
+  out.mp = { current = next_mp_max, max = next_mp_max }
   return out
 end
 
--- ── grantPlayerSkillPoints ──
-function progression_grant_skill_points(
-  profile,
-  gained_skill_points,
-  base_intelligence_stat,
-  intelligence_mp_bonus_per_point
-)
-  local normalized_skill_points = math.max(0, math.floor(gained_skill_points))
-
-  if normalized_skill_points == 0 then
-    return profile
+-- ── spendPlayerStatPoint ── (실패 시 json_null)
+-- max_useful_value: 이 값부터는 효과가 늘지 않아 더 찍지 못한다(상한 없는 스탯은 -1).
+function progression_spend_stat_point(profile, stat_id, max_useful_value, mana)
+  if profile.statPoints <= 0 then
+    return json_null
   end
 
-  local next_profile = shallow_copy(profile)
-  next_profile.availableSkillPoints = profile.availableSkillPoints + normalized_skill_points
-  next_profile.totalSkillPointsEarned = profile.totalSkillPointsEarned + normalized_skill_points
-
-  return sync_mana_from_skill_progress(
-    next_profile,
-    base_intelligence_stat,
-    intelligence_mp_bonus_per_point
-  )
-end
-
--- ── spendPlayerStatPoint ── (실패 시 json_null)
-function progression_spend_stat_point(
-  profile,
-  stat_id,
-  base_intelligence_stat,
-  intelligence_mp_bonus_per_point
-)
-  if profile.statPoints <= 0 then
+  if max_useful_value >= 0 and profile.stats[stat_id] >= max_useful_value then
     return json_null
   end
 
@@ -150,11 +119,7 @@ function progression_spend_stat_point(
   local result = shallow_copy(next_profile)
   result.statPoints = profile.statPoints - 1
   if stat_id == 'intelligence' then
-    local synced = sync_mana_from_skill_progress(
-      next_profile,
-      base_intelligence_stat,
-      intelligence_mp_bonus_per_point
-    )
+    local synced = sync_mana_from_stats(next_profile, mana)
     result.mp = synced.mp
   else
     result.mp = profile.mp
@@ -167,22 +132,13 @@ end
 local SKILL_REQUIRED_LEVEL_BY_INDEX = {
   [10] = 15, -- cross-slash
   [11] = 38, -- flash-strike
-  [12] = 1, -- lunge
-  [13] = 15, -- spear-sweep
-  [14] = 38, -- thunder-javelin
-  [15] = 1, -- whirlwind
-  [16] = 15, -- ground-splitter
-  [17] = 38, -- execute
-  [18] = 1, -- ground-slam
-  [19] = 15, -- shockwave
-  [20] = 38, -- earthquake
-  [21] = 1, -- vital-strike
-  [22] = 15, -- shadow-step
-  [23] = 38, -- blade-flurry
-  [24] = 15, -- arrow-rain
-  [25] = 38, -- storm-arrows
-  [26] = 15, -- blizzard
-  [27] = 38, -- meteor
+  [12] = 1, -- whirlwind
+  [13] = 15, -- ground-splitter
+  [14] = 38, -- execute
+  [15] = 15, -- arrow-rain
+  [16] = 38, -- storm-arrows
+  [17] = 15, -- blizzard
+  [18] = 38, -- meteor
 }
 
 -- ── spendPlayerSkillPoint ── (실패 시 json_null) skill_index 0-based.

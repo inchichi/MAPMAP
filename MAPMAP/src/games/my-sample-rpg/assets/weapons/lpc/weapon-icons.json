@@ -4,12 +4,17 @@
     "basic-sword",
     "bronze-sword",
     "iron-sword",
-    "quick-dagger",
     "battle-axe",
-    "spiked-mace",
-    "long-spear",
     "pickaxe",
     "magic-staff",
-    "hunting-bow"
+    "hunting-bow",
+    "temple-sword",
+    "temple-axe",
+    "temple-bow",
+    "temple-staff",
+    "frost-sword",
+    "frost-axe",
+    "frost-bow",
+    "frost-staff"
   ]
 }

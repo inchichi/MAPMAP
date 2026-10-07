@@ -59,18 +59,6 @@ const WEAPON_AXE_IMAGE_URL = new URL(
   '../assets/weapons/weapon-axe.png',
   import.meta.url
 ).href
-const WEAPON_SPEAR_IMAGE_URL = new URL(
-  '../assets/weapons/weapon-spear.png',
-  import.meta.url
-).href
-const WEAPON_DAGGER_IMAGE_URL = new URL(
-  '../assets/weapons/weapon-dagger.png',
-  import.meta.url
-).href
-const WEAPON_MACE_IMAGE_URL = new URL(
-  '../assets/weapons/weapon-mace.png',
-  import.meta.url
-).href
 const WEAPON_STAFF_IMAGE_URL = new URL(
   '../assets/weapons/weapon-staff.png',
   import.meta.url
@@ -89,12 +77,6 @@ const WEAPON_SWORD_IMAGE_WIDTH = 337
 const WEAPON_SWORD_IMAGE_HEIGHT = 344
 const WEAPON_AXE_IMAGE_WIDTH = 355
 const WEAPON_AXE_IMAGE_HEIGHT = 343
-const WEAPON_SPEAR_IMAGE_WIDTH = 332
-const WEAPON_SPEAR_IMAGE_HEIGHT = 342
-const WEAPON_DAGGER_IMAGE_WIDTH = 219
-const WEAPON_DAGGER_IMAGE_HEIGHT = 229
-const WEAPON_MACE_IMAGE_WIDTH = 323
-const WEAPON_MACE_IMAGE_HEIGHT = 325
 const WEAPON_STAFF_IMAGE_WIDTH = 328
 const WEAPON_STAFF_IMAGE_HEIGHT = 335
 const OVERLAY_MARGIN = 16
@@ -203,39 +185,6 @@ const EQUIPMENT_ICON_FRAME_BY_KEY: Record<
       y: 0,
       width: WEAPON_AXE_IMAGE_WIDTH,
       height: WEAPON_AXE_IMAGE_HEIGHT
-    }
-  },
-  'weapon-spear': {
-    imageUrl: WEAPON_SPEAR_IMAGE_URL,
-    imageWidth: WEAPON_SPEAR_IMAGE_WIDTH,
-    imageHeight: WEAPON_SPEAR_IMAGE_HEIGHT,
-    frame: {
-      x: 0,
-      y: 0,
-      width: WEAPON_SPEAR_IMAGE_WIDTH,
-      height: WEAPON_SPEAR_IMAGE_HEIGHT
-    }
-  },
-  'weapon-dagger': {
-    imageUrl: WEAPON_DAGGER_IMAGE_URL,
-    imageWidth: WEAPON_DAGGER_IMAGE_WIDTH,
-    imageHeight: WEAPON_DAGGER_IMAGE_HEIGHT,
-    frame: {
-      x: 0,
-      y: 0,
-      width: WEAPON_DAGGER_IMAGE_WIDTH,
-      height: WEAPON_DAGGER_IMAGE_HEIGHT
-    }
-  },
-  'weapon-mace': {
-    imageUrl: WEAPON_MACE_IMAGE_URL,
-    imageWidth: WEAPON_MACE_IMAGE_WIDTH,
-    imageHeight: WEAPON_MACE_IMAGE_HEIGHT,
-    frame: {
-      x: 0,
-      y: 0,
-      width: WEAPON_MACE_IMAGE_WIDTH,
-      height: WEAPON_MACE_IMAGE_HEIGHT
     }
   },
   'weapon-staff': {
@@ -351,6 +300,7 @@ export const createPlayerEquipmentOverlay = ({
   }
   let panelPosition = { left: 0, top: 0 }
   let hasPanelPosition = false
+  let lastContentKey = ''
   let dragState:
     | {
         pointerId: number
@@ -620,10 +570,11 @@ export const createPlayerEquipmentOverlay = ({
     element.style.backgroundRepeat = 'no-repeat'
     element.style.backgroundPosition = '0 0'
     element.style.backgroundSize = '100% 100%'
-    // 에디터 다크 테마와 통일된 차콜 카드 + 브론즈 테두리(색상만 변경, 로직 동일).
-    element.style.backgroundColor = '#1a1a1a'
-    element.style.border = '1px solid rgba(217, 168, 92, 0.28)'
-    element.style.boxShadow = 'inset 0 0 0 1px rgba(255, 255, 255, 0.04)'
+    // 나무 액자 창에 파인 짙은 나무 홈 칸(색상만 변경, 로직 동일).
+    element.style.backgroundColor = '#a3703a'
+    element.style.border = '3px solid'
+    element.style.borderColor = '#6d4b27 #c58747 #c58747 #6d4b27'
+    element.style.boxShadow = 'none'
   }
 
   const hasInventoryDragData = (dataTransfer: DataTransfer): boolean =>
@@ -881,6 +832,23 @@ export const createPlayerEquipmentOverlay = ({
     panel.style.top = `${panelPosition.top}px`
 
     const equipment = getEquipment()
+    // 내용(장비 칸·미리보기·이름)은 장비나 프로필이 바뀌었을 때만 다시 그린다. 매 프레임 다시 그리면
+    // 칸마다 Lua 호출과 미리보기 캔버스 그리기가 돌아 창을 끌 때 크게 버벅였다.
+    const contentKey = JSON.stringify([
+      profile.name,
+      profile.job,
+      profile.level,
+      equipment,
+      equipmentSlotScale,
+      centerCardScale
+    ])
+    if (contentKey === lastContentKey) {
+      if (hoveredEquipmentSlotIndex !== undefined && lastPointerPosition) {
+        syncTooltip()
+      }
+      return
+    }
+    lastContentKey = contentKey
     const getEquippedItemIdBySlotId = (slotId: PlayerEquipmentSlotId) =>
       equipment.slots.find((slot) => slot.id === slotId)?.item?.id
 

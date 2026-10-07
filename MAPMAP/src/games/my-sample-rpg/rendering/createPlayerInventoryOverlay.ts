@@ -24,6 +24,7 @@ import {
   TOWN_TILESET_IMAGE_WIDTH
 } from './townTilesetImageSize'
 import { LPC_GEAR_ICON_FRAMES } from './lpcGearIcons'
+import { TIER_POTION_ICON_FRAMES } from './tierPotionIcons'
 
 type CreatePlayerInventoryOverlayInput = {
   mountElement: HTMLElement
@@ -64,18 +65,6 @@ const WEAPON_AXE_IMAGE_URL = new URL(
   '../assets/weapons/weapon-axe.png',
   import.meta.url
 ).href
-const WEAPON_SPEAR_IMAGE_URL = new URL(
-  '../assets/weapons/weapon-spear.png',
-  import.meta.url
-).href
-const WEAPON_DAGGER_IMAGE_URL = new URL(
-  '../assets/weapons/weapon-dagger.png',
-  import.meta.url
-).href
-const WEAPON_MACE_IMAGE_URL = new URL(
-  '../assets/weapons/weapon-mace.png',
-  import.meta.url
-).href
 const WEAPON_STAFF_IMAGE_URL = new URL(
   '../assets/weapons/weapon-staff.png',
   import.meta.url
@@ -94,12 +83,6 @@ const WEAPON_SWORD_IMAGE_WIDTH = 337
 const WEAPON_SWORD_IMAGE_HEIGHT = 344
 const WEAPON_AXE_IMAGE_WIDTH = 355
 const WEAPON_AXE_IMAGE_HEIGHT = 343
-const WEAPON_SPEAR_IMAGE_WIDTH = 332
-const WEAPON_SPEAR_IMAGE_HEIGHT = 342
-const WEAPON_DAGGER_IMAGE_WIDTH = 219
-const WEAPON_DAGGER_IMAGE_HEIGHT = 229
-const WEAPON_MACE_IMAGE_WIDTH = 323
-const WEAPON_MACE_IMAGE_HEIGHT = 325
 const WEAPON_STAFF_IMAGE_WIDTH = 328
 const WEAPON_STAFF_IMAGE_HEIGHT = 335
 const OVERLAY_MARGIN = 16
@@ -257,39 +240,6 @@ const EQUIPMENT_ICON_FRAME_BY_KEY: Record<
       y: 0,
       width: WEAPON_AXE_IMAGE_WIDTH,
       height: WEAPON_AXE_IMAGE_HEIGHT
-    }
-  },
-  'weapon-spear': {
-    imageUrl: WEAPON_SPEAR_IMAGE_URL,
-    imageWidth: WEAPON_SPEAR_IMAGE_WIDTH,
-    imageHeight: WEAPON_SPEAR_IMAGE_HEIGHT,
-    frame: {
-      x: 0,
-      y: 0,
-      width: WEAPON_SPEAR_IMAGE_WIDTH,
-      height: WEAPON_SPEAR_IMAGE_HEIGHT
-    }
-  },
-  'weapon-dagger': {
-    imageUrl: WEAPON_DAGGER_IMAGE_URL,
-    imageWidth: WEAPON_DAGGER_IMAGE_WIDTH,
-    imageHeight: WEAPON_DAGGER_IMAGE_HEIGHT,
-    frame: {
-      x: 0,
-      y: 0,
-      width: WEAPON_DAGGER_IMAGE_WIDTH,
-      height: WEAPON_DAGGER_IMAGE_HEIGHT
-    }
-  },
-  'weapon-mace': {
-    imageUrl: WEAPON_MACE_IMAGE_URL,
-    imageWidth: WEAPON_MACE_IMAGE_WIDTH,
-    imageHeight: WEAPON_MACE_IMAGE_HEIGHT,
-    frame: {
-      x: 0,
-      y: 0,
-      width: WEAPON_MACE_IMAGE_WIDTH,
-      height: WEAPON_MACE_IMAGE_HEIGHT
     }
   },
   'weapon-staff': {
@@ -624,10 +574,11 @@ export const createPlayerInventoryOverlay = ({
     element.style.backgroundRepeat = 'no-repeat'
     element.style.backgroundPosition = '0 0'
     element.style.backgroundSize = '100% 100%'
-    // 에디터 다크 테마와 통일된 차콜 슬롯(색상만 변경, 슬롯/드래그 로직 동일).
-    element.style.backgroundColor = '#1e1e1e'
-    element.style.border = '1px solid #444444'
-    element.style.boxShadow = 'inset 0 0 0 1px rgba(255, 255, 255, 0.03)'
+    // 나무 액자 창에 파인 짙은 나무 홈 칸(색상만 변경, 슬롯/드래그 로직 동일).
+    element.style.backgroundColor = '#a3703a'
+    element.style.border = '3px solid'
+    element.style.borderColor = '#6d4b27 #c58747 #c58747 #6d4b27'
+    element.style.boxShadow = 'none'
   }
 
   const setCardDimensions = (
@@ -807,7 +758,7 @@ export const createPlayerInventoryOverlay = ({
       case 'crystal-ore':
         return CRYSTAL_ORE_ICON_FRAME
       default:
-        return undefined
+        return TIER_POTION_ICON_FRAMES[itemId]
     }
   }
 
@@ -1004,7 +955,9 @@ export const createPlayerInventoryOverlay = ({
           uiScale,
           window.innerWidth,
           window.innerHeight,
-          hasPanelPosition ? panelPosition : null
+          // 위치는 끄는 동안 handleDocumentPointerMove 가 바로 옮긴다. 위치를 넣으면 끄는 매 프레임
+          // 모든 칸을 다시 그려(칸마다 Lua 호출) 크게 버벅였다.
+          hasPanelPosition
         ])
       : ''
     if (isOpen && wasOpen && layoutKey === lastLayoutKey) {
@@ -1087,13 +1040,11 @@ export const createPlayerInventoryOverlay = ({
       slotButton.hidden = !isVisible
       slotButton.style.display = isVisible ? '' : 'none'
       if (assignedQuickslotIndex !== undefined && isConsumableSlot) {
-        slotButton.style.borderColor = 'rgba(91, 134, 214, 0.42)'
-        slotButton.style.boxShadow =
-          'inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 0 0 1px rgba(91, 134, 214, 0.08)'
+        slotButton.style.borderColor = '#94afc6'
+        slotButton.style.boxShadow = '0 0 0 1px #515f6b'
       } else {
-        slotButton.style.borderColor = 'rgba(111, 89, 58, 0.34)'
-        slotButton.style.boxShadow =
-          'inset 0 1px 0 rgba(255, 255, 255, 0.7)'
+        slotButton.style.borderColor = '#6d4b27 #c58747 #c58747 #6d4b27'
+        slotButton.style.boxShadow = 'none'
       }
       slotButton.style.padding = `${2 * inventorySlotScale}px ${3 * inventorySlotScale}px ${3 * inventorySlotScale}px`
       slotButton.style.fontSize =

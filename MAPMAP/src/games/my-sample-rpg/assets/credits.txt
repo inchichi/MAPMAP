@@ -243,6 +243,10 @@ https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generat
   저작자: bluecarrot16
   라이선스: OGA-BY 3.0+,GPL 3.0,CC-BY 4.0
   https://opengameart.org/content/lpc-more-weapons
+- weapon/magic
+  저작자: bluecarrot16,Dr. Jamgo
+  라이선스: CC0
+  https://opengameart.org/content/lpc-simple-staff
 - weapon/polearm
   저작자: Pierre Vigier (pvigier),Johannes Sjölund (wulax),Inboxninja
   라이선스: CC-BY-SA 3.0
@@ -705,8 +709,16 @@ license: CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
 source: https://github.com/game-icons/icons
 used for: skill icons (src/games/my-sample-rpg/assets/skills/*.png and skills/weapon/*.png), recolored and framed
 authors:
-- Lorc (https://lorcblog.blogspot.com): crossed-swords, saber-slash, spear-hook, thrown-spear, axe-swing, groundbreaker, chopped-skull, hammer-drop, impact-point, earth-crack, knife-thrust, backstab, spinning-blades, smash-arrows, striking-arrows, snowing, meteor-impact, piercing-sword, checked-shield, energy-arrow, sprint, meditation, frozen-arrow, fire-ray, lightning-branches, supersonic-arrow, chemical-arrow
-- Delapouite (https://delapouite.com): sun-spear, split-arrows
+- Lorc (https://lorcblog.blogspot.com): crossed-swords, saber-slash, axe-swing, groundbreaker, chopped-skull, smash-arrows, striking-arrows, snowing, meteor-impact, piercing-sword, checked-shield, energy-arrow, sprint, meditation, frozen-arrow, fire-ray, lightning-branches, supersonic-arrow, chemical-arrow
+- Delapouite (https://delapouite.com): split-arrows
+
+■ lpc-magic-pack
+Extended LPC Magic Pack
+author: Daniel Eddeland (daneeklu) — https://opengameart.org/users/daneeklu
+license: CC-BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0/) / GPL 3.0 (dual licensed)
+source: https://opengameart.org/content/extended-lpc-magic-pack (magic_pack.zip)
+used for: player magic visuals (src/games/my-sample-rpg/assets/vfx/lpc-magic/): fire lion (fireball, meteor), lightning claw (chain lightning), ice spikes (ice bolt), ice tentacle (blizzard). Unmodified sheets.
+downloaded: 2026-10-07
 
 ■ ninja-adventure
 # Ninja Adventure Asset Pack

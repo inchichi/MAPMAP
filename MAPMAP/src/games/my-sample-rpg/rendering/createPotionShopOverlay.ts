@@ -19,6 +19,7 @@ import {
   TOWN_TILESET_IMAGE_WIDTH
 } from './townTilesetImageSize'
 import { LPC_GEAR_ICON_FRAMES } from './lpcGearIcons'
+import { TIER_POTION_ICON_FRAMES } from './tierPotionIcons'
 
 type CreatePotionShopOverlayInput = {
   mountElement: HTMLElement
@@ -82,18 +83,6 @@ const WEAPON_AXE_IMAGE_URL = new URL(
   '../assets/weapons/weapon-axe.png',
   import.meta.url
 ).href
-const WEAPON_SPEAR_IMAGE_URL = new URL(
-  '../assets/weapons/weapon-spear.png',
-  import.meta.url
-).href
-const WEAPON_DAGGER_IMAGE_URL = new URL(
-  '../assets/weapons/weapon-dagger.png',
-  import.meta.url
-).href
-const WEAPON_MACE_IMAGE_URL = new URL(
-  '../assets/weapons/weapon-mace.png',
-  import.meta.url
-).href
 const WEAPON_STAFF_IMAGE_URL = new URL(
   '../assets/weapons/weapon-staff.png',
   import.meta.url
@@ -110,12 +99,6 @@ const WEAPON_SWORD_IMAGE_WIDTH = 337
 const WEAPON_SWORD_IMAGE_HEIGHT = 344
 const WEAPON_AXE_IMAGE_WIDTH = 355
 const WEAPON_AXE_IMAGE_HEIGHT = 343
-const WEAPON_SPEAR_IMAGE_WIDTH = 332
-const WEAPON_SPEAR_IMAGE_HEIGHT = 342
-const WEAPON_DAGGER_IMAGE_WIDTH = 219
-const WEAPON_DAGGER_IMAGE_HEIGHT = 229
-const WEAPON_MACE_IMAGE_WIDTH = 323
-const WEAPON_MACE_IMAGE_HEIGHT = 325
 const WEAPON_STAFF_IMAGE_WIDTH = 328
 const WEAPON_STAFF_IMAGE_HEIGHT = 335
 const POTION_ICON_FRAME_BY_ID = {
@@ -265,39 +248,6 @@ const EQUIPMENT_ICON_FRAME_BY_KEY: Record<
       y: 0,
       width: WEAPON_AXE_IMAGE_WIDTH,
       height: WEAPON_AXE_IMAGE_HEIGHT
-    }
-  },
-  'weapon-spear': {
-    imageUrl: WEAPON_SPEAR_IMAGE_URL,
-    imageWidth: WEAPON_SPEAR_IMAGE_WIDTH,
-    imageHeight: WEAPON_SPEAR_IMAGE_HEIGHT,
-    frame: {
-      x: 0,
-      y: 0,
-      width: WEAPON_SPEAR_IMAGE_WIDTH,
-      height: WEAPON_SPEAR_IMAGE_HEIGHT
-    }
-  },
-  'weapon-dagger': {
-    imageUrl: WEAPON_DAGGER_IMAGE_URL,
-    imageWidth: WEAPON_DAGGER_IMAGE_WIDTH,
-    imageHeight: WEAPON_DAGGER_IMAGE_HEIGHT,
-    frame: {
-      x: 0,
-      y: 0,
-      width: WEAPON_DAGGER_IMAGE_WIDTH,
-      height: WEAPON_DAGGER_IMAGE_HEIGHT
-    }
-  },
-  'weapon-mace': {
-    imageUrl: WEAPON_MACE_IMAGE_URL,
-    imageWidth: WEAPON_MACE_IMAGE_WIDTH,
-    imageHeight: WEAPON_MACE_IMAGE_HEIGHT,
-    frame: {
-      x: 0,
-      y: 0,
-      width: WEAPON_MACE_IMAGE_WIDTH,
-      height: WEAPON_MACE_IMAGE_HEIGHT
     }
   },
   'weapon-staff': {
@@ -1015,10 +965,15 @@ export const createPotionShopOverlay = ({
 
 const renderPotionIcon = (
   element: HTMLElement,
-  itemId: keyof typeof POTION_ICON_FRAME_BY_ID,
+  itemId: string,
   scale: number
 ) => {
-  setBackgroundFrame(element, POTION_ICON_FRAME_BY_ID[itemId], scale)
+  setBackgroundFrame(
+    element,
+    POTION_ICON_FRAME_BY_ID[itemId as keyof typeof POTION_ICON_FRAME_BY_ID] ??
+      TIER_POTION_ICON_FRAMES[itemId],
+    scale
+  )
 }
 
 const renderEquipmentIcon = (

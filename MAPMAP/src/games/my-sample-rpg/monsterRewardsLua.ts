@@ -1,7 +1,6 @@
 import {
   getMonsterGoldDropAmount as getMonsterGoldDropAmountTs,
-  getMonsterExperienceDropAmount as getMonsterExperienceDropAmountTs,
-  getMonsterSkillPointDropAmount as getMonsterSkillPointDropAmountTs
+  getMonsterExperienceDropAmount as getMonsterExperienceDropAmountTs
 } from './monsterRewards'
 
 // 게임 규칙(몬스터 보상)을 "Lua 코드"로 옮긴 것. 호스트(TS)는 이 규칙을 직접 계산하지 않고
@@ -19,16 +18,11 @@ end
 function monster_experience_drop(level)
   return 12 + monster_level(level) * 6
 end
-
-function monster_skill_point_drop(level)
-  return 0 + monster_level(level)
-end
 `
 
 export type MonsterRewardsRules = {
   getMonsterGoldDropAmount: (monsterLevel: number) => number
   getMonsterExperienceDropAmount: (monsterLevel: number) => number
-  getMonsterSkillPointDropAmount: (monsterLevel: number) => number
 }
 
 type LoadDataModule = (source: string) => unknown
@@ -62,11 +56,5 @@ export const createLuaMonsterRewards = (
       loadDataModule,
       `monster_experience_drop(${monsterLevel})`,
       getMonsterExperienceDropAmountTs(monsterLevel)
-    ),
-  getMonsterSkillPointDropAmount: (monsterLevel) =>
-    evaluateRule(
-      loadDataModule,
-      `monster_skill_point_drop(${monsterLevel})`,
-      getMonsterSkillPointDropAmountTs(monsterLevel)
     )
 })

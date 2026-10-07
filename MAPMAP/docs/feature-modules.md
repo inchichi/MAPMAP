@@ -15,16 +15,16 @@ Split a feature by responsibility, not by file type.
 
 | Part | Place | Example (weapon melee motions) |
 | --- | --- | --- |
-| Game data and rules (what a thing is) | Pure TS under `src/games/my-sample-rpg/` (no Pixi, no DOM) | `meleeMotion: 'thrust'` on the item definition and `getEquippedPlayerMeleeMotion` in `playerEquipment.ts` |
-| Feature visuals, timing, and hit rules for the live scene | One new file in `rendering/mapView/` | `rendering/mapView/meleeMotions/thrust.ts` (one file per weapon motion) |
-| Variants of one feature | One shared contract, one module per variant, and one registry | `meleeMotions/meleeMotion.ts` (contract), `thrust.ts` / `cleave.ts` / `crush.ts` / `quickSlash.ts`, and `playerMeleeMotions.ts` (registry) |
-| Wiring | The existing module that owns the flow | `playerActions.ts` plays the effect, `combat.ts` asks for the hit window and hit area |
+| Game data and rules (what a thing is) | Pure TS under `src/games/my-sample-rpg/` (no Pixi, no DOM) | `meleeMotion: 'cleave'` on the item definition and `getEquippedPlayerMeleeMotion` in `playerEquipment.ts` |
+| Feature visuals, timing, and hit rules for the live scene | One new file in `rendering/mapView/` | `rendering/mapView/meleeMotions/cleave.ts` (one file per weapon motion) |
+| Variants of one feature | One shared contract, one module per variant, and one registry | `meleeMotions/meleeMotion.ts` (contract), `cleave.ts` (one per motion), and `playerMeleeMotions.ts` (registry) |
+| Wiring | The existing module that owns the flow | `playerActions.ts` starts the attack motion, `combat.ts` asks for the hit window and hit area |
 | Pure logic tests | `*.test.ts` next to the module | `playerEquipment.test.ts`, `meleeMotions/meleeMotion.test.ts` |
 
 ## Rules
 
 - **Keep the feature's constants, textures, sprites, and cleanup inside its module.** Do not add feature-only constants to `mapView/constants.ts` or feature-only textures to `mapView/resources.ts` or `mapView/types.ts`. Those files are for values shared by many features.
-- **Game rules must not depend on rendering data.** Decide "which weapon thrusts", "how much damage", or "which skill does what" from game data (for example `playerEquipment.ts`), not from sprite manifests or LPC sheet info. Rendering may read game data. Game data must not read rendering data.
+- **Game rules must not depend on rendering data.** Decide "which weapon cleaves", "how much damage", or "which skill does what" from game data (for example `playerEquipment.ts`), not from sprite manifests or LPC sheet info. Rendering may read game data. Game data must not read rendering data.
 - **Use a registry for variants.** When several items share one kind of behavior (weapon motions, monster patterns), define one contract type, write one module per variant, and list them in one registry. Callers ask the registry. Adding a variant must not add a new `if` branch in callers.
 - **Ask one function, not many copies.** If two modules need the same check (for example "which motion does the equipped weapon use?"), add one named function in the module that owns that data and call it from both places. Do not copy the lookup.
 - **Own your lifecycle.** A module that creates sprites or timers must also clear them. Hook its clear function into the existing cleanup path (death, respawn, scene change, `destroy`) so nothing is left behind.

@@ -19,6 +19,8 @@ export type MovementContext = {
   getCameraZoom: () => number
   getScaledMapPixelHeight: () => number
   getScaledMapPixelWidth: () => number
+  // 카메라 왼쪽 위(화면 픽셀). world 를 그만큼 반대로 옮긴다.
+  setCameraOffset: (x: number, y: number) => void
   getCharacterStates: () => CharacterState[]
   setCharacterStates: (value: CharacterState[]) => void
 }
@@ -37,6 +39,7 @@ export const createMovement = (ctx: MovementContext) => {
     getCameraZoom,
     getScaledMapPixelHeight,
     getScaledMapPixelWidth,
+    setCameraOffset,
     getCharacterStates,
     setCharacterStates
   } = ctx
@@ -57,10 +60,7 @@ export const createMovement = (ctx: MovementContext) => {
       getScaledMapPixelHeight() - viewportElement.clientHeight
     )
 
-    viewportElement.scrollTo({
-      left: nextScrollLeft,
-      top: nextScrollTop
-    })
+    setCameraOffset(nextScrollLeft, nextScrollTop)
   }
 
   const getBlockingCollisionRects = (

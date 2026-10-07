@@ -12,8 +12,7 @@ import monsterEquipmentDropsSource from '../assets/lua/monster-equipment-drops.l
 
 import {
   getMonsterGoldDropAmount as tsGetMonsterGoldDropAmount,
-  getMonsterExperienceDropAmount as tsGetMonsterExperienceDropAmount,
-  getMonsterSkillPointDropAmount as tsGetMonsterSkillPointDropAmount
+  getMonsterExperienceDropAmount as tsGetMonsterExperienceDropAmount
 } from '../monsterRewards'
 import {
   createMonsterCombatState as tsCreateMonsterCombatState,
@@ -31,9 +30,7 @@ import {
 } from '../playerExperience'
 import { PLAYER_MAX_LEVEL } from '../playerProfile'
 import {
-  rollMonsterEquipmentDrop as tsRollMonsterEquipmentDrop,
-  MONSTER_EQUIPMENT_DROP_CHANCE,
-  MONSTER_EQUIPMENT_DROP_DEFINITIONS,
+  rollMonsterDrop as tsRollMonsterDrop,
   type MonsterEquipmentDropDefinition
 } from '../monsterEquipmentDrops'
 
@@ -166,13 +163,11 @@ import {
 } from '../playerProfile'
 import {
   grantPlayerLevelUpRewards as tsGrantPlayerLevelUpRewards,
-  grantPlayerSkillPoints as tsGrantPlayerSkillPoints,
   spendPlayerStatPoint as tsSpendPlayerStatPoint,
   spendPlayerSkillPoint as tsSpendPlayerSkillPoint,
   getPlayerSkillPointCost as tsGetPlayerSkillPointCost,
   getPlayerSkillLevelLabel as tsGetPlayerSkillLevelLabel,
   getPlayerSkillUserLevel as tsGetPlayerSkillUserLevel,
-  getPlayerMaxManaBySkillUserLevel as tsGetPlayerMaxManaBySkillUserLevel,
   getPlayerMaxManaForProfile as tsGetPlayerMaxManaForProfile
 } from '../playerProgression'
 import {
@@ -483,11 +478,6 @@ export const getMonsterExperienceDropAmount = (monsterLevel: number): number =>
     ? host.callNumber('monster_rewards_experience', monsterLevel)
     : tsGetMonsterExperienceDropAmount(monsterLevel)
 
-export const getMonsterSkillPointDropAmount = (monsterLevel: number): number =>
-  host
-    ? host.callNumber('monster_rewards_skill_point', monsterLevel)
-    : tsGetMonsterSkillPointDropAmount(monsterLevel)
-
 // ── monsterCombat ──
 export const createMonsterCombatState = (
   monsterLevel = 1,
@@ -562,27 +552,21 @@ export const grantPlayerExperience = (
     : tsGrantPlayerExperience(profile, experienceAmount)
 
 // ── monsterEquipmentDrops ──
-// 확률 게이트와 드롭 정의는 TS, 인덱스 계산만 Lua(난수 호출 순서는 원본과 동일).
-export const rollMonsterEquipmentDrop = (
-  random: () => number = Math.random
+// 드롭 종류·등급 고르기는 TS, 후보 인덱스 계산만 Lua(난수 호출 순서는 원본과 동일).
+export const rollMonsterDrop = (
+  input: Omit<Parameters<typeof tsRollMonsterDrop>[0], 'pickIndex'>
 ): MonsterEquipmentDropDefinition | undefined => {
-  if (!host) {
-    return tsRollMonsterEquipmentDrop(random)
-  }
+  const luaHost = host
 
-  const chanceRoll = random()
-
-  if (chanceRoll >= MONSTER_EQUIPMENT_DROP_CHANCE) {
-    return undefined
-  }
-
-  const index = host.callNumber(
-    'monster_equipment_drop_index',
-    random(),
-    MONSTER_EQUIPMENT_DROP_DEFINITIONS.length
+  return tsRollMonsterDrop(
+    luaHost
+      ? {
+          ...input,
+          pickIndex: (indexRoll, count) =>
+            luaHost.callNumber('monster_equipment_drop_index', indexRoll, count)
+        }
+      : input
   )
-
-  return MONSTER_EQUIPMENT_DROP_DEFINITIONS[index]
 }
 
 // ── playerStatEffects (파생 스탯) ──
@@ -703,14 +687,6 @@ export const grantPlayerLevelUpRewards = (
     ? progression.grantPlayerLevelUpRewards(playerProfile, levels)
     : tsGrantPlayerLevelUpRewards(playerProfile, levels)
 
-export const grantPlayerSkillPoints = (
-  playerProfile: PlayerProfile,
-  gainedSkillPoints: number
-): PlayerProfile =>
-  progression
-    ? progression.grantPlayerSkillPoints(playerProfile, gainedSkillPoints)
-    : tsGrantPlayerSkillPoints(playerProfile, gainedSkillPoints)
-
 export const spendPlayerStatPoint = (
   playerProfile: PlayerProfile,
   statId: PlayerStatId
@@ -744,15 +720,8 @@ export const getPlayerSkillUserLevel = (
     ? progression.getPlayerSkillUserLevel(totalSkillPointsEarned)
     : tsGetPlayerSkillUserLevel(totalSkillPointsEarned)
 
-export const getPlayerMaxManaBySkillUserLevel = (
-  skillUserLevel: number
-): number =>
-  progression
-    ? progression.getPlayerMaxManaBySkillUserLevel(skillUserLevel)
-    : tsGetPlayerMaxManaBySkillUserLevel(skillUserLevel)
-
 export const getPlayerMaxManaForProfile = (
-  playerProfile: Pick<PlayerProfile, 'stats' | 'totalSkillPointsEarned'>
+  playerProfile: Pick<PlayerProfile, 'level' | 'stats'>
 ): number =>
   progression
     ? progression.getPlayerMaxManaForProfile(playerProfile)

@@ -12,31 +12,32 @@ import type { GameSoundEffects } from '../createGameSoundEffects'
 import { AnimatedSprite } from 'pixi.js'
 import { PLAYER_CHARACTER_ID } from '../../characterState'
 import type { CharacterMoveDirection, CharacterState } from '../../characterState'
-import { getEquippedPlayerDefense, getEquippedPlayerMeleeMotion } from '../../playerEquipment'
+import { getEquippedPlayerDefense, getEquippedPlayerMeleeMotion, getPlayerDamageTaken } from '../../playerEquipment'
 import { type PlayerInventory } from '../../playerInventory'
 import { PLAYER_SMASH_SKILL_ID } from '../../playerSmashSkill'
 import { recordMonsterDefeatQuestProgress, type QuestLogState } from '../../questLog'
-import { rollMonsterEquipmentDrop } from '../../monsterEquipmentDrops'
-import { grantPlayerSkillPoints } from '../../playerProgression'
+import { rollMonsterDrop } from '../../lua/luaGameLogic'
 import { type MonsterPatrolState } from '../../monsterPatrol'
 import { applyMonsterDamage, isMonsterDefeated, type MonsterCombatState } from '../../monsterCombat'
-import { getPlayerEquipmentItemDefinitionById, getPlayerSkillDamageById } from '../../lua/luaGameLogic'
+import { getPlayerSkillDamageById } from '../../lua/luaGameLogic'
 import { resolveCharacterInteractionTarget } from '../../interaction/resolveCharacterInteractionTarget'
 import { doCollisionRectsIntersect, type CollisionRect } from '../characterCollision'
 import { DEFAULT_MONSTER_DEATH_SOUND, getMonsterCatalogEntry, type MonsterBehaviorConfig } from '../monsterCatalog'
 import { isBossSummonCharacterId } from '../../bossSkills'
-import { BOSS_RETRY_RESPAWN_DELAY_MILLISECONDS, DAMAGE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, MONSTER_ATTACK_RANGE_TOUCH_TOLERANCE_TILES, MONSTER_CONTACT_DAMAGE_COOLDOWN_MILLISECONDS, MONSTER_CONTACT_DAMAGE_TOUCH_TOLERANCE_TILES, MONSTER_RESPAWN_DELAY_MILLISECONDS, PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES, PLAYER_DAMAGE_INVULNERABILITY_MILLISECONDS, PLAYER_RESPAWN_DELAY_MILLISECONDS, SLASH_VFX_HIT_PADDING_PIXELS, WHITE_SLASH_WIDE_FRAME_BOUNDS, isBossCharacterId } from './constants'
+import { BOSS_RETRY_RESPAWN_DELAY_MILLISECONDS, DAMAGE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, MONSTER_ATTACK_RANGE_TOUCH_TOLERANCE_TILES, MONSTER_CONTACT_DAMAGE_COOLDOWN_MILLISECONDS, MONSTER_CONTACT_DAMAGE_TOUCH_TOLERANCE_TILES, MONSTER_RESPAWN_DELAY_MILLISECONDS, PLAYER_DAMAGE_INVULNERABILITY_MILLISECONDS, PLAYER_RESPAWN_DELAY_MILLISECONDS, SLASH_VFX_HIT_PADDING_PIXELS, WHITE_SLASH_WIDE_FRAME_BOUNDS, isBossCharacterId } from './constants'
 import { getMonsterBehaviorConfig } from './nodes'
 import { getPlayerMeleeMotion } from './playerMeleeMotions'
 import { getFacingDirection, isMeleeMotionHitWindowOpen, type MeleeMotion } from './meleeMotions/meleeMotion'
+import { getPlayerSwordReach } from '../../playerMeleeReach'
 import { createCollisionRectFromCharacter } from './tiles'
 import { type MonsterPigAnimationMode, type MonsterPigBehaviorState, type PlayerHitReactionState, type RenderedCharacterNode } from './types'
 
 export type CombatContext = {
+  // 플레이어 공격이 몬스터에 들어갔다 — 머리 위 타겟 표시(combatIndicators.ts)
+  onPlayerHitMonster: (monsterId: string, now: number) => void
   clearMagicEffects: () => void
   clearPlayerProjectiles: () => void
   clearPlayerProtectSkillEffectSprite: () => void
-  clearPlayerSlashEffectSprite: () => void
   clearPlayerSmashSkillEffectSprites: () => void
   clearPressedInputState: () => void
   createMonsterPigBehaviorState: () => MonsterPigBehaviorState
@@ -76,11 +77,10 @@ export type CombatContext = {
   syncPlayerUiOverlays: () => void
   clearBossEncounter: (bossId: string) => void
   showCharacterDamageText: (characterId: string, message: string, durationMilliseconds: number, style?: TextStyle) => void
-  spawnMonsterEquipmentDrop: (characterId: string, dropDefinition: ReturnType<typeof rollMonsterEquipmentDrop>, position: { x: number; y: number; }, now: number) => void
+  spawnMonsterEquipmentDrop: (characterId: string, dropDefinition: ReturnType<typeof rollMonsterDrop>, position: { x: number; y: number; }, now: number) => void
   spawnMonsterGoldDrop: (characterId: string, amount: number, position: { x: number; y: number; }, now: number) => void
   getCurrentPlayerEquipment: () => PlayerEquipment
   getCurrentQuestLog: () => QuestLogState
-  getPlayerSlashEffectSprite: () => AnimatedSprite | undefined
   getPlayerSmashSkillHitMonsterIds: () => Set<string>
   getPlayerSmashSkillSegments: () => { sprite: AnimatedSprite; delayMilliseconds: number; started: boolean; index: number; }[]
   getPlayerSmashSkillStartedAtMilliseconds: () => number | undefined
@@ -107,10 +107,10 @@ export type CombatContext = {
 
 export const createCombat = (ctx: CombatContext) => {
   const {
+    onPlayerHitMonster,
     clearMagicEffects,
     clearPlayerProjectiles,
     clearPlayerProtectSkillEffectSprite,
-    clearPlayerSlashEffectSprite,
     clearPlayerSmashSkillEffectSprites,
     clearPressedInputState,
     createMonsterPigBehaviorState,
@@ -154,7 +154,6 @@ export const createCombat = (ctx: CombatContext) => {
     spawnMonsterGoldDrop,
     getCurrentPlayerEquipment,
     getCurrentQuestLog,
-    getPlayerSlashEffectSprite,
     getPlayerSmashSkillHitMonsterIds,
     getPlayerSmashSkillSegments,
     getPlayerSmashSkillStartedAtMilliseconds,
@@ -448,7 +447,6 @@ export const createCombat = (ctx: CombatContext) => {
     setPlayerAttackStartedAtMilliseconds(undefined)
     setPlayerAttackResolvedStartedAtMilliseconds(undefined)
     setPlayerAttackFacing(undefined)
-    clearPlayerSlashEffectSprite()
     clearPlayerProtectSkillEffectSprite()
     clearPlayerSmashSkillEffectSprites()
     clearPlayerProjectiles()
@@ -499,7 +497,6 @@ export const createCombat = (ctx: CombatContext) => {
     setPlayerAttackStartedAtMilliseconds(undefined)
     setPlayerAttackResolvedStartedAtMilliseconds(undefined)
     setPlayerAttackFacing(undefined)
-    clearPlayerSlashEffectSprite()
     clearPlayerProtectSkillEffectSprite()
     clearPlayerSmashSkillEffectSprites()
     clearPlayerProjectiles()
@@ -571,9 +568,9 @@ export const createCombat = (ctx: CombatContext) => {
       return false
     }
 
-    // 장비 방어력 — 몬스터가 준 피해만 줄인다(최소 1은 들어온다).
+    // 장비 방어력 — 몬스터가 준 피해만 줄인다(원래 피해의 일정 비율은 꼭 들어온다).
     const mitigatedDamage = sourceCharacter
-      ? Math.max(1, nextDamage - getEquippedPlayerDefense(getCurrentPlayerEquipment()))
+      ? getPlayerDamageTaken(nextDamage, getEquippedPlayerDefense(getCurrentPlayerEquipment()))
       : nextDamage
     // 시험장(시험 보스 실험용)에서는 체력이 줄지 않는다 — 피해 숫자만 띄운다.
     const nextHp =
@@ -626,6 +623,7 @@ export const createCombat = (ctx: CombatContext) => {
     }
 
     monsterCombatStates.set(characterId, nextCombatState)
+    onPlayerHitMonster(characterId, now)
     gameSoundEffects.play('playerSwordHit')
     const nextDamage = Math.max(0, Math.floor(damage))
     const damageMessage =
@@ -668,27 +666,16 @@ export const createCombat = (ctx: CombatContext) => {
           character.position.y * map.tileHeight +
           (character.collisionSize.height * map.tileHeight) / 2
       }
-      const skillPointReward = monsterRewards.getMonsterSkillPointDropAmount(
-        character.level ?? 1
-      )
-      Object.assign(
-        playerProfile,
-        grantPlayerSkillPoints(playerProfile, skillPointReward)
-      )
       syncPlayerUiOverlays()
 
-      // 몬스터 레벨보다 높은 등급 장비는 떨어지지 않는다 — 저레벨 몹이 최상급
-      // 장비를 뿌리던 것을 막고, 상위 지역일수록 좋은 드롭이 나오게 한다.
-      const equipmentDropRoll = rollMonsterEquipmentDrop(Math.random)
-      const equipmentDrop =
-        equipmentDropRoll &&
-        (getPlayerEquipmentItemDefinitionById(equipmentDropRoll.itemId)?.level ??
-          1) <= (character.level ?? 1)
-          ? equipmentDropRoll
-          : undefined
+      // 몬스터 레벨대에 맞는 등급의 장비나 포션 — 둘 다 아니면 골드. 보스는 장비를 꼭 준다.
+      const itemDrop = rollMonsterDrop({
+        monsterLevel: character.level ?? 1,
+        isBoss: isBossCharacterId(characterId) && !isBossSummonCharacterId(characterId)
+      })
 
-      if (equipmentDrop) {
-        spawnMonsterEquipmentDrop(characterId, equipmentDrop, dropPosition, now)
+      if (itemDrop) {
+        spawnMonsterEquipmentDrop(characterId, itemDrop, dropPosition, now)
       } else {
         spawnMonsterGoldDrop(
           characterId,
@@ -754,20 +741,18 @@ export const createCombat = (ctx: CombatContext) => {
       return
     }
 
+    // 검 판정은 이펙트 그림이 아니라 무기 범위 표로 — 보스 전투 시뮬레이터와 같은 값(playerMeleeReach.ts).
+    const swordReach = getPlayerSwordReach()
     const playerCharacter = getCharacterStateById(PLAYER_CHARACTER_ID)
-    const playerSlashEffectSprite = getPlayerSlashEffectSprite()
-    const targetCharacter = playerSlashEffectSprite
-      ? resolveClosestMonsterInCollisionRect(
-          createSlashEffectHitRect(playerSlashEffectSprite)
-        )
-      : resolveCharacterInteractionTarget({
-          sourceCharacter: playerCharacter,
-          targetCharacters: getCharacterStates(),
-          canReceiveInteraction: (character) =>
-            isMonsterCharacter(character) &&
-            !isMonsterCombatStateDefeated(character.id),
-          interactionProbeDistanceInTiles: PLAYER_ATTACK_PROBE_DISTANCE_IN_TILES
-        })
+    const targetCharacter = resolveCharacterInteractionTarget({
+      sourceCharacter: playerCharacter,
+      targetCharacters: getCharacterStates(),
+      canReceiveInteraction: (character) =>
+        isMonsterCharacter(character) &&
+        !isMonsterCombatStateDefeated(character.id),
+      interactionProbeDistanceInTiles: swordReach.reachInTiles,
+      interactionProbePaddingInTiles: swordReach.sidePaddingInTiles
+    })
 
     if (targetCharacter) {
       // 근접 기본 공격 — 마법 무기는 발사체 경로로 가므로 여기는 항상 물리다.
@@ -776,7 +761,7 @@ export const createCombat = (ctx: CombatContext) => {
     }
   }
 
-  // 무기별 모션(창·도끼·철퇴·단검) 판정: 모션이 정한 시점부터 동작이 끝날 때까지,
+  // 무기별 모션(도끼) 판정: 모션이 정한 시점부터 동작이 끝날 때까지,
   // 한 마리(single) 또는 범위 안 전부(area)를 한 번 맞힌다.
   function resolvePlayerMeleeMotionDamage(meleeMotion: MeleeMotion, now: number): void {
     const attackStartedAt = getPlayerAttackStartedAtMilliseconds() ?? now
@@ -795,7 +780,8 @@ export const createCombat = (ctx: CombatContext) => {
         canReceiveInteraction: (character) =>
           isMonsterCharacter(character) &&
           !isMonsterCombatStateDefeated(character.id),
-        interactionProbeDistanceInTiles: hit.probeDistanceInTiles
+        interactionProbeDistanceInTiles: hit.probeDistanceInTiles,
+        interactionProbePaddingInTiles: hit.sidePaddingInTiles
       })
 
       if (targetCharacter) {
@@ -843,7 +829,9 @@ export const createCombat = (ctx: CombatContext) => {
       return
     }
 
+    // 베기도 다른 무기 스킬처럼 기본 공격(힘 + 무기)에 스킬 위력을 더한다.
     const smashSkillDamage =
+      getPlayerBasicAttackDamage(false) +
       getPlayerSkillDamageById(playerProfile, PLAYER_SMASH_SKILL_ID)
 
     for (const segment of getPlayerSmashSkillSegments()) {

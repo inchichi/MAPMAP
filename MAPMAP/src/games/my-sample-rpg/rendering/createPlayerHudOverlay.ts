@@ -29,6 +29,7 @@ import {
 } from '../lua/luaGameLogic'
 import { getPlayerSkillDisplayInfoById } from '../playerSkills'
 import { getResponsiveUiScale } from './getResponsiveUiScale'
+import { TIER_POTION_ICON_FRAMES } from './tierPotionIcons'
 
 type CreatePlayerHudOverlayInput = {
   mountElement: HTMLElement
@@ -422,7 +423,7 @@ export const createPlayerHudOverlay = ({
       case 'crystal-ore':
         return CRYSTAL_ORE_ICON_FRAME
       default:
-        return undefined
+        return TIER_POTION_ICON_FRAMES[itemId]
     }
   }
 

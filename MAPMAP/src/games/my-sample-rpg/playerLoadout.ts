@@ -78,9 +78,6 @@ export const ensurePlayerLoadoutItem = (
 export const PLAYER_TEST_GEAR_ITEM_IDS = [
   'basic-sword', // 검
   'battle-axe', // 도끼
-  'long-spear', // 창
-  'quick-dagger', // 단검
-  'spiked-mace', // 둔기
   'magic-staff', // 지팡이(마법)
   'hunting-bow', // 활
   'basic-armor',

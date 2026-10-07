@@ -9,6 +9,7 @@ LPC 팔레트(scripts/build-lpc-characters.py 가 고른 색 변형에서 뽑은
 
 python3 scripts/generate-weapon-icons.py (repo 루트에서)
 """
+import colorsys
 import json
 import os
 
@@ -76,18 +77,6 @@ def sword(blade_dark, blade, blade_light, guard, length=17):
     return outlined(image)
 
 
-def dagger():
-    image, draw = canvas()
-    diagonal(draw, (13, 19), 10, rgb('#c4b59f'))
-    diagonal(draw, (13, 18), 10, rgb('#ffffff'))
-    diagonal(draw, (14, 19), 9, rgb('#726b7e'))
-    for i in range(-2, 3):
-        draw.point((12 + i, 18 + i), fill=rgb('#b19998'))
-    grip(draw, (8, 23), 4)
-    draw.rectangle([6, 24, 7, 25], fill=rgb('#b19998'))
-    return outlined(image)
-
-
 def battle_axe():
     image, draw = canvas()
     grip(draw, (4, 28), 19, wood='#62351c', light='#411e05')
@@ -98,28 +87,6 @@ def battle_axe():
     draw.pieslice([cx - 2, cy - 9, cx + 10, cy + 3], 280, 80, fill=rgb('#4a5057'))
     draw.pieslice([cx - 1, cy - 8, cx + 9, cy + 2], 280, 80, fill=rgb('#a9c9ca'))
     draw.rectangle([cx - 2, cy - 2, cx + 1, cy + 1], fill=rgb('#4a5057'))
-    return outlined(image)
-
-
-def spiked_mace():
-    image, draw = canvas()
-    grip(draw, (5, 27), 14, wood='#635b5b', light='#3a3737')
-    cx, cy = 21, 10
-    for dx, dy in ((0, -7), (7, 0), (0, 7), (-7, 0), (5, -5), (5, 5), (-5, 5), (-5, -5)):
-        draw.line([(cx, cy), (cx + dx, cy + dy)], fill=rgb('#d2cdc6'), width=1)
-    draw.ellipse([cx - 5, cy - 5, cx + 5, cy + 5], fill=rgb('#635b5b'))
-    draw.ellipse([cx - 4, cy - 4, cx + 3, cy + 3], fill=rgb('#88817f'))
-    draw.ellipse([cx - 3, cy - 3, cx - 1, cy - 1], fill=rgb('#d2cdc6'))
-    return outlined(image)
-
-
-def long_spear():
-    image, draw = canvas()
-    grip(draw, (3, 29), 21, wood='#62351c', light='#867e7f')
-    # 나뭇잎 모양 창끝
-    draw.polygon([(29, 2), (22, 5), (21, 10), (26, 9)], fill=rgb('#726b7e'))
-    draw.polygon([(29, 2), (23, 6), (22, 9)], fill=rgb('#c4b59f'))
-    draw.line([(21, 11), (23, 9)], fill=rgb('#4d4a5d'), width=2)
     return outlined(image)
 
 
@@ -161,18 +128,54 @@ def hunting_bow():
     return outlined(image)
 
 
+# 등급 장비(2등급 신전 = 비취, 3등급 서리 = 얼음)는 1등급 대표 무기 그림의 색만 바꾼다.
+# 외곽선처럼 아주 어두운 칸은 그대로 두고, 나머지는 밝기를 살린 채 색상·채도를 옮긴다.
+TIER_TINTS = {
+    'temple': (0.42, 0.55, 0.0),
+    'frost': (0.55, 0.45, 0.12),
+}
+
+
+def tinted(make, tier):
+    hue, saturation, lift = TIER_TINTS[tier]
+
+    def build():
+        image = make().copy()
+        pixels = image.load()
+        for y in range(N):
+            for x in range(N):
+                r, g, b, a = pixels[x, y]
+                if a == 0:
+                    continue
+                _, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+                if v < 0.2:
+                    continue
+                nr, ng, nb = colorsys.hsv_to_rgb(hue, min(1, s * 0.5 + saturation), min(1, v * (1 - lift) + lift))
+                pixels[x, y] = (int(nr * 255), int(ng * 255), int(nb * 255), a)
+        return image
+
+    return build
+
+
 ICONS = {
     'basic-sword': lambda: sword('#29253a', '#484152', '#726b7e', '#343043', length=16),
     'bronze-sword': lambda: sword('#966600', '#bf8200', '#fbe3b0', '#6d4a00'),
     'iron-sword': lambda: sword('#867e7f', '#c4b59f', '#ffffff', '#4d4a5d'),
-    'quick-dagger': dagger,
     'battle-axe': battle_axe,
-    'spiked-mace': spiked_mace,
-    'long-spear': long_spear,
     'pickaxe': pickaxe,
     'magic-staff': magic_staff,
     'hunting-bow': hunting_bow,
 }
+
+TIER_BASE_WEAPONS = {
+    'sword': lambda: sword('#867e7f', '#c4b59f', '#ffffff', '#4d4a5d'),
+    'axe': battle_axe,
+    'bow': hunting_bow,
+    'staff': magic_staff,
+}
+for tier_name in TIER_TINTS:
+    for line, make_base in TIER_BASE_WEAPONS.items():
+        ICONS[f'{tier_name}-{line}'] = tinted(make_base, tier_name)
 
 
 def main():

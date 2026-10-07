@@ -12,6 +12,8 @@ type ResolveCharacterInteractionTargetInput = {
   targetCharacters: CharacterState[]
   canReceiveInteraction: (character: CharacterState) => boolean
   interactionProbeDistanceInTiles?: number
+  // 바라보는 방향의 옆으로 더 넓히는 폭(칸). 공격은 대화보다 넓게 잡는다.
+  interactionProbePaddingInTiles?: number
 }
 
 const DEFAULT_INTERACTION_PROBE_DISTANCE_IN_TILES = 0.35
@@ -21,11 +23,13 @@ export const resolveCharacterInteractionTarget = ({
   sourceCharacter,
   targetCharacters,
   canReceiveInteraction,
-  interactionProbeDistanceInTiles = DEFAULT_INTERACTION_PROBE_DISTANCE_IN_TILES
+  interactionProbeDistanceInTiles = DEFAULT_INTERACTION_PROBE_DISTANCE_IN_TILES,
+  interactionProbePaddingInTiles = DEFAULT_INTERACTION_PROBE_PADDING_IN_TILES
 }: ResolveCharacterInteractionTargetInput): CharacterState | undefined => {
   const probeRect = createInteractionProbeRect(
     sourceCharacter,
-    interactionProbeDistanceInTiles
+    interactionProbeDistanceInTiles,
+    interactionProbePaddingInTiles
   )
   const probeCenter = getRectCenter(probeRect)
 
@@ -63,44 +67,45 @@ const createCharacterRect = (character: CharacterState): Rect => ({
 
 const createInteractionProbeRect = (
   character: CharacterState,
-  interactionProbeDistanceInTiles: number
+  interactionProbeDistanceInTiles: number,
+  paddingInTiles: number
 ): Rect => {
   switch (character.facing) {
     case 'up':
       return {
-        x: character.position.x - DEFAULT_INTERACTION_PROBE_PADDING_IN_TILES,
+        x: character.position.x - paddingInTiles,
         y: character.position.y - interactionProbeDistanceInTiles,
         width:
           character.collisionSize.width +
-          DEFAULT_INTERACTION_PROBE_PADDING_IN_TILES * 2,
+          paddingInTiles * 2,
         height: interactionProbeDistanceInTiles
       }
     case 'down':
       return {
-        x: character.position.x - DEFAULT_INTERACTION_PROBE_PADDING_IN_TILES,
+        x: character.position.x - paddingInTiles,
         y: character.position.y + character.collisionSize.height,
         width:
           character.collisionSize.width +
-          DEFAULT_INTERACTION_PROBE_PADDING_IN_TILES * 2,
+          paddingInTiles * 2,
         height: interactionProbeDistanceInTiles
       }
     case 'left':
       return {
         x: character.position.x - interactionProbeDistanceInTiles,
-        y: character.position.y - DEFAULT_INTERACTION_PROBE_PADDING_IN_TILES,
+        y: character.position.y - paddingInTiles,
         width: interactionProbeDistanceInTiles,
         height:
           character.collisionSize.height +
-          DEFAULT_INTERACTION_PROBE_PADDING_IN_TILES * 2
+          paddingInTiles * 2
       }
     case 'right':
       return {
         x: character.position.x + character.collisionSize.width,
-        y: character.position.y - DEFAULT_INTERACTION_PROBE_PADDING_IN_TILES,
+        y: character.position.y - paddingInTiles,
         width: interactionProbeDistanceInTiles,
         height:
           character.collisionSize.height +
-          DEFAULT_INTERACTION_PROBE_PADDING_IN_TILES * 2
+          paddingInTiles * 2
       }
   }
 }

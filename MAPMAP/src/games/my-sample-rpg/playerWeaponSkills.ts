@@ -47,21 +47,6 @@ export const PLAYER_WEAPON_SKILL_DEFINITIONS: readonly PlayerWeaponSkillDefiniti
     iconFileName: 'flash-strike', cooldownMilliseconds: 10000, table: CHAPTER_3_TABLE
   },
   {
-    id: 'lunge', weaponLine: 'spear', chapter: 1, label: '돌진 찌르기',
-    description: '2칸 앞으로 뛰어들며 길 위의 적을 모두 꿰뚫는다. 대신 적 한가운데에 서게 된다',
-    iconFileName: 'lunge', cooldownMilliseconds: 4000, table: CHAPTER_1_TABLE
-  },
-  {
-    id: 'spear-sweep', weaponLine: 'spear', chapter: 2, label: '회전 창술',
-    description: '창을 크게 돌려 둘레 2칸의 적을 베고 멀리 밀어낸다',
-    iconFileName: 'spear-sweep', cooldownMilliseconds: 6500, table: CHAPTER_2_TABLE
-  },
-  {
-    id: 'thunder-javelin', weaponLine: 'spear', chapter: 3, label: '뇌창',
-    description: '번개를 실은 창을 7칸 던져 길 위의 적을 꿰뚫고, 끝에서 터져 주변 적을 마비시킨다',
-    iconFileName: 'thunder-javelin', cooldownMilliseconds: 11000, table: CHAPTER_3_TABLE
-  },
-  {
     id: 'whirlwind', weaponLine: 'axe', chapter: 1, label: '회오리 베기',
     description: '도끼를 휘감아 둘레의 적을 세 번 벤다. 둘러싸였을 때 가장 강하다',
     iconFileName: 'whirlwind', cooldownMilliseconds: 4500, table: CHAPTER_1_TABLE
@@ -75,36 +60,6 @@ export const PLAYER_WEAPON_SKILL_DEFINITIONS: readonly PlayerWeaponSkillDefiniti
     id: 'execute', weaponLine: 'axe', chapter: 3, label: '처형',
     description: '앞의 적들을 크게 내리찍는다. 체력이 30% 아래인 적에게는 두 배 피해',
     iconFileName: 'execute', cooldownMilliseconds: 10000, table: CHAPTER_3_TABLE
-  },
-  {
-    id: 'ground-slam', weaponLine: 'mace', chapter: 1, label: '대지 강타',
-    description: '땅을 내려쳐 둘레 2칸의 적을 잠시 얼어붙게 한다. 피해는 약하지만 숨 돌릴 틈을 번다',
-    iconFileName: 'ground-slam', cooldownMilliseconds: 6000, table: CHAPTER_1_TABLE
-  },
-  {
-    id: 'shockwave', weaponLine: 'mace', chapter: 2, label: '충격파',
-    description: '세 겹의 충격파가 3칸까지 퍼지며 적을 거듭 때리고 밀어낸다',
-    iconFileName: 'shockwave', cooldownMilliseconds: 7000, table: CHAPTER_2_TABLE
-  },
-  {
-    id: 'earthquake', weaponLine: 'mace', chapter: 3, label: '지진',
-    description: '대지를 뒤흔들어 둘레 4칸의 적을 세 번 때리고 오래 얼어붙게 한다',
-    iconFileName: 'earthquake', cooldownMilliseconds: 12000, table: CHAPTER_3_TABLE
-  },
-  {
-    id: 'vital-strike', weaponLine: 'dagger', chapter: 1, label: '급소 찌르기',
-    description: '바로 앞 적 하나의 급소를 찔러 큰 피해를 준다. 붙어 있어야 쓸 수 있다',
-    iconFileName: 'vital-strike', cooldownMilliseconds: 3500, table: CHAPTER_1_TABLE
-  },
-  {
-    id: 'shadow-step', weaponLine: 'dagger', chapter: 2, label: '그림자 습격',
-    description: '4칸 안 가장 가까운 적 뒤로 순간이동해 급소를 벤다',
-    iconFileName: 'shadow-step', cooldownMilliseconds: 6000, table: CHAPTER_2_TABLE
-  },
-  {
-    id: 'blade-flurry', weaponLine: 'dagger', chapter: 3, label: '칼날 폭풍',
-    description: '눈에 보이지 않는 속도로 주변 적을 여섯 번 베고 중독시킨다',
-    iconFileName: 'blade-flurry', cooldownMilliseconds: 10000, table: CHAPTER_3_TABLE
   },
   {
     id: 'arrow-rain', weaponLine: 'bow', chapter: 2, label: '화살비',
@@ -141,10 +96,7 @@ export const getPlayerWeaponSkillRequiredLevel = (definition: PlayerWeaponSkillD
 
 export const PLAYER_WEAPON_LINE_LABEL: Record<PlayerWeaponLine, string> = {
   sword: '검',
-  spear: '창',
   axe: '도끼',
-  mace: '철퇴',
-  dagger: '단검',
   bow: '활',
   staff: '지팡이'
 }

@@ -10,7 +10,7 @@ import type { GameSoundEffects } from '../createGameSoundEffects'
 import { AnimatedSprite, Container } from 'pixi.js'
 import { PLAYER_CHARACTER_ID } from '../../characterState'
 import type { CharacterMoveDirection, CharacterState } from '../../characterState'
-import { getEquippedPlayerMeleeMotion, getEquippedPlayerWeaponLine } from '../../playerEquipment'
+import { getEquippedPlayerWeaponLine } from '../../playerEquipment'
 import {
   PLAYER_CHAIN_LIGHTNING_SKILL_ID,
   PLAYER_DASH_SKILL_ID,
@@ -42,9 +42,8 @@ import {
   getPlayerRollProgress,
   normalizePlayerRollVector
 } from '../../lua/luaGameLogic'
-import { EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, PLAYER_ATTACK_SLASH_EFFECT_ANIMATION_SPEED, PLAYER_ATTACK_SLASH_EFFECT_SCALE_X, PLAYER_ATTACK_SLASH_EFFECT_SCALE_Y, PLAYER_PROTECT_SKILL_COOLDOWN_MILLISECONDS } from './constants'
-import { getCharacterDepthSortValue, getFacingFromRollVector, isCharacterOnGrass } from './tiles'
-import { createPlayerMeleeMotionEffects, getPlayerMeleeMotion } from './playerMeleeMotions'
+import { EVADE_TEXT_DURATION_MILLISECONDS, EVADE_TEXT_STYLE, PLAYER_PROTECT_SKILL_COOLDOWN_MILLISECONDS } from './constants'
+import { getFacingFromRollVector, isCharacterOnGrass } from './tiles'
 import type { PlayerWeaponSkillTriggerResult } from './playerWeaponSkills'
 import { type PlayerHitReactionState, type SlashVfxRenderResources } from './types'
 
@@ -82,7 +81,6 @@ export type PlayerActionsContext = {
   getPlayerProtectSkillReadyAtMilliseconds: () => number
   getPlayerRollReadyAtMilliseconds: () => number
   getPlayerRollState: () => PlayerRollState | undefined
-  getPlayerSlashEffectSprite: () => AnimatedSprite | undefined
   getPlayerSmashSkillFacing: () => CharacterMoveDirection | undefined
   getPlayerSmashSkillOrigin: () => { x: number; y: number; } | undefined
   getPlayerSmashSkillReadyAtMilliseconds: () => number
@@ -99,7 +97,6 @@ export type PlayerActionsContext = {
   setPlayerProtectSkillReadyAtMilliseconds: (value: number) => void
   setPlayerRollReadyAtMilliseconds: (value: number) => void
   setPlayerRollState: (value: PlayerRollState | undefined) => void
-  setPlayerSlashEffectSprite: (value: AnimatedSprite | undefined) => void
   setPlayerSmashSkillFacing: (value: CharacterMoveDirection | undefined) => void
   setPlayerSmashSkillOrigin: (value: { x: number; y: number; } | undefined) => void
   setPlayerSmashSkillReadyAtMilliseconds: (value: number) => void
@@ -142,7 +139,6 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
     getPlayerProtectSkillReadyAtMilliseconds,
     getPlayerRollReadyAtMilliseconds,
     getPlayerRollState,
-    getPlayerSlashEffectSprite,
     getPlayerSmashSkillFacing,
     getPlayerSmashSkillOrigin,
     getPlayerSmashSkillReadyAtMilliseconds,
@@ -159,7 +155,6 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
     setPlayerProtectSkillReadyAtMilliseconds,
     setPlayerRollReadyAtMilliseconds,
     setPlayerRollState,
-    setPlayerSlashEffectSprite,
     setPlayerSmashSkillFacing,
     setPlayerSmashSkillOrigin,
     setPlayerSmashSkillReadyAtMilliseconds,
@@ -510,32 +505,6 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
       ? now
       : undefined)
     setPlayerAttackFacing(character.facing)
-    // 창·도끼·철퇴·단검은 무기별 모션 이펙트(판정은 combat.ts), 나머지는 기본 슬래시.
-    const meleeMotion = getPlayerMeleeMotion(getEquippedPlayerMeleeMotion(getCurrentPlayerEquipment()))
-    if (meleeMotion) {
-      clearPlayerSlashEffectSprite()
-      playPlayerMeleeMotionEffect(meleeMotion, character)
-      return
-    }
-    playPlayerSlashEffect(character)
-  }
-  const { clearPlayerMeleeMotionEffect, playPlayerMeleeMotionEffect } = createPlayerMeleeMotionEffects({
-    characterPixelHeight,
-    characterPixelWidth,
-    map,
-    getDepthSortedLayer
-  })
-  // 근접 공격 이펙트(슬래시·무기별 모션)를 모두 지운다 — 사망·부활 때도 불린다.
-  const clearPlayerSlashEffectSprite = () => {
-    clearPlayerMeleeMotionEffect()
-    const sprite = getPlayerSlashEffectSprite()
-    if (!sprite) {
-      return
-    }
-
-    setPlayerSlashEffectSprite(undefined)
-    sprite.removeFromParent()
-    sprite.destroy()
   }
   const clearPlayerProtectSkillEffectSprite = () => {
     const playerProtectSkillSprite = getPlayerProtectSkillSprite()
@@ -546,54 +515,6 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
     playerProtectSkillSprite.visible = false
     playerProtectSkillSprite.stop()
     playerProtectSkillSprite.gotoAndStop(0)
-  }
-  const playPlayerSlashEffect = (character: CharacterState) => {
-    clearPlayerSlashEffectSprite()
-
-    const isHorizontalSlash =
-      character.facing !== 'up' && character.facing !== 'down'
-    const slashTextures = isHorizontalSlash
-      ? slashVfxTextures.horizontalTextures
-      : slashVfxTextures.verticalTextures
-    const slashSprite = new AnimatedSprite(slashTextures)
-    const slashBaseScaleX =
-      character.facing === 'left'
-        ? -PLAYER_ATTACK_SLASH_EFFECT_SCALE_X
-        : PLAYER_ATTACK_SLASH_EFFECT_SCALE_X
-
-    slashSprite.label = 'character:player:slash-effect'
-    slashSprite.anchor.set(0.5)
-    slashSprite.animationSpeed = PLAYER_ATTACK_SLASH_EFFECT_ANIMATION_SPEED
-    slashSprite.loop = false
-    slashSprite.roundPixels = true
-    slashSprite.rotation = isHorizontalSlash
-      ? 0
-      : character.facing === 'up'
-        ? -Math.PI / 2
-        : Math.PI / 2
-    slashSprite.position.set(
-      character.position.x * map.tileWidth + characterPixelWidth / 2,
-      character.position.y * map.tileHeight + characterPixelHeight / 2 - 1
-    )
-    slashSprite.scale.set(slashBaseScaleX, PLAYER_ATTACK_SLASH_EFFECT_SCALE_Y)
-    slashSprite.zIndex =
-      getCharacterDepthSortValue(
-        character.position.y,
-        characterPixelHeight,
-        map.tileHeight
-      ) + 1
-    slashSprite.onComplete = () => {
-      if (getPlayerSlashEffectSprite() === slashSprite) {
-        setPlayerSlashEffectSprite(undefined)
-      }
-      slashSprite.removeFromParent()
-      slashSprite.destroy()
-    }
-
-    setPlayerSlashEffectSprite(slashSprite)
-    getDepthSortedLayer()?.addChild(slashSprite)
-    getDepthSortedLayer()?.sortChildren()
-    slashSprite.play()
   }
   const clearPlayerSmashSkillEffectSprites = () => {
     if (getPlayerSmashSkillSegments().length === 0) {
@@ -759,7 +680,6 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
 
   return {
     clearPlayerProtectSkillEffectSprite,
-    clearPlayerSlashEffectSprite,
     clearPlayerSmashSkillEffectSprites,
     isPlayerRolling,
     startPlayerWeaponAttackMotion,
@@ -768,6 +688,7 @@ export const createPlayerActions = (ctx: PlayerActionsContext) => {
     syncPlayerFootsteps,
     syncPlayerSmashSkillVisual,
     triggerPlayerRollFromPressedDirection,
+    triggerPlayerSkillById,
     triggerPlayerSkillFromSlotIndex
   }
 }

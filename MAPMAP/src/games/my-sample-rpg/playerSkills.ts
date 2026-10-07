@@ -252,7 +252,7 @@ export const getPlayerSkillProfileIndex = (skillId: string): number | undefined 
   PLAYER_SKILL_PROFILE_INDEX_BY_ID[skillId]
 
 // 스킬 창 표시 순서: 공통 스킬, 그다음 무기 계열마다 해금 레벨 순.
-const PLAYER_WEAPON_LINE_DISPLAY_ORDER: readonly PlayerWeaponLine[] = ['sword', 'spear', 'axe', 'mace', 'dagger', 'bow', 'staff']
+const PLAYER_WEAPON_LINE_DISPLAY_ORDER: readonly PlayerWeaponLine[] = ['sword', 'axe', 'bow', 'staff']
 export const PLAYER_SKILL_IDS_IN_DISPLAY_ORDER: readonly string[] = [
   PLAYER_PROTECT_SKILL_ID,
   PLAYER_DASH_SKILL_ID,

@@ -72,7 +72,8 @@ Update it whenever a decision changes. Add new decisions to the log with a date.
 - Fixed step: 50 ms. Time limit: 180 s. Positions are in tiles, and each character is a point.
 - Reuses from the game: every skill rule in `bossSkills.ts` (hazard shapes, timings, damage, charge path, interrupt rule, enrage), boss HP and damage (`monsterCombat.ts`, `monsterTuning.ts`), and roll timing (`playerRoll.ts`).
 - Copies these numbers by hand (update them if the game changes):
-  - player move speed 8 tiles/s, attack every 620 ms, attack reach 1.6 tiles, 600 ms invulnerability after a hit
+  - player move speed 8 tiles/s, attack every 620 ms, 600 ms invulnerability after a hit
+- Player attack reach is not copied: it is the sword reach from `playerMeleeReach.ts` (1.4) + 0.4 for the boss body = 1.8 tiles. On 2026-10-07 it went from 1.6 to 1.8; the rule-based baseline moved little (normal bot win rate 63% → 65%, expert 98% both before and after). Retrain the boss policy so it learns the new reach.
   - boss chase speed 2.2 tiles/s, melee range 1.94, melee every 3.8 s, attack pose 820 ms, hit reaction 180 ms (troll chief in `monsterCatalog.ts`)
 - Player stats for level L: HP `24 + 4(L-1)`, attack `5 + 2(L-1) + 2` (same assumption as `scripts/estimate-playtime.ts`).
 - A swing in reach hits with the bot's accuracy. Real players miss because of facing and timing.

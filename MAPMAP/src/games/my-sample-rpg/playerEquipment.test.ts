@@ -4,7 +4,8 @@ import {
   createInitialPlayerEquipment,
   getPlayerEquipmentItemDefinitionById,
   getPlayerEquipmentItemDefinitionBySlotId,
-  getEquippedPlayerMeleeMotion
+  getEquippedPlayerMeleeMotion,
+  getPlayerDamageTaken
 } from './playerEquipment'
 
 describe('createInitialPlayerEquipment', () => {
@@ -100,9 +101,6 @@ describe('createInitialPlayerEquipment', () => {
       [
         'iron-sword',
         'battle-axe',
-        'long-spear',
-        'quick-dagger',
-        'spiked-mace',
         'magic-staff',
         'Leather_Armor',
         'Leather_Helmet',
@@ -112,9 +110,6 @@ describe('createInitialPlayerEquipment', () => {
         'Iron_Helmet'
       ].map((itemId) => getPlayerEquipmentItemDefinitionById(itemId)?.slotId)
     ).toEqual([
-      'weapon',
-      'weapon',
-      'weapon',
       'weapon',
       'weapon',
       'weapon',
@@ -142,14 +137,19 @@ describe('getEquippedPlayerMeleeMotion', () => {
   }
 
   it('gives each special melee weapon its own motion', () => {
-    expect(getEquippedPlayerMeleeMotion(equipWeapon('long-spear'))).toBe('thrust')
     expect(getEquippedPlayerMeleeMotion(equipWeapon('battle-axe'))).toBe('cleave')
-    expect(getEquippedPlayerMeleeMotion(equipWeapon('spiked-mace'))).toBe('crush')
-    expect(getEquippedPlayerMeleeMotion(equipWeapon('quick-dagger'))).toBe('quick-slash')
   })
 
   it('falls back to slash for swords and the starter weapon', () => {
     expect(getEquippedPlayerMeleeMotion(createInitialPlayerEquipment())).toBe('slash')
     expect(getEquippedPlayerMeleeMotion(equipWeapon('iron-sword'))).toBe('slash')
+  })
+})
+
+describe('getPlayerDamageTaken', () => {
+  it('subtracts defense but always lets part of the hit through', () => {
+    expect(getPlayerDamageTaken(24, 3)).toBe(21)
+    expect(getPlayerDamageTaken(24, 21)).toBe(10)
+    expect(getPlayerDamageTaken(1, 10)).toBe(1)
   })
 })

@@ -4,8 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   getMonsterGoldDropAmount as tsGold,
-  getMonsterExperienceDropAmount as tsExp,
-  getMonsterSkillPointDropAmount as tsSkill
+  getMonsterExperienceDropAmount as tsExp
 } from '../monsterRewards'
 import {
   createMonsterCombatState as tsCreate,
@@ -14,7 +13,7 @@ import {
 } from '../monsterCombat'
 import { getMonsterDisplayName as tsDisplayName } from '../monsterDisplayName'
 import { getPlayerExperienceToNextLevel as tsToNext } from '../playerExperience'
-import { rollMonsterEquipmentDrop as tsRoll } from '../monsterEquipmentDrops'
+import { rollMonsterDrop as tsRoll } from '../monsterEquipmentDrops'
 import { createInitialPlayerProfile } from '../playerProfile'
 import { createInitialPlayerInventory as tsCreateInv } from '../playerInventory'
 import {
@@ -94,13 +93,12 @@ import {
   isLuaGameLogicReady,
   getMonsterGoldDropAmount,
   getMonsterExperienceDropAmount,
-  getMonsterSkillPointDropAmount,
   createMonsterCombatState,
   applyMonsterDamage,
   isMonsterDefeated,
   getMonsterDisplayName,
   getPlayerExperienceToNextLevel,
-  rollMonsterEquipmentDrop,
+  rollMonsterDrop,
   getPlayerPhysicalAttackPower,
   getPlayerEvadeChance,
   createInitialPlayerInventory,
@@ -186,7 +184,6 @@ describe('luaGameLogic facade (real wasm)', () => {
     for (const level of LEVELS) {
       expect(getMonsterGoldDropAmount(level)).toBe(tsGold(level))
       expect(getMonsterExperienceDropAmount(level)).toBe(tsExp(level))
-      expect(getMonsterSkillPointDropAmount(level)).toBe(tsSkill(level))
       expect(getPlayerExperienceToNextLevel(level)).toBe(tsToNext(level))
 
       const luaState = createMonsterCombatState(level, { hpMultiplier: 2, damageMultiplier: 3 })
@@ -209,8 +206,14 @@ describe('luaGameLogic facade (real wasm)', () => {
       expect(getMonsterDisplayName(args)).toBe(tsDisplayName(args))
     }
 
-    for (const seq of [[0.95], [0.0, 0.0], [0.5, 0.999], [0.1, 0.5], [0.89, 1.0]]) {
-      expect(rollMonsterEquipmentDrop(makeRng(seq))).toEqual(tsRoll(makeRng(seq)))
+    for (const seq of [[0.95], [0.0, 0.9, 0.0], [0.3, 0.1, 0.999], [0.1, 0.5, 0.5], [0.19, 0.0, 1.0]]) {
+      for (const monsterLevel of [1, 20, 45]) {
+        for (const isBoss of [false, true]) {
+          expect(rollMonsterDrop({ monsterLevel, isBoss, random: makeRng(seq) })).toEqual(
+            tsRoll({ monsterLevel, isBoss, random: makeRng(seq) })
+          )
+        }
+      }
     }
 
     // 와이어링된 플레이어 시스템 모듈도 퍼사드 경로로 TS와 동등해야 한다.

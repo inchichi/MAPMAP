@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import { createInitialPlayerProfile } from './playerProfile'
 import {
-  getPlayerMaxManaBySkillUserLevel,
+  getPlayerMaxHealthForLevel,
+  getPlayerMaxManaForProfile,
   getPlayerSkillLevelLabel,
   getPlayerSkillPointCost,
   getPlayerSkillUserLevel,
   grantPlayerLevelUpRewards,
-  grantPlayerSkillPoints,
+  reconcilePlayerProfileWithProgressionRules,
   spendPlayerSkillPoint,
   spendPlayerStatPoint
 } from './playerProgression'
@@ -18,11 +19,24 @@ describe('grantPlayerLevelUpRewards', () => {
       ...createInitialPlayerProfile(),
       level: 2,
       statPoints: 3,
+      availableSkillPoints: 2,
+      totalSkillPointsEarned: 2,
       hp: {
         current: 28,
         max: 28
+      },
+      mp: {
+        current: 15,
+        max: 15
       }
     })
+  })
+
+  it('keeps max hp and mp on the level formulas', () => {
+    const profile = grantPlayerLevelUpRewards(createInitialPlayerProfile(), 35)
+
+    expect(profile.hp.max).toBe(getPlayerMaxHealthForLevel(36))
+    expect(profile.mp.max).toBe(getPlayerMaxManaForProfile(profile))
   })
 
   it('does not advance beyond level 100', () => {
@@ -59,6 +73,20 @@ describe('spendPlayerStatPoint', () => {
     ).toBeUndefined()
   })
 
+  it('refuses agility and luck once their effect is capped', () => {
+    const profile = {
+      ...grantPlayerLevelUpRewards(createInitialPlayerProfile()),
+      stats: { strength: 5, agility: 16, intelligence: 3, luck: 21 }
+    }
+
+    expect(spendPlayerStatPoint(profile, 'agility')).toBeUndefined()
+    expect(spendPlayerStatPoint(profile, 'luck')).toBeUndefined()
+    expect(spendPlayerStatPoint(profile, 'strength')).toBeDefined()
+    expect(
+      spendPlayerStatPoint({ ...profile, stats: { ...profile.stats, agility: 15 } }, 'agility')
+    ).toBeDefined()
+  })
+
   it('increases max mana when intelligence goes up', () => {
     const profile = grantPlayerLevelUpRewards(createInitialPlayerProfile())
 
@@ -81,7 +109,7 @@ describe('spendPlayerStatPoint', () => {
 
 describe('spendPlayerSkillPoint', () => {
   it('spends the required points and increases the selected skill level', () => {
-    const profile = grantPlayerSkillPoints(createInitialPlayerProfile(), 2)
+    const profile = grantPlayerLevelUpRewards(createInitialPlayerProfile())
 
     expect(spendPlayerSkillPoint(profile, 0)).toEqual({
       ...profile,
@@ -146,22 +174,6 @@ describe('getPlayerSkillPointCost', () => {
   })
 })
 
-describe('grantPlayerSkillPoints', () => {
-  it('adds skill points from monster rewards and raises max mana by skill user level', () => {
-    const profile = createInitialPlayerProfile()
-
-    expect(grantPlayerSkillPoints(profile, 3)).toEqual({
-      ...profile,
-      availableSkillPoints: 3,
-      totalSkillPointsEarned: 3,
-      mp: {
-        current: 24,
-        max: 24
-      }
-    })
-  })
-})
-
 describe('getPlayerSkillUserLevel', () => {
   it('maps total skill points to the user level without spending penalties', () => {
     expect(getPlayerSkillUserLevel(0)).toBe(1)
@@ -170,13 +182,19 @@ describe('getPlayerSkillUserLevel', () => {
   })
 })
 
-describe('getPlayerMaxManaBySkillUserLevel', () => {
-  it('follows the level-based mana table', () => {
-    expect(getPlayerMaxManaBySkillUserLevel(1)).toBe(12)
-    expect(getPlayerMaxManaBySkillUserLevel(2)).toBe(16)
-    expect(getPlayerMaxManaBySkillUserLevel(3)).toBe(20)
-    expect(getPlayerMaxManaBySkillUserLevel(4)).toBe(24)
-    expect(getPlayerMaxManaBySkillUserLevel(5)).toBe(28)
+describe('getPlayerMaxManaForProfile', () => {
+  it('grows with level and intelligence, not with skill points', () => {
+    const profile = createInitialPlayerProfile()
+
+    expect(getPlayerMaxManaForProfile(profile)).toBe(12)
+    expect(getPlayerMaxManaForProfile({ ...profile, level: 36 })).toBe(117)
+    expect(
+      getPlayerMaxManaForProfile({
+        ...profile,
+        level: 36,
+        stats: { ...profile.stats, intelligence: 13 }
+      })
+    ).toBe(137)
   })
 })
 
@@ -191,5 +209,34 @@ describe('getPlayerSkillLevelLabel', () => {
         maxLevel: 5
       })
     ).toBe('MAX')
+  })
+})
+
+describe('reconcilePlayerProfileWithProgressionRules', () => {
+  it('leaves a fresh profile unchanged', () => {
+    const profile = createInitialPlayerProfile()
+
+    expect(reconcilePlayerProfileWithProgressionRules(profile)).toEqual(profile)
+  })
+
+  it('pulls an old save back to the level formulas and keeps learned skills', () => {
+    const fresh = createInitialPlayerProfile()
+    const oldSave = {
+      ...fresh,
+      level: 36,
+      availableSkillPoints: 600,
+      totalSkillPointsEarned: 640,
+      hp: { current: 150, max: 164 },
+      mp: { current: 2600, max: 2636 },
+      skills: fresh.skills.map((skill, index) => (index === 0 ? { ...skill, level: 5 } : skill))
+    }
+
+    expect(reconcilePlayerProfileWithProgressionRules(oldSave)).toEqual({
+      ...oldSave,
+      availableSkillPoints: 70 - 15,
+      totalSkillPointsEarned: 70,
+      hp: { current: 150, max: 164 },
+      mp: { current: 117, max: 117 }
+    })
   })
 })

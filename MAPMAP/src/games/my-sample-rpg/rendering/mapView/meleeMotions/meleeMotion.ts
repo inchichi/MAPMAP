@@ -1,6 +1,5 @@
 // 무기별 근접 공격 모션의 공통 계약. 무기 모션 하나 = 이 타입을 채운 모듈 하나(meleeMotions/*.ts).
-// 몸 동작(LPC 시트)은 그대로 두고, 판정 시점·범위·쿨다운·이펙트를 무기마다 다르게 한다.
-import { Texture } from 'pixi.js'
+// 몸 동작(LPC 시트)은 그대로 두고, 판정 시점·범위·쿨다운을 무기마다 다르게 한다(공격 이펙트는 그리지 않는다).
 import type { CharacterMoveDirection } from '../../../characterState'
 import type { CollisionRect } from '../../characterCollision'
 import { PLAYER_ATTACK_DURATION_MILLISECONDS } from '../constants'
@@ -19,18 +18,9 @@ export type MeleeMotionOrigin = {
 
 export type MeleeMotionHit =
   // 앞쪽에서 가장 가까운 한 마리
-  | { kind: 'single'; probeDistanceInTiles: number }
+  | { kind: 'single'; probeDistanceInTiles: number; sidePaddingInTiles: number }
   // 범위 안의 몬스터 전부. 맞은 몬스터는 기본 넉백에 더해 extraKnockbackInTiles 만큼 더 밀린다.
   | { kind: 'area'; getHitRect: (origin: MeleeMotionOrigin) => CollisionRect; extraKnockbackInTiles: number }
-
-export type MeleeEffectPlacement = {
-  anchorX: number
-  anchorY: number
-  rotation: number
-  x: number
-  y: number
-  scale: number
-}
 
 export type MeleeMotion = {
   // 공격 동작 시간 중 이 진행률부터 동작이 끝날 때(+여유)까지 판정
@@ -38,11 +28,6 @@ export type MeleeMotion = {
   hit: MeleeMotionHit
   // 동작이 끝난 뒤 다음 공격까지 기다리는 시간
   cooldownMilliseconds: number
-  // 이펙트 프레임. 공격 동작 시간 동안 effectFramesPerAttack 장이 지나가는 속도로 재생되고,
-  // 그보다 많은 프레임은 동작이 끝난 뒤 이어서 재생된다(사라지는 잔상).
-  createEffectTextures: () => Texture[]
-  effectFramesPerAttack: number
-  getEffectPlacement: (origin: MeleeMotionOrigin, textureWidth: number) => MeleeEffectPlacement
 }
 
 export const getFacingDirection = (facing: CharacterMoveDirection) => ({
@@ -76,31 +61,3 @@ export const createFrontHitRect = (
 
   return { x: centerX - width / 2, y: centerY - height / 2, width, height }
 }
-
-// 캔버스에 프레임마다 그려 픽셀아트 텍스처 목록을 만든다.
-export const createCanvasFrameTextures = (
-  width: number,
-  height: number,
-  frameCount: number,
-  drawFrame: (context: CanvasRenderingContext2D, frameIndex: number) => void
-): Texture[] =>
-  Array.from({ length: frameCount }, (_, frameIndex) => {
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-
-    if (!context) {
-      throw new Error('Could not create canvas context for melee motion effect')
-    }
-
-    canvas.width = width
-    canvas.height = height
-    context.imageSmoothingEnabled = false
-    drawFrame(context, frameIndex)
-
-    const texture = Texture.from(canvas)
-
-    texture.source.scaleMode = 'nearest'
-    texture.source.addressMode = 'clamp-to-edge'
-
-    return texture
-  })

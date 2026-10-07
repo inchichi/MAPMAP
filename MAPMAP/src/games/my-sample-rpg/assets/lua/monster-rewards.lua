@@ -6,7 +6,6 @@ local GOLD_DROP_BASE = 10
 local GOLD_DROP_PER_LEVEL = 4
 local EXPERIENCE_DROP_BASE = 12
 local EXPERIENCE_DROP_PER_LEVEL = 6
-local SKILL_POINT_DROP_BASE = 0
 
 local function clamp_level(monster_level)
   local level = math.floor(monster_level)
@@ -23,8 +22,4 @@ end
 function monster_rewards_experience(monster_level)
   return EXPERIENCE_DROP_BASE
     + clamp_level(monster_level) * EXPERIENCE_DROP_PER_LEVEL
-end
-
-function monster_rewards_skill_point(monster_level)
-  return SKILL_POINT_DROP_BASE + clamp_level(monster_level)
 end

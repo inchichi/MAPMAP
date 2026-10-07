@@ -3,7 +3,15 @@
 -- quickslots_* 전역은 같은 호스트에 로드된 player-quickslots.lua 에서 옴.
 -- 결과가 없으면 json_null 을 반환(래퍼에서 undefined 로 정규화).
 
-local POTION_RESTORE_AMOUNT = 10
+-- 포션별 회복량 — TS playerConsumables.ts 의 PLAYER_POTION_RESTORE 와 같아야 한다.
+local POTION_RESTORE = {
+  ['health-potion'] = { resource = 'hp', amount = 10 },
+  ['mana-potion'] = { resource = 'mp', amount = 10 },
+  ['health-potion-medium'] = { resource = 'hp', amount = 60 },
+  ['mana-potion-medium'] = { resource = 'mp', amount = 40 },
+  ['health-potion-large'] = { resource = 'hp', amount = 150 },
+  ['mana-potion-large'] = { resource = 'mp', amount = 80 },
+}
 
 -- 문자열 키 테이블을 얕게 복사한다(TS 의 spread 패턴).
 local function shallow_copy(t)
@@ -34,23 +42,14 @@ function consumables_use_inventory(profile, inventory, slot_index)
     return json_null
   end
 
-  if item.id == 'health-potion' then
-    local hp = profile.hp
-    local next_hp = shallow_copy(hp)
-    next_hp.current = math.min(hp.max, hp.current + POTION_RESTORE_AMOUNT)
-    local next_profile = shallow_copy(profile)
-    next_profile.hp = next_hp
-    return {
-      profile = next_profile,
-      inventory = consume_inventory_slot(inventory, slot_index, item)
-    }
+  local restore = POTION_RESTORE[item.id]
 
-  elseif item.id == 'mana-potion' then
-    local mp = profile.mp
-    local next_mp = shallow_copy(mp)
-    next_mp.current = math.min(mp.max, mp.current + POTION_RESTORE_AMOUNT)
+  if restore ~= nil then
+    local resource = profile[restore.resource]
+    local next_resource = shallow_copy(resource)
+    next_resource.current = math.min(resource.max, resource.current + restore.amount)
     local next_profile = shallow_copy(profile)
-    next_profile.mp = next_mp
+    next_profile[restore.resource] = next_resource
     return {
       profile = next_profile,
       inventory = consume_inventory_slot(inventory, slot_index, item)

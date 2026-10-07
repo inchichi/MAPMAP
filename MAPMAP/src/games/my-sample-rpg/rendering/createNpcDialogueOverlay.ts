@@ -1,5 +1,6 @@
 // 비주얼노벨 스타일 NPC 대화 오버레이.
-// 화면 왼쪽에 큰 초상화, 그 위 중앙에 이름 명패, 하단에 금테 대사창을 띄운다.
+// 게임 화면(960x540 뷰포트) 위에 정확히 겹쳐 그 크기에 비례해 커진다 — 큰 모니터에서도 같은 비율.
+// 하단에 나무 액자 대사창(불투명), 그 위에 초상화가 서고, 이름표는 대사창 왼쪽 위 테두리에 걸친다.
 // 대사는 한 줄씩 보여주고 클릭/Space/Enter 로 다음 줄로 넘어가며, 마지막 줄에서 더 넘기면
 // 닫히고 onComplete 가 호출된다. DOM + 인라인 스타일로 자급자족하며 게임 styles.css 에 의존하지 않는다.
 
@@ -27,13 +28,13 @@ const ensureStyleInjected = () => {
   transition: background-color 120ms ease, transform 120ms ease;
 }
 .npc-dialogue-overlay__choice:hover {
-  background-color: #f7ecd4;
+  background-color: #fbe8c4;
 }
 .npc-dialogue-overlay__choice:active {
   transform: translateY(1px);
 }
 .npc-dialogue-overlay__choice:focus-visible {
-  outline: 2px solid rgba(111, 89, 58, 0.5);
+  outline: 2px solid #6d4b27;
   outline-offset: 1px;
 }
 `
@@ -62,19 +63,26 @@ export type NpcDialogueOverlay = {
 
 type CreateNpcDialogueOverlayInput = {
   mountElement: HTMLElement
+  // 게임 화면(뷰포트) 요소 — 대화창을 이 영역에 맞춰 띄운다(창 전체가 아니라).
+  getViewportElement: () => HTMLElement
 }
 
-// 게임 HUD/상점과 통일: 양피지 크림 패널 + 얇은 갈색 테두리 + 진갈색 글자(NeoDunggeunmo).
-const PARCHMENT = '#fff9ee'
-const PARCHMENT_DEEP = '#f7ecd4'
-const BORDER_BROWN = 'rgba(111, 89, 58, 0.5)'
-const BORDER_BROWN_SOFT = 'rgba(111, 89, 58, 0.3)'
-const TEXT_DARK = '#2e2313'
-const LABEL_BROWN = '#6b5534'
-const BOX_BG = 'rgba(255, 249, 238, 0.96)'
+// 게임 화면 높이 540 기준 글자 크기(px). 실제 크기는 화면 배율만큼 커진다.
+const BASE_FONT_PIXELS = 16
+const VIEWPORT_DESIGN_HEIGHT = 540
+
+// 가방·장비·스킬 창과 같은 나무 액자 팔레트
+const PAPER = '#fff1d2'
+const PAPER_LIGHT = '#fff6e0'
+const WOOD_DARK = '#6d4b27'
+const WOOD = '#c58747'
+const WOOD_DEEP = '#a3703a'
+const TEXT_DARK = '#4a3218'
+const LABEL_BROWN = '#8a6338'
 
 export const createNpcDialogueOverlay = ({
-  mountElement
+  mountElement,
+  getViewportElement
 }: CreateNpcDialogueOverlayInput): NpcDialogueOverlay => {
   ensureStyleInjected()
 
@@ -89,7 +97,6 @@ export const createNpcDialogueOverlay = ({
   overlayRoot.setAttribute('aria-hidden', 'true')
   Object.assign(overlayRoot.style, {
     position: 'absolute',
-    inset: '0',
     zIndex: '70',
     display: 'none',
     pointerEvents: 'none',
@@ -103,34 +110,34 @@ export const createNpcDialogueOverlay = ({
   portrait.className = 'npc-dialogue-overlay__portrait'
   portrait.alt = ''
   portrait.draggable = false
+  // 초상화는 대사창 윗변에 서 있다(대사창을 덮지 않는다).
   Object.assign(portrait.style, {
     position: 'absolute',
-    left: '1.5%',
-    bottom: '0',
-    height: '94%',
-    maxWidth: '46%',
+    left: '1em',
+    bottom: '100%',
+    height: '13em',
     objectFit: 'contain',
     objectPosition: 'left bottom',
-    filter: 'drop-shadow(0 12px 26px rgba(0,0,0,0.6))',
+    filter: 'drop-shadow(0 0.3em 0.6em rgba(0,0,0,0.45))',
     pointerEvents: 'none'
   } as CSSStyleDeclaration)
 
   nameBanner.className = 'npc-dialogue-overlay__name'
+  // 이름표 — 대사창 왼쪽 위 테두리에 걸친 나무 명패
   Object.assign(nameBanner.style, {
     position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    bottom: 'calc(4% + 1px)', // 대사창 상단 테두리 위에 걸치게
-    padding: '7px 30px',
-    color: TEXT_DARK,
-    fontWeight: '700',
-    fontSize: 'clamp(15px, 2.4vh, 26px)',
+    left: '1.2em',
+    top: '0',
+    transform: 'translateY(-65%)',
+    zIndex: '1',
+    padding: '0.3em 0.9em',
+    color: PAPER,
+    fontSize: '1em',
     letterSpacing: '0.04em',
-    background: `linear-gradient(180deg, ${PARCHMENT} 0%, ${PARCHMENT_DEEP} 100%)`,
-    border: `1px solid ${BORDER_BROWN}`,
-    borderRadius: '6px',
-    boxShadow:
-      `0 0 0 1px ${BORDER_BROWN_SOFT}, 0 4px 10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.75)`,
+    textShadow: `1px 1px 0 ${WOOD_DARK}`,
+    background: WOOD,
+    border: `3px solid ${WOOD_DARK}`,
+    boxShadow: `inset 0 3px 0 #dca465, inset 0 -3px 0 ${WOOD_DEEP}`,
     whiteSpace: 'nowrap',
     pointerEvents: 'none'
   } as CSSStyleDeclaration)
@@ -138,18 +145,16 @@ export const createNpcDialogueOverlay = ({
   dialogueBox.className = 'npc-dialogue-overlay__box'
   Object.assign(dialogueBox.style, {
     position: 'absolute',
-    left: '4%',
-    right: '4%',
-    bottom: '4%',
-    minHeight: '20%',
+    left: '3%',
+    right: '3%',
+    bottom: '3%',
+    minHeight: '24%',
     boxSizing: 'border-box',
-    padding: 'clamp(18px, 3.2vh, 34px) clamp(26px, 4vw, 52px)',
-    background: BOX_BG,
-    border: `1px solid ${BORDER_BROWN}`,
-    borderRadius: '8px',
-    boxShadow:
-      `0 0 0 1px ${BORDER_BROWN_SOFT}, inset 0 1px 0 rgba(255,255,255,0.7), ` +
-      '0 14px 30px rgba(0,0,0,0.4)',
+    padding: '1.4em 1.6em 1.1em',
+    background: PAPER,
+    border: `3px solid ${WOOD_DARK}`,
+    borderRadius: '0',
+    boxShadow: `inset 0 0 0 3px ${WOOD}, 4px 4px 0 rgba(0, 0, 0, 0.35)`,
     color: TEXT_DARK,
     cursor: 'pointer',
     pointerEvents: 'auto'
@@ -157,22 +162,20 @@ export const createNpcDialogueOverlay = ({
 
   dialogueText.className = 'npc-dialogue-overlay__text'
   Object.assign(dialogueText.style, {
-    fontSize: 'clamp(15px, 2.6vh, 28px)',
-    lineHeight: '1.6',
+    fontSize: '1.15em',
+    lineHeight: '1.55',
     whiteSpace: 'pre-wrap',
-    color: TEXT_DARK,
-    // 초상화와 겹치지 않도록 왼쪽 여백을 살짝 둔다.
-    paddingLeft: 'clamp(0px, 6vw, 90px)'
+    color: TEXT_DARK
   } as CSSStyleDeclaration)
 
   advanceIndicator.className = 'npc-dialogue-overlay__advance'
   advanceIndicator.textContent = '▼'
   Object.assign(advanceIndicator.style, {
     position: 'absolute',
-    right: 'clamp(16px, 2vw, 28px)',
-    bottom: 'clamp(10px, 1.4vh, 18px)',
+    right: '1em',
+    bottom: '0.6em',
     color: LABEL_BROWN,
-    fontSize: 'clamp(13px, 1.8vh, 20px)',
+    fontSize: '0.9em',
     pointerEvents: 'none'
   } as CSSStyleDeclaration)
 
@@ -181,14 +184,13 @@ export const createNpcDialogueOverlay = ({
   Object.assign(choiceList.style, {
     display: 'none',
     flexDirection: 'column',
-    gap: 'clamp(6px, 1vh, 10px)',
-    marginTop: 'clamp(10px, 1.6vh, 18px)',
-    // dialogueText 와 같은 보정값 — 초상화와 겹치지 않게.
-    paddingLeft: 'clamp(0px, 6vw, 90px)'
+    gap: '0.4em',
+    marginTop: '0.7em'
   } as CSSStyleDeclaration)
 
   dialogueBox.append(dialogueText, choiceList, advanceIndicator)
-  overlayRoot.append(portrait, nameBanner, dialogueBox)
+  dialogueBox.append(portrait, nameBanner)
+  overlayRoot.append(dialogueBox)
   mountElement.append(overlayRoot)
 
   let lines: string[] = []
@@ -213,15 +215,14 @@ export const createNpcDialogueOverlay = ({
       Object.assign(button.style, {
         width: '100%',
         boxSizing: 'border-box',
-        padding: 'clamp(8px, 1.2vh, 14px) clamp(14px, 1.6vw, 22px)',
+        padding: '0.45em 0.9em',
         textAlign: 'left',
         fontFamily: 'inherit',
-        fontSize: 'clamp(14px, 2.2vh, 24px)',
+        fontSize: '1em',
         color: TEXT_DARK,
-        background: `linear-gradient(180deg, ${PARCHMENT} 0%, ${PARCHMENT_DEEP} 100%)`,
-        border: `1px solid ${BORDER_BROWN}`,
-        borderRadius: '6px',
-        boxShadow: `0 0 0 1px ${BORDER_BROWN_SOFT}, inset 0 1px 0 rgba(255,255,255,0.75)`,
+        background: PAPER_LIGHT,
+        border: `2px solid ${WOOD_DEEP}`,
+        borderRadius: '0',
         cursor: 'pointer'
       } as CSSStyleDeclaration)
       button.addEventListener('click', (event) => {
@@ -242,11 +243,26 @@ export const createNpcDialogueOverlay = ({
     advanceIndicator.textContent = isLast ? '✕' : '▼'
   }
 
+  // 게임 화면 영역에 겹치고, 글자 크기를 화면 배율에 맞춘다(모든 크기가 em 이라 함께 커진다).
+  const syncBounds = () => {
+    const viewportRect = getViewportElement().getBoundingClientRect()
+    const mountRect = mountElement.getBoundingClientRect()
+
+    Object.assign(overlayRoot.style, {
+      left: `${viewportRect.left - mountRect.left}px`,
+      top: `${viewportRect.top - mountRect.top}px`,
+      width: `${viewportRect.width}px`,
+      height: `${viewportRect.height}px`,
+      fontSize: `${(viewportRect.height / VIEWPORT_DESIGN_HEIGHT) * BASE_FONT_PIXELS}px`
+    } as CSSStyleDeclaration)
+  }
+
   const hide = () => {
     if (!open) {
       return
     }
     open = false
+    window.removeEventListener('resize', syncBounds)
     overlayRoot.style.display = 'none'
     overlayRoot.style.pointerEvents = 'none'
     overlayRoot.setAttribute('aria-hidden', 'true')
@@ -345,8 +361,7 @@ export const createNpcDialogueOverlay = ({
       portrait.src = input.portraitUrl
       portrait.style.display = ''
       portrait.style.imageRendering = input.pixelArtPortrait ? 'pixelated' : ''
-      portrait.style.height = input.pixelArtPortrait ? '62%' : '94%'
-      portrait.style.left = input.pixelArtPortrait ? '6%' : '1.5%'
+      portrait.style.height = input.pixelArtPortrait ? '13em' : '17em'
     } else {
       portrait.removeAttribute('src')
       portrait.style.display = 'none'
@@ -356,6 +371,8 @@ export const createNpcDialogueOverlay = ({
     renderCurrentLine()
 
     open = true
+    syncBounds()
+    window.addEventListener('resize', syncBounds)
     overlayRoot.style.display = 'block'
     overlayRoot.style.pointerEvents = 'auto'
     overlayRoot.setAttribute('aria-hidden', 'false')
@@ -368,6 +385,7 @@ export const createNpcDialogueOverlay = ({
     isOpen: () => open,
     destroy: () => {
       window.removeEventListener('keydown', handleKeyDown, true)
+      window.removeEventListener('resize', syncBounds)
       overlayRoot.remove()
     }
   }
