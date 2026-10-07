@@ -9,7 +9,7 @@ import { loadTextureSafe } from './loadTextureSafe'
 // 한가운데에 64px 몸 프레임이 있고 발끝은 몸 프레임의 (32, 62).
 
 export type LpcDirection = 'up' | 'left' | 'down' | 'right'
-export type LpcAnimationName = 'walk' | 'slash' | 'halfslash' | 'thrust' | 'shoot' | 'hurt' | 'spellcast'
+export type LpcAnimationName = 'walk' | 'slash' | 'chop' | 'halfslash' | 'thrust' | 'shoot' | 'hurt' | 'spellcast'
 
 export type LpcAnimationFrames = {
   cell: number
@@ -128,7 +128,7 @@ const toAppearanceId = (itemId: string): string =>
 export const getLpcAnimationFrameCount = (animation: LpcAnimationName): number =>
   manifest.anims[animation].frames
 
-// 무기의 공격 동작(검 = 반베기, 도끼 = 베기, 지팡이 = 찌르기, 활 = 쏘기). 맨손은 베기.
+// 무기의 공격 동작(검 = 반베기, 도끼 = 내려찍기, 지팡이 = 찌르기, 활 = 쏘기). 맨손은 베기.
 export const getLpcPlayerAttackAnimation = (weaponId: string | undefined): LpcAnimationName =>
   ((weaponId && PLAYER.weapons[toAppearanceId(weaponId)]?.attack) as LpcAnimationName | undefined) ??
   'slash'

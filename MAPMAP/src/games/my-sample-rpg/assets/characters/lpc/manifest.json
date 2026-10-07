@@ -36,6 +36,10 @@
     "spellcast": {
       "cell": 64,
       "frames": 7
+    },
+    "chop": {
+      "cell": 192,
+      "frames": 6
     }
   },
   "player": {
@@ -46,7 +50,8 @@
       "shoot": "player-base-shoot.png",
       "hurt": "player-base-hurt.png",
       "halfslash": "player-base-halfslash.png",
-      "spellcast": "player-base-spellcast.png"
+      "spellcast": "player-base-spellcast.png",
+      "chop": "player-base-chop.png"
     },
     "hair": {
       "walk": "player-hair-walk.png",
@@ -55,7 +60,8 @@
       "shoot": "player-hair-shoot.png",
       "hurt": "player-hair-hurt.png",
       "halfslash": "player-hair-halfslash.png",
-      "spellcast": "player-hair-spellcast.png"
+      "spellcast": "player-hair-spellcast.png",
+      "chop": "player-hair-chop.png"
     },
     "gear": {
       "basic-armor": {
@@ -68,7 +74,8 @@
           "shoot": "player-armor-basic-armor-shoot.png",
           "hurt": "player-armor-basic-armor-hurt.png",
           "halfslash": "player-armor-basic-armor-halfslash.png",
-          "spellcast": "player-armor-basic-armor-spellcast.png"
+          "spellcast": "player-armor-basic-armor-spellcast.png",
+          "chop": "player-armor-basic-armor-chop.png"
         }
       },
       "Leather_Armor": {
@@ -81,7 +88,8 @@
           "shoot": "player-armor-Leather_Armor-shoot.png",
           "hurt": "player-armor-Leather_Armor-hurt.png",
           "halfslash": "player-armor-Leather_Armor-halfslash.png",
-          "spellcast": "player-armor-Leather_Armor-spellcast.png"
+          "spellcast": "player-armor-Leather_Armor-spellcast.png",
+          "chop": "player-armor-Leather_Armor-chop.png"
         }
       },
       "Chain_Armor": {
@@ -94,7 +102,8 @@
           "shoot": "player-armor-Chain_Armor-shoot.png",
           "hurt": "player-armor-Chain_Armor-hurt.png",
           "halfslash": "player-armor-Chain_Armor-halfslash.png",
-          "spellcast": "player-armor-Chain_Armor-spellcast.png"
+          "spellcast": "player-armor-Chain_Armor-spellcast.png",
+          "chop": "player-armor-Chain_Armor-chop.png"
         }
       },
       "iron-armor": {
@@ -107,7 +116,8 @@
           "shoot": "player-armor-iron-armor-shoot.png",
           "hurt": "player-armor-iron-armor-hurt.png",
           "halfslash": "player-armor-iron-armor-halfslash.png",
-          "spellcast": "player-armor-iron-armor-spellcast.png"
+          "spellcast": "player-armor-iron-armor-spellcast.png",
+          "chop": "player-armor-iron-armor-chop.png"
         }
       },
       "Iron_Armor": {
@@ -120,7 +130,8 @@
           "shoot": "player-armor-Iron_Armor-shoot.png",
           "hurt": "player-armor-Iron_Armor-hurt.png",
           "halfslash": "player-armor-Iron_Armor-halfslash.png",
-          "spellcast": "player-armor-Iron_Armor-spellcast.png"
+          "spellcast": "player-armor-Iron_Armor-spellcast.png",
+          "chop": "player-armor-Iron_Armor-chop.png"
         }
       },
       "Leather_Helmet": {
@@ -133,7 +144,8 @@
           "shoot": "player-hat-Leather_Helmet-shoot.png",
           "hurt": "player-hat-Leather_Helmet-hurt.png",
           "halfslash": "player-hat-Leather_Helmet-halfslash.png",
-          "spellcast": "player-hat-Leather_Helmet-spellcast.png"
+          "spellcast": "player-hat-Leather_Helmet-spellcast.png",
+          "chop": "player-hat-Leather_Helmet-chop.png"
         }
       },
       "Chain_Helmet": {
@@ -146,7 +158,8 @@
           "shoot": "player-hat-Chain_Helmet-shoot.png",
           "hurt": "player-hat-Chain_Helmet-hurt.png",
           "halfslash": "player-hat-Chain_Helmet-halfslash.png",
-          "spellcast": "player-hat-Chain_Helmet-spellcast.png"
+          "spellcast": "player-hat-Chain_Helmet-spellcast.png",
+          "chop": "player-hat-Chain_Helmet-chop.png"
         }
       },
       "Iron_Helmet": {
@@ -159,7 +172,8 @@
           "shoot": "player-hat-Iron_Helmet-shoot.png",
           "hurt": "player-hat-Iron_Helmet-hurt.png",
           "halfslash": "player-hat-Iron_Helmet-halfslash.png",
-          "spellcast": "player-hat-Iron_Helmet-spellcast.png"
+          "spellcast": "player-hat-Iron_Helmet-spellcast.png",
+          "chop": "player-hat-Iron_Helmet-chop.png"
         }
       },
       "basic-boots": {
@@ -172,7 +186,8 @@
           "shoot": "player-boots-basic-boots-shoot.png",
           "hurt": "player-boots-basic-boots-hurt.png",
           "halfslash": "player-boots-basic-boots-halfslash.png",
-          "spellcast": "player-boots-basic-boots-spellcast.png"
+          "spellcast": "player-boots-basic-boots-spellcast.png",
+          "chop": "player-boots-basic-boots-chop.png"
         }
       },
       "leather-boots": {
@@ -185,7 +200,8 @@
           "shoot": "player-boots-leather-boots-shoot.png",
           "hurt": "player-boots-leather-boots-hurt.png",
           "halfslash": "player-boots-leather-boots-halfslash.png",
-          "spellcast": "player-boots-leather-boots-spellcast.png"
+          "spellcast": "player-boots-leather-boots-spellcast.png",
+          "chop": "player-boots-leather-boots-chop.png"
         }
       },
       "temple-armor": {
@@ -198,7 +214,8 @@
           "shoot": "player-armor-temple-armor-shoot.png",
           "hurt": "player-armor-temple-armor-hurt.png",
           "halfslash": "player-armor-temple-armor-halfslash.png",
-          "spellcast": "player-armor-temple-armor-spellcast.png"
+          "spellcast": "player-armor-temple-armor-spellcast.png",
+          "chop": "player-armor-temple-armor-chop.png"
         }
       },
       "temple-helmet": {
@@ -211,7 +228,8 @@
           "shoot": "player-hat-temple-helmet-shoot.png",
           "hurt": "player-hat-temple-helmet-hurt.png",
           "halfslash": "player-hat-temple-helmet-halfslash.png",
-          "spellcast": "player-hat-temple-helmet-spellcast.png"
+          "spellcast": "player-hat-temple-helmet-spellcast.png",
+          "chop": "player-hat-temple-helmet-chop.png"
         }
       },
       "temple-boots": {
@@ -224,7 +242,8 @@
           "shoot": "player-boots-temple-boots-shoot.png",
           "hurt": "player-boots-temple-boots-hurt.png",
           "halfslash": "player-boots-temple-boots-halfslash.png",
-          "spellcast": "player-boots-temple-boots-spellcast.png"
+          "spellcast": "player-boots-temple-boots-spellcast.png",
+          "chop": "player-boots-temple-boots-chop.png"
         }
       },
       "frost-armor": {
@@ -237,7 +256,8 @@
           "shoot": "player-armor-frost-armor-shoot.png",
           "hurt": "player-armor-frost-armor-hurt.png",
           "halfslash": "player-armor-frost-armor-halfslash.png",
-          "spellcast": "player-armor-frost-armor-spellcast.png"
+          "spellcast": "player-armor-frost-armor-spellcast.png",
+          "chop": "player-armor-frost-armor-chop.png"
         }
       },
       "frost-helmet": {
@@ -250,7 +270,8 @@
           "shoot": "player-hat-frost-helmet-shoot.png",
           "hurt": "player-hat-frost-helmet-hurt.png",
           "halfslash": "player-hat-frost-helmet-halfslash.png",
-          "spellcast": "player-hat-frost-helmet-spellcast.png"
+          "spellcast": "player-hat-frost-helmet-spellcast.png",
+          "chop": "player-hat-frost-helmet-chop.png"
         }
       },
       "frost-boots": {
@@ -263,7 +284,8 @@
           "shoot": "player-boots-frost-boots-shoot.png",
           "hurt": "player-boots-frost-boots-hurt.png",
           "halfslash": "player-boots-frost-boots-halfslash.png",
-          "spellcast": "player-boots-frost-boots-spellcast.png"
+          "spellcast": "player-boots-frost-boots-spellcast.png",
+          "chop": "player-boots-frost-boots-chop.png"
         }
       }
     },
@@ -308,15 +330,17 @@
         }
       },
       "battle-axe": {
-        "attack": "slash",
+        "attack": "chop",
         "back": {
           "walk": "player-weapon-battle-axe-back-walk.png",
-          "slash": "player-weapon-battle-axe-back-slash.png"
+          "slash": "player-weapon-battle-axe-back-slash.png",
+          "chop": "player-weapon-battle-axe-back-chop.png"
         },
         "front": {
           "walk": "player-weapon-battle-axe-front-walk.png",
           "hurt": "player-weapon-battle-axe-front-hurt.png",
-          "slash": "player-weapon-battle-axe-front-slash.png"
+          "slash": "player-weapon-battle-axe-front-slash.png",
+          "chop": "player-weapon-battle-axe-front-chop.png"
         }
       },
       "magic-staff": {
@@ -361,15 +385,17 @@
         }
       },
       "temple-axe": {
-        "attack": "slash",
+        "attack": "chop",
         "back": {
           "walk": "player-weapon-temple-axe-back-walk.png",
-          "slash": "player-weapon-temple-axe-back-slash.png"
+          "slash": "player-weapon-temple-axe-back-slash.png",
+          "chop": "player-weapon-temple-axe-back-chop.png"
         },
         "front": {
           "walk": "player-weapon-temple-axe-front-walk.png",
           "hurt": "player-weapon-temple-axe-front-hurt.png",
-          "slash": "player-weapon-temple-axe-front-slash.png"
+          "slash": "player-weapon-temple-axe-front-slash.png",
+          "chop": "player-weapon-temple-axe-front-chop.png"
         }
       },
       "temple-bow": {
@@ -414,15 +440,17 @@
         }
       },
       "frost-axe": {
-        "attack": "slash",
+        "attack": "chop",
         "back": {
           "walk": "player-weapon-frost-axe-back-walk.png",
-          "slash": "player-weapon-frost-axe-back-slash.png"
+          "slash": "player-weapon-frost-axe-back-slash.png",
+          "chop": "player-weapon-frost-axe-back-chop.png"
         },
         "front": {
           "walk": "player-weapon-frost-axe-front-walk.png",
           "hurt": "player-weapon-frost-axe-front-hurt.png",
-          "slash": "player-weapon-frost-axe-front-slash.png"
+          "slash": "player-weapon-frost-axe-front-slash.png",
+          "chop": "player-weapon-frost-axe-front-chop.png"
         }
       },
       "frost-bow": {
