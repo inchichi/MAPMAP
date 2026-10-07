@@ -1,13 +1,12 @@
 // 도끼 내려찍어 가르기: 크게 들어 올렸다가 마지막에 내려칠 때 앞쪽 넓은 부채꼴 안의 몬스터를 모두 베고 조금 더 밀어낸다.
-// 대신 다음 공격까지 조금 더 기다린다. 몸 동작은 LPC 내려찍기(chop, 6프레임: 들기·휘두르기 4프레임 → 땅에 닿음 → 멈춤).
+// 대신 다음 공격까지 조금 더 기다린다. 몸 동작은 LPC 베기(slash, 6프레임).
 import { PLAYER_MELEE_REACH } from '../../../playerMeleeReach'
 import { createFrontHitRect, type MeleeMotion } from './meleeMotion'
 
 const CLEAVE_AREA = PLAYER_MELEE_REACH.cleave
 
 export const CLEAVE_MOTION: MeleeMotion = {
-  // 도끼가 땅에 닿는 5번째 프레임부터
-  hitStartProgress: 4 / 6,
+  hitStartProgress: 5 / 6,
   hit: {
     kind: 'area',
     getHitRect: (origin) =>
