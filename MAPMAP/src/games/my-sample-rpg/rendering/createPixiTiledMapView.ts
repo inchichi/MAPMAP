@@ -14,6 +14,8 @@ import {
   getLpcNpcSheetKey,
   loadLpcArrowTexture,
   loadLpcNpcSheets,
+  LPC_PLAYER_LAYER_ORDER,
+  sheetUrl,
   type LpcAnimationName,
   type LpcPlayerLook
 } from './lpcCharacterSprites'
@@ -657,7 +659,14 @@ export const createPixiTiledMapView = async ({
           characterPixelHeight / 2
       }
     },
-    onExpandedChange: (isExpanded) => handleMapOverlayExpandedChange(isExpanded)
+    onExpandedChange: (isExpanded) => handleMapOverlayExpandedChange(isExpanded),
+    getPlayerMarkerSheetUrls: () => {
+      const files = getLpcPlayerLayerFiles(getPlayerLook(), 'walk')
+      return LPC_PLAYER_LAYER_ORDER.flatMap((slot) => {
+        const file = files[slot]
+        return file ? [sheetUrl(file)] : []
+      })
+    }
   })
   const syncViewportDisplayScale = () => {
     const displayScale = Math.max(

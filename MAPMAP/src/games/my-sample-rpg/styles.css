@@ -211,15 +211,23 @@ body.game-root--map-focused > :not(.game-root):not(.app-shell) {
   text-align: center;
 }
 
-/* 세계 지도의 현재 위치 — 깜빡이는 금색 점 */
-@keyframes world-map-current-blink {
+/* 세계 지도의 현재 위치 — 내 캐릭터 그림이 제자리에서 통통 뛴다(메이플 세계 지도처럼) */
+@keyframes world-map-player-bob {
   50% {
-    opacity: 0.25;
+    translate: 0 -4px;
   }
 }
 
-.world-map-overlay__viewport--blink {
-  animation: world-map-current-blink 0.9s steps(1, end) infinite;
+.world-map-overlay__player-marker {
+  position: absolute;
+  z-index: 1;
+  image-rendering: pixelated;
+  pointer-events: none;
+  animation: world-map-player-bob 0.8s steps(1, end) infinite;
+}
+
+.world-map-overlay__player-marker[hidden] {
+  display: none;
 }
 
 /* 좌상단 미니맵 위 줄 — 지역 이름 + −/+ (나무 액자 창과 같은 팔레트). 위치·배율은 TS가 정한다. */
@@ -312,7 +320,7 @@ body.game-root--map-focused > :not(.game-root):not(.app-shell) {
   background: #fff1d2;
   color: #4a3218;
   font-family: 'NeoDunggeunmo', 'Jersey 25', monospace;
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   letter-spacing: 0.08em;
   line-height: 1;
   text-transform: uppercase;

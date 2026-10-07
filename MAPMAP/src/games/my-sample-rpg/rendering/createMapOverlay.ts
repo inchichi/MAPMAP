@@ -23,6 +23,8 @@ type CreateMapOverlayInput = {
     y: number
   }
   onExpandedChange?: (isExpanded: boolean) => void
+  // 세계 지도의 현재 위치 표시 — 지금 장비를 입은 내 캐릭터(LPC 걷기 시트, 그리는 순서대로).
+  getPlayerMarkerSheetUrls: () => string[]
 }
 
 export type MapOverlay = {
@@ -47,6 +49,10 @@ const OVERLAY_MARGIN = 16
 const DISPLAY_BORDER_SHADOW =
   '0 0 0 2px #6d4b27, 0 0 0 5px #c58747, 0 0 0 7px #6d4b27, 4px 4px 0 7px rgba(0, 0, 0, 0.35)'
 const FOCUS_MARKER_SIZE = 10
+// 세계 지도 위치 표시: LPC 걷기 시트(128칸)의 정면 첫 프레임에서 몸(가운데 64칸)만 잘라 쓴다.
+const LPC_WALK_CELL = 128
+const LPC_WALK_DOWN_ROW = 2
+const LPC_BODY_SIZE = 64
 // 미니맵 위 지역 이름 + −/+ 줄의 높이와 미니맵까지 간격(나무 테두리 두께 포함)
 const ZOOM_BAR_HEIGHT = 24
 const ZOOM_BAR_GAP = 12
@@ -72,7 +78,8 @@ export const createMapOverlay = ({
   mapPixelWidth,
   mapPixelHeight,
   getFocusPoint,
-  onExpandedChange
+  onExpandedChange,
+  getPlayerMarkerSheetUrls
 }: CreateMapOverlayInput): MapOverlay => {
   const overlayRoot = document.createElement('div')
   const backdropButton = document.createElement('button')
@@ -89,6 +96,9 @@ export const createMapOverlay = ({
   const zoomOutButton = document.createElement('button')
   const zoomInButton = document.createElement('button')
   const previewContext = previewCanvas.getContext('2d')
+  const playerMarkerCanvas = document.createElement('canvas')
+  const playerMarkerImages = new Map<string, HTMLImageElement>()
+  let playerMarkerKey = ''
 
   if (!previewContext) {
     throw new Error('Missing 2D context for the map overlay')
@@ -125,6 +135,11 @@ export const createMapOverlay = ({
   mapFrame.setAttribute('aria-hidden', 'true')
 
   previewCanvas.className = 'world-map-overlay__canvas'
+  playerMarkerCanvas.className = 'world-map-overlay__player-marker'
+  playerMarkerCanvas.width = LPC_BODY_SIZE
+  playerMarkerCanvas.height = LPC_BODY_SIZE
+  playerMarkerCanvas.hidden = true
+  playerMarkerCanvas.setAttribute('aria-hidden', 'true')
   viewportFrame.className = 'world-map-overlay__viewport'
   badgeElement.className = 'world-map-overlay__badge'
   badgeElement.textContent = title
@@ -148,7 +163,7 @@ export const createMapOverlay = ({
   viewportFrame.setAttribute('aria-hidden', 'true')
   badgeElement.setAttribute('aria-hidden', 'true')
 
-  mapFrame.append(previewCanvas, viewportFrame)
+  mapFrame.append(previewCanvas, viewportFrame, playerMarkerCanvas)
   panelButton.append(mapFrame, badgeElement)
   tooltipElement.className = 'world-map-overlay__tooltip'
   tooltipElement.hidden = true
@@ -160,6 +175,39 @@ export const createMapOverlay = ({
   mountElement.append(overlayRoot)
 
   const shouldShowOverlay = () => isVisible || isExpanded
+
+  // 장비가 바뀌었으면 시트를 (처음이면 불러서) 다시 겹쳐 그린다.
+  const drawPlayerMarker = () => {
+    const urls = getPlayerMarkerSheetUrls()
+    const key = urls.join('|')
+    const images = urls.map((url) => {
+      let image = playerMarkerImages.get(url)
+      if (!image) {
+        image = new Image()
+        image.addEventListener('load', () => {
+          playerMarkerKey = ''
+          syncFrame()
+        })
+        image.src = url
+        playerMarkerImages.set(url, image)
+      }
+      return image
+    })
+    if (key === playerMarkerKey || !images.every((image) => image.complete && image.naturalWidth > 0)) {
+      return
+    }
+    playerMarkerKey = key
+    const context = playerMarkerCanvas.getContext('2d')
+    if (!context) {
+      return
+    }
+    const sourceX = (LPC_WALK_CELL - LPC_BODY_SIZE) / 2
+    const sourceY = LPC_WALK_DOWN_ROW * LPC_WALK_CELL + (LPC_WALK_CELL - LPC_BODY_SIZE) / 2
+    context.clearRect(0, 0, LPC_BODY_SIZE, LPC_BODY_SIZE)
+    for (const image of images) {
+      context.drawImage(image, sourceX, sourceY, LPC_BODY_SIZE, LPC_BODY_SIZE, 0, 0, LPC_BODY_SIZE, LPC_BODY_SIZE)
+    }
+  }
 
   const syncFrame = () => {
     const sourceCanvas = getSourceCanvas()
@@ -175,20 +223,17 @@ export const createMapOverlay = ({
     if (isExpanded) {
       worldMap.draw(previewContext, backingWidth, backingHeight)
 
-      // 플레이어 위치 — 미니맵과 같은 금색 점(조금 크게)
-      const expandedMarkerSize = FOCUS_MARKER_SIZE + 4
+      // 플레이어 위치 — 지금 장비를 입은 내 캐릭터(발이 지역 아이콘 바로 위에 오게), 화면 배율만큼 정수배로 키운다.
       const markerRatio = worldMap.getMarkerRatio()
-      viewportFrame.hidden = !markerRatio
-      viewportFrame.classList.add('world-map-overlay__viewport--blink')
-      viewportFrame.style.left = `${Math.round((markerRatio?.x ?? 0) * displayWidth - expandedMarkerSize / 2)}px`
-      viewportFrame.style.top = `${Math.round((markerRatio?.y ?? 0) * displayHeight - expandedMarkerSize / 2)}px`
-      viewportFrame.style.width = `${expandedMarkerSize}px`
-      viewportFrame.style.height = `${expandedMarkerSize}px`
-      viewportFrame.style.borderRadius = '999px'
-      viewportFrame.style.background = '#ffd75e'
-      viewportFrame.style.border = '2px solid #6d4b27'
-      viewportFrame.style.boxShadow = '0 0 0 2px #fff1d2'
-      viewportFrame.style.transform = 'none'
+      const markerScale = Math.max(1, Math.round(getResponsiveUiScale()))
+      const markerSize = LPC_BODY_SIZE * markerScale
+      drawPlayerMarker()
+      viewportFrame.hidden = true
+      playerMarkerCanvas.hidden = !markerRatio || playerMarkerKey === ''
+      playerMarkerCanvas.style.width = `${markerSize}px`
+      playerMarkerCanvas.style.height = `${markerSize}px`
+      playerMarkerCanvas.style.left = `${Math.round((markerRatio?.x ?? 0) * displayWidth - markerSize / 2)}px`
+      playerMarkerCanvas.style.top = `${Math.round((markerRatio?.y ?? 0) * displayHeight - markerSize)}px`
       mapFrame.style.borderRadius = '0'
       mapFrame.style.background = '#f1ddb2'
       badgeElement.textContent = '세계 지도'
@@ -198,6 +243,8 @@ export const createMapOverlay = ({
       badgeElement.style.right = '8px'
       badgeElement.style.top = '8px'
       badgeElement.style.transform = 'none'
+      // 펼친 지도는 화면 크기로 그리므로 글씨는 다른 UI 와 같은 배율로 키운다.
+      badgeElement.style.zoom = String(getResponsiveUiScale())
       return
     }
 
@@ -237,7 +284,7 @@ export const createMapOverlay = ({
     viewportFrame.style.height = `${FOCUS_MARKER_SIZE}px`
     // 플레이어 표시 — 금색 점
     viewportFrame.hidden = false
-    viewportFrame.classList.remove('world-map-overlay__viewport--blink')
+    playerMarkerCanvas.hidden = true
     viewportFrame.style.borderRadius = '999px'
     viewportFrame.style.background = '#ffd75e'
     viewportFrame.style.border = '2px solid #6d4b27'
