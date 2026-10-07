@@ -143,6 +143,44 @@ describe('no invisible walls on visible floor', () => {
 
     expect(objectLayer?.tiles.filter((tile) => tile.gid === 302)).toEqual([])
   })
+
+  // 바닥에 깔린 것처럼 보이는 작은 돌무더기·이끼·뼈·부스러기·풀은 길을 막지 않는다
+  // (길가에서 걸리면 어디가 막혔는지 알 수 없다). 막힌 지대 안쪽에 있는 것만 남는다.
+  it.each([
+    ['hunting-ground', [2, 10]],
+    ['cave', [2, 10]],
+    ['crystal-mine', [29, 35]],
+    ['upstream-waterway', [5, 21]],
+    ['reed-village', [3, 17]],
+    ['sunken-forest', [2, 22]],
+    ['ruins-outskirts', [2, 19]],
+    ['harvest-village', [2, 10]]
+  ] as [string, [number, number]][])('keeps floor-looking props off the walkable area in %s', (name, start) => {
+    const FLOOR_LOOKING_GIDS = new Set([527, 528, 1084, 1085, 1086, 1107, 1108, 1129, 1130, 1133, 1158])
+    const map = loadMap(name)
+    const walls = createWallTileLookup(map)
+    const seen = new Set<string>([start.join(',')])
+    const queue = [start]
+
+    while (queue.length > 0) {
+      const [x, y] = queue.shift() as [number, number]
+      for (const [nextX, nextY] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        const key = `${nextX},${nextY}`
+        if (nextX < 0 || nextY < 0 || nextX >= map.width || nextY >= map.height || seen.has(key) || isWallTileAt(walls, nextX, nextY)) {
+          continue
+        }
+        seen.add(key)
+        queue.push([nextX, nextY])
+      }
+    }
+
+    const blockingFloorProps = (map.layers.find((layer) => layer.name === 'object')?.tiles ?? [])
+      .filter((tile) => FLOOR_LOOKING_GIDS.has(tile.gid))
+      .filter(({ x, y }) => [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].some((cell) => seen.has(cell.join(','))))
+      .map(({ x, y, gid }) => `${x},${y}:${gid}`)
+
+    expect(blockingFloorProps).toEqual([])
+  })
 })
 
 describe('hunting ground layout', () => {
