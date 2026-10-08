@@ -30,6 +30,13 @@
           <option value="expert">고수</option>
         </select>
       </label>
+      <label>무기
+        <select id="weapon">
+          <option value="sword" selected>검</option>
+          <option value="bow">활</option>
+          <option value="magic">마법(지팡이)</option>
+        </select>
+      </label>
       <label>seed <input id="seed" type="number" value="12345" /></label>
       <button id="random-seed" title="무작위 seed">🎲</button>
       <label>속도
@@ -73,6 +80,25 @@
         <label>실력마다 <input id="batch-count" type="number" value="100" min="1" /> 판</label>
         <button id="batch-run">돌리기</button>
         <div id="batch-output" class="muted"></div>
+      </section>
+      <section id="metrics">
+        <h2>학습 지표 (rl/runs 의 학습 결과)</h2>
+        <div id="metrics-body" class="muted">불러오는 중…</div>
+        <details>
+          <summary>지표 읽는 법</summary>
+          <dl>
+            <dt>재미 점수 (보상)</dt>
+            <dd>아슬아슬함 40% + 싸움 길이(1~2분이 최고) 25% + 기술 다양성 35%. 학습 보스가 올리려는 값이다.</dd>
+            <dt>플레이어 승률</dt>
+            <dd>보스를 이긴 비율. 목표: 초보 30~50%, 보통 55~75%, 고수 85~97%. 지금 보상에는 승률 항이 없어서 목표를 직접 노리지는 않는다.</dd>
+            <dt>정책 엔트로피</dt>
+            <dd>보스가 행동을 얼마나 고르게 섞는지. 0에 가까울수록 확신이 크다. 너무 빨리 0이 되면 탐험을 멈춘 것이다.</dd>
+            <dt>설명된 분산</dt>
+            <dd>가치 함수가 실제 보상을 얼마나 맞추는지. 1에 가까울수록 좋다.</dd>
+            <dt>검 봇 상대 승률</dt>
+            <dd>활·마법 상대로 학습한 보스를 검 봇과 싸우게 한 결과. 한 무기에만 맞춰졌는지 본다.</dd>
+          </dl>
+        </details>
       </section>
     </main>
     <script type="module" src="/src/games/my-sample-rpg/bossSimViewer/main.ts"></script>

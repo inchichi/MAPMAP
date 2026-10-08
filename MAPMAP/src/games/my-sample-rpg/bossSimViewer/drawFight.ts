@@ -2,15 +2,17 @@
 // 위험 지대는 터지기 전(예고)은 옅게 차오르고, 터진 뒤에는 진하게 칠한다.
 import { getBossHazardCenter, isBossEnraged, type BossHazard, type BossHazardKind } from '../bossSkills'
 import type { BossArenaData } from '../bossTraining/bossArena'
-import { BOSS_MELEE_RANGE_TILES, isPlayerRolling, type Vector } from '../bossTraining/bossFightSim'
+import { BOSS_MELEE_RANGE_TILES, isPlayerRolling, type PlayerWeapon, type Vector } from '../bossTraining/bossFightSim'
 import { getPlayerRollVisualState, PLAYER_ROLL_DURATION_MILLISECONDS } from '../playerRoll'
 import type { LpcDirection } from '../rendering/lpcCharacterSprites'
 import {
+  drawArrowSprite,
   drawBossSprite,
+  drawEnergyBoltSprite,
   drawPlayerSprite,
   getBossFrameCount,
+  getPlayerAttackAnimation,
   getPlayerFrameCount,
-  PLAYER_ATTACK_ANIMATION,
   TILE_PIXELS,
   type ArenaTiles
 } from './arenaSprites'
@@ -112,8 +114,8 @@ const circle = (context: CanvasRenderingContext2D, x: number, y: number, radius:
 
 // 시뮬레이터 좌표는 몸 가운데다. 그림은 발끝을 기준으로 그리므로 반 칸쯤 아래가 발이다.
 const FOOT_OFFSET_TILES = 0.45
-// 플레이어 공격 동작(mapView/constants 의 공격 동작 시간)
-const PLAYER_ATTACK_POSE_MILLISECONDS = 320
+// 플레이어 공격 동작(mapView/constants 의 공격 동작 시간). 원거리는 준비 동작 + 마무리 180ms(playerCombatEffects).
+const PLAYER_ATTACK_POSE_MILLISECONDS: Record<PlayerWeapon, number> = { sword: 320, bow: 480, magic: 400 }
 const WALK_FRAMES_PER_SECOND = 11
 const BOSS_RUN_FRAMES_PER_SECOND = 9
 
@@ -138,6 +140,8 @@ const drawPlayer = (context: CanvasRenderingContext2D, playback: FightPlayback, 
   const toBoss = { x: boss.x - player.x, y: boss.y - player.y }
   const rolling = isPlayerRolling(state)
   const attackElapsed = motion.playerAttackAt === undefined ? Infinity : now - motion.playerAttackAt
+  const attackAnimation = getPlayerAttackAnimation(player.weapon)
+  const attackPoseMilliseconds = PLAYER_ATTACK_POSE_MILLISECONDS[player.weapon]
 
   drawShadow(context, x, y, 11)
   context.save()
@@ -157,18 +161,18 @@ const drawPlayer = (context: CanvasRenderingContext2D, playback: FightPlayback, 
   const pose =
     player.hp <= 0
       ? { animation: 'hurt' as const, direction: 'down' as const, frame: getPlayerFrameCount('hurt') - 1 }
-      : attackElapsed < PLAYER_ATTACK_POSE_MILLISECONDS
+      : attackElapsed < attackPoseMilliseconds
         ? {
-            animation: PLAYER_ATTACK_ANIMATION,
+            animation: attackAnimation,
             direction: getDirection(toBoss),
-            frame: Math.floor((attackElapsed / PLAYER_ATTACK_POSE_MILLISECONDS) * getPlayerFrameCount(PLAYER_ATTACK_ANIMATION))
+            frame: Math.floor((attackElapsed / attackPoseMilliseconds) * getPlayerFrameCount(attackAnimation))
           }
         : {
             animation: 'walk' as const,
             direction: getDirection(rolling ? player.rollVector : moving ? moved : toBoss),
             frame: moving || rolling ? 1 + (Math.floor((now / 1000) * WALK_FRAMES_PER_SECOND) % 8) : 0
           }
-  drawPlayerSprite(context, pose, 0, 0)
+  drawPlayerSprite(context, player.weapon, pose, 0, 0)
   context.restore()
 }
 
@@ -255,6 +259,16 @@ export const drawFight = (context: CanvasRenderingContext2D, view: ArenaView, pl
     { y: bossAt.y, draw: () => drawBoss(context, playback, bossAt.x, bossAt.y + foot) }
   ].sort((a, b) => a.y - b.y)
   characters.forEach((character) => character.draw())
+
+  // 날아가는 화살·에너지볼트(보스를 따라간다)
+  for (const projectile of state.projectiles) {
+    const at = toPixels(projectile)
+    if (projectile.kind === 'magic') {
+      drawEnergyBoltSprite(context, at.x, at.y, now)
+    } else {
+      drawArrowSprite(context, at.x, at.y, Math.atan2(boss.y - projectile.y, boss.x - projectile.x))
+    }
+  }
 
   context.drawImage(view.tiles.roof, ...source, ...target)
 

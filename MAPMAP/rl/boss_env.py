@@ -13,14 +13,17 @@ import numpy as np
 
 DIST_DIR = Path(__file__).resolve().parent / "dist"
 TIERS = ("novice", "normal", "expert")
+WEAPONS = ("sword", "bow", "magic")
 
 
 class BossFightEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, seed: int = 0, tier: str | None = None, server_path: Path | None = None):
+    def __init__(self, seed: int = 0, tier: str | None = None, weapon: str = "sword", server_path: Path | None = None):
         # tier=None picks a random opponent tier every episode (training). Set it to fix the opponent (evaluation).
+        # weapon is the opponent bot's weapon: "sword" (melee), "bow" or "magic" (both keep distance and shoot).
         self._tier = tier
+        self._weapon = weapon
         self._episode_seed = seed * 1_000_003
         self._process = subprocess.Popen(
             ["node", str(server_path or DIST_DIR / "boss-env-server.mjs"), str(DIST_DIR / "boss-arena.json")],
@@ -53,7 +56,7 @@ class BossFightEnv(gym.Env):
         if seed is not None:
             self._episode_seed = seed
         self._episode_seed += 1
-        message = {"cmd": "reset", "seed": self._episode_seed}
+        message = {"cmd": "reset", "seed": self._episode_seed, "weapon": self._weapon}
         tier = (options or {}).get("tier", self._tier)
         if tier:
             message["tier"] = tier
@@ -64,7 +67,7 @@ class BossFightEnv(gym.Env):
         observation, reply = self._unpack(self._call({"cmd": "step", "action": int(action)}))
         return observation, float(reply["reward"]), bool(reply["done"]), False, reply["info"]
 
-    # MaskablePPO reads this to block skills that are on cooldown or out of range.
+    # MaskablePPO reads this to block skills that are on cooldown. The trial boss has no range limit.
     def action_masks(self) -> np.ndarray:
         return self._mask
 

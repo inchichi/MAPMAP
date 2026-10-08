@@ -15,7 +15,8 @@ import {
   finishFightStep,
   type FightOutcome,
   type FightSetup,
-  type FightState
+  type FightState,
+  type PlayerWeapon
 } from './bossFightSim'
 import {
   BOSS_POLICY_ACTIONS,
@@ -34,6 +35,7 @@ export type BossEnvStep = {
   done: boolean
   info: {
     tier: PlayerBotTier
+    weapon: PlayerWeapon
     decisions: number
     outcome?: FightOutcome
     fun?: FunBreakdown
@@ -47,6 +49,8 @@ export type BossEnvConfig = {
   setup: FightSetup
   // 판마다 이 중에서 고르게 상대를 뽑는다
   tiers: readonly PlayerBotTier[]
+  // 상대 봇의 무기(reset 에서 판마다 바꿀 수 있다). 기본은 검.
+  weapon?: PlayerWeapon
 }
 
 // 결정 순간의 관찰. 학습 환경과 시뮬레이터 화면(networkBossPolicy)이 같이 쓴다.
@@ -87,6 +91,7 @@ export const createBossEnv = (config: BossEnvConfig) => {
   let random = createSeededRandom(0)
   let bot: PlayerBot = createPlayerBot(PLAYER_BOT_SKILLS.normal, random)
   let tier: PlayerBotTier = 'normal'
+  let weapon: PlayerWeapon = config.weapon ?? 'sword'
   let nextDecisionAt = 0
   let lastAction = 0
   let decisions = 0
@@ -115,6 +120,7 @@ export const createBossEnv = (config: BossEnvConfig) => {
           done: true,
           info: {
             tier,
+            weapon,
             decisions,
             outcome,
             fun,
@@ -126,21 +132,23 @@ export const createBossEnv = (config: BossEnvConfig) => {
       }
       const bossCanChoose = beginFightStep(state, bot(state), random)
       if (bossCanChoose && state.now >= nextDecisionAt && getAvailableBossSkills(state).length > 0) {
-        return { observation: getObservation(), actionMask: getActionMask(), reward: 0, done: false, info: { tier, decisions } }
+        return { observation: getObservation(), actionMask: getActionMask(), reward: 0, done: false, info: { tier, weapon, decisions } }
       }
       finishFightStep(state, bossCanChoose, undefined, random)
     }
   }
 
   return {
-    // seed 가 같으면 같은 상대·같은 싸움이다. tier 를 주면 그 실력으로 고정한다.
-    reset: (seed: number, fixedTier?: PlayerBotTier): BossEnvStep => {
+    // seed 가 같으면 같은 상대·같은 싸움이다. tier 를 주면 그 실력으로, fixedWeapon 을 주면 그 무기로 고정한다.
+    reset: (seed: number, fixedTier?: PlayerBotTier, fixedWeapon?: PlayerWeapon): BossEnvStep => {
       random = createSeededRandom(seed)
       tier = fixedTier ?? config.tiers[Math.floor(random() * config.tiers.length)]
+      weapon = fixedWeapon ?? config.weapon ?? 'sword'
       const skill = PLAYER_BOT_SKILLS[tier]
-      bot = createPlayerBot(skill, random)
+      bot = createPlayerBot(skill, random, weapon)
       state = createFightState(config.setup)
       state.player.accuracy = skill.accuracy
+      state.player.weapon = weapon
       nextDecisionAt = 0
       lastAction = 0
       decisions = 0

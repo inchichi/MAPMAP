@@ -11,10 +11,17 @@ import { BOSS_POLICY_ACTIONS } from '../bossTraining/bossObservation'
 import { isBossPolicyCompatible, type BossPolicyNetwork } from '../bossTraining/bossPolicyNetwork'
 import { runFight, summarizeFights, TARGET_PLAYER_WIN_RATE } from '../bossTraining/fightEvaluation'
 import type { PlayerBotTier } from '../bossTraining/playerBots'
-import { SIM_STEP_MILLISECONDS, TRIAL_BOSS_KEY, type FightResult } from '../bossTraining/bossFightSim'
+import {
+  SIM_STEP_MILLISECONDS,
+  TRIAL_BOSS_KEY,
+  type FightResult,
+  type PlayerWeapon
+} from '../bossTraining/bossFightSim'
 import { parseTiledMap } from '../tiled/parseTiledMap'
 import { loadArenaTiles, loadCharacterSprites } from './arenaSprites'
 import { createArenaView, drawFight } from './drawFight'
+import { mountTrainingMetrics } from './trainingMetrics'
+import { createTrainingRun, type TrainingRun } from './trainingRunData'
 import {
   BOSS_POLICY_LABELS,
   createBossPolicy,
@@ -40,11 +47,13 @@ const view = createArenaView(arena, arenaTiles)
 const SKILLS = getBossSkills(TRIAL_BOSS_KEY)
 const TIER_LABELS: Record<PlayerBotTier, string> = { novice: '초보', normal: '보통', expert: '고수' }
 const TIERS: PlayerBotTier[] = ['novice', 'normal', 'expert']
+const WEAPON_LABELS: Record<PlayerWeapon, string> = { sword: '검', bow: '활', magic: '마법' }
 
 const element = <T extends HTMLElement>(selector: string): T => document.querySelector<T>(selector)!
 const policySelect = element<HTMLSelectElement>('#policy')
 const compareSelect = element<HTMLSelectElement>('#compare')
 const tierSelect = element<HTMLSelectElement>('#tier')
+const weaponSelect = element<HTMLSelectElement>('#weapon')
 const seedInput = element<HTMLInputElement>('#seed')
 const speedSelect = element<HTMLSelectElement>('#speed')
 const playButton = element<HTMLButtonElement>('#play')
@@ -71,7 +80,10 @@ const getPolicyKinds = (): BossPolicyKind[] =>
 const restart = () => {
   const seed = Number(seedInput.value) || 0
   const tier = tierSelect.value as PlayerBotTier
-  playbacks = getPolicyKinds().map((policyKind) => createFightPlayback({ setup, policyKind, network, tier, seed }))
+  const weapon = weaponSelect.value as PlayerWeapon
+  playbacks = getPolicyKinds().map((policyKind) =>
+    createFightPlayback({ setup, policyKind, network, tier, weapon, seed })
+  )
   panelsElement.innerHTML = ''
   panels = playbacks.map((playback) => {
     const panel = document.createElement('section')
@@ -132,7 +144,7 @@ const renderInfo = (playback: FightPlayback): string => {
     ? `<div class="fun">재미 점수 <b>${fun.total.toFixed(2)}</b> — 아슬아슬 ${fun.closeness.toFixed(2)}, 길이 ${fun.duration.toFixed(2)}, 다양성 ${fun.variety.toFixed(2)}</div>`
     : ''
   return `
-    <div class="meta">${TIER_LABELS[playback.tier]} 봇 · seed ${playback.seed} · ${seconds(now)} ${status}</div>
+    <div class="meta">${TIER_LABELS[playback.tier]} ${WEAPON_LABELS[playback.weapon]} 봇 · seed ${playback.seed} · ${seconds(now)} ${status}</div>
     ${funText}
     <div class="hp">플레이어 ${bar(player.hp / player.maxHp, '#2e7dd7', `${player.hp} / ${player.maxHp} · 물약 ${player.potions}`)}</div>
     <div class="hp">보스 ${bar(boss.hp / boss.maxHp, enraged ? '#e53935' : '#7b1fa2', `${boss.hp} / ${boss.maxHp}${enraged ? ' · 분노' : ''}${boss.channel ? ' · 기 모으는 중' : ''}`)}</div>
@@ -199,7 +211,7 @@ element('#random-seed').addEventListener('click', () => {
   seedInput.value = String(Math.floor(Math.random() * 1_000_000))
   restart()
 })
-for (const input of [policySelect, compareSelect, tierSelect, seedInput]) {
+for (const input of [policySelect, compareSelect, tierSelect, weaponSelect, seedInput]) {
   input.addEventListener('change', restart)
 }
 document.addEventListener('keydown', (event) => {
@@ -245,6 +257,39 @@ policySourceSelect.addEventListener('change', async () => {
   usePolicy(path === GAME_POLICY ? (trialBossPolicyJson as BossPolicyNetwork) : await RUN_POLICIES[path]())
 })
 
+// 학습 지표: rl/runs/<run>/ 의 학습 로그·평가 파일(npm run rl:pull 이 가져온다)
+const RUN_FILES = import.meta.glob<string>(
+  [
+    '../../../../rl/runs/*/progress.csv',
+    '../../../../rl/runs/*/checkpoint-eval.csv',
+    '../../../../rl/runs/*/eval-*.txt'
+  ],
+  { query: '?raw', import: 'default' }
+)
+const loadTrainingRuns = async (): Promise<TrainingRun[]> => {
+  const loaded = await Promise.all(
+    Object.entries(RUN_FILES).map(async ([path, load]) => ({ path, text: await load() }))
+  )
+  const filesByRun = new Map<string, Record<string, string>>()
+  for (const { path, text } of loaded) {
+    filesByRun.set(getRunName(path), { ...filesByRun.get(getRunName(path)), [path.split('/').at(-1)!]: text })
+  }
+  return [...filesByRun.keys()]
+    .sort()
+    .map((name) => createTrainingRun(name, filesByRun.get(name)!))
+    .filter((run): run is TrainingRun => run !== undefined)
+}
+void loadTrainingRuns().then((runs) => {
+  const body = element<HTMLElement>('#metrics-body')
+  body.replaceChildren()
+  body.classList.remove('muted')
+  if (runs.length === 0) {
+    body.textContent = 'rl/runs 에 학습 로그(progress.csv)가 없습니다. npm run rl:pull -- <run> 으로 가져오세요.'
+    return
+  }
+  mountTrainingMetrics(body, runs)
+})
+
 // 다른 곳에 있는 정책 JSON 을 직접 고른다
 policyFileInput.addEventListener('change', async () => {
   const file = policyFileInput.files?.[0]
@@ -258,6 +303,7 @@ batchButton.addEventListener('click', async () => {
   const count = Math.max(1, Number(batchCountInput.value) || 100)
   const kinds = getPolicyKinds()
   const baseSeed = Number(seedInput.value) || 0
+  const weapon = weaponSelect.value as PlayerWeapon
   batchButton.disabled = true
   const rows: string[] = []
   for (const kind of kinds) {
@@ -265,7 +311,7 @@ batchButton.addEventListener('click', async () => {
       const results: FightResult[] = []
       for (let index = 0; index < count; index += 1) {
         const seed = baseSeed + index
-        results.push(runFight(setup, createBossPolicy(kind, network, setup, seed), tier, seed))
+        results.push(runFight(setup, createBossPolicy(kind, network, setup, seed), tier, seed, weapon))
         if (index % 10 === 9) {
           batchOutput.textContent = `${BOSS_POLICY_LABELS[kind]} / ${TIER_LABELS[tier]}: ${index + 1} / ${count}판`
           await new Promise((resolve) => setTimeout(resolve))

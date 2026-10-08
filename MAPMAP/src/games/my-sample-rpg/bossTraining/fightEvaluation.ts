@@ -10,7 +10,8 @@ import {
   TRIAL_BOSS_KEY,
   type BossPolicy,
   type FightResult,
-  type FightSetup
+  type FightSetup,
+  type PlayerWeapon
 } from './bossFightSim'
 import { createPlayerBot, PLAYER_BOT_SKILLS, type PlayerBotTier } from './playerBots'
 
@@ -18,13 +19,15 @@ export const runFight = (
   setup: FightSetup,
   policy: BossPolicy,
   tier: PlayerBotTier,
-  seed: number
+  seed: number,
+  weapon: PlayerWeapon = 'sword'
 ): FightResult => {
   const random = createSeededRandom(seed)
   const skill = PLAYER_BOT_SKILLS[tier]
-  const bot = createPlayerBot(skill, random)
+  const bot = createPlayerBot(skill, random, weapon)
   const state = createFightState(setup)
   state.player.accuracy = skill.accuracy
+  state.player.weapon = weapon
   for (;;) {
     stepFight(state, bot(state), policy, random)
     const outcome = getFightOutcome(state)

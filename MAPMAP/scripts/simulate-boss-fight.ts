@@ -3,9 +3,10 @@
 //   npx vite-node scripts/simulate-boss-fight.ts              (실력마다 200판)
 //   FIGHTS=1000 SEED=7 npx vite-node scripts/simulate-boss-fight.ts
 //   JSON=1 npx vite-node scripts/simulate-boss-fight.ts      (요약을 JSON 으로)
+//   WEAPON=bow npx vite-node scripts/simulate-boss-fight.ts  (활 봇. 기본은 검)
 //
 // 보스는 지금 게임과 같은 규칙 기반(쓸 수 있는 기술 중 목록 맨 앞)이다 — 강화학습 보스와 비교할 기준선.
-import { ruleBasedBossPolicy } from '../src/games/my-sample-rpg/bossTraining/bossFightSim'
+import { ruleBasedBossPolicy, type PlayerWeapon } from '../src/games/my-sample-rpg/bossTraining/bossFightSim'
 import { runFight, summarizeFights, TARGET_PLAYER_WIN_RATE } from '../src/games/my-sample-rpg/bossTraining/fightEvaluation'
 import type { PlayerBotTier } from '../src/games/my-sample-rpg/bossTraining/playerBots'
 import { createBossArenaSetup, loadBossArenaData } from './boss-arena-setup'
@@ -15,11 +16,12 @@ const setup = createBossArenaSetup(loadBossArenaData(), Number(process.env.POTIO
 const fights = Number(process.env.FIGHTS ?? 200)
 const seed = Number(process.env.SEED ?? 1)
 const tiers: PlayerBotTier[] = ['novice', 'normal', 'expert']
+const weapon = (process.env.WEAPON as PlayerWeapon | undefined) ?? 'sword'
 
 const summaries = tiers.map((tier) =>
   summarizeFights(
     tier,
-    Array.from({ length: fights }, (_, index) => runFight(setup, ruleBasedBossPolicy, tier, seed * 100_000 + index))
+    Array.from({ length: fights }, (_, index) => runFight(setup, ruleBasedBossPolicy, tier, seed * 100_000 + index, weapon))
   )
 )
 
@@ -27,7 +29,7 @@ if (process.env.JSON) {
   console.log(JSON.stringify(summaries, null, 2))
 } else {
   const percent = (value: number) => `${Math.round(value * 100)}%`
-  console.log(`시험 보스(규칙 기반) vs 봇 — 실력마다 ${fights}판, seed ${seed}`)
+  console.log(`시험 보스(규칙 기반) vs ${weapon} 봇 — 실력마다 ${fights}판, seed ${seed}`)
   for (const summary of summaries) {
     const target = TARGET_PLAYER_WIN_RATE[summary.tier]
     console.log(

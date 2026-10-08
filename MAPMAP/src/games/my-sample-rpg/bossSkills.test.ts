@@ -23,6 +23,7 @@ import {
   getBossSkillCooldown,
   getBossSkillGap,
   getChargePath,
+  getReadyBossSkills,
   getSummonCountPerCast,
   isBossEnraged,
   getBossSummonPrefix,
@@ -44,6 +45,16 @@ describe('boss skills', () => {
     ).toBeUndefined()
     expect(pickBossSkill('monster_pig', 2, {}, 0)).toBeUndefined()
     expect(pickBossSkill('monster_swamp_priest', 4, {}, 0)?.kind).toBe('summon')
+  })
+
+  it('lets the trial boss use any ready skill at any distance', () => {
+    // 돌진(3~9칸)·혀(3~7칸)도 붙어 있을 때, 지면 강타(0~3칸)도 멀리서 고를 수 있다
+    const kinds = (distance: number) =>
+      getReadyBossSkills('boss_trial', distance, {}, 0).map((skill) => skill.kind)
+    expect(kinds(0.5)).toEqual(kinds(20))
+    expect(kinds(20)).toHaveLength(7)
+    // 쿨다운은 그대로 막는다
+    expect(getReadyBossSkills('boss_trial', 5, { charge: 1000 }, 0).map((skill) => skill.kind)).not.toContain('charge')
   })
 
   it('warns before a poison puddle hurts, then ticks while the player stands in it', () => {
@@ -145,9 +156,9 @@ describe('boss skills', () => {
     expect(key).toBe('boss_trial')
     expect(getBossSkillGap(key)).toBeGreaterThan(0)
     expect(getBossSkillGap('monster_troll_chief')).toBe(0)
-    // 가까우면 기 모으기, 멀면 돌진이 먼저(목록 순서)
+    // 거리와 상관없이 목록 순서
     expect(pickBossSkill(key, 2, {}, 0)?.kind).toBe('charged-blast')
-    expect(pickBossSkill(key, 8, {}, 0)?.kind).toBe('charge')
+    expect(pickBossSkill(key, 8, {}, 0)?.kind).toBe('charged-blast')
     expect(getBossPresentation(key)?.title).toBeDefined()
   })
 

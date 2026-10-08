@@ -21,6 +21,7 @@ import {
   getChargePath,
   getFanShotCount,
   getMeteorCount,
+  getReadyBossSkills,
   getTonguePullVector,
   isBossEnraged,
   shouldInterruptChargedBlast,
@@ -40,6 +41,13 @@ import {
 } from '../playerRoll'
 
 import { getPlayerSwordReach } from '../playerMeleeReach'
+import { PLAYER_MAGIC_CAST_WINDUP_MILLISECONDS } from '../playerMagicSkills'
+import {
+  PLAYER_MAGIC_ATTACK_COOLDOWN_MILLISECONDS,
+  PLAYER_MAGIC_ATTACK_TARGET_RANGE_PIXELS,
+  PLAYER_PROJECTILE_MAX_TRAVEL_PIXELS,
+  PLAYER_PROJECTILE_SPEED_PIXELS_PER_SECOND
+} from '../playerProjectile'
 
 export const SIM_STEP_MILLISECONDS = 50
 export const SIM_TIME_LIMIT_MILLISECONDS = 180_000
@@ -54,6 +62,35 @@ const PLAYER_DAMAGE_INVULNERABILITY_MILLISECONDS = 600
 // 게임의 검 사거리(playerMeleeReach.ts 의 무기 범위 표) + 보스 몸 반쯤
 const BOSS_HALF_BODY_TILES = 0.4
 export const PLAYER_ATTACK_REACH_TILES = getPlayerSwordReach().reachInTiles + BOSS_HALF_BODY_TILES
+// 원거리 기본 공격(playerCombatEffects 의 활·지팡이 기본 공격, playerProjectile.ts, 32px 칸): 조준 사거리 안의 보스를
+// 노려 유도 발사체를 쏜다. 준비 동작(활 시위 당기기, 지팡이 찌르기) 동안은 걷지도 구르지도 못한다.
+const TILE_PIXELS = 32
+export type PlayerRangedAttack = {
+  // 준비 동작 시간 — 이 동안 제자리에 묶이고, 끝나면 발사체가 나간다
+  castMilliseconds: number
+  intervalMilliseconds: number
+  aimRangeTiles: number
+  projectileTilesPerSecond: number
+  projectileMaxTravelTiles: number
+}
+export const PLAYER_RANGED_ATTACKS: Record<'bow' | 'magic', PlayerRangedAttack> = {
+  // 활: 시위 300ms, 화살
+  bow: {
+    castMilliseconds: 300,
+    intervalMilliseconds: PLAYER_MAGIC_ATTACK_COOLDOWN_MILLISECONDS,
+    aimRangeTiles: PLAYER_MAGIC_ATTACK_TARGET_RANGE_PIXELS / TILE_PIXELS,
+    projectileTilesPerSecond: PLAYER_PROJECTILE_SPEED_PIXELS_PER_SECOND.arrow / TILE_PIXELS,
+    projectileMaxTravelTiles: PLAYER_PROJECTILE_MAX_TRAVEL_PIXELS.arrow / TILE_PIXELS
+  },
+  // 지팡이(마법): 찌르기 220ms, 에너지볼트. 화살보다 느리지만 멀리 따라간다.
+  magic: {
+    castMilliseconds: PLAYER_MAGIC_CAST_WINDUP_MILLISECONDS,
+    intervalMilliseconds: PLAYER_MAGIC_ATTACK_COOLDOWN_MILLISECONDS,
+    aimRangeTiles: PLAYER_MAGIC_ATTACK_TARGET_RANGE_PIXELS / TILE_PIXELS,
+    projectileTilesPerSecond: PLAYER_PROJECTILE_SPEED_PIXELS_PER_SECOND['energy-bolt'] / TILE_PIXELS,
+    projectileMaxTravelTiles: PLAYER_PROJECTILE_MAX_TRAVEL_PIXELS['energy-bolt'] / TILE_PIXELS
+  }
+}
 // monsterCatalog 의 monster_troll_chief(시험 보스 외형)
 const BOSS_CHASE_TILES_PER_SECOND = 2.2
 export const BOSS_MELEE_RANGE_TILES = 1.8 + 0.14
@@ -70,6 +107,15 @@ const POTION_PRESS_INTERVAL_MILLISECONDS = 400
 const DODGEABLE_HAZARD_KINDS = new Set<BossHazardKind>(['water-pillar', 'ring-burst', 'charge-lane', 'fan-shot', 'meteor'])
 
 export type Vector = { x: number; y: number }
+
+// 플레이어 무기. sword: 붙어서 휘두른다. bow: 떨어져서 유도 화살을 쏜다. magic: 지팡이로 유도 에너지볼트를 쏜다.
+export type PlayerWeapon = 'sword' | keyof typeof PLAYER_RANGED_ATTACKS
+
+export const getPlayerRangedAttack = (weapon: PlayerWeapon): PlayerRangedAttack | undefined =>
+  weapon === 'sword' ? undefined : PLAYER_RANGED_ATTACKS[weapon]
+
+// 날아가는 화살·에너지볼트. 보스를 따라가다 닿으면 맞고, 사거리를 다 날면 사라진다.
+export type SimProjectile = { kind: PlayerWeapon; x: number; y: number; traveledTiles: number }
 
 export type PlayerAction = {
   // 움직일 방향(길이는 무시). {0,0}이면 서 있는다.
@@ -93,8 +139,11 @@ export type SimPlayer = {
   invulnerableUntil: number
   potions: number
   potionReadyAt: number
-  // 손이 닿는 거리에서 휘둘렀을 때 맞을 확률(방향·타이밍 실수). 봇 실력이 정한다.
+  // 손이 닿는 거리에서 휘둘렀을 때(활은 쐈을 때) 맞을 확률(방향·타이밍 실수). 봇 실력이 정한다.
   accuracy: number
+  weapon: PlayerWeapon
+  // 원거리 공격 준비 동작이 끝나 발사체가 나가는 시각. 그때까지 제자리에 묶인다(준비 중이 아니면 undefined).
+  castReleaseAt?: number
 }
 
 export type SimBoss = {
@@ -130,6 +179,7 @@ export type FightState = {
   boss: SimBoss
   hazards: BossHazard[]
   hazardSequence: number
+  projectiles: SimProjectile[]
   stats: FightStats
   isWall: (tileX: number, tileY: number) => boolean
 }
@@ -186,7 +236,8 @@ export const createFightState = (setup: FightSetup): FightState => {
       invulnerableUntil: 0,
       potions: setup.potions,
       potionReadyAt: 0,
-      accuracy: 1
+      accuracy: 1,
+      weapon: 'sword'
     },
     boss: {
       ...setup.bossStart,
@@ -203,6 +254,7 @@ export const createFightState = (setup: FightSetup): FightState => {
     },
     hazards: [],
     hazardSequence: 0,
+    projectiles: [],
     stats: {
       skillUses: {},
       meleeHits: 0,
@@ -223,6 +275,8 @@ export const getDistance = (a: Vector, b: Vector): number => Math.hypot(a.x - b.
 export const isPlayerRolling = (state: FightState): boolean =>
   state.now < state.player.rollStartedAt + PLAYER_ROLL_DURATION_MILLISECONDS
 
+export const isPlayerCasting = (state: FightState): boolean => state.player.castReleaseAt !== undefined
+
 // 보스가 기술을 고를 수 있는 순간인가(묶여 있거나 휘청이거나 공격 중이 아님)
 export const isBossFree = (state: FightState): boolean =>
   !state.boss.charge &&
@@ -230,17 +284,11 @@ export const isBossFree = (state: FightState): boolean =>
   state.boss.hitReactionUntil <= state.now &&
   state.boss.attackUntil <= state.now
 
-export const getAvailableBossSkills = (state: FightState): BossSkillKind[] => {
-  const distance = getDistance(state.boss, state.player)
-  return getBossSkills(TRIAL_BOSS_KEY)
-    .filter(
-      (skill) =>
-        (state.boss.skillReadyAt[skill.kind] ?? 0) <= state.now &&
-        distance >= skill.minRangeTiles &&
-        distance <= skill.maxRangeTiles
-    )
-    .map((skill) => skill.kind)
-}
+// 게임과 같은 규칙(getReadyBossSkills): 시험 보스는 쿨다운이 끝난 기술이면 거리와 상관없이 쓸 수 있다.
+export const getAvailableBossSkills = (state: FightState): BossSkillKind[] =>
+  getReadyBossSkills(TRIAL_BOSS_KEY, getDistance(state.boss, state.player), state.boss.skillReadyAt, state.now).map(
+    (skill) => skill.kind
+  )
 
 export const getFightOutcome = (state: FightState): FightOutcome | undefined => {
   if (state.player.hp <= 0) {
@@ -296,6 +344,18 @@ const stepPlayer = (state: FightState, action: PlayerAction, random: () => numbe
     player.hp = Math.min(player.maxHp, player.hp + POTION_HEAL)
     state.stats.potionsUsed += 1
   }
+  const ranged = getPlayerRangedAttack(player.weapon)
+  if (ranged && player.castReleaseAt !== undefined && player.castReleaseAt <= state.now) {
+    player.castReleaseAt = undefined
+    // 조준 사거리 안이면 보스를 노린다. 빗나가는 발사체(정확도)는 쏘지 않은 것으로 친다.
+    if (getDistance(player, boss) <= ranged.aimRangeTiles && random() < player.accuracy) {
+      state.projectiles.push({ kind: player.weapon, x: player.x, y: player.y, traveledTiles: 0 })
+    }
+  }
+  stepProjectiles(state)
+  if (isPlayerCasting(state)) {
+    return
+  }
   if (action.roll && !isPlayerRolling(state) && player.rollReadyAt <= state.now) {
     const vector = normalize(action.roll)
     if (vector.x !== 0 || vector.y !== 0) {
@@ -315,15 +375,41 @@ const stepPlayer = (state: FightState, action: PlayerAction, random: () => numbe
     const move = normalize(action.move)
     tryMove(state, player, move.x * PLAYER_MOVE_TILES_PER_SECOND * seconds, move.y * PLAYER_MOVE_TILES_PER_SECOND * seconds)
   }
-  if (action.attack && player.attackReadyAt <= state.now) {
+  if (action.attack && player.attackReadyAt <= state.now && ranged) {
+    player.attackReadyAt = state.now + ranged.intervalMilliseconds
+    player.castReleaseAt = state.now + ranged.castMilliseconds
+    state.stats.playerAttacks += 1
+  } else if (action.attack && player.attackReadyAt <= state.now) {
     player.attackReadyAt = state.now + PLAYER_ATTACK_INTERVAL_MILLISECONDS
     state.stats.playerAttacks += 1
     if (getDistance(player, boss) <= PLAYER_ATTACK_REACH_TILES && random() < player.accuracy) {
-      boss.hp = Math.max(0, boss.hp - player.attackPower)
-      boss.hitReactionUntil = Math.max(boss.hitReactionUntil, state.now + BOSS_HIT_REACTION_MILLISECONDS)
-      state.stats.playerHits += 1
+      hitBoss(state)
     }
   }
+}
+
+const hitBoss = (state: FightState): void => {
+  const { boss, player } = state
+  boss.hp = Math.max(0, boss.hp - player.attackPower)
+  boss.hitReactionUntil = Math.max(boss.hitReactionUntil, state.now + BOSS_HIT_REACTION_MILLISECONDS)
+  state.stats.playerHits += 1
+}
+
+// 발사체는 보스를 따라 날아가 몸(BOSS_HALF_BODY_TILES)에 닿으면 맞는다.
+const stepProjectiles = (state: FightState): void => {
+  state.projectiles = state.projectiles.filter((projectile) => {
+    const ranged = PLAYER_RANGED_ATTACKS[projectile.kind as keyof typeof PLAYER_RANGED_ATTACKS]
+    const step = (ranged.projectileTilesPerSecond * SIM_STEP_MILLISECONDS) / 1000
+    const distance = getDistance(projectile, state.boss)
+    if (distance <= step + BOSS_HALF_BODY_TILES) {
+      hitBoss(state)
+      return false
+    }
+    projectile.x += ((state.boss.x - projectile.x) / distance) * step
+    projectile.y += ((state.boss.y - projectile.y) / distance) * step
+    projectile.traveledTiles += step
+    return projectile.traveledTiles < ranged.projectileMaxTravelTiles
+  })
 }
 
 const delayAllSkills = (boss: SimBoss, until: number): void => {

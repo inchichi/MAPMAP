@@ -12,6 +12,7 @@ import {
   type FightOutcome,
   type FightSetup,
   type FightState,
+  type PlayerWeapon,
   type Vector
 } from '../bossTraining/bossFightSim'
 import { BOSS_POLICY_ACTIONS, getBossActionMask } from '../bossTraining/bossObservation'
@@ -57,6 +58,7 @@ export type ShownDecision = { at: number; actionMask: boolean[]; action: number;
 export type FightPlayback = {
   readonly policyKind: BossPolicyKind
   readonly tier: PlayerBotTier
+  readonly weapon: PlayerWeapon
   readonly seed: number
   readonly state: FightState
   readonly log: readonly FightLogEntry[]
@@ -93,14 +95,16 @@ export const createFightPlayback = (options: {
   policyKind: BossPolicyKind
   network: BossPolicyNetwork
   tier: PlayerBotTier
+  weapon: PlayerWeapon
   seed: number
 }): FightPlayback => {
-  const { setup, policyKind, network, tier, seed } = options
+  const { setup, policyKind, network, tier, weapon, seed } = options
   const random = createSeededRandom(seed)
   const skill = PLAYER_BOT_SKILLS[tier]
-  const bot = createPlayerBot(skill, random)
+  const bot = createPlayerBot(skill, random, weapon)
   const state = createFightState(setup)
   state.player.accuracy = skill.accuracy
+  state.player.weapon = weapon
   const log: FightLogEntry[] = []
   const trail: Vector[] = []
   const hazardStartedAt = new Map<string, number>()
@@ -172,6 +176,7 @@ export const createFightPlayback = (options: {
   return {
     policyKind,
     tier,
+    weapon,
     seed,
     state,
     log,

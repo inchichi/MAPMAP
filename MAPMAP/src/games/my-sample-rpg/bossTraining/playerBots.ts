@@ -7,14 +7,18 @@
 //   3. 혀 당기기를 알아채면 구른다. 기 모으기는 때려서 끊을지 도망칠지 정한다.
 //   4. 근접 공격은 예고가 없어서, 리듬을 읽는 봇만 칠 때쯤 구르기(무적)로 받아넘긴다.
 //   5. 위험이 없으면 보스에게 붙어서 때린다. 체력이 낮으면 물약을 마신다(다른 행동과 함께).
+// 원거리 봇(활·마법)은 5 대신 보스와 거리를 벌린 채(고리 폭발 바깥, 조준 사거리 안) 서서 쏜다. 준비 동작 동안
+// 묶이므로 그사이 맞을 위험이 보이면 쏘지 않고, 근접 공격 리듬을 읽으면 보스 반대쪽으로 구른다.
 import { isPointInBossHazard, type BossHazard } from '../bossSkills'
 import {
   BOSS_MELEE_RANGE_TILES,
   getDistance,
   isPlayerRolling,
   PLAYER_ATTACK_REACH_TILES,
+  getPlayerRangedAttack,
   type FightState,
   type PlayerAction,
+  type PlayerWeapon,
   type Vector
 } from './bossFightSim'
 
@@ -82,6 +86,12 @@ const MELEE_READ_MILLISECONDS = 250
 const CHANNEL_GIVE_UP_MILLISECONDS = 500
 const ESCAPE_DIRECTIONS = 16
 const ESCAPE_DISTANCES = [0.75, 1.5, 2.5, 3.5, 5]
+// 원거리 봇이 서고 싶은 거리 — 고리 폭발(바깥 반지름 4.6칸) 바깥, 조준 사거리(7칸, 그보다 0.4칸 안쪽) 안
+const RANGED_KEEP_MIN_TILES = 4.8
+const RANGED_KEEP_AIM_MARGIN_TILES = 0.4
+const RANGED_KEEP_PREFERRED_TILES = 5.6
+// 거리를 맞출 때 살펴보는 한 걸음 앞 자리
+const RANGED_STEP_TILES = 1.5
 
 type CastMemory = { noticeAt: number; dodge: boolean; roll: boolean; interrupt: boolean }
 
@@ -90,7 +100,12 @@ const getCastId = (hazard: BossHazard): string => hazard.id.split(':').slice(0, 
 
 export type PlayerBot = (state: FightState) => PlayerAction
 
-export const createPlayerBot = (skill: PlayerBotSkill, random: () => number): PlayerBot => {
+export const createPlayerBot = (
+  skill: PlayerBotSkill,
+  random: () => number,
+  weapon: PlayerWeapon = 'sword'
+): PlayerBot => {
+  const ranged = getPlayerRangedAttack(weapon)
   const casts = new Map<string, CastMemory>()
   let tongueMemory: { startAt: number; roll: boolean } | undefined
   let meleeMemory: { at: number; read: boolean } | undefined
@@ -142,6 +157,28 @@ export const createPlayerBot = (skill: PlayerBotSkill, random: () => number): Pl
     return best?.point
   }
 
+  // 원거리 봇: 한 걸음 앞 자리 중 벽이 아니고 보스와의 거리가 원하는 거리에 가장 가까운 쪽
+  const findKiteDirection = (state: FightState): Vector => {
+    const { player, boss } = state
+    let best: { direction: Vector; score: number } | undefined
+    for (let index = 0; index < ESCAPE_DIRECTIONS; index += 1) {
+      const angle = (index / ESCAPE_DIRECTIONS) * Math.PI * 2
+      const direction = { x: Math.cos(angle), y: Math.sin(angle) }
+      const blocked = [0.5, 1, RANGED_STEP_TILES].some((distance) =>
+        state.isWall(Math.floor(player.x + direction.x * distance), Math.floor(player.y + direction.y * distance))
+      )
+      if (blocked) {
+        continue
+      }
+      const point = { x: player.x + direction.x * RANGED_STEP_TILES, y: player.y + direction.y * RANGED_STEP_TILES }
+      const score = Math.abs(getDistance(point, boss) - RANGED_KEEP_PREFERRED_TILES)
+      if (!best || score < best.score) {
+        best = { direction, score }
+      }
+    }
+    return best?.direction ?? { x: player.x - boss.x, y: player.y - boss.y }
+  }
+
   const jitter = (direction: Vector): Vector => {
     const angle = Math.atan2(direction.y, direction.x) + (random() * 2 - 1) * skill.moveJitter
     return { x: Math.cos(angle), y: Math.sin(angle) }
@@ -189,8 +226,8 @@ export const createPlayerBot = (skill: PlayerBotSkill, random: () => number): Pl
         if (soonest <= ROLL_PANIC_MILLISECONDS && memory.roll && !isPlayerRolling(state)) {
           return { move: direction, attack: false, roll: direction }
         }
-        // 피하면서도 손이 닿으면 때린다
-        return { move: jitter(direction), attack: distanceToBoss <= PLAYER_ATTACK_REACH_TILES }
+        // 피하면서도 손이 닿으면 때린다(원거리는 준비 동작 동안 묶이니 피하는 중엔 쏘지 않는다)
+        return { move: jitter(direction), attack: !ranged && distanceToBoss <= PLAYER_ATTACK_REACH_TILES }
       }
     }
 
@@ -207,7 +244,24 @@ export const createPlayerBot = (skill: PlayerBotSkill, random: () => number): Pl
       }
       if (meleeMemory.read) {
         meleeMemory.read = false
-        return { move: toBoss, attack: false, roll: toBoss }
+        // 원거리는 붙어 있을 이유가 없으니 반대쪽으로 굴러 사거리를 벗어난다
+        const rollVector = ranged ? { x: -toBoss.x, y: -toBoss.y } : toBoss
+        return { move: rollVector, attack: false, roll: rollVector }
+      }
+    }
+
+    if (ranged) {
+      // 준비 동작 동안 맞을 위험(알아챈 것)이 있으면 쏘지 않는다
+      const safeToDraw = !isThreatened(threats, player, now + ranged.castMilliseconds)
+      const tooClose = distanceToBoss < RANGED_KEEP_MIN_TILES
+      const tooFar = distanceToBoss > ranged.aimRangeTiles - RANGED_KEEP_AIM_MARGIN_TILES
+      return {
+        move: tooClose || tooFar ? jitter(findKiteDirection(state)) : { x: 0, y: 0 },
+        // 너무 가까우면 먼저 물러난다. 다만 기 모으기를 끊으려는 중이면 그 자리에서 쏜다.
+        attack:
+          safeToDraw &&
+          distanceToBoss <= ranged.aimRangeTiles &&
+          (!tooClose || boss.channel !== undefined)
       }
     }
 

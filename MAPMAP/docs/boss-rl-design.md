@@ -32,12 +32,20 @@ Update it whenever a decision changes. Add new decisions to the log with a date.
 | 2026-10-06 | Run the trained policy in the game as plain TypeScript math from exported JSON weights. | It is only 3 small layers, so no ML runtime is needed. A test checks that TS and PyTorch give the same scores and actions on 60 recorded decisions. |
 | 2026-10-06 | The training env and the game build the observation with one shared function (`bossObservation.ts`). | If they compute it differently, the policy acts strangely in the game without any error. After the move, 60 recorded decisions gave the same observation (largest difference 3e-8). |
 | 2026-10-06 | Add a standalone simulator page (`boss-sim.html`), separate from the game and the editor. | To watch what the policy does in the same simulator it trained in, not in the live game where the arena keeps the player at full HP. |
+| 2026-10-08 | The trial boss may use any skill whose cooldown is over, at any distance. Skill ranges stay in the table but only feed the `*_in_range` observation slots. Other bosses keep their range rule. | The user wants the trained boss to always keep every skill as an option. The policy learns by itself where a skill works. The game uses the same rule (`getReadyBossSkills`), so the sim and the game still match. |
+| 2026-10-08 | Add a bow player bot and train the boss against it (`--weapon bow`). The observation does not show the weapon. | Sword bots hug the boss, so charge, tongue-pull, and fan-shot were almost never used. A bow bot keeps its distance, so the boss has to use them. |
+| 2026-10-08 | The bow bot uses the same attack power as the sword bot (no weapon bonus difference). | So the only difference between the two bots is how they fight, not their damage. |
+| 2026-10-08 | Add a magic (staff) bot that uses the staff's basic attack, the energy bolt. It shares the ranged bot logic and the same attack power. | The user asked for magic too. In the game the staff basic attack is a homing shot like the bow, so one ranged rule set covers both. MP skills are not simulated. |
+| 2026-10-08 | Train one boss per opponent weapon (`bow-20m`, `magic-20m`), not one boss for all weapons yet. | First see what each weapon teaches. Mixing weapons in one policy is a later step. |
+| 2026-10-08 | Run training with one torch thread per process (`rl/run_weapon.sh` sets `OMP_NUM_THREADS=1`). | With default threads, python used about 37 of 48 cores spinning while the Node simulators, the real work, got about 2. |
 
 ## Trial Boss
 
 - Map: `boss-arena` (`src/games/my-sample-rpg/assets/maps/boss-arena.tmx`). Switch to it from the editor map picker ("시험장" in the 테스트 group).
 - Character: `시험의 수호자-보스`, level 10, troll chief look. Boss key `boss_trial` in `src/games/my-sample-rpg/bossSkills.ts`.
 - In `boss-arena`, the player's HP never goes down (damage numbers still show). This is for manual testing only.
+
+Since 2026-10-08 the trial boss ignores the range column when it picks a skill (only cooldowns block it). The range now means "where the skill works well", and the policy sees it as `*_in_range`.
 
 | Skill | Range (tiles) | Cooldown | How it works | How to dodge |
 |---|---|---|---|---|
@@ -73,6 +81,16 @@ Update it whenever a decision changes. Add new decisions to the log with a date.
 - Reuses from the game: every skill rule in `bossSkills.ts` (hazard shapes, timings, damage, charge path, interrupt rule, enrage), boss HP and damage (`monsterCombat.ts`, `monsterTuning.ts`), and roll timing (`playerRoll.ts`).
 - Copies these numbers by hand (update them if the game changes):
   - player move speed 8 tiles/s, attack every 620 ms, 600 ms invulnerability after a hit
+- Player weapon (`PlayerWeapon`): `sword` (default), `bow`, or `magic`. Ranged weapons follow the game's basic attacks (`playerCombatEffects.ts`, `playerProjectile.ts`, `playerMagicSkills.ts`). Their numbers are in `PLAYER_RANGED_ATTACKS`:
+
+| Weapon | Cast (locked in place, no roll) | Period | Aim range | Projectile | Max travel |
+|---|---|---|---|---|---|
+| bow | 300 ms draw | 650 ms | 7 tiles | arrow, 13.1 tiles/s | 7 tiles |
+| magic | 220 ms staff thrust | 650 ms | 7 tiles | energy bolt, 10.6 tiles/s | 11 tiles |
+
+  - At release, if the boss is in aim range, a homing projectile flies toward the boss and hits when it reaches the boss body. A miss (accuracy roll) fires nothing.
+  - No walls block projectiles in the sim. Homing is perfect (the game's energy bolt turns at 7 rad/s).
+  - Magic MP skills (ice bolt, fireball, chain lightning) and bow skills are not simulated.
 - Player attack reach is not copied: it is the sword reach from `playerMeleeReach.ts` (1.4) + 0.4 for the boss body = 1.8 tiles. On 2026-10-07 it went from 1.6 to 1.8; the rule-based baseline moved little (normal bot win rate 63% → 65%, expert 98% both before and after). Retrain the boss policy so it learns the new reach.
   - boss chase speed 2.2 tiles/s, melee range 1.94, melee every 3.8 s, attack pose 820 ms, hit reaction 180 ms (troll chief in `monsterCatalog.ts`)
 - Player stats for level L: HP `24 + 4(L-1)`, attack `5 + 2(L-1) + 2` (same assumption as `scripts/estimate-playtime.ts`).
@@ -103,6 +121,7 @@ Update it whenever a decision changes. Add new decisions to the log with a date.
 | normal | 280 ms | 65% | 50% | 50% | 0.25 rad | 30% | 40% HP | 75% |
 | expert | 180 ms | 85% | 70% | 80% | 0.1 rad | 50% | 45% HP | 85% |
 
+- **Ranged bots** (`createPlayerBot(skill, random, 'bow' | 'magic')`): same tiers and same dodge rules. Instead of step 5 it keeps 4.8-6.6 tiles from the boss (outside the ring-burst, inside the aim range) and shoots while standing. It does not start a draw if a hazard it noticed would hit it during the draw, and it does not shoot while dodging. When it reads the boss melee, it rolls **away** from the boss. It shoots from where it stands to interrupt charged-blast.
 - These numbers are guesses about real players, so they are also a balance knob. On 2026-10-06 the novice was made a bit stronger and the expert a bit less perfect, because the first values (35% dodge, 90% dodge with perfect aim) looked less human than the targets assume.
 
 ## Fun Score
@@ -150,6 +169,18 @@ Current result (rule-based boss, 300 fights per tier, seed 1, level 10, 6 potion
 | normal | 64% | 55-75% ✓ | 43 s | 34% | 0.72 |
 | expert | 97% | 85-97% ✓ | 42 s | 49% | 0.73 |
 
+Range-free trial boss (2026-10-08, rule-based boss, 300 fights per tier, seed 1, level 10, 6 potions):
+
+| Bot | novice win | normal win | expert win | Avg length (n / no / e) | Fun (n / no / e) |
+|---|---|---|---|---|---|
+| sword | 10% | 68% ✓ | 99% | 38 / 42 / 41 s | 0.60 / 0.77 / 0.78 |
+| bow | 99% | 100% | 100% | 61 / 49 / 45 s | 0.88 / 0.72 / 0.61 |
+| magic | 100% | 100% | 100% | 61 / 49 / 44 s | 0.88 / 0.74 / 0.62 |
+
+- Bow and magic bots play almost the same (magic casts a bit faster, its bolt is slower). Both beat the rule-based boss almost every time. The boss chases at 2.2 tiles/s and the player walks at 8, so melee almost never lands (about 2 damage per fight). Most damage comes from meteors, then charge and fan-shot.
+- With the range limit gone, the rule boss (first ready skill) now uses tongue-pull and charge about 4-6 times per fight against the bow bot.
+- This is the starting point for training against the bow bot. Whether a policy can push bow players into the target bands, or whether the boss needs new numbers for ranged players, is still open.
+
 What is still off, and why it is left as is:
 - **Novices lose too often.** Each skill hit costs 16-45% of max HP, so missed dodges add up fast. Any setting that helps novices pushes experts to 100%. A learned policy can adapt to the player instead.
 - **Fights are about 40 s, not 60-120 s.** More boss HP makes fights longer but drops normal players below target.
@@ -166,7 +197,9 @@ What is still off, and why it is left as is:
   - `{"cmd":"spec"}`: returns the observation and action names.
 - Python side: `rl/boss_env.py` is a Gymnasium env with one Node child per env, plus `action_masks()` for MaskablePPO.
 - Decision point: the boss is free, at least one skill is available, and no "no skill" hold is active. The rest of the fight runs inside the simulator.
-- Actions (8): `none`, then the 7 skills in list order. Unavailable skills are masked. A masked action is treated as `none`. After `none`, the env does not ask again for 500 ms.
+- Opponent weapon: `weapon` in the reset message, or the `WEAPON` environment variable of the server (default `sword`). `rl/boss_env.py` takes `weapon=`, and `train.py` / `evaluate.py` take `--weapon sword|bow|magic`.
+- `rl/run_weapon.sh <weapon> <name> <envs> <seed> [steps]`: train, evaluate (rule boss, model, model against the sword bot), export the JSON, then exit. It caps torch at one thread per process.
+- Actions (8): `none`, then the 7 skills in list order. Skills on cooldown are masked (the trial boss has no range limit). A masked action is treated as `none`. After `none`, the env does not ask again for 500 ms.
 - Observation (36 numbers, the order is a contract, see `BOSS_ENV_OBSERVATION_NAMES`):
   - player offset and distance (in units of 10 tiles), player HP, boss HP, enraged
   - potions left, player rolling, roll ready, boss melee ready, hazard count, fight time
@@ -217,6 +250,34 @@ What the policy learned:
 - **It overshoots the win-rate targets.** Novices now win 60% (target 30-50%) and normal players win 82% (target 55-75%). Expert stays at 98%. The reward is only the fun score, and its closeness part prefers close player wins. The planned win-rate term was not added yet.
 - Charge and tongue-pull are still almost never used, because the bots stay close.
 
+### Bow and magic runs (2026-10-08)
+
+| Run | Opponent | Steps | Envs | Speed | Time |
+|---|---|---|---|---|---|
+| `bow-20m` | bow bot, random tier | 20M | 22 | about 2,500 steps/s | 133 min |
+| `magic-20m` | magic bot, random tier | 20M | 22 | about 2,500 steps/s | 132 min |
+
+Both ran at the same time on the server with `rl/run_weapon.sh`. Results are on the dev PC in `rl/runs/bow-20m/` and `rl/runs/magic-20m/` (git-ignored): `progress.csv`, `checkpoint-eval.csv`, `eval-*.txt`, `trial-boss-policy.json`, `model.zip`. The simulator page shows them under "학습 지표". The game still uses `main-20m`.
+
+500 fights per tier, seed 12345, deterministic policy (player win / fun / HP left on win):
+
+| Opponent | Tier | Rule boss | Trained boss | Trained boss vs sword bot (win) |
+|---|---|---|---|---|
+| bow | novice | 100% / 0.87 / 53% | 99% / **0.95** / 42% | 5% |
+| bow | normal | 100% / 0.72 / 68% | 100% / **0.85** / 51% | 81% |
+| bow | expert | 100% / 0.61 / 81% | 100% / **0.72** / 66% | 100% |
+| magic | novice | 100% / 0.89 / 53% | 99% / **0.95** / 41% | 2% |
+| magic | normal | 100% / 0.73 / 68% | 100% / **0.86** / 49% | 71% ✓ |
+| magic | expert | 100% / 0.61 / 81% | 100% / **0.73** / 63% | 99% |
+
+What the runs show:
+- **The fun score went up for every tier** (novice 0.87 → 0.95, normal 0.72 → 0.85, expert 0.61 → 0.72). The boss made fights closer: ranged players now win with 41-66% HP left instead of 53-81%.
+- **The player win rate stayed at 99-100% the whole time** (`checkpoint-eval.csv`, 10 checkpoints). The reward has no win-rate term, and its closeness part prefers close player wins, so the boss never tries to win. Even so, no checkpoint ever pulled a ranged bot below 98%. With today's skills the boss probably cannot beat a player who keeps 5-6 tiles away.
+- **Learning flattened after about 4M steps** (fun reward about 0.82 at 1M, 0.84 from 4M to 20M).
+- **The boss learned to punish distance**: fan-shot (5-7 per fight) and charge (4-6) became its main skills, and it uses ring-burst and tongue-pull less than the rule boss.
+- Against the sword bot, the boss trained on ranged bots is harsher on novices (2-5% win, rule boss 10%) and softer on normal players (71-81%, rule boss 68%).
+- Bow and magic results are almost the same, as expected from their near-identical basic attacks.
+
 Next change to the reward: add a per-tier win-rate term so the policy aims for the target band. Its weight should adjust during training, raised while a tier's rolling win rate is outside its band and lowered when it is inside (a Lagrangian-style controller). A fixed per-episode bonus or penalty for winning only pushes the win rate to 0% or 100%.
 
 ## Policy In The Game
@@ -228,6 +289,7 @@ Next change to the reward: add a per-tier win-rate term so the policy aims for t
   - `bossTraining/bossPolicyNetwork.ts`: forward pass and masked argmax (deterministic, same as `evaluate.py`)
   - `rendering/mapView/trialBossPolicy.ts`: per-fight memory (start time, last action, "no skill" hold, damage taken) and the call into the network. `bossEncounter.ts` asks it instead of `pickBossSkill` for the trial boss.
 - If the JSON does not match the current observation and action layout, the game logs a warning and falls back to the rule.
+- `main-20m` was trained while skills still had range limits. With the range-free rule it can now pick skills at distances it never saw allowed, so it may act oddly until it is retrained.
 - Two observation slots are not known in the game, so they are filled with fixed values: potions left = full, and roll ready = "not rolling right now".
 - **In `boss-arena` the player's HP never drops**, so the policy always sees a healthy player who takes no damage. It then plays as if the player were strong. To test how it adapts to a weak player, turn the arena's infinite HP off (`combat.ts`, the `boss-arena` check in `applyDamageToPlayer`).
 - To ship a new policy:
@@ -247,10 +309,18 @@ npx vitest run src/games/my-sample-rpg/bossTraining
 - Open `http://localhost:5173/boss-sim.html` while `npm run dev` is running. It does not need the game or the editor.
 - Code: `src/games/my-sample-rpg/bossSimViewer/` (`main.ts` for the page, `fightPlayback.ts` for one fight, `drawFight.ts` for the canvas, `arenaSprites.ts` for the game art). It uses the same simulator, bots, and policy as training.
 - It draws the real `boss-arena` tilemap and the game sprites: the LPC knight with the starter sword for the player bot, and the troll chief sheet at the game's boss scale (×2) for the boss. Hazards are simple colored shapes, not the game's effects.
+- "무기" picks the bot weapon (검 / 활 / 마법). The bow bot has the hunting bow and the LPC arrow sprite. The magic bot has the magic staff and the game's purple energy bolt (Ninja Adventure energy ball, tinted).
 - Two panels play the same seed and the same bot tier with two boss policies (default: RL policy vs rule-based). The bot uses the same random numbers in both panels, so any difference comes from the boss policy.
 - Each panel shows hazards (dashed = warning, filled = hitting), skill cooldowns, the last decision with the policy's action probabilities (masked softmax of the scores), an event log, and the fun score when the fight ends.
 - To watch a policy trained on the server, pull it first. `npm run rl:pull` lists the runs on the server. `npm run rl:pull -- <run>` runs `export_policy.py` on the server and copies the JSON (and `progress.csv`) to `rl/runs/<run>/` on this PC. The "학습 결과" dropdown lists every `rl/runs/*/trial-boss-policy.json`. It does not change the game's copy.
 - "파일" loads a policy JSON from anywhere else.
+- **학습 지표** (below 일괄 평가): every `rl/runs/<run>/` with a `progress.csv`, with a checkbox per run to compare. Code: `trainingRunData.ts` (reads the files, tested) and `trainingMetrics.ts` (charts and tables). It shows:
+  - final results per tier from `eval-rule.txt`, `eval-model.txt`, `eval-model-vs-sword.txt` (win rate against the target band, fun, length, HP left on win, skill use)
+  - the fun reward curve from `progress.csv` (smoothed)
+  - win rate and fun per tier over training from `checkpoint-eval.csv` (`rl/eval_checkpoints.py`)
+  - policy entropy and explained variance from `progress.csv`
+  - The opponent weapon comes from the `weapon=` line in the eval files. Runs without eval files count as sword runs.
+- `npm run rl:pull -- <run>` also copies `checkpoint-eval.csv` and `eval-*.txt` when the server has them. Make them on the server with `rl/run_weapon.sh` (eval files) and `eval_checkpoints.py --run <run> --weapon <weapon>` (checkpoint curve).
 - "일괄 평가" runs many fights per tier without drawing and shows win rate, length, HP left, fun, and skill use. Seeds start at the seed in the toolbar.
 - `bossTraining/networkBossPolicy.ts` wraps the exported network as a simulator `BossPolicy`. It follows the env's decision rule (500 ms hold after "none"), and a test checks that it plays the same fight as the env.
 - `bossTraining/bossArena.ts` turns the arena map into a `FightSetup`. Scripts and the page share it.
@@ -270,6 +340,7 @@ npx vitest run src/games/my-sample-rpg/bossTraining
 ```bash
 npx vite-node scripts/simulate-boss-fight.ts
 FIGHTS=1000 SEED=7 POTIONS=6 npx vite-node scripts/simulate-boss-fight.ts
+WEAPON=bow npx vite-node scripts/simulate-boss-fight.ts
 JSON=1 npx vite-node scripts/simulate-boss-fight.ts
 npx vitest run src/games/my-sample-rpg/bossTraining
 
@@ -282,7 +353,13 @@ cd ~/boss-rl
 ~/venv/bin/python evaluate.py --policy rule --episodes 300
 ~/venv/bin/python train.py --timesteps 2000000 --envs 32 --name first-run
 ~/venv/bin/python evaluate.py --policy model --model runs/first-run/model.zip --episodes 300
+# against the bow / magic bot: train, evaluate, export, then exit (frees the server)
+setsid nohup ./run_weapon.sh bow bow-20m 22 1 > runs/bow-20m.log 2>&1 < /dev/null &
+setsid nohup ./run_weapon.sh magic magic-20m 22 2 > runs/magic-20m.log 2>&1 < /dev/null &
 ```
+
+- Do not stop runs with `pkill -f <pattern>` over ssh: the pattern also matches the ssh command itself and kills the session. Use a PID, or a bracket pattern like `pkill -f "[b]oss-env-server"`.
+- Old zombie (`<defunct>`) processes on the server are children of PID 1, which does not reap them. They use no CPU or memory.
 
 ## Next Steps
 
@@ -292,3 +369,4 @@ cd ~/boss-rl
 4. Add the per-tier win-rate term to the reward and train again.
 5. ~~Export the policy and load it into the game for the trial boss.~~ Done on 2026-10-06 (see Policy In The Game).
 6. Optional: self-play, where the player is also trained.
+7. ~~Train against the bow and magic bots.~~ Done on 2026-10-08 (`bow-20m`, `magic-20m`). Ranged players still win 99-100%. Before more training, decide whether the boss needs tools against ranged players (game balance) and add the per-tier win-rate term (step 4). Then decide whether one policy should face every weapon.

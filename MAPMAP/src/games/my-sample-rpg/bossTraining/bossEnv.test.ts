@@ -48,8 +48,9 @@ describe('boss RL environment', () => {
 
   it('treats a masked action as no skill', () => {
     const env = createBossEnv({ setup, tiers: ['normal'] })
-    const first = env.reset(2)
-    const blocked = first.actionMask.findIndex((allowed) => !allowed)
+    env.reset(2)
+    // 기술 하나를 쓰면 다음 결정에서 그 기술은 쿨다운으로 막힌다
+    const blocked = env.step(1).actionMask.findIndex((allowed) => !allowed)
     expect(blocked).toBeGreaterThan(0)
     const next = env.step(blocked)
     expect(next.observation[BOSS_OBSERVATION_NAMES.indexOf('last_action_none')]).toBe(1)

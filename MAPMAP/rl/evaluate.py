@@ -2,6 +2,7 @@
 
     python evaluate.py --policy rule                       # current game boss (baseline)
     python evaluate.py --policy model --model runs/first-run/model.zip
+    python evaluate.py --policy model --model runs/bow-20m/model.zip --weapon bow
 """
 
 import argparse
@@ -9,7 +10,7 @@ from collections import Counter
 
 import numpy as np
 
-from boss_env import TIERS, BossFightEnv
+from boss_env import TIERS, WEAPONS, BossFightEnv
 
 TARGET_WIN_RATE = {"novice": (0.30, 0.50), "normal": (0.55, 0.75), "expert": (0.85, 0.97)}
 
@@ -26,6 +27,7 @@ def main():
     parser.add_argument("--model")
     parser.add_argument("--episodes", type=int, default=300)
     parser.add_argument("--seed", type=int, default=12345)
+    parser.add_argument("--weapon", choices=WEAPONS, default="sword", help="opponent bot weapon")
     args = parser.parse_args()
 
     model = None
@@ -35,9 +37,9 @@ def main():
         model = MaskablePPO.load(args.model, device="cpu")
     rng = np.random.default_rng(args.seed)
 
-    print(f"policy={args.policy} episodes/tier={args.episodes}")
+    print(f"policy={args.policy} weapon={args.weapon} episodes/tier={args.episodes}")
     for tier in TIERS:
-        env = BossFightEnv(seed=args.seed, tier=tier)
+        env = BossFightEnv(seed=args.seed, tier=tier, weapon=args.weapon)
         wins, durations, funs, hp_left = 0, [], [], []
         skills = Counter()
         for _ in range(args.episodes):

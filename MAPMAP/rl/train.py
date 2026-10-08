@@ -1,6 +1,7 @@
 """Train the trial boss with MaskablePPO (docs/boss-rl-design.md, "RL Plan").
 
     python train.py --timesteps 2000000 --envs 32 --name first-run
+    python train.py --timesteps 20000000 --envs 32 --weapon bow --name bow-20m
 
 Writes runs/<name>/model.zip, checkpoints, and progress.csv.
 """
@@ -13,13 +14,13 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 
-from boss_env import BossFightEnv
+from boss_env import WEAPONS, BossFightEnv
 
 RUNS_DIR = Path(__file__).resolve().parent / "runs"
 
 
-def make_env(rank: int, base_seed: int):
-    return lambda: BossFightEnv(seed=base_seed * 1000 + rank)
+def make_env(rank: int, base_seed: int, weapon: str):
+    return lambda: BossFightEnv(seed=base_seed * 1000 + rank, weapon=weapon)
 
 
 def main():
@@ -28,13 +29,14 @@ def main():
     parser.add_argument("--envs", type=int, default=32)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--name", default="run")
+    parser.add_argument("--weapon", choices=WEAPONS, default="sword", help="opponent bot weapon")
     # The policy is a small MLP. The Node simulators on the CPU are the bottleneck, so the GPU does not help much.
     parser.add_argument("--device", default="cpu")
     args = parser.parse_args()
 
     out_dir = RUNS_DIR / args.name
     out_dir.mkdir(parents=True, exist_ok=True)
-    env = VecMonitor(SubprocVecEnv([make_env(rank, args.seed) for rank in range(args.envs)]))
+    env = VecMonitor(SubprocVecEnv([make_env(rank, args.seed, args.weapon) for rank in range(args.envs)]))
     model = MaskablePPO(
         "MlpPolicy",
         env,

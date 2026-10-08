@@ -32,8 +32,16 @@ describe('boss fight simulator', () => {
     const state = createFightState(setup)
     expect(getAvailableBossSkills(state)).toEqual([])
     state.now = 3000
-    // 6칸 떨어져 있으면 혀 당기기·돌진·유성우·부채꼴 탄을 쓸 수 있다(목록 순서)
-    expect(getAvailableBossSkills(state)).toEqual(['tongue-pull', 'charge', 'meteor-shower', 'fan-shot'])
+    // 시험 보스는 거리와 상관없이 쿨다운이 끝난 기술을 모두 쓸 수 있다(목록 순서)
+    expect(getAvailableBossSkills(state)).toEqual([
+      'charged-blast',
+      'tongue-pull',
+      'charge',
+      'ring-burst',
+      'meteor-shower',
+      'fan-shot',
+      'ground-slam'
+    ])
   })
 
   it('lets a roll evade a telegraphed hit but not the charged blast', () => {
@@ -76,6 +84,69 @@ describe('boss fight simulator', () => {
     stepFight(state, { ...idle, drinkPotion: true }, () => undefined, random)
     expect(state.player.hp).toBe(20)
     expect(state.stats.potionsUsed).toBe(1)
+  })
+
+  it('locks a bow player in place while drawing, then lands a homing arrow from range', () => {
+    const random = createSeededRandom(1)
+    const state = createFightState(setup)
+    state.player.weapon = 'bow'
+    // 보스에게서 6칸(조준 사거리 7칸 안)
+    stepFight(state, { ...idle, attack: true }, () => undefined, random)
+    // 당기는 동안은 걷기도 구르기도 안 된다
+    stepFight(state, { move: { x: 1, y: 0 }, attack: false, roll: { x: 1, y: 0 } }, () => undefined, random)
+    expect(state.player.x).toBe(15)
+    expect(state.player.rollReadyAt).toBe(0)
+    const hpBefore = state.boss.hp
+    for (let step = 0; step < 20 && state.boss.hp === hpBefore; step += 1) {
+      stepFight(state, idle, () => undefined, random)
+    }
+    expect(hpBefore - state.boss.hp).toBe(state.player.attackPower)
+    // 당기기 300ms + 6칸 비행(약 0.45초) 뒤에 맞는다
+    expect(state.now).toBeGreaterThan(600)
+    expect(state.now).toBeLessThan(1000)
+  })
+
+  it('does not shoot a bow at a boss beyond aim range', () => {
+    const random = createSeededRandom(1)
+    const state = createFightState({ ...setup, playerStart: { x: 15, y: 25 } })
+    state.player.weapon = 'bow'
+    stepFight(state, { ...idle, attack: true }, () => undefined, random)
+    for (let step = 0; step < 30; step += 1) {
+      stepFight(state, idle, () => undefined, random)
+    }
+    expect(state.stats.playerAttacks).toBe(1)
+    expect(state.stats.playerHits).toBe(0)
+  })
+
+  it('lands a magic bolt from range after a shorter cast than the bow', () => {
+    const random = createSeededRandom(1)
+    const state = createFightState(setup)
+    state.player.weapon = 'magic'
+    stepFight(state, { ...idle, attack: true }, () => undefined, random)
+    // 찌르기 220ms 가 끝나면 다시 걸을 수 있다(활은 300ms)
+    for (let step = 0; step < 4; step += 1) {
+      stepFight(state, { move: { x: 1, y: 0 }, attack: false }, () => undefined, random)
+    }
+    expect(state.player.x).toBe(15)
+    stepFight(state, { move: { x: 1, y: 0 }, attack: false }, () => undefined, random)
+    expect(state.player.x).toBeGreaterThan(15)
+    const hpBefore = state.boss.hp
+    for (let step = 0; step < 30 && state.boss.hp === hpBefore; step += 1) {
+      stepFight(state, idle, () => undefined, random)
+    }
+    expect(hpBefore - state.boss.hp).toBe(state.player.attackPower)
+  })
+
+  it.each(['bow', 'magic'] as const)('lets a %s bot keep its distance from the boss', (weapon) => {
+    const results = Array.from({ length: 20 }, (_, index) =>
+      runFight(setup, ruleBasedBossPolicy, 'normal', index, weapon)
+    )
+    const melee = results.reduce((sum, result) => sum + (result.stats.damageTakenByKind.melee ?? 0), 0)
+    const swordMelee = Array.from({ length: 20 }, (_, index) =>
+      runFight(setup, ruleBasedBossPolicy, 'normal', index)
+    ).reduce((sum, result) => sum + (result.stats.damageTakenByKind.melee ?? 0), 0)
+    expect(melee).toBeLessThan(swordMelee / 2)
+    expect(results.every((result) => result.stats.playerHits > 0)).toBe(true)
   })
 
   it('makes skilled bots take less damage than novices', () => {

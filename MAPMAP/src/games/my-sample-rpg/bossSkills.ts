@@ -23,7 +23,7 @@ export type BossSkillKind =
 export type BossSkillDefinition = {
   kind: BossSkillKind
   cooldownMilliseconds: number
-  // 플레이어와의 거리(칸)가 이 범위 안일 때만 쓴다
+  // 플레이어와의 거리(칸)가 이 범위 안일 때만 쓴다(BOSS_KEYS_WITHOUT_SKILL_RANGE 보스는 거리와 상관없이 쓴다)
   minRangeTiles: number
   maxRangeTiles: number
 }
@@ -197,6 +197,10 @@ export const BOSS_FIRST_SKILL_DELAY_MILLISECONDS = 3000
 export const getBossSkills = (appearanceType: string): readonly BossSkillDefinition[] =>
   BOSS_SKILLS_BY_APPEARANCE_TYPE[appearanceType] ?? []
 
+// 거리와 상관없이 쿨다운만 끝나면 어떤 기술이든 쓸 수 있는 보스. 학습한 시험 보스는 모든 기술을 늘 후보로 두고,
+// 거리에 맞는지는 스스로 판단한다(거리 범위는 관찰 정보로만 쓴다, docs/boss-rl-design.md).
+const BOSS_KEYS_WITHOUT_SKILL_RANGE = new Set(['boss_trial'])
+
 // 지금 쓸 수 있는 기술 — 쿨다운이 끝났고 거리가 맞는 것(목록 순서). readyAt 에 없는 기술은 바로 쓸 수 있다.
 export const getReadyBossSkills = (
   appearanceType: string,
@@ -207,8 +211,8 @@ export const getReadyBossSkills = (
   getBossSkills(appearanceType).filter(
     (skill) =>
       (readyAtByKind[skill.kind] ?? 0) <= now &&
-      distanceTiles >= skill.minRangeTiles &&
-      distanceTiles <= skill.maxRangeTiles
+      (BOSS_KEYS_WITHOUT_SKILL_RANGE.has(appearanceType) ||
+        (distanceTiles >= skill.minRangeTiles && distanceTiles <= skill.maxRangeTiles))
   )
 
 // 지금 쓸 기술 — 쓸 수 있는 것 중 목록 앞의 것

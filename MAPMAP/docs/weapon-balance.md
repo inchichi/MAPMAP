@@ -67,4 +67,4 @@ Where the code lives:
 - Live scene: `rendering/mapView/playerWeaponSkills.ts` (weapon check, cooldown, timed hits, cleanup) and one file per line in `rendering/mapView/weaponSkills/`.
 - Icons: `scripts/generate-weapon-skill-icons.py` writes `assets/skills/weapon/*.png` and the base, magic, and bow icons `assets/skills/*_skill.png` from game-icons.net silhouettes (CC BY 3.0) in `scripts/weapon-skill-icons/`. A new icon needs its SVG there, an author line in `licenses/assets/game-icons/SOURCE.txt`, and a rerun of `scripts/build-credits.py`.
 - To add a chapter 4 skill: add a definition at the end of `PLAYER_WEAPON_SKILL_DEFINITIONS` (never reorder; save files use the index), add its `cast` in the line file, mirror the table and unlock level in Lua, and add its icon.
-- `bossTraining/bossFightSim.ts` still uses one fixed attack (620 ms, 1.6 tiles). It does not know weapons or skills yet.
+- `bossTraining/bossFightSim.ts` knows two basic attacks: sword (620 ms, reach from `playerMeleeReach.ts`) and bow (300 ms draw, 650 ms period, 7-tile homing arrow). It does not know weapon skills or per-weapon damage yet.
